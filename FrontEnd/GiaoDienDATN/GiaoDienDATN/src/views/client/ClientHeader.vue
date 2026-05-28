@@ -2,9 +2,7 @@
   <header>
     <div class="header-top">
       <div class="container header-container">
-        <div class="logo" @click="goToHome">
-          FASHION STORE
-        </div>
+        <div class="logo" @click="goToHome">FASHION STORE</div>
 
         <div class="search-box">
           <input
@@ -12,7 +10,7 @@
             v-model="searchQuery"
             @keyup.enter="handleSearch"
             placeholder="Tìm kiếm sản phẩm..."
-          >
+          />
           <button @click="handleSearch">
             <i class="fas fa-search"></i>
           </button>
@@ -21,7 +19,9 @@
         <div class="nav-icons">
           <div class="icon-wrapper" @click="goToWishlist">
             <i class="far fa-heart"></i>
-            <span v-if="wishlistCount > 0" class="badge">{{ wishlistCount }}</span>
+            <span v-if="wishlistCount > 0" class="badge">{{
+              wishlistCount
+            }}</span>
           </div>
 
           <div class="user-menu" ref="userMenu">
@@ -74,7 +74,7 @@
               {{ item.name }}
               <i v-if="item.children" class="fas fa-chevron-down"></i>
             </router-link>
-            
+
             <Transition v-if="item.children" name="dropdown">
               <div v-if="isDropdownOpen(item.path)" class="dropdown-menu">
                 <router-link
@@ -96,160 +96,226 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
-import { useProductStore } from '../../stores/productStore'
-import { useCartStore } from '../../stores/cartStore'
-import { useAuthStore } from '../../stores/authStore'
+import { ref, onMounted, onUnmounted } from "vue";
+import { useRouter, useRoute } from "vue-router";
+import { useProductStore } from "../../stores/productStore";
+import { useCartStore } from "../../stores/cartStore";
+import { useAuthStore } from "../../stores/authStore";
 
-const router = useRouter()
-const route = useRoute()
-const productStore = useProductStore()
-const cartStore = useCartStore()
-const authStore = useAuthStore()
+const router = useRouter();
+const route = useRoute();
+const productStore = useProductStore();
+const cartStore = useCartStore();
+const authStore = useAuthStore();
 
-const searchQuery = ref('')
-const showUserMenu = ref(false)
-const openDropdown = ref(null)
-const userMenu = ref(null)
+const searchQuery = ref("");
+const showUserMenu = ref(false);
+const openDropdown = ref(null);
+const userMenu = ref(null);
 
-const wishlistCount = ref(0)
+const wishlistCount = ref(0);
 
 const menuItems = [
-  { path: '/', name: 'Trang chủ', icon: 'fas fa-home' },
+  { path: "/", name: "Trang chủ", icon: "fas fa-home" },
   {
-    path: '/shop?category=men',
-    name: 'Nam',
-    icon: 'fas fa-male',
+    path: "/shop?category=men",
+    name: "Nam",
+    icon: "fas fa-male",
     children: [
-      { path: '/shop?category=men&subcategory=ao', name: 'Áo nam', icon: 'fas fa-tshirt' },
-      { path: '/shop?category=men&subcategory=quan', name: 'Quần nam', icon: 'fas fa-vest' },
-      { path: '/shop?category=men&subcategory=giay', name: 'Giày nam', icon: 'fas fa-shoe-prints' },
-      { path: '/shop?category=men&subcategory=phukien', name: 'Phụ kiện nam', icon: 'fas fa-glasses' }
-    ]
+      {
+        path: "/shop?category=men&subcategory=ao",
+        name: "Áo nam",
+        icon: "fas fa-tshirt",
+      },
+      {
+        path: "/shop?category=men&subcategory=quan",
+        name: "Quần nam",
+        icon: "fas fa-vest",
+      },
+      {
+        path: "/shop?category=men&subcategory=giay",
+        name: "Giày nam",
+        icon: "fas fa-shoe-prints",
+      },
+      {
+        path: "/shop?category=men&subcategory=phukien",
+        name: "Phụ kiện nam",
+        icon: "fas fa-glasses",
+      },
+    ],
   },
   {
-    path: '/shop?category=women',
-    name: 'Nữ',
-    icon: 'fas fa-female',
+    path: "/shop?category=women",
+    name: "Nữ",
+    icon: "fas fa-female",
     children: [
-      { path: '/shop?category=women&subcategory=dam', name: 'Đầm nữ', icon: 'fas fa-dress' },
-      { path: '/shop?category=women&subcategory=ao', name: 'Áo nữ', icon: 'fas fa-tshirt' },
-      { path: '/shop?category=women&subcategory=quan', name: 'Quần nữ', icon: 'fas fa-vest' },
-      { path: '/shop?category=women&subcategory=phukien', name: 'Phụ kiện nữ', icon: 'fas fa-handbag' }
-    ]
+      {
+        path: "/shop?category=women&subcategory=dam",
+        name: "Đầm nữ",
+        icon: "fas fa-dress",
+      },
+      {
+        path: "/shop?category=women&subcategory=ao",
+        name: "Áo nữ",
+        icon: "fas fa-tshirt",
+      },
+      {
+        path: "/shop?category=women&subcategory=quan",
+        name: "Quần nữ",
+        icon: "fas fa-vest",
+      },
+      {
+        path: "/shop?category=women&subcategory=phukien",
+        name: "Phụ kiện nữ",
+        icon: "fas fa-handbag",
+      },
+    ],
   },
   {
-    path: '/shop?category=kids',
-    name: 'Trẻ em',
-    icon: 'fas fa-child',
+    path: "/shop?category=kids",
+    name: "Trẻ em",
+    icon: "fas fa-child",
     children: [
-      { path: '/shop?category=kids&subcategory=be-trai', name: 'Bé trai', icon: 'fas fa-boy' },
-      { path: '/shop?category=kids&subcategory=be-gai', name: 'Bé gái', icon: 'fas fa-girl' },
-      { path: '/shop?category=kids&subcategory=so-sinh', name: 'Sơ sinh', icon: 'fas fa-baby' }
-    ]
+      {
+        path: "/shop?category=kids&subcategory=be-trai",
+        name: "Bé trai",
+        icon: "fas fa-boy",
+      },
+      {
+        path: "/shop?category=kids&subcategory=be-gai",
+        name: "Bé gái",
+        icon: "fas fa-girl",
+      },
+      {
+        path: "/shop?category=kids&subcategory=so-sinh",
+        name: "Sơ sinh",
+        icon: "fas fa-baby",
+      },
+    ],
   },
   {
-    path: '/shop?category=accessories',
-    name: 'Phụ kiện',
-    icon: 'fas fa-bag-shopping',
+    path: "/shop?category=accessories",
+    name: "Phụ kiện",
+    icon: "fas fa-bag-shopping",
     children: [
-      { path: '/shop?category=accessories&subcategory=tui', name: 'Túi xách', icon: 'fas fa-bag-shopping' },
-      { path: '/shop?category=accessories&subcategory=giay', name: 'Giày dép', icon: 'fas fa-shoe-prints' },
-      { path: '/shop?category=accessories&subcategory=dongho', name: 'Đồng hồ', icon: 'fas fa-clock' },
-      { path: '/shop?category=accessories&subcategory=kinh', name: 'Kính mát', icon: 'fas fa-glasses' },
-      { path: '/shop?category=accessories&subcategory=trangsuc', name: 'Trang sức', icon: 'fas fa-gem' }
-    ]
+      {
+        path: "/shop?category=accessories&subcategory=tui",
+        name: "Túi xách",
+        icon: "fas fa-bag-shopping",
+      },
+      {
+        path: "/shop?category=accessories&subcategory=giay",
+        name: "Giày dép",
+        icon: "fas fa-shoe-prints",
+      },
+      {
+        path: "/shop?category=accessories&subcategory=dongho",
+        name: "Đồng hồ",
+        icon: "fas fa-clock",
+      },
+      {
+        path: "/shop?category=accessories&subcategory=kinh",
+        name: "Kính mát",
+        icon: "fas fa-glasses",
+      },
+      {
+        path: "/shop?category=accessories&subcategory=trangsuc",
+        name: "Trang sức",
+        icon: "fas fa-gem",
+      },
+    ],
   },
-  { path: '/shop?tag=sale', name: 'Khuyến mãi', icon: 'fas fa-tags' },
-  { path: '/blog', name: 'Blog', icon: 'fas fa-blog' },
-  { path: '/about', name: 'Về chúng tôi', icon: 'fas fa-info-circle' }
-]
+  { path: "/shop?tag=sale", name: "Khuyến mãi", icon: "fas fa-tags" },
+  { path: "/blog", name: "Blog", icon: "fas fa-blog" },
+  { path: "/about", name: "Về chúng tôi", icon: "fas fa-info-circle" },
+];
 
 const isActive = (path) => {
-  if (path.includes('?')) {
-    const [base, query] = path.split('?')
-    const params = new URLSearchParams(query)
-    const category = params.get('category')
-    return route.path === base && route.query.category === category
+  if (path.includes("?")) {
+    const [base, query] = path.split("?");
+    const params = new URLSearchParams(query);
+    const category = params.get("category");
+    return route.path === base && route.query.category === category;
   }
-  return route.path === path
-}
+  return route.path === path;
+};
 
 const isDropdownOpen = (path) => {
-  return openDropdown.value === path
-}
+  return openDropdown.value === path;
+};
 
 const toggleUserMenu = () => {
-  showUserMenu.value = !showUserMenu.value
-}
+  showUserMenu.value = !showUserMenu.value;
+};
 
 const closeUserMenu = () => {
-  showUserMenu.value = false
-}
+  showUserMenu.value = false;
+};
 
 const closeDropdowns = () => {
-  openDropdown.value = null
-  closeUserMenu()
-}
+  openDropdown.value = null;
+  closeUserMenu();
+};
 
 const handleSearch = () => {
   if (searchQuery.value.trim()) {
-    productStore.setFilter('search', searchQuery.value)
-    router.push(`/shop?search=${searchQuery.value}`)
+    productStore.setFilter("search", searchQuery.value);
+    router.push(`/shop?search=${searchQuery.value}`);
   }
-}
+};
 
 const goToHome = () => {
-  router.push('/')
-  closeDropdowns()
-}
+  router.push("/home");
+  closeDropdowns();
+};
 
 const goToWishlist = () => {
   if (authStore.isAuthenticated) {
-    router.push('/wishlist')
+    router.push("/wishlist");
   } else {
-    showLoginModal()
+    showLoginModal();
   }
-  closeDropdowns()
-}
+  closeDropdowns();
+};
 
 const showLoginModal = () => {
   // Emit event to open login modal
-  window.dispatchEvent(new CustomEvent('open-auth-modal', { detail: 'login' }))
-  closeUserMenu()
-}
+  window.dispatchEvent(new CustomEvent("open-auth-modal", { detail: "login" }));
+  closeUserMenu();
+};
 
 const showRegisterModal = () => {
-  window.dispatchEvent(new CustomEvent('open-auth-modal', { detail: 'register' }))
-  closeUserMenu()
-}
+  window.dispatchEvent(
+    new CustomEvent("open-auth-modal", { detail: "register" }),
+  );
+  closeUserMenu();
+};
 
 const logout = () => {
-  authStore.logout()
-  closeUserMenu()
-  router.push('/')
-}
+  authStore.logout();
+  closeUserMenu();
+  router.push("/home");
+};
 
 // Handle click outside
 const handleClickOutside = (event) => {
   if (userMenu.value && !userMenu.value.contains(event.target)) {
-    showUserMenu.value = false
+    showUserMenu.value = false;
   }
-  
+
   // Close dropdowns when clicking outside
-  if (!event.target.closest('.has-dropdown')) {
-    openDropdown.value = null
+  if (!event.target.closest(".has-dropdown")) {
+    openDropdown.value = null;
   }
-}
+};
 
 onMounted(() => {
-  document.addEventListener('click', handleClickOutside)
-})
+  document.addEventListener("click", handleClickOutside);
+});
 
 onUnmounted(() => {
-  document.removeEventListener('click', handleClickOutside)
-})
+  document.removeEventListener("click", handleClickOutside);
+});
 </script>
 
 <style scoped>
@@ -291,7 +357,7 @@ header {
   border-radius: 30px;
   padding: 5px 20px;
   width: 400px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
 }
 
 .search-box input {
@@ -366,7 +432,7 @@ header {
   right: 0;
   background: white;
   border-radius: 10px;
-  box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
   width: 200px;
   z-index: 1001;
   overflow: hidden;
@@ -449,7 +515,7 @@ header {
   left: 0;
   background: white;
   border-radius: 10px;
-  box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
   width: 220px;
   z-index: 1000;
   overflow: hidden;
@@ -475,31 +541,31 @@ header {
   .header-container {
     flex-direction: column;
   }
-  
+
   .logo {
     order: 1;
   }
-  
+
   .nav-icons {
     order: 2;
   }
-  
+
   .search-box {
     width: 100%;
     order: 3;
   }
-  
+
   .nav-menu ul {
     flex-direction: column;
     align-items: center;
     gap: 5px;
   }
-  
+
   .nav-menu ul li {
     width: 100%;
     text-align: center;
   }
-  
+
   .dropdown-menu {
     position: static;
     width: 100%;

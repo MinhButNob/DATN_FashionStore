@@ -27,12 +27,14 @@ import AdminCategories from "../views/admin/AdminCategories.vue";
 import AdminCustomers from "../views/admin/AdminCustomers.vue";
 import AdminSettings from "../views/admin/AdminSettings.vue";
 import AdminLogin from "../views/admin/AdminLogin.vue";
+import AdminSizes from "../views/admin/AdminSizes.vue";
+import AdminImages from "../views/admin/AdminImages.vue";
 
 const routes = [
-  // ========== REDIRECT ROOT TO ADMIN LOGIN ==========
+  // ========== REDIRECT ROOT TO CLIENT HOME ==========
   {
     path: "/",
-    redirect: "/admin/login", // Chuyển hướng đến trang đăng nhập admin
+    redirect: "/home",
   },
 
   // ========== CLIENT ROUTES ==========
@@ -149,6 +151,16 @@ const routes = [
         path: "categories",
         name: "admin-categories",
         component: AdminCategories,
+      },
+      {
+        path: "sizes",
+        name: "admin-sizes",
+        component: AdminSizes,
+      },
+      {
+        path: "images",
+        name: "admin-images",
+        component: AdminImages,
       },
       {
         path: "customers",

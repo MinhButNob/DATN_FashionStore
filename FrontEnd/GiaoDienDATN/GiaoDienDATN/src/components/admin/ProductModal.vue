@@ -33,21 +33,33 @@
               </select>
             </div>
 
-            <div class="form-group">
-              <label>Icon</label>
-              <select v-model="form.image">
-                <option value="tshirt">Áo thun</option>
-                <option value="dress">Đầm</option>
-                <option value="jeans">Quần jean</option>
-                <option value="jacket">Áo khoác</option>
-                <option value="shorts">Quần short</option>
-                <option value="bag">Túi xách</option>
-                <option value="shirt">Sơ mi</option>
-                <option value="skirt">Chân váy</option>
-                <option value="hat">Mũ</option>
-                <option value="sweater">Áo len</option>
-                <option value="pants">Quần tây</option>
-              </select>
+            <div class="form-group image-select-group">
+              <label>Hình ảnh / Biểu tượng hiển thị *</label>
+              <div class="image-select-control">
+                <div class="preview-thumbnail">
+                  <img v-if="isUrl(form.image)" :src="form.image" alt="Preview" class="thumbnail-img" />
+                  <i v-else :class="['fas', `fa-${form.image}`, 'thumbnail-icon']"></i>
+                </div>
+                <div class="select-actions">
+                  <select v-model="form.image" class="icon-selector-dropdown">
+                    <option disabled value="">Chọn biểu tượng mặc định</option>
+                    <option value="tshirt">Áo thun</option>
+                    <option value="dress">Đầm</option>
+                    <option value="jeans">Quần jean</option>
+                    <option value="jacket">Áo khoác</option>
+                    <option value="shorts">Quần short</option>
+                    <option value="bag">Túi xách</option>
+                    <option value="shirt">Sơ mi</option>
+                    <option value="skirt">Chân váy</option>
+                    <option value="hat">Mũ</option>
+                    <option value="sweater">Áo len</option>
+                    <option value="pants">Quần tây</option>
+                  </select>
+                  <button type="button" class="btn btn-outline btn-choose-gallery" @click="openLibraryModal">
+                    <i class="fas fa-images"></i> Chọn từ thư viện ảnh
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -179,11 +191,69 @@
         </form>
       </div>
     </div>
+
+    <!-- System Image Library Modal -->
+    <div v-if="showLibraryModal" class="library-modal-overlay" @click.self="closeLibraryModal">
+      <div class="library-modal-content">
+        <div class="library-modal-header">
+          <h3>Chọn hình ảnh từ Thư viện</h3>
+          <button type="button" class="btn-close" @click="closeLibraryModal">&times;</button>
+        </div>
+        <div class="library-modal-body">
+          <div class="library-search">
+            <i class="fas fa-search"></i>
+            <input 
+              type="text" 
+              v-model="searchQuery" 
+              placeholder="Tìm kiếm hình ảnh trong thư viện..." 
+            />
+          </div>
+          
+          <div class="library-grid">
+            <div 
+              v-for="img in filteredLibraryImages" 
+              :key="img.id" 
+              class="library-card"
+              :class="{ active: form.image === img.url }"
+              @click="selectImageFromLibrary(img.url)"
+            >
+              <div class="library-card-preview">
+                <img :src="img.url" :alt="img.name" />
+                <div class="active-badge" v-if="form.image === img.url">
+                  <i class="fas fa-check-circle"></i>
+                </div>
+              </div>
+              <div class="library-card-info">
+                <h4 class="title" :title="img.name">{{ img.name }}</h4>
+                <span class="meta">{{ img.dimensions }} | {{ img.size }}</span>
+              </div>
+            </div>
+            
+            <div v-if="filteredLibraryImages.length === 0" class="empty-library">
+              <i class="fas fa-images"></i>
+              <p>Không có hình ảnh sản phẩm nào trong thư viện.</p>
+              <router-link to="/admin/images" class="btn btn-primary btn-sm mt-2" @click="closeLibraryModal">
+                Quản lý thư viện ảnh
+              </router-link>
+            </div>
+          </div>
+        </div>
+        <div class="library-modal-footer">
+          <button type="button" class="btn btn-secondary" @click="closeLibraryModal">Đóng</button>
+          <button type="button" class="btn btn-primary" @click="closeLibraryModal">
+            Xác nhận
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
+import { useProductStore } from '../../stores/productStore'
+
+const productStore = useProductStore()
 
 const props = defineProps({
   product: {
@@ -211,6 +281,41 @@ const form = reactive({
 
 const fileInput = ref(null)
 const imagePreviews = ref([])
+
+// Image Library Modal States
+const showLibraryModal = ref(false)
+const searchQuery = ref('')
+
+const isUrl = (str) => {
+  if (!str) return false
+  return str.startsWith('http') || str.startsWith('data:image')
+}
+
+const openLibraryModal = () => {
+  searchQuery.value = ''
+  showLibraryModal.value = true
+}
+
+const closeLibraryModal = () => {
+  showLibraryModal.value = false
+}
+
+const selectImageFromLibrary = (url) => {
+  form.image = url
+}
+
+const filteredLibraryImages = computed(() => {
+  // Show product or category or other uploaded images
+  let list = productStore.images.filter(img => img.type === 'product' || img.type === 'category' || img.type === 'other')
+  if (searchQuery.value) {
+    const q = searchQuery.value.toLowerCase()
+    list = list.filter(img => 
+      img.name.toLowerCase().includes(q) || 
+      img.filename.toLowerCase().includes(q)
+    )
+  }
+  return list
+})
 
 // Initialize form with product data if editing
 onMounted(() => {
@@ -507,5 +612,241 @@ const removeImage = (index) => {
   .form-actions button {
     width: 100%;
   }
+}
+
+/* Image Select Group Styling */
+.image-select-control {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  margin-top: 5px;
+}
+
+.preview-thumbnail {
+  width: 60px;
+  height: 60px;
+  border-radius: 8px;
+  background: var(--light-gray);
+  border: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.thumbnail-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.thumbnail-icon {
+  font-size: 28px;
+  color: var(--medium-gray);
+}
+
+.select-actions {
+  display: flex;
+  gap: 10px;
+  flex: 1;
+}
+
+.icon-selector-dropdown {
+  flex: 1;
+  min-width: 150px;
+}
+
+.btn-choose-gallery {
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 15px !important;
+  font-size: 13px !important;
+}
+
+/* Library Modal Overlay */
+.library-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(5px);
+  animation: fadeIn 0.2s;
+}
+
+.library-modal-content {
+  background: white;
+  border-radius: 15px;
+  width: 90%;
+  max-width: 700px;
+  height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+  overflow: hidden;
+}
+
+.library-modal-header {
+  padding: 15px 20px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.library-modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+  color: var(--dark-gray);
+}
+
+.btn-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: var(--medium-gray);
+  cursor: pointer;
+}
+
+.btn-close:hover {
+  color: var(--primary-red);
+}
+
+.library-modal-body {
+  padding: 20px;
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.library-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.library-search i {
+  position: absolute;
+  left: 12px;
+  color: var(--medium-gray);
+}
+
+.library-search input {
+  width: 100%;
+  padding: 10px 10px 10px 35px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  outline: none;
+}
+
+.library-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 15px;
+  flex: 1;
+  overflow-y: auto;
+  align-content: start;
+}
+
+.library-card {
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  flex-direction: column;
+}
+
+.library-card:hover {
+  border-color: var(--primary-red);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+}
+
+.library-card.active {
+  border-color: var(--primary-red);
+  box-shadow: 0 0 0 2px rgba(230, 57, 70, 0.2);
+}
+
+.library-card-preview {
+  height: 100px;
+  position: relative;
+  background: #f8f9fa;
+}
+
+.library-card-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.active-badge {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  color: var(--primary-red);
+  font-size: 18px;
+  background: white;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.library-card-info {
+  padding: 8px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.library-card-info .title {
+  font-size: 12px;
+  font-weight: 600;
+  margin: 0 0 3px 0;
+  color: var(--dark-gray);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.library-card-info .meta {
+  font-size: 9px;
+  color: var(--medium-gray);
+}
+
+.empty-library {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--medium-gray);
+}
+
+.empty-library i {
+  font-size: 40px;
+  margin-bottom: 10px;
+  color: #dee2e6;
+}
+
+.library-modal-footer {
+  padding: 15px 20px;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
 }
 </style>

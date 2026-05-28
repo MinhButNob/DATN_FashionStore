@@ -1,7 +1,7 @@
 <template>
   <div class="profile-page">
     <ClientHeader />
-    
+
     <main>
       <div class="container">
         <div class="profile-container">
@@ -11,14 +11,14 @@
               <div class="avatar-image" @click="changeAvatar">
                 <i class="fas fa-user-circle"></i>
               </div>
-              <h3>{{ authStore.user?.name || 'Người dùng' }}</h3>
-              <p>{{ authStore.user?.email || 'email@example.com' }}</p>
+              <h3>{{ authStore.user?.name || "Người dùng" }}</h3>
+              <p>{{ authStore.user?.email || "email@example.com" }}</p>
             </div>
 
             <ul class="profile-menu">
               <li>
-                <a 
-                  href="#" 
+                <a
+                  href="#"
                   :class="{ active: activeTab === 'info' }"
                   @click.prevent="activeTab = 'info'"
                 >
@@ -27,8 +27,8 @@
                 </a>
               </li>
               <li>
-                <a 
-                  href="#" 
+                <a
+                  href="#"
                   :class="{ active: activeTab === 'orders' }"
                   @click.prevent="activeTab = 'orders'"
                 >
@@ -37,8 +37,8 @@
                 </a>
               </li>
               <li>
-                <a 
-                  href="#" 
+                <a
+                  href="#"
                   :class="{ active: activeTab === 'wishlist' }"
                   @click.prevent="activeTab = 'wishlist'"
                 >
@@ -47,8 +47,8 @@
                 </a>
               </li>
               <li>
-                <a 
-                  href="#" 
+                <a
+                  href="#"
                   :class="{ active: activeTab === 'address' }"
                   @click.prevent="activeTab = 'address'"
                 >
@@ -57,8 +57,8 @@
                 </a>
               </li>
               <li>
-                <a 
-                  href="#" 
+                <a
+                  href="#"
                   :class="{ active: activeTab === 'password' }"
                   @click.prevent="activeTab = 'password'"
                 >
@@ -67,8 +67,8 @@
                 </a>
               </li>
               <li>
-                <a 
-                  href="#" 
+                <a
+                  href="#"
                   :class="{ active: activeTab === 'payment' }"
                   @click.prevent="activeTab = 'payment'"
                 >
@@ -89,7 +89,7 @@
             <!-- Thông tin tài khoản -->
             <div v-show="activeTab === 'info'" class="profile-tab">
               <h2>Thông tin tài khoản</h2>
-              
+
               <div v-if="!editing" class="info-display">
                 <div class="info-grid">
                   <div class="info-item">
@@ -102,15 +102,15 @@
                   </div>
                   <div class="info-item">
                     <label>Số điện thoại</label>
-                    <p>{{ profile.phone || 'Chưa cập nhật' }}</p>
+                    <p>{{ profile.phone || "Chưa cập nhật" }}</p>
                   </div>
                   <div class="info-item">
                     <label>Ngày sinh</label>
-                    <p>{{ profile.birthday || 'Chưa cập nhật' }}</p>
+                    <p>{{ profile.birthday || "Chưa cập nhật" }}</p>
                   </div>
                   <div class="info-item">
                     <label>Giới tính</label>
-                    <p>{{ profile.gender || 'Chưa cập nhật' }}</p>
+                    <p>{{ profile.gender || "Chưa cập nhật" }}</p>
                   </div>
                 </div>
                 <button class="btn btn-primary" @click="startEditing">
@@ -122,19 +122,19 @@
               <form v-else @submit.prevent="saveProfile" class="info-edit">
                 <div class="form-group">
                   <label>Họ và tên</label>
-                  <input type="text" v-model="editForm.fullName" required>
+                  <input type="text" v-model="editForm.fullName" required />
                 </div>
                 <div class="form-group">
                   <label>Email</label>
-                  <input type="email" v-model="editForm.email" required>
+                  <input type="email" v-model="editForm.email" required />
                 </div>
                 <div class="form-group">
                   <label>Số điện thoại</label>
-                  <input type="tel" v-model="editForm.phone">
+                  <input type="tel" v-model="editForm.phone" />
                 </div>
                 <div class="form-group">
                   <label>Ngày sinh</label>
-                  <input type="date" v-model="editForm.birthday">
+                  <input type="date" v-model="editForm.birthday" />
                 </div>
                 <div class="form-group">
                   <label>Giới tính</label>
@@ -149,7 +149,11 @@
                   <button type="submit" class="btn btn-primary">
                     Lưu thay đổi
                   </button>
-                  <button type="button" class="btn btn-outline" @click="cancelEditing">
+                  <button
+                    type="button"
+                    class="btn btn-outline"
+                    @click="cancelEditing"
+                  >
                     Hủy
                   </button>
                 </div>
@@ -159,7 +163,7 @@
             <!-- Đơn hàng -->
             <div v-show="activeTab === 'orders'" class="profile-tab">
               <h2>Đơn hàng của tôi</h2>
-              
+
               <div v-if="orders.length === 0" class="empty-state">
                 <i class="fas fa-box-open"></i>
                 <p>Bạn chưa có đơn hàng nào</p>
@@ -181,13 +185,19 @@
                   </div>
 
                   <div class="order-items">
-                    <div v-for="item in order.items" :key="item.id" class="order-item">
+                    <div
+                      v-for="item in order.items"
+                      :key="item.id"
+                      class="order-item"
+                    >
                       <div class="item-image">
                         <i :class="['fas', `fa-${item.image}`]"></i>
                       </div>
                       <div class="item-details">
                         <h4>{{ item.name }}</h4>
-                        <p class="item-variant">{{ item.size }} {{ item.color }}</p>
+                        <p class="item-variant">
+                          {{ item.size }} {{ item.color }}
+                        </p>
                         <p class="item-quantity">x{{ item.quantity }}</p>
                       </div>
                       <div class="item-price">
@@ -202,11 +212,14 @@
                       <strong>{{ formatPrice(order.total) }}</strong>
                     </div>
                     <div class="order-actions">
-                      <button class="btn btn-outline" @click="viewOrderDetail(order.id)">
+                      <button
+                        class="btn btn-outline"
+                        @click="viewOrderDetail(order.id)"
+                      >
                         Xem chi tiết
                       </button>
-                      <button 
-                        v-if="order.status === 'delivered'" 
+                      <button
+                        v-if="order.status === 'delivered'"
                         class="btn btn-outline"
                         @click="reorder(order.id)"
                       >
@@ -221,7 +234,7 @@
             <!-- Sản phẩm yêu thích -->
             <div v-show="activeTab === 'wishlist'" class="profile-tab">
               <h2>Sản phẩm yêu thích</h2>
-              
+
               <div v-if="wishlist.length === 0" class="empty-state">
                 <i class="fas fa-heart"></i>
                 <p>Bạn chưa có sản phẩm yêu thích nào</p>
@@ -231,16 +244,25 @@
               </div>
 
               <div v-else class="wishlist-grid">
-                <div v-for="product in wishlist" :key="product.id" class="wishlist-card">
+                <div
+                  v-for="product in wishlist"
+                  :key="product.id"
+                  class="wishlist-card"
+                >
                   <div class="product-image" @click="goToProduct(product.id)">
                     <i :class="['fas', `fa-${product.image}`]"></i>
-                    <button class="remove-btn" @click.stop="removeFromWishlist(product.id)">
+                    <button
+                      class="remove-btn"
+                      @click.stop="removeFromWishlist(product.id)"
+                    >
                       <i class="fas fa-times"></i>
                     </button>
                   </div>
                   <div class="product-info">
                     <h3 @click="goToProduct(product.id)">{{ product.name }}</h3>
-                    <p class="product-price">{{ formatPrice(product.price) }}</p>
+                    <p class="product-price">
+                      {{ formatPrice(product.price) }}
+                    </p>
                     <button class="add-to-cart" @click="addToCart(product)">
                       <i class="fas fa-shopping-cart"></i>
                       Thêm vào giỏ
@@ -266,12 +288,21 @@
               </div>
 
               <div v-else class="addresses-list">
-                <div v-for="address in addresses" :key="address.id" class="address-card">
-                  <div class="address-type" v-if="address.isDefault">Mặc định</div>
+                <div
+                  v-for="address in addresses"
+                  :key="address.id"
+                  class="address-card"
+                >
+                  <div class="address-type" v-if="address.isDefault">
+                    Mặc định
+                  </div>
                   <div class="address-content">
                     <h4>{{ address.name }}</h4>
                     <p>{{ address.phone }}</p>
-                    <p>{{ address.address }}, {{ address.district }}, {{ address.city }}</p>
+                    <p>
+                      {{ address.address }}, {{ address.district }},
+                      {{ address.city }}
+                    </p>
                   </div>
                   <div class="address-actions">
                     <button class="btn-icon" @click="editAddress(address)">
@@ -280,8 +311,8 @@
                     <button class="btn-icon" @click="deleteAddress(address.id)">
                       <i class="fas fa-trash"></i>
                     </button>
-                    <button 
-                      v-if="!address.isDefault" 
+                    <button
+                      v-if="!address.isDefault"
                       class="btn-link"
                       @click="setDefaultAddress(address.id)"
                     >
@@ -294,21 +325,27 @@
               <!-- Address Form Modal -->
               <div v-if="showAddressForm" class="modal">
                 <div class="modal-content">
-                  <h3>{{ editingAddress ? 'Sửa địa chỉ' : 'Thêm địa chỉ mới' }}</h3>
+                  <h3>
+                    {{ editingAddress ? "Sửa địa chỉ" : "Thêm địa chỉ mới" }}
+                  </h3>
                   <form @submit.prevent="saveAddress">
                     <div class="form-group">
                       <label>Họ tên người nhận *</label>
-                      <input type="text" v-model="addressForm.name" required>
+                      <input type="text" v-model="addressForm.name" required />
                     </div>
                     <div class="form-group">
                       <label>Số điện thoại *</label>
-                      <input type="tel" v-model="addressForm.phone" required>
+                      <input type="tel" v-model="addressForm.phone" required />
                     </div>
                     <div class="form-group">
                       <label>Tỉnh/Thành phố *</label>
                       <select v-model="addressForm.city" required>
                         <option value="">Chọn tỉnh/thành phố</option>
-                        <option v-for="city in cities" :key="city" :value="city">
+                        <option
+                          v-for="city in cities"
+                          :key="city"
+                          :value="city"
+                        >
                           {{ city }}
                         </option>
                       </select>
@@ -317,26 +354,41 @@
                       <label>Quận/Huyện *</label>
                       <select v-model="addressForm.district" required>
                         <option value="">Chọn quận/huyện</option>
-                        <option v-for="district in getDistricts(addressForm.city)" :key="district" :value="district">
+                        <option
+                          v-for="district in getDistricts(addressForm.city)"
+                          :key="district"
+                          :value="district"
+                        >
                           {{ district }}
                         </option>
                       </select>
                     </div>
                     <div class="form-group">
                       <label>Địa chỉ cụ thể *</label>
-                      <input type="text" v-model="addressForm.address" required>
+                      <input
+                        type="text"
+                        v-model="addressForm.address"
+                        required
+                      />
                     </div>
                     <div class="form-group">
                       <label>
-                        <input type="checkbox" v-model="addressForm.isDefault">
+                        <input
+                          type="checkbox"
+                          v-model="addressForm.isDefault"
+                        />
                         Đặt làm địa chỉ mặc định
                       </label>
                     </div>
                     <div class="form-actions">
                       <button type="submit" class="btn btn-primary">
-                        {{ editingAddress ? 'Cập nhật' : 'Thêm mới' }}
+                        {{ editingAddress ? "Cập nhật" : "Thêm mới" }}
                       </button>
-                      <button type="button" class="btn btn-outline" @click="closeAddressForm">
+                      <button
+                        type="button"
+                        class="btn btn-outline"
+                        @click="closeAddressForm"
+                      >
                         Hủy
                       </button>
                     </div>
@@ -348,18 +400,20 @@
             <!-- Đổi mật khẩu -->
             <div v-show="activeTab === 'password'" class="profile-tab">
               <h2>Đổi mật khẩu</h2>
-              
+
               <form @submit.prevent="changePassword" class="password-form">
                 <div class="form-group">
                   <label>Mật khẩu hiện tại *</label>
                   <div class="password-input">
-                    <input 
-                      :type="showCurrentPassword ? 'text' : 'password'" 
+                    <input
+                      :type="showCurrentPassword ? 'text' : 'password'"
                       v-model="passwordForm.currentPassword"
                       required
-                    >
-                    <i 
-                      :class="showCurrentPassword ? 'fas fa-eye-slash' : 'fas fa-eye'"
+                    />
+                    <i
+                      :class="
+                        showCurrentPassword ? 'fas fa-eye-slash' : 'fas fa-eye'
+                      "
                       @click="showCurrentPassword = !showCurrentPassword"
                     ></i>
                   </div>
@@ -368,14 +422,16 @@
                 <div class="form-group">
                   <label>Mật khẩu mới *</label>
                   <div class="password-input">
-                    <input 
-                      :type="showNewPassword ? 'text' : 'password'" 
+                    <input
+                      :type="showNewPassword ? 'text' : 'password'"
                       v-model="passwordForm.newPassword"
                       required
                       minlength="6"
-                    >
-                    <i 
-                      :class="showNewPassword ? 'fas fa-eye-slash' : 'fas fa-eye'"
+                    />
+                    <i
+                      :class="
+                        showNewPassword ? 'fas fa-eye-slash' : 'fas fa-eye'
+                      "
                       @click="showNewPassword = !showNewPassword"
                     ></i>
                   </div>
@@ -384,13 +440,15 @@
                 <div class="form-group">
                   <label>Xác nhận mật khẩu mới *</label>
                   <div class="password-input">
-                    <input 
-                      :type="showConfirmPassword ? 'text' : 'password'" 
+                    <input
+                      :type="showConfirmPassword ? 'text' : 'password'"
                       v-model="passwordForm.confirmPassword"
                       required
-                    >
-                    <i 
-                      :class="showConfirmPassword ? 'fas fa-eye-slash' : 'fas fa-eye'"
+                    />
+                    <i
+                      :class="
+                        showConfirmPassword ? 'fas fa-eye-slash' : 'fas fa-eye'
+                      "
                       @click="showConfirmPassword = !showConfirmPassword"
                     ></i>
                   </div>
@@ -399,23 +457,47 @@
                 <div class="password-requirements">
                   <p>Mật khẩu phải có:</p>
                   <ul>
-                    <li :class="{ valid: passwordForm.newPassword.length >= 6 }">
-                      <i :class="passwordForm.newPassword.length >= 6 ? 'fas fa-check-circle' : 'far fa-circle'"></i>
+                    <li
+                      :class="{ valid: passwordForm.newPassword.length >= 6 }"
+                    >
+                      <i
+                        :class="
+                          passwordForm.newPassword.length >= 6
+                            ? 'fas fa-check-circle'
+                            : 'far fa-circle'
+                        "
+                      ></i>
                       Ít nhất 6 ký tự
                     </li>
-                    <li :class="{ valid: /[A-Z]/.test(passwordForm.newPassword) }">
-                      <i :class="/[A-Z]/.test(passwordForm.newPassword) ? 'fas fa-check-circle' : 'far fa-circle'"></i>
+                    <li
+                      :class="{ valid: /[A-Z]/.test(passwordForm.newPassword) }"
+                    >
+                      <i
+                        :class="
+                          /[A-Z]/.test(passwordForm.newPassword)
+                            ? 'fas fa-check-circle'
+                            : 'far fa-circle'
+                        "
+                      ></i>
                       Ít nhất 1 chữ hoa
                     </li>
-                    <li :class="{ valid: /[0-9]/.test(passwordForm.newPassword) }">
-                      <i :class="/[0-9]/.test(passwordForm.newPassword) ? 'fas fa-check-circle' : 'far fa-circle'"></i>
+                    <li
+                      :class="{ valid: /[0-9]/.test(passwordForm.newPassword) }"
+                    >
+                      <i
+                        :class="
+                          /[0-9]/.test(passwordForm.newPassword)
+                            ? 'fas fa-check-circle'
+                            : 'far fa-circle'
+                        "
+                      ></i>
                       Ít nhất 1 số
                     </li>
                   </ul>
                 </div>
 
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   class="btn btn-primary"
                   :disabled="!isPasswordValid"
                 >
@@ -440,20 +522,33 @@
               </div>
 
               <div v-else class="payment-list">
-                <div v-for="method in paymentMethods" :key="method.id" class="payment-card">
+                <div
+                  v-for="method in paymentMethods"
+                  :key="method.id"
+                  class="payment-card"
+                >
                   <div class="payment-icon">
                     <i :class="method.icon"></i>
                   </div>
                   <div class="payment-info">
-                    <h4>{{ method.type === 'card' ? 'Thẻ tín dụng' : 'Ví điện tử' }}</h4>
+                    <h4>
+                      {{
+                        method.type === "card" ? "Thẻ tín dụng" : "Ví điện tử"
+                      }}
+                    </h4>
                     <p>{{ method.details }}</p>
-                    <p>Hết hạn: {{ method.expiry || 'N/A' }}</p>
+                    <p>Hết hạn: {{ method.expiry || "N/A" }}</p>
                   </div>
                   <div class="payment-actions">
-                    <button class="btn-icon" @click="deletePaymentMethod(method.id)">
+                    <button
+                      class="btn-icon"
+                      @click="deletePaymentMethod(method.id)"
+                    >
                       <i class="fas fa-trash"></i>
                     </button>
-                    <span v-if="method.isDefault" class="default-badge">Mặc định</span>
+                    <span v-if="method.isDefault" class="default-badge"
+                      >Mặc định</span
+                    >
                   </div>
                 </div>
               </div>
@@ -474,42 +569,45 @@
                     </div>
                     <div class="form-group">
                       <label>Số thẻ</label>
-                      <input 
-                        type="text" 
-                        v-model="paymentForm.cardNumber" 
+                      <input
+                        type="text"
+                        v-model="paymentForm.cardNumber"
                         placeholder="1234 5678 9012 3456"
                         maxlength="19"
                         @input="formatCardNumber"
-                      >
+                      />
                     </div>
                     <div class="form-row">
                       <div class="form-group">
                         <label>Ngày hết hạn</label>
-                        <input 
-                          type="text" 
-                          v-model="paymentForm.expiry" 
+                        <input
+                          type="text"
+                          v-model="paymentForm.expiry"
                           placeholder="MM/YY"
                           maxlength="5"
                           @input="formatExpiry"
-                        >
+                        />
                       </div>
                       <div class="form-group">
                         <label>CVV</label>
-                        <input 
-                          type="text" 
-                          v-model="paymentForm.cvv" 
+                        <input
+                          type="text"
+                          v-model="paymentForm.cvv"
                           placeholder="123"
                           maxlength="3"
-                        >
+                        />
                       </div>
                     </div>
                     <div class="form-group">
                       <label>Tên chủ thẻ</label>
-                      <input type="text" v-model="paymentForm.cardholderName">
+                      <input type="text" v-model="paymentForm.cardholderName" />
                     </div>
                     <div class="form-group">
                       <label>
-                        <input type="checkbox" v-model="paymentForm.isDefault">
+                        <input
+                          type="checkbox"
+                          v-model="paymentForm.isDefault"
+                        />
                         Đặt làm phương thức mặc định
                       </label>
                     </div>
@@ -517,7 +615,11 @@
                       <button type="submit" class="btn btn-primary">
                         Thêm thẻ
                       </button>
-                      <button type="button" class="btn btn-outline" @click="closePaymentForm">
+                      <button
+                        type="button"
+                        class="btn btn-outline"
+                        @click="closePaymentForm"
+                      >
                         Hủy
                       </button>
                     </div>
@@ -535,278 +637,306 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue'
-import { useRouter } from 'vue-router'
-import { useAuthStore } from '../../stores/authStore'
-import { useCartStore } from '../../stores/cartStore'
-import { useNotification } from '../../composables/useNotification'
-import ClientHeader from '../../components/client/ClientHeader.vue'
-import ClientFooter from '../../components/client/ClientFooter.vue'
-import { formatPrice } from '../../utils/helpers'
+import { ref, reactive, computed } from "vue";
+import { useRouter } from "vue-router";
+import { useAuthStore } from "../../stores/authStore";
+import { useCartStore } from "../../stores/cartStore";
+import { useNotification } from "../../composables/useNotification";
+import ClientHeader from "../../components/client/ClientHeader.vue";
+import ClientFooter from "../../components/client/ClientFooter.vue";
+import { formatPrice } from "../../utils/helpers";
 
-const router = useRouter()
-const authStore = useAuthStore()
-const cartStore = useCartStore()
-const { showNotification } = useNotification()
+const router = useRouter();
+const authStore = useAuthStore();
+const cartStore = useCartStore();
+const { showNotification } = useNotification();
 
 // State
-const activeTab = ref('info')
-const editing = ref(false)
+const activeTab = ref("info");
+const editing = ref(false);
 
 // Profile data
 const profile = reactive({
-  fullName: authStore.user?.name || 'Nguyễn Văn A',
-  email: authStore.user?.email || 'nguyenvana@email.com',
-  phone: '0123456789',
-  birthday: '1990-01-01',
-  gender: 'Nam'
-})
+  fullName: authStore.user?.name || "Nguyễn Văn A",
+  email: authStore.user?.email || "nguyenvana@email.com",
+  phone: "0123456789",
+  birthday: "1990-01-01",
+  gender: "Nam",
+});
 
-const editForm = reactive({ ...profile })
+const editForm = reactive({ ...profile });
 
 // Orders data
 const orders = ref([
   {
-    id: 'DH001',
-    date: '10/03/2024',
-    status: 'delivered',
+    id: "DH001",
+    date: "10/03/2024",
+    status: "delivered",
     total: 897000,
     items: [
-      { id: 1, name: 'Áo thun nam', image: 'tshirt', price: 199000, quantity: 2, size: 'M', color: 'Đen' },
-      { id: 3, name: 'Quần jean nam', image: 'jeans', price: 499000, quantity: 1, size: 'L', color: 'Xanh' }
-    ]
+      {
+        id: 1,
+        name: "Áo thun nam",
+        image: "tshirt",
+        price: 199000,
+        quantity: 2,
+        size: "M",
+        color: "Đen",
+      },
+      {
+        id: 3,
+        name: "Quần jean nam",
+        image: "jeans",
+        price: 499000,
+        quantity: 1,
+        size: "L",
+        color: "Xanh",
+      },
+    ],
   },
   {
-    id: 'DH002',
-    date: '15/03/2024',
-    status: 'processing',
+    id: "DH002",
+    date: "15/03/2024",
+    status: "processing",
     total: 399000,
     items: [
-      { id: 2, name: 'Đầm nữ công sở', image: 'dress', price: 399000, quantity: 1, size: 'M', color: 'Đỏ' }
-    ]
-  }
-])
+      {
+        id: 2,
+        name: "Đầm nữ công sở",
+        image: "dress",
+        price: 399000,
+        quantity: 1,
+        size: "M",
+        color: "Đỏ",
+      },
+    ],
+  },
+]);
 
 // Wishlist data
 const wishlist = ref([
-  { id: 1, name: 'Áo thun nam', price: 199000, image: 'tshirt' },
-  { id: 2, name: 'Đầm nữ công sở', price: 399000, image: 'dress' }
-])
+  { id: 1, name: "Áo thun nam", price: 199000, image: "tshirt" },
+  { id: 2, name: "Đầm nữ công sở", price: 399000, image: "dress" },
+]);
 
 // Address data
-const cities = ['Hồ Chí Minh', 'Hà Nội', 'Đà Nẵng']
+const cities = ["Hồ Chí Minh", "Hà Nội", "Đà Nẵng"];
 const districts = {
-  'Hồ Chí Minh': ['Quận 1', 'Quận 2', 'Quận 3', 'Quận 4', 'Quận 5'],
-  'Hà Nội': ['Ba Đình', 'Hoàn Kiếm', 'Hai Bà Trưng'],
-  'Đà Nẵng': ['Hải Châu', 'Thanh Khê', 'Sơn Trà']
-}
+  "Hồ Chí Minh": ["Quận 1", "Quận 2", "Quận 3", "Quận 4", "Quận 5"],
+  "Hà Nội": ["Ba Đình", "Hoàn Kiếm", "Hai Bà Trưng"],
+  "Đà Nẵng": ["Hải Châu", "Thanh Khê", "Sơn Trà"],
+};
 
 const addresses = ref([
   {
     id: 1,
-    name: 'Nguyễn Văn A',
-    phone: '0123456789',
-    address: '123 Nguyễn Huệ',
-    district: 'Quận 1',
-    city: 'Hồ Chí Minh',
-    isDefault: true
-  }
-])
+    name: "Nguyễn Văn A",
+    phone: "0123456789",
+    address: "123 Nguyễn Huệ",
+    district: "Quận 1",
+    city: "Hồ Chí Minh",
+    isDefault: true,
+  },
+]);
 
-const showAddressForm = ref(false)
-const editingAddress = ref(null)
+const showAddressForm = ref(false);
+const editingAddress = ref(null);
 const addressForm = reactive({
-  name: '',
-  phone: '',
-  city: '',
-  district: '',
-  address: '',
-  isDefault: false
-})
+  name: "",
+  phone: "",
+  city: "",
+  district: "",
+  address: "",
+  isDefault: false,
+});
 
 // Password change
-const showCurrentPassword = ref(false)
-const showNewPassword = ref(false)
-const showConfirmPassword = ref(false)
+const showCurrentPassword = ref(false);
+const showNewPassword = ref(false);
+const showConfirmPassword = ref(false);
 
 const passwordForm = reactive({
-  currentPassword: '',
-  newPassword: '',
-  confirmPassword: ''
-})
+  currentPassword: "",
+  newPassword: "",
+  confirmPassword: "",
+});
 
 const isPasswordValid = computed(() => {
-  return passwordForm.newPassword.length >= 6 &&
-         /[A-Z]/.test(passwordForm.newPassword) &&
-         /[0-9]/.test(passwordForm.newPassword) &&
-         passwordForm.newPassword === passwordForm.confirmPassword
-})
+  return (
+    passwordForm.newPassword.length >= 6 &&
+    /[A-Z]/.test(passwordForm.newPassword) &&
+    /[0-9]/.test(passwordForm.newPassword) &&
+    passwordForm.newPassword === passwordForm.confirmPassword
+  );
+});
 
 // Payment methods
 const paymentMethods = ref([
   {
     id: 1,
-    type: 'visa',
-    icon: 'fab fa-cc-visa',
-    details: '**** **** **** 1234',
-    expiry: '12/25',
-    isDefault: true
-  }
-])
+    type: "visa",
+    icon: "fab fa-cc-visa",
+    details: "**** **** **** 1234",
+    expiry: "12/25",
+    isDefault: true,
+  },
+]);
 
-const showPaymentForm = ref(false)
+const showPaymentForm = ref(false);
 const paymentForm = reactive({
-  type: 'visa',
-  cardNumber: '',
-  expiry: '',
-  cvv: '',
-  cardholderName: '',
-  isDefault: false
-})
+  type: "visa",
+  cardNumber: "",
+  expiry: "",
+  cvv: "",
+  cardholderName: "",
+  isDefault: false,
+});
 
 // Methods
 const getDistricts = (city) => {
-  return districts[city] || []
-}
+  return districts[city] || [];
+};
 
 const startEditing = () => {
-  Object.assign(editForm, profile)
-  editing.value = true
-}
+  Object.assign(editForm, profile);
+  editing.value = true;
+};
 
 const cancelEditing = () => {
-  editing.value = false
-}
+  editing.value = false;
+};
 
 const saveProfile = () => {
-  Object.assign(profile, editForm)
-  editing.value = false
-  showNotification('Cập nhật thông tin thành công!', 'success')
-}
+  Object.assign(profile, editForm);
+  editing.value = false;
+  showNotification("Cập nhật thông tin thành công!", "success");
+};
 
 const getOrderStatus = (status) => {
   const statuses = {
-    'pending': 'Chờ xác nhận',
-    'processing': 'Đang xử lý',
-    'shipped': 'Đang giao',
-    'delivered': 'Đã giao',
-    'cancelled': 'Đã hủy'
-  }
-  return statuses[status] || status
-}
+    pending: "Chờ xác nhận",
+    processing: "Đang xử lý",
+    shipped: "Đang giao",
+    delivered: "Đã giao",
+    cancelled: "Đã hủy",
+  };
+  return statuses[status] || status;
+};
 
 const viewOrderDetail = (orderId) => {
-  showNotification(`Xem chi tiết đơn hàng ${orderId}`, 'info')
-}
+  showNotification(`Xem chi tiết đơn hàng ${orderId}`, "info");
+};
 
 const reorder = (orderId) => {
-  showNotification('Đã thêm vào giỏ hàng', 'success')
-  router.push('/cart')
-}
+  showNotification("Đã thêm vào giỏ hàng", "success");
+  router.push("/cart");
+};
 
 const goToProduct = (id) => {
-  router.push(`/product/${id}`)
-}
+  router.push(`/product/${id}`);
+};
 
 const addToCart = (product) => {
-  cartStore.addToCart(product)
-  showNotification('Đã thêm vào giỏ hàng', 'success')
-}
+  cartStore.addToCart(product);
+  showNotification("Đã thêm vào giỏ hàng", "success");
+};
 
 const removeFromWishlist = (id) => {
-  wishlist.value = wishlist.value.filter(p => p.id !== id)
-  showNotification('Đã xóa khỏi danh sách yêu thích', 'info')
-}
+  wishlist.value = wishlist.value.filter((p) => p.id !== id);
+  showNotification("Đã xóa khỏi danh sách yêu thích", "info");
+};
 
 const editAddress = (address) => {
-  editingAddress.value = address
-  Object.assign(addressForm, address)
-  showAddressForm.value = true
-}
+  editingAddress.value = address;
+  Object.assign(addressForm, address);
+  showAddressForm.value = true;
+};
 
 const deleteAddress = (id) => {
-  if (confirm('Bạn có chắc muốn xóa địa chỉ này?')) {
-    addresses.value = addresses.value.filter(a => a.id !== id)
-    showNotification('Đã xóa địa chỉ', 'info')
+  if (confirm("Bạn có chắc muốn xóa địa chỉ này?")) {
+    addresses.value = addresses.value.filter((a) => a.id !== id);
+    showNotification("Đã xóa địa chỉ", "info");
   }
-}
+};
 
 const setDefaultAddress = (id) => {
-  addresses.value.forEach(a => {
-    a.isDefault = a.id === id
-  })
-  showNotification('Đã cập nhật địa chỉ mặc định', 'success')
-}
+  addresses.value.forEach((a) => {
+    a.isDefault = a.id === id;
+  });
+  showNotification("Đã cập nhật địa chỉ mặc định", "success");
+};
 
 const saveAddress = () => {
   if (editingAddress.value) {
     // Update existing address
-    const index = addresses.value.findIndex(a => a.id === editingAddress.value.id)
+    const index = addresses.value.findIndex(
+      (a) => a.id === editingAddress.value.id,
+    );
     if (index !== -1) {
-      addresses.value[index] = { ...addressForm, id: editingAddress.value.id }
+      addresses.value[index] = { ...addressForm, id: editingAddress.value.id };
     }
-    showNotification('Cập nhật địa chỉ thành công!', 'success')
+    showNotification("Cập nhật địa chỉ thành công!", "success");
   } else {
     // Add new address
     addresses.value.push({
       ...addressForm,
-      id: Date.now()
-    })
-    showNotification('Thêm địa chỉ thành công!', 'success')
+      id: Date.now(),
+    });
+    showNotification("Thêm địa chỉ thành công!", "success");
   }
-  closeAddressForm()
-}
+  closeAddressForm();
+};
 
 const closeAddressForm = () => {
-  showAddressForm.value = false
-  editingAddress.value = null
+  showAddressForm.value = false;
+  editingAddress.value = null;
   Object.assign(addressForm, {
-    name: '',
-    phone: '',
-    city: '',
-    district: '',
-    address: '',
-    isDefault: false
-  })
-}
+    name: "",
+    phone: "",
+    city: "",
+    district: "",
+    address: "",
+    isDefault: false,
+  });
+};
 
 const changePassword = () => {
   if (!isPasswordValid.value) {
-    showNotification('Mật khẩu không hợp lệ', 'error')
-    return
+    showNotification("Mật khẩu không hợp lệ", "error");
+    return;
   }
-  
+
   // Simulate API call
   setTimeout(() => {
-    showNotification('Đổi mật khẩu thành công!', 'success')
-    passwordForm.currentPassword = ''
-    passwordForm.newPassword = ''
-    passwordForm.confirmPassword = ''
-  }, 1000)
-}
+    showNotification("Đổi mật khẩu thành công!", "success");
+    passwordForm.currentPassword = "";
+    passwordForm.newPassword = "";
+    passwordForm.confirmPassword = "";
+  }, 1000);
+};
 
 const formatCardNumber = (e) => {
-  let value = e.target.value.replace(/\s/g, '')
-  if (value.length > 16) value = value.slice(0, 16)
-  
-  const parts = []
+  let value = e.target.value.replace(/\s/g, "");
+  if (value.length > 16) value = value.slice(0, 16);
+
+  const parts = [];
   for (let i = 0; i < value.length; i += 4) {
-    parts.push(value.slice(i, i + 4))
+    parts.push(value.slice(i, i + 4));
   }
-  
-  paymentForm.cardNumber = parts.join(' ')
-}
+
+  paymentForm.cardNumber = parts.join(" ");
+};
 
 const formatExpiry = (e) => {
-  let value = e.target.value.replace('/', '')
-  if (value.length > 4) value = value.slice(0, 4)
-  
+  let value = e.target.value.replace("/", "");
+  if (value.length > 4) value = value.slice(0, 4);
+
   if (value.length >= 2) {
-    paymentForm.expiry = value.slice(0, 2) + '/' + value.slice(2)
+    paymentForm.expiry = value.slice(0, 2) + "/" + value.slice(2);
   } else {
-    paymentForm.expiry = value
+    paymentForm.expiry = value;
   }
-}
+};
 
 const addPaymentMethod = () => {
   paymentMethods.value.push({
@@ -815,42 +945,42 @@ const addPaymentMethod = () => {
     icon: `fab fa-cc-${paymentForm.type}`,
     details: `**** **** **** ${paymentForm.cardNumber.slice(-4)}`,
     expiry: paymentForm.expiry,
-    isDefault: paymentForm.isDefault
-  })
-  
-  closePaymentForm()
-  showNotification('Thêm phương thức thanh toán thành công!', 'success')
-}
+    isDefault: paymentForm.isDefault,
+  });
+
+  closePaymentForm();
+  showNotification("Thêm phương thức thanh toán thành công!", "success");
+};
 
 const closePaymentForm = () => {
-  showPaymentForm.value = false
+  showPaymentForm.value = false;
   Object.assign(paymentForm, {
-    type: 'visa',
-    cardNumber: '',
-    expiry: '',
-    cvv: '',
-    cardholderName: '',
-    isDefault: false
-  })
-}
+    type: "visa",
+    cardNumber: "",
+    expiry: "",
+    cvv: "",
+    cardholderName: "",
+    isDefault: false,
+  });
+};
 
 const deletePaymentMethod = (id) => {
-  if (confirm('Bạn có chắc muốn xóa phương thức thanh toán này?')) {
-    paymentMethods.value = paymentMethods.value.filter(m => m.id !== id)
-    showNotification('Đã xóa phương thức thanh toán', 'info')
+  if (confirm("Bạn có chắc muốn xóa phương thức thanh toán này?")) {
+    paymentMethods.value = paymentMethods.value.filter((m) => m.id !== id);
+    showNotification("Đã xóa phương thức thanh toán", "info");
   }
-}
+};
 
 const changeAvatar = () => {
-  showNotification('Chức năng đang phát triển', 'info')
-}
+  showNotification("Chức năng đang phát triển", "info");
+};
 
 const logout = () => {
-  if (confirm('Bạn có chắc muốn đăng xuất?')) {
-    authStore.logout()
-    router.push('/')
+  if (confirm("Bạn có chắc muốn đăng xuất?")) {
+    authStore.logout();
+    router.push("/home");
   }
-}
+};
 </script>
 
 <style scoped>
@@ -890,7 +1020,7 @@ main {
 .avatar-image {
   width: 120px;
   height: 120px;
-  background: rgba(255,255,255,0.2);
+  background: rgba(255, 255, 255, 0.2);
   border-radius: 50%;
   margin: 0 auto 15px;
   display: flex;
@@ -903,7 +1033,7 @@ main {
 
 .avatar-image:hover {
   transform: scale(1.05);
-  background: rgba(255,255,255,0.3);
+  background: rgba(255, 255, 255, 0.3);
 }
 
 .avatar-image i {
@@ -943,7 +1073,7 @@ main {
 
 .profile-menu a:hover,
 .profile-menu a.active {
-  background: rgba(255,255,255,0.2);
+  background: rgba(255, 255, 255, 0.2);
   transform: translateX(5px);
 }
 
@@ -954,8 +1084,8 @@ main {
 .logout-btn {
   width: 100%;
   padding: 12px;
-  background: rgba(255,255,255,0.1);
-  border: 1px solid rgba(255,255,255,0.2);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   color: white;
   border-radius: 8px;
   cursor: pointer;
@@ -968,7 +1098,7 @@ main {
 }
 
 .logout-btn:hover {
-  background: rgba(255,255,255,0.2);
+  background: rgba(255, 255, 255, 0.2);
 }
 
 /* Main Content */
@@ -1101,11 +1231,26 @@ main {
   font-weight: 600;
 }
 
-.status-pending { background: #fff3cd; color: #856404; }
-.status-processing { background: #cce5ff; color: #004085; }
-.status-shipped { background: #d1ecf1; color: #0c5460; }
-.status-delivered { background: #d4edda; color: #155724; }
-.status-cancelled { background: #f8d7da; color: #721c24; }
+.status-pending {
+  background: #fff3cd;
+  color: #856404;
+}
+.status-processing {
+  background: #cce5ff;
+  color: #004085;
+}
+.status-shipped {
+  background: #d1ecf1;
+  color: #0c5460;
+}
+.status-delivered {
+  background: #d4edda;
+  color: #155724;
+}
+.status-cancelled {
+  background: #f8d7da;
+  color: #721c24;
+}
 
 .order-items {
   margin: 15px 0;
@@ -1454,7 +1599,7 @@ main {
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0,0,0,0.5);
+  background: rgba(0, 0, 0, 0.5);
   display: flex;
   justify-content: center;
   align-items: center;

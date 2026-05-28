@@ -39,7 +39,8 @@
               @mouseleave="resetZoom"
               ref="mainImageRef"
             >
-              <i :class="['fas', `fa-${product.image}`]"></i>
+              <img v-if="isUrl(product.image)" :src="product.image" :alt="product.name" class="detail-main-img" />
+              <i v-else :class="['fas', `fa-${product.image}`]"></i>
               <div 
                 v-if="showZoom" 
                 class="zoom-lens"
@@ -48,13 +49,14 @@
             </div>
             <div class="thumbnail-list">
               <div 
-                v-for="(thumb, index) in thumbnails" 
+                v-for="(thumb, index) in productThumbnails" 
                 :key="index"
                 class="thumbnail"
                 :class="{ active: currentImage === index }"
                 @click="changeImage(index)"
               >
-                <i :class="['fas', `fa-${thumb}`]"></i>
+                <img v-if="isUrl(thumb)" :src="thumb" :alt="product.name" class="detail-thumb-img" />
+                <i v-else :class="['fas', `fa-${thumb}`]"></i>
               </div>
             </div>
           </div>
@@ -436,6 +438,18 @@ const toggleWishlist = () => {
   )
 }
 
+const isUrl = (str) => {
+  if (!str) return false
+  return str.startsWith('http') || str.startsWith('data:image')
+}
+
+const productThumbnails = computed(() => {
+  if (isUrl(product.value?.image)) {
+    return [product.value.image, product.value.image, product.value.image, product.value.image]
+  }
+  return thumbnails
+})
+
 // Lifecycle
 onMounted(() => {
   setTimeout(() => {
@@ -534,6 +548,19 @@ main {
   font-size: 150px;
   color: var(--medium-gray);
   transition: transform 0.3s;
+}
+
+.detail-main-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.detail-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 8px;
 }
 
 .main-image:hover i {

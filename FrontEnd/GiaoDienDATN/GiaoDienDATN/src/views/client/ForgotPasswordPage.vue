@@ -1,7 +1,7 @@
 <template>
   <div class="auth-page">
     <ClientHeader />
-    
+
     <main>
       <div class="container">
         <div class="auth-container">
@@ -29,19 +29,21 @@
                   <label>Email</label>
                   <div class="input-wrapper">
                     <i class="fas fa-envelope"></i>
-                    <input 
-                      type="email" 
-                      v-model="form.email" 
+                    <input
+                      type="email"
+                      v-model="form.email"
                       placeholder="Nhập email của bạn"
                       required
                       :disabled="loading"
-                    >
+                    />
                   </div>
                 </div>
 
                 <button type="submit" class="auth-btn" :disabled="loading">
                   <span v-if="!loading">GỬI YÊU CẦU</span>
-                  <span v-else><i class="fas fa-spinner fa-spin"></i> Đang gửi...</span>
+                  <span v-else
+                    ><i class="fas fa-spinner fa-spin"></i> Đang gửi...</span
+                  >
                 </button>
               </form>
 
@@ -73,7 +75,7 @@
                 </button>
               </div>
               <p class="resend-text">
-                Không nhận được email? 
+                Không nhận được email?
                 <a href="#" @click.prevent="resendEmail">Gửi lại</a>
               </p>
               <router-link to="/login" class="back-link">
@@ -124,66 +126,68 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { useNotification } from '../../composables/useNotification'
-import ClientHeader from '../../components/client/ClientHeader.vue'
-import ClientFooter from '../../components/client/ClientFooter.vue'
+import { ref } from "vue";
+import { useNotification } from "../../composables/useNotification";
+import ClientHeader from "../../components/client/ClientHeader.vue";
+import ClientFooter from "../../components/client/ClientFooter.vue";
 
-const { showNotification } = useNotification()
+const { showNotification } = useNotification();
 
 const form = ref({
-  email: ''
-})
+  email: "",
+});
 
-const loading = ref(false)
-const error = ref('')
-const emailSent = ref(false)
+const loading = ref(false);
+const error = ref("");
+const emailSent = ref(false);
 
 const handleForgotPassword = async () => {
-  error.value = ''
-  loading.value = true
+  error.value = "";
+  loading.value = true;
 
   try {
     // Validate email
     if (!form.value.email) {
-      throw new Error('Vui lòng nhập email')
+      throw new Error("Vui lòng nhập email");
     }
 
     // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500))
+    await new Promise((resolve) => setTimeout(resolve, 1500));
 
     // Check if email exists (mock)
-    const existingEmails = ['user@example.com', 'admin@fashionstore.vn']
+    const existingEmails = ["user@example.com", "admin@fashionstore.vn"];
     if (!existingEmails.includes(form.value.email)) {
-      throw new Error('Email không tồn tại trong hệ thống')
+      throw new Error("Email không tồn tại trong hệ thống");
     }
 
     // Show success
-    emailSent.value = true
-    showNotification('Email đã được gửi! Vui lòng kiểm tra hộp thư.', 'success')
-
+    emailSent.value = true;
+    showNotification(
+      "Email đã được gửi! Vui lòng kiểm tra hộp thư.",
+      "success",
+    );
   } catch (err) {
-    error.value = err.message || 'Có lỗi xảy ra. Vui lòng thử lại.'
-    showNotification(error.value, 'error')
+    error.value = err.message || "Có lỗi xảy ra. Vui lòng thử lại.";
+    showNotification(error.value, "error");
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
 
 const resendEmail = async () => {
-  loading.value = true
+  loading.value = true;
   try {
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    showNotification('Đã gửi lại email!', 'success')
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    showNotification("Đã gửi lại email!", "success");
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
 
 const openEmailClient = () => {
   // Open default email client
-  window.location.href = `mailto:${form.value.email}`
-}
+  window.location.href = `mailto:${form.value.email}`;
+};
 </script>
 
 <style scoped>
@@ -299,7 +303,7 @@ main {
   box-shadow: 0 0 0 3px rgba(230, 57, 70, 0.1);
 }
 
-.input-wrapper input:focus + i {
+.input-wrapper:focus-within i {
   color: var(--primary-red);
 }
 

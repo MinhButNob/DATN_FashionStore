@@ -18,7 +18,10 @@
         </button>
 
         <Transition name="dropdown">
-          <div v-if="showNotifications" class="dropdown-menu notifications-menu">
+          <div
+            v-if="showNotifications"
+            class="dropdown-menu notifications-menu"
+          >
             <div class="dropdown-header">
               <h3>Thông báo</h3>
               <button v-if="unreadCount > 0" @click="markAllAsRead">
@@ -27,14 +30,17 @@
             </div>
 
             <div class="notifications-list">
-              <div 
-                v-for="notif in notifications" 
+              <div
+                v-for="notif in notifications"
                 :key="notif.id"
                 class="notification-item"
                 :class="{ unread: !notif.read }"
                 @click="markAsRead(notif.id)"
               >
-                <div class="notification-icon" :style="{ background: notif.color + '20' }">
+                <div
+                  class="notification-icon"
+                  :style="{ background: notif.color + '20' }"
+                >
                   <i :class="notif.icon" :style="{ color: notif.color }"></i>
                 </div>
                 <div class="notification-content">
@@ -50,9 +56,7 @@
             </div>
 
             <div class="dropdown-footer">
-              <button @click="viewAllNotifications">
-                Xem tất cả
-              </button>
+              <button @click="viewAllNotifications">Xem tất cả</button>
             </div>
           </div>
         </Transition>
@@ -64,7 +68,9 @@
           <div class="profile-avatar">
             {{ userInitials }}
           </div>
-          <span class="profile-name">{{ authStore.user?.name || 'Admin' }}</span>
+          <span class="profile-name">{{
+            authStore.user?.name || "Admin"
+          }}</span>
           <i class="fas fa-chevron-down"></i>
         </button>
 
@@ -75,8 +81,8 @@
                 {{ userInitials }}
               </div>
               <div class="profile-info">
-                <h4>{{ authStore.user?.name || 'Admin' }}</h4>
-                <p>{{ authStore.user?.email || 'admin@fashionstore.vn' }}</p>
+                <h4>{{ authStore.user?.name || "Admin" }}</h4>
+                <p>{{ authStore.user?.email || "admin@fashionstore.vn" }}</p>
               </div>
             </div>
 
@@ -102,124 +108,129 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useRoute } from 'vue-router'
-import { useAuthStore } from '../../stores/authStore'
-import { useNotification } from '../../composables/useNotification'
+import { ref, computed, onMounted, onUnmounted } from "vue";
+import { useRoute } from "vue-router";
+import { useAuthStore } from "../../stores/authStore";
+import { useNotification } from "../../composables/useNotification";
 
-const route = useRoute()
-const authStore = useAuthStore()
-const { showNotification } = useNotification()
+const route = useRoute();
+const authStore = useAuthStore();
+const { showNotification } = useNotification();
 
 // State
-const showNotifications = ref(false)
-const showProfile = ref(false)
-const notificationRef = ref(null)
-const profileRef = ref(null)
+const showNotifications = ref(false);
+const showProfile = ref(false);
+const notificationRef = ref(null);
+const profileRef = ref(null);
 
 // Mock notifications
 const notifications = ref([
   {
     id: 1,
-    message: 'Đơn hàng mới #DH001 cần xác nhận',
-    time: '5 phút trước',
-    icon: 'fas fa-shopping-cart',
-    color: '#e63946',
-    read: false
+    message: "Đơn hàng mới #DH001 cần xác nhận",
+    time: "5 phút trước",
+    icon: "fas fa-shopping-cart",
+    color: "#e63946",
+    read: false,
   },
   {
     id: 2,
     message: 'Sản phẩm "Áo thun nam" sắp hết hàng',
-    time: '1 giờ trước',
-    icon: 'fas fa-exclamation-triangle',
-    color: '#ffc107',
-    read: false
+    time: "1 giờ trước",
+    icon: "fas fa-exclamation-triangle",
+    color: "#ffc107",
+    read: false,
   },
   {
     id: 3,
-    message: 'Có đánh giá mới từ khách hàng',
-    time: '2 giờ trước',
-    icon: 'fas fa-star',
-    color: '#17a2b8',
-    read: true
-  }
-])
+    message: "Có đánh giá mới từ khách hàng",
+    time: "2 giờ trước",
+    icon: "fas fa-star",
+    color: "#17a2b8",
+    read: true,
+  },
+]);
 
 const unreadCount = computed(() => {
-  return notifications.value.filter(n => !n.read).length
-})
+  return notifications.value.filter((n) => !n.read).length;
+});
 
 const pageTitle = computed(() => {
-  const path = route.path
-  if (path.includes('products')) return 'Quản lý sản phẩm'
-  if (path.includes('orders')) return 'Quản lý đơn hàng'
-  if (path.includes('customers')) return 'Quản lý khách hàng'
-  if (path.includes('categories')) return 'Quản lý danh mục'
-  if (path.includes('settings')) return 'Cài đặt hệ thống'
-  return 'Dashboard'
-})
+  const path = route.path;
+  if (path.includes("products")) return "Quản lý sản phẩm";
+  if (path.includes("orders")) return "Quản lý đơn hàng";
+  if (path.includes("customers")) return "Quản lý khách hàng";
+  if (path.includes("categories")) return "Quản lý danh mục";
+  if (path.includes("settings")) return "Cài đặt hệ thống";
+  return "Dashboard";
+});
 
 const userInitials = computed(() => {
-  const name = authStore.user?.name || 'Admin'
-  return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
-})
+  const name = authStore.user?.name || "Admin";
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+});
 
 // Methods
 const toggleNotifications = () => {
-  showNotifications.value = !showNotifications.value
-  if (showNotifications.value) showProfile.value = false
-}
+  showNotifications.value = !showNotifications.value;
+  if (showNotifications.value) showProfile.value = false;
+};
 
 const toggleProfile = () => {
-  showProfile.value = !showProfile.value
-  if (showProfile.value) showNotifications.value = false
-}
+  showProfile.value = !showProfile.value;
+  if (showProfile.value) showNotifications.value = false;
+};
 
 const closeDropdowns = () => {
-  showNotifications.value = false
-  showProfile.value = false
-}
+  showNotifications.value = false;
+  showProfile.value = false;
+};
 
 const markAsRead = (id) => {
-  const notif = notifications.value.find(n => n.id === id)
-  if (notif) notif.read = true
-}
+  const notif = notifications.value.find((n) => n.id === id);
+  if (notif) notif.read = true;
+};
 
 const markAllAsRead = () => {
-  notifications.value.forEach(n => n.read = true)
-  showNotification('Đã đánh dấu tất cả là đã đọc', 'success')
-}
+  notifications.value.forEach((n) => (n.read = true));
+  showNotification("Đã đánh dấu tất cả là đã đọc", "success");
+};
 
 const viewAllNotifications = () => {
-  closeDropdowns()
+  closeDropdowns();
   // Navigate to notifications page
-}
+};
 
 const handleLogout = () => {
-  if (confirm('Bạn có chắc muốn đăng xuất?')) {
-    authStore.logout()
-    showNotification('Đã đăng xuất thành công!', 'success')
-    window.location.href = '/'
+  if (confirm("Bạn có chắc muốn đăng xuất?")) {
+    authStore.logout();
+    showNotification("Đã đăng xuất thành công!", "success");
+    window.location.href = "/admin/login";
   }
-}
+};
 
 // Handle click outside
 const handleClickOutside = (event) => {
   if (notificationRef.value && !notificationRef.value.contains(event.target)) {
-    showNotifications.value = false
+    showNotifications.value = false;
   }
   if (profileRef.value && !profileRef.value.contains(event.target)) {
-    showProfile.value = false
+    showProfile.value = false;
   }
-}
+};
 
 onMounted(() => {
-  document.addEventListener('click', handleClickOutside)
-})
+  document.addEventListener("click", handleClickOutside);
+});
 
 onUnmounted(() => {
-  document.removeEventListener('click', handleClickOutside)
-})
+  document.removeEventListener("click", handleClickOutside);
+});
 </script>
 
 <style scoped>
@@ -306,7 +317,7 @@ onUnmounted(() => {
   margin-top: 10px;
   background: white;
   border-radius: 10px;
-  box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
   min-width: 300px;
   z-index: 1000;
   overflow: hidden;

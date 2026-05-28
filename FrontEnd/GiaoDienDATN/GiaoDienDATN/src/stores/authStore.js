@@ -54,36 +54,47 @@ export const useAuthStore = defineStore("auth", () => {
         const mockUsers = [
           {
             id: 1,
-            name: "Nguyễn Văn A",
-            email: "user@example.com",
-            password: "password123",
-            role: "customer",
-            phone: "0123456789",
-            address: "123 Nguyễn Huệ, Q.1, TP.HCM",
-          },
-          {
-            id: 2,
-            name: "Trần Thị B",
-            email: "customer@test.com",
-            password: "123456",
-            role: "customer",
-            phone: "0987654321",
-            address: "456 Lê Lợi, Q.1, TP.HCM",
-          },
-          {
-            id: 999,
             name: "Quản trị viên",
-            email: "admin@fashionstore.vn",
-            password: "admin123",
+            email: "admin@gmail.com",
+            password: "12345678",
             role: "admin",
             phone: "0909123456",
             address: "123 Nguyễn Huệ, Q.1, TP.HCM",
           },
+          {
+            id: 2,
+            name: "Nhân viên",
+            email: "nhanvien@gmail.com",
+            password: "12345678",
+            role: "staff",
+            phone: "0987654321",
+            address: "456 Lê Lợi, Q.1, TP.HCM",
+          },
+          {
+            id: 3,
+            name: "Khách hàng",
+            email: "khachhang@gmail.com",
+            password: "12345678",
+            role: "customer",
+            phone: "0123456789",
+            address: "789 Trần Hưng Đạo, Q.1, TP.HCM",
+          },
         ];
 
-        const foundUser = mockUsers.find(
+        // Also check in registeredUsers from localStorage(
+        let foundUser = mockUsers.find(
           (u) => u.email === email && u.password === password,
         );
+
+        // If not found in mock, try to find in localStorage (registered users)
+        if (!foundUser) {
+          const registeredUsers = JSON.parse(
+            localStorage.getItem("registeredUsers") || "[]",
+          );
+          foundUser = registeredUsers.find(
+            (u) => u.email === email && u.password === password,
+          );
+        }
 
         if (foundUser) {
           // Remove password before storing
@@ -118,9 +129,9 @@ export const useAuthStore = defineStore("auth", () => {
           localStorage.getItem("registeredUsers") || "[]",
         );
         const mockEmails = [
-          "user@example.com",
-          "admin@fashionstore.vn",
-          "customer@test.com",
+          "admin@gmail.com",
+          "nhanvien@gmail.com",
+          "khachhang@gmail.com",
         ];
 
         if (

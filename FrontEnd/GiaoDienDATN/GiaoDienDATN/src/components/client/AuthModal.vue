@@ -9,15 +9,15 @@
 
           <!-- Tabs -->
           <div class="auth-tabs">
-            <button 
-              class="tab-btn" 
+            <button
+              class="tab-btn"
               :class="{ active: activeTab === 'login' }"
               @click="activeTab = 'login'"
             >
               ĐĂNG NHẬP
             </button>
-            <button 
-              class="tab-btn" 
+            <button
+              class="tab-btn"
               :class="{ active: activeTab === 'register' }"
               @click="activeTab = 'register'"
             >
@@ -33,24 +33,24 @@
             <form @submit.prevent="handleLogin">
               <div class="form-group">
                 <i class="fas fa-envelope"></i>
-                <input 
-                  type="email" 
-                  v-model="loginForm.email" 
+                <input
+                  type="email"
+                  v-model="loginForm.email"
                   placeholder="Email"
                   required
-                >
+                />
               </div>
 
               <div class="form-group">
                 <i class="fas fa-lock"></i>
-                <input 
-                  :type="showPassword ? 'text' : 'password'" 
-                  v-model="loginForm.password" 
+                <input
+                  :type="showPassword ? 'text' : 'password'"
+                  v-model="loginForm.password"
                   placeholder="Mật khẩu"
                   required
-                >
-                <i 
-                  class="fas fa-eye toggle-password" 
+                />
+                <i
+                  class="fas fa-eye toggle-password"
                   :class="{ 'fa-eye-slash': showPassword }"
                   @click="togglePassword"
                 ></i>
@@ -58,31 +58,39 @@
 
               <div class="form-options">
                 <label class="remember-me">
-                  <input type="checkbox" v-model="loginForm.remember">
+                  <input type="checkbox" v-model="loginForm.remember" />
                   Ghi nhớ đăng nhập
                 </label>
-                <a href="#" class="forgot-password" @click.prevent="showForgotPassword">
+                <a
+                  href="#"
+                  class="forgot-password"
+                  @click.prevent="showForgotPassword"
+                >
                   Quên mật khẩu?
                 </a>
               </div>
 
-              <button 
-                type="submit" 
-                class="auth-btn" 
-                :disabled="loading"
-              >
+              <button type="submit" class="auth-btn" :disabled="loading">
                 <span v-if="!loading">ĐĂNG NHẬP</span>
-                <span v-else><i class="fas fa-spinner fa-spin"></i> Đang xử lý...</span>
+                <span v-else
+                  ><i class="fas fa-spinner fa-spin"></i> Đang xử lý...</span
+                >
               </button>
             </form>
 
             <div class="social-login">
               <p>Hoặc đăng nhập với</p>
               <div class="social-icons">
-                <button class="social-btn facebook" @click="socialLogin('facebook')">
+                <button
+                  class="social-btn facebook"
+                  @click="socialLogin('facebook')"
+                >
                   <i class="fab fa-facebook-f"></i>
                 </button>
-                <button class="social-btn google" @click="socialLogin('google')">
+                <button
+                  class="social-btn google"
+                  @click="socialLogin('google')"
+                >
                   <i class="fab fa-google"></i>
                 </button>
                 <button class="social-btn apple" @click="socialLogin('apple')">
@@ -100,44 +108,44 @@
             <form @submit.prevent="handleRegister">
               <div class="form-group">
                 <i class="fas fa-user"></i>
-                <input 
-                  type="text" 
-                  v-model="registerForm.name" 
+                <input
+                  type="text"
+                  v-model="registerForm.name"
                   placeholder="Họ và tên"
                   required
-                >
+                />
               </div>
 
               <div class="form-group">
                 <i class="fas fa-envelope"></i>
-                <input 
-                  type="email" 
-                  v-model="registerForm.email" 
+                <input
+                  type="email"
+                  v-model="registerForm.email"
                   placeholder="Email"
                   required
-                >
+                />
               </div>
 
               <div class="form-group">
                 <i class="fas fa-phone"></i>
-                <input 
-                  type="tel" 
-                  v-model="registerForm.phone" 
+                <input
+                  type="tel"
+                  v-model="registerForm.phone"
                   placeholder="Số điện thoại"
                   required
-                >
+                />
               </div>
 
               <div class="form-group">
                 <i class="fas fa-lock"></i>
-                <input 
-                  :type="showRegisterPassword ? 'text' : 'password'" 
-                  v-model="registerForm.password" 
+                <input
+                  :type="showRegisterPassword ? 'text' : 'password'"
+                  v-model="registerForm.password"
                   placeholder="Mật khẩu"
                   required
-                >
-                <i 
-                  class="fas fa-eye toggle-password" 
+                />
+                <i
+                  class="fas fa-eye toggle-password"
                   :class="{ 'fa-eye-slash': showRegisterPassword }"
                   @click="toggleRegisterPassword"
                 ></i>
@@ -145,14 +153,14 @@
 
               <div class="form-group">
                 <i class="fas fa-lock"></i>
-                <input 
-                  :type="showConfirmPassword ? 'text' : 'password'" 
-                  v-model="registerForm.confirmPassword" 
+                <input
+                  :type="showConfirmPassword ? 'text' : 'password'"
+                  v-model="registerForm.confirmPassword"
                   placeholder="Xác nhận mật khẩu"
                   required
-                >
-                <i 
-                  class="fas fa-eye toggle-password" 
+                />
+                <i
+                  class="fas fa-eye toggle-password"
                   :class="{ 'fa-eye-slash': showConfirmPassword }"
                   @click="toggleConfirmPassword"
                 ></i>
@@ -160,23 +168,48 @@
 
               <div class="form-options">
                 <label class="terms">
-                  <input type="checkbox" v-model="registerForm.agreeTerms">
-                  Tôi đồng ý với 
-                  <a href="#" @click.prevent="showTerms">điều khoản</a> 
-                  và 
-                  <a href="#" @click.prevent="showPrivacy">chính sách bảo mật</a>
+                  <input type="checkbox" v-model="registerForm.agreeTerms" />
+                  Tôi đồng ý với
+                  <a href="#" @click.prevent="showTerms">điều khoản</a>
+                  và
+                  <a href="#" @click.prevent="showPrivacy"
+                    >chính sách bảo mật</a
+                  >
                 </label>
               </div>
 
-              <button 
-                type="submit" 
-                class="auth-btn" 
+              <button
+                type="submit"
+                class="auth-btn"
                 :disabled="loading || !registerForm.agreeTerms"
               >
                 <span v-if="!loading">ĐĂNG KÝ</span>
-                <span v-else><i class="fas fa-spinner fa-spin"></i> Đang xử lý...</span>
+                <span v-else
+                  ><i class="fas fa-spinner fa-spin"></i> Đang xử lý...</span
+                >
               </button>
             </form>
+
+            <div class="social-login">
+              <p>Hoặc đăng ký với</p>
+              <div class="social-icons">
+                <button
+                  class="social-btn facebook"
+                  @click="socialLogin('facebook')"
+                >
+                  <i class="fab fa-facebook-f"></i>
+                </button>
+                <button
+                  class="social-btn google"
+                  @click="socialLogin('google')"
+                >
+                  <i class="fab fa-google"></i>
+                </button>
+                <button class="social-btn apple" @click="socialLogin('apple')">
+                  <i class="fab fa-apple"></i>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -184,7 +217,11 @@
 
     <!-- Forgot Password Modal -->
     <Transition name="modal">
-      <div v-if="showForgotModal" class="auth-modal" @click.self="closeForgotModal">
+      <div
+        v-if="showForgotModal"
+        class="auth-modal"
+        @click.self="closeForgotModal"
+      >
         <div class="auth-container forgot-container">
           <button class="close-btn" @click="closeForgotModal">
             <i class="fas fa-times"></i>
@@ -199,17 +236,19 @@
           <form @submit.prevent="handleForgotPassword">
             <div class="form-group">
               <i class="fas fa-envelope"></i>
-              <input 
-                type="email" 
-                v-model="forgotEmail" 
+              <input
+                type="email"
+                v-model="forgotEmail"
                 placeholder="Email của bạn"
                 required
-              >
+              />
             </div>
 
             <button type="submit" class="auth-btn" :disabled="forgotLoading">
               <span v-if="!forgotLoading">GỬI YÊU CẦU</span>
-              <span v-else><i class="fas fa-spinner fa-spin"></i> Đang gửi...</span>
+              <span v-else
+                ><i class="fas fa-spinner fa-spin"></i> Đang gửi...</span
+              >
             </button>
           </form>
 
@@ -225,191 +264,213 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
-import { useAuthStore } from '../../stores/authStore'
-import { useNotification } from '../../composables/useNotification'
+import { ref, onMounted, onUnmounted } from "vue";
+import { useAuthStore } from "../../stores/authStore";
+import { useNotification } from "../../composables/useNotification";
 
-const authStore = useAuthStore()
-const { showNotification } = useNotification()
+const authStore = useAuthStore();
+const { showNotification } = useNotification();
 
 // State
-const isOpen = ref(false)
-const activeTab = ref('login')
-const loading = ref(false)
-const showPassword = ref(false)
-const showRegisterPassword = ref(false)
-const showConfirmPassword = ref(false)
-const showForgotModal = ref(false)
-const forgotLoading = ref(false)
-const forgotEmail = ref('')
+const isOpen = ref(false);
+const activeTab = ref("login");
+const loading = ref(false);
+const showPassword = ref(false);
+const showRegisterPassword = ref(false);
+const showConfirmPassword = ref(false);
+const showForgotModal = ref(false);
+const forgotLoading = ref(false);
+const forgotEmail = ref("");
 
 // Login form
 const loginForm = ref({
-  email: '',
-  password: '',
-  remember: false
-})
+  email: "",
+  password: "",
+  remember: false,
+});
 
 // Register form
 const registerForm = ref({
-  name: '',
-  email: '',
-  phone: '',
-  password: '',
-  confirmPassword: '',
-  agreeTerms: false
-})
+  name: "",
+  email: "",
+  phone: "",
+  password: "",
+  confirmPassword: "",
+  agreeTerms: false,
+});
 
 // Methods
-const openModal = (tab = 'login') => {
-  activeTab.value = tab
-  isOpen.value = true
-  document.body.style.overflow = 'hidden'
-}
+const openModal = (tab = "login") => {
+  activeTab.value = tab;
+  isOpen.value = true;
+  document.body.style.overflow = "hidden";
+};
 
 const closeModal = () => {
-  isOpen.value = false
-  document.body.style.overflow = 'auto'
-  resetForms()
-}
+  isOpen.value = false;
+  document.body.style.overflow = "auto";
+  resetForms();
+};
 
 const resetForms = () => {
   loginForm.value = {
-    email: '',
-    password: '',
-    remember: false
-  }
+    email: "",
+    password: "",
+    remember: false,
+  };
   registerForm.value = {
-    name: '',
-    email: '',
-    phone: '',
-    password: '',
-    confirmPassword: '',
-    agreeTerms: false
-  }
-}
+    name: "",
+    email: "",
+    phone: "",
+    password: "",
+    confirmPassword: "",
+    agreeTerms: false,
+  };
+};
 
 const togglePassword = () => {
-  showPassword.value = !showPassword.value
-}
+  showPassword.value = !showPassword.value;
+};
 
 const toggleRegisterPassword = () => {
-  showRegisterPassword.value = !showRegisterPassword.value
-}
+  showRegisterPassword.value = !showRegisterPassword.value;
+};
 
 const toggleConfirmPassword = () => {
-  showConfirmPassword.value = !showConfirmPassword.value
-}
+  showConfirmPassword.value = !showConfirmPassword.value;
+};
 
 const handleLogin = async () => {
   if (!loginForm.value.email || !loginForm.value.password) {
-    showNotification('Vui lòng nhập đầy đủ thông tin', 'error')
-    return
+    showNotification("Vui lòng nhập đầy đủ thông tin", "error");
+    return;
   }
 
-  loading.value = true
+  loading.value = true;
   try {
-    await authStore.login(loginForm.value.email, loginForm.value.password)
-    showNotification('Đăng nhập thành công!', 'success')
-    closeModal()
+    const user = await authStore.login(
+      loginForm.value.email,
+      loginForm.value.password,
+    );
+    showNotification("Đăng nhập thành công!", "success");
+    closeModal();
+
+    // Redirect based on role
+    if (user.role === "admin" || user.role === "staff") {
+      window.location.href = "/admin"; // Redirect to admin dashboard
+    } else {
+      // Reload current page to update header/state for customer
+      // Or do nothing if reactivity updates the UI automatically
+    }
   } catch (error) {
-    showNotification('Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.', 'error')
+    showNotification(
+      "Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.",
+      "error",
+    );
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
 
 const handleRegister = async () => {
   // Validate
-  if (!registerForm.value.name || !registerForm.value.email || !registerForm.value.phone || !registerForm.value.password) {
-    showNotification('Vui lòng nhập đầy đủ thông tin', 'error')
-    return
+  if (
+    !registerForm.value.name ||
+    !registerForm.value.email ||
+    !registerForm.value.phone ||
+    !registerForm.value.password
+  ) {
+    showNotification("Vui lòng nhập đầy đủ thông tin", "error");
+    return;
   }
 
   if (registerForm.value.password !== registerForm.value.confirmPassword) {
-    showNotification('Mật khẩu xác nhận không khớp', 'error')
-    return
+    showNotification("Mật khẩu xác nhận không khớp", "error");
+    return;
   }
 
   if (registerForm.value.password.length < 6) {
-    showNotification('Mật khẩu phải có ít nhất 6 ký tự', 'error')
-    return
+    showNotification("Mật khẩu phải có ít nhất 6 ký tự", "error");
+    return;
   }
 
-  loading.value = true
+  loading.value = true;
   try {
     await authStore.register({
       name: registerForm.value.name,
       email: registerForm.value.email,
       phone: registerForm.value.phone,
-      password: registerForm.value.password
-    })
-    showNotification('Đăng ký thành công!', 'success')
-    closeModal()
+      password: registerForm.value.password,
+    });
+    showNotification("Đăng ký thành công!", "success");
+    closeModal();
   } catch (error) {
-    showNotification('Đăng ký thất bại. Vui lòng thử lại sau.', 'error')
+    showNotification("Đăng ký thất bại. Vui lòng thử lại sau.", "error");
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
 
 const socialLogin = (provider) => {
-  showNotification(`Đăng nhập với ${provider} đang phát triển`, 'info')
-}
+  showNotification(`Đăng nhập với ${provider} đang phát triển`, "info");
+};
 
 const showForgotPassword = () => {
-  showForgotModal.value = true
-}
+  showForgotModal.value = true;
+};
 
 const closeForgotModal = () => {
-  showForgotModal.value = false
-  forgotEmail.value = ''
-}
+  showForgotModal.value = false;
+  forgotEmail.value = "";
+};
 
 const backToLogin = () => {
-  closeForgotModal()
-}
+  closeForgotModal();
+};
 
 const handleForgotPassword = async () => {
   if (!forgotEmail.value) {
-    showNotification('Vui lòng nhập email', 'error')
-    return
+    showNotification("Vui lòng nhập email", "error");
+    return;
   }
 
-  forgotLoading.value = true
+  forgotLoading.value = true;
   try {
     // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500))
-    showNotification('Link đặt lại mật khẩu đã được gửi đến email của bạn!', 'success')
-    closeForgotModal()
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    showNotification(
+      "Link đặt lại mật khẩu đã được gửi đến email của bạn!",
+      "success",
+    );
+    closeForgotModal();
   } catch (error) {
-    showNotification('Có lỗi xảy ra. Vui lòng thử lại sau.', 'error')
+    showNotification("Có lỗi xảy ra. Vui lòng thử lại sau.", "error");
   } finally {
-    forgotLoading.value = false
+    forgotLoading.value = false;
   }
-}
+};
 
 const showTerms = () => {
-  showNotification('Điều khoản sử dụng', 'info')
-}
+  showNotification("Điều khoản sử dụng", "info");
+};
 
 const showPrivacy = () => {
-  showNotification('Chính sách bảo mật', 'info')
-}
+  showNotification("Chính sách bảo mật", "info");
+};
 
 // Listen for open modal events
 const handleOpenAuthModal = (event) => {
-  openModal(event.detail)
-}
+  openModal(event.detail);
+};
 
 onMounted(() => {
-  window.addEventListener('open-auth-modal', handleOpenAuthModal)
-})
+  window.addEventListener("open-auth-modal", handleOpenAuthModal);
+});
 
 onUnmounted(() => {
-  window.removeEventListener('open-auth-modal', handleOpenAuthModal)
-  document.body.style.overflow = 'auto'
-})
+  window.removeEventListener("open-auth-modal", handleOpenAuthModal);
+  document.body.style.overflow = "auto";
+});
 </script>
 
 <style scoped>
@@ -419,7 +480,7 @@ onUnmounted(() => {
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0,0,0,0.5);
+  background: rgba(0, 0, 0, 0.5);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -434,7 +495,10 @@ onUnmounted(() => {
   max-width: 450px;
   position: relative;
   overflow: hidden;
-  box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+  max-height: 90vh; /* Ensure modal itself doesn't exceed screen height */
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
   animation: slideUp 0.3s;
 }
 
@@ -460,8 +524,9 @@ onUnmounted(() => {
   transform: rotate(90deg);
 }
 
-/* Tabs */
+/* Tabs inside flex container */
 .auth-tabs {
+  flex-shrink: 0; /* Keep tabs fixed while form scrolls */
   display: flex;
   background: var(--light-gray);
   border-bottom: 1px solid var(--border-color);
@@ -489,6 +554,22 @@ onUnmounted(() => {
 /* Form */
 .auth-form {
   padding: 30px;
+  overflow-y: auto;
+}
+
+/* Custom scrollbar for better look */
+.auth-form::-webkit-scrollbar {
+  width: 6px;
+}
+.auth-form::-webkit-scrollbar-track {
+  background: transparent;
+}
+.auth-form::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 10px;
+}
+.auth-form::-webkit-scrollbar-thumb:hover {
+  background: var(--medium-gray);
 }
 
 .auth-form h2 {
@@ -533,13 +614,14 @@ onUnmounted(() => {
   box-shadow: 0 0 0 3px rgba(230, 57, 70, 0.1);
 }
 
-.form-group input:focus + i {
+.form-group:focus-within i:not(.toggle-password) {
   color: var(--primary-red);
 }
 
 .toggle-password {
   position: absolute;
-  right: 15px;
+  left: auto !important;
+  right: 15px !important;
   top: 50%;
   transform: translateY(-50%);
   cursor: pointer;
@@ -632,7 +714,7 @@ onUnmounted(() => {
 
 .social-login p::before,
 .social-login p::after {
-  content: '';
+  content: "";
   position: absolute;
   top: 50%;
   width: 30%;

@@ -22,13 +22,13 @@
             <label>Email</label>
             <div class="input-wrapper">
               <i class="fas fa-envelope"></i>
-              <input 
-                type="email" 
-                v-model="form.email" 
+              <input
+                type="email"
+                v-model="form.email"
                 placeholder="Nhập email của bạn"
                 required
                 :disabled="loading"
-              >
+              />
             </div>
           </div>
 
@@ -36,15 +36,15 @@
             <label>Mật khẩu</label>
             <div class="input-wrapper">
               <i class="fas fa-lock"></i>
-              <input 
-                :type="showPassword ? 'text' : 'password'" 
-                v-model="form.password" 
+              <input
+                :type="showPassword ? 'text' : 'password'"
+                v-model="form.password"
                 placeholder="Nhập mật khẩu"
                 required
                 :disabled="loading"
-              >
-              <i 
-                class="fas fa-eye toggle-password" 
+              />
+              <i
+                class="fas fa-eye toggle-password"
                 :class="{ 'fa-eye-slash': showPassword }"
                 @click="showPassword = !showPassword"
               ></i>
@@ -53,7 +53,7 @@
 
           <div class="form-options">
             <label class="checkbox">
-              <input type="checkbox" v-model="form.remember">
+              <input type="checkbox" v-model="form.remember" />
               <span>Ghi nhớ đăng nhập</span>
             </label>
             <router-link to="/forgot-password" class="forgot-link">
@@ -63,7 +63,9 @@
 
           <button type="submit" class="login-btn" :disabled="loading">
             <span v-if="!loading">ĐĂNG NHẬP</span>
-            <span v-else><i class="fas fa-spinner fa-spin"></i> Đang xử lý...</span>
+            <span v-else
+              ><i class="fas fa-spinner fa-spin"></i> Đang xử lý...</span
+            >
           </button>
         </form>
 
@@ -123,66 +125,65 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { useAuthStore } from '../../stores/authStore'
-import { useNotification } from '../../composables/useNotification'
+import { ref } from "vue";
+import { useRouter } from "vue-router";
+import { useAuthStore } from "../../stores/authStore";
+import { useNotification } from "../../composables/useNotification";
 
-const router = useRouter()
-const authStore = useAuthStore()
-const { showNotification } = useNotification()
+const router = useRouter();
+const authStore = useAuthStore();
+const { showNotification } = useNotification();
 
 const form = ref({
-  email: '',
-  password: '',
-  remember: false
-})
+  email: "",
+  password: "",
+  remember: false,
+});
 
-const loading = ref(false)
-const error = ref('')
-const showPassword = ref(false)
+const loading = ref(false);
+const error = ref("");
+const showPassword = ref(false);
 
 const handleLogin = async () => {
-  error.value = ''
-  loading.value = true
+  error.value = "";
+  loading.value = true;
 
   try {
-    await authStore.login(form.value.email, form.value.password)
-    
+    await authStore.login(form.value.email, form.value.password);
+
     // Check if user is admin
-    if (!authStore.isAdmin) {
-      authStore.logout()
-      throw new Error('Tài khoản không có quyền truy cập admin')
+    if (authStore.user.role !== "admin" && authStore.user.role !== "staff") {
+      authStore.logout();
+      throw new Error("Tài khoản không có quyền truy cập admin");
     }
 
     // Save remember me preference
     if (form.value.remember) {
-      localStorage.setItem('adminRememberMe', 'true')
+      localStorage.setItem("adminRememberMe", "true");
     }
 
-    showNotification('Đăng nhập thành công!', 'success')
-    
-    // Redirect to admin dashboard
-    const redirect = router.currentRoute.value.query.redirect || '/admin'
-    router.push(redirect)
+    showNotification("Đăng nhập thành công!", "success");
 
+    // Redirect to admin dashboard
+    const redirect = router.currentRoute.value.query.redirect || "/admin";
+    router.push(redirect);
   } catch (err) {
-    error.value = err.message || 'Đăng nhập thất bại'
-    showNotification(error.value, 'error')
+    error.value = err.message || "Đăng nhập thất bại";
+    showNotification(error.value, "error");
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
 
 const fillAdminAccount = () => {
-  form.value.email = 'admin@fashionstore.vn'
-  form.value.password = 'admin123'
-}
+  form.value.email = "admin@gmail.com";
+  form.value.password = "12345678";
+};
 
 const fillManagerAccount = () => {
-  form.value.email = 'manager@fashionstore.vn'
-  form.value.password = 'manager123'
-}
+  form.value.email = "nhanvien@gmail.com";
+  form.value.password = "12345678";
+};
 </script>
 
 <style scoped>
@@ -207,7 +208,7 @@ const fillManagerAccount = () => {
   background: white;
   border-radius: 20px;
   padding: 40px;
-  box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
 }
 
 .login-logo {
@@ -301,7 +302,7 @@ const fillManagerAccount = () => {
   box-shadow: 0 0 0 3px rgba(230, 57, 70, 0.1);
 }
 
-.input-wrapper input:focus + i {
+.input-wrapper:focus-within i:not(.toggle-password) {
   color: var(--primary-red);
 }
 
@@ -312,7 +313,8 @@ const fillManagerAccount = () => {
 
 .toggle-password {
   position: absolute;
-  right: 15px;
+  left: auto !important;
+  right: 15px !important;
   top: 50%;
   transform: translateY(-50%);
   cursor: pointer;
@@ -447,7 +449,7 @@ const fillManagerAccount = () => {
   background: white;
   border-radius: 20px;
   padding: 30px;
-  box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
   height: fit-content;
 }
 

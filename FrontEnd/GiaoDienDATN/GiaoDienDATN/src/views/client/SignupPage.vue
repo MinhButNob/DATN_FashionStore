@@ -1,7 +1,7 @@
 <template>
   <div class="auth-page">
     <ClientHeader />
-    
+
     <main>
       <div class="container">
         <div class="auth-container">
@@ -33,13 +33,13 @@
                   <label>Họ</label>
                   <div class="input-wrapper">
                     <i class="fas fa-user"></i>
-                    <input 
-                      type="text" 
-                      v-model="form.firstName" 
+                    <input
+                      type="text"
+                      v-model="form.firstName"
                       placeholder="Họ"
                       required
                       :disabled="loading"
-                    >
+                    />
                   </div>
                 </div>
 
@@ -47,13 +47,13 @@
                   <label>Tên</label>
                   <div class="input-wrapper">
                     <i class="fas fa-user"></i>
-                    <input 
-                      type="text" 
-                      v-model="form.lastName" 
+                    <input
+                      type="text"
+                      v-model="form.lastName"
                       placeholder="Tên"
                       required
                       :disabled="loading"
-                    >
+                    />
                   </div>
                 </div>
               </div>
@@ -62,13 +62,13 @@
                 <label>Email</label>
                 <div class="input-wrapper">
                   <i class="fas fa-envelope"></i>
-                  <input 
-                    type="email" 
-                    v-model="form.email" 
+                  <input
+                    type="email"
+                    v-model="form.email"
                     placeholder="Nhập email của bạn"
                     required
                     :disabled="loading"
-                  >
+                  />
                 </div>
               </div>
 
@@ -76,13 +76,13 @@
                 <label>Số điện thoại</label>
                 <div class="input-wrapper">
                   <i class="fas fa-phone"></i>
-                  <input 
-                    type="tel" 
-                    v-model="form.phone" 
+                  <input
+                    type="tel"
+                    v-model="form.phone"
                     placeholder="Nhập số điện thoại"
                     required
                     :disabled="loading"
-                  >
+                  />
                 </div>
               </div>
 
@@ -90,16 +90,16 @@
                 <label>Mật khẩu</label>
                 <div class="input-wrapper">
                   <i class="fas fa-lock"></i>
-                  <input 
-                    :type="showPassword ? 'text' : 'password'" 
-                    v-model="form.password" 
+                  <input
+                    :type="showPassword ? 'text' : 'password'"
+                    v-model="form.password"
                     placeholder="Tạo mật khẩu"
                     required
                     :disabled="loading"
                     @input="validatePassword"
-                  >
-                  <i 
-                    class="fas fa-eye toggle-password" 
+                  />
+                  <i
+                    class="fas fa-eye toggle-password"
                     :class="{ 'fa-eye-slash': showPassword }"
                     @click="showPassword = !showPassword"
                   ></i>
@@ -110,16 +110,16 @@
                 <label>Xác nhận mật khẩu</label>
                 <div class="input-wrapper">
                   <i class="fas fa-lock"></i>
-                  <input 
-                    :type="showConfirmPassword ? 'text' : 'password'" 
-                    v-model="form.confirmPassword" 
+                  <input
+                    :type="showConfirmPassword ? 'text' : 'password'"
+                    v-model="form.confirmPassword"
                     placeholder="Nhập lại mật khẩu"
                     required
                     :disabled="loading"
                     @input="validatePassword"
-                  >
-                  <i 
-                    class="fas fa-eye toggle-password" 
+                  />
+                  <i
+                    class="fas fa-eye toggle-password"
                     :class="{ 'fa-eye-slash': showConfirmPassword }"
                     @click="showConfirmPassword = !showConfirmPassword"
                   ></i>
@@ -129,8 +129,8 @@
               <!-- Password Strength -->
               <div v-if="form.password" class="password-strength">
                 <div class="strength-bar">
-                  <div 
-                    class="strength-progress" 
+                  <div
+                    class="strength-progress"
                     :style="{ width: passwordStrength + '%' }"
                     :class="strengthClass"
                   ></div>
@@ -145,23 +145,43 @@
                 <p class="requirements-title">Mật khẩu phải có:</p>
                 <ul>
                   <li :class="{ valid: hasMinLength }">
-                    <i :class="hasMinLength ? 'fas fa-check-circle' : 'far fa-circle'"></i>
+                    <i
+                      :class="
+                        hasMinLength ? 'fas fa-check-circle' : 'far fa-circle'
+                      "
+                    ></i>
                     Ít nhất 6 ký tự
                   </li>
                   <li :class="{ valid: hasUpperCase }">
-                    <i :class="hasUpperCase ? 'fas fa-check-circle' : 'far fa-circle'"></i>
+                    <i
+                      :class="
+                        hasUpperCase ? 'fas fa-check-circle' : 'far fa-circle'
+                      "
+                    ></i>
                     Ít nhất 1 chữ hoa
                   </li>
                   <li :class="{ valid: hasLowerCase }">
-                    <i :class="hasLowerCase ? 'fas fa-check-circle' : 'far fa-circle'"></i>
+                    <i
+                      :class="
+                        hasLowerCase ? 'fas fa-check-circle' : 'far fa-circle'
+                      "
+                    ></i>
                     Ít nhất 1 chữ thường
                   </li>
                   <li :class="{ valid: hasNumber }">
-                    <i :class="hasNumber ? 'fas fa-check-circle' : 'far fa-circle'"></i>
+                    <i
+                      :class="
+                        hasNumber ? 'fas fa-check-circle' : 'far fa-circle'
+                      "
+                    ></i>
                     Ít nhất 1 số
                   </li>
                   <li :class="{ valid: hasMatch }">
-                    <i :class="hasMatch ? 'fas fa-check-circle' : 'far fa-circle'"></i>
+                    <i
+                      :class="
+                        hasMatch ? 'fas fa-check-circle' : 'far fa-circle'
+                      "
+                    ></i>
                     Mật khẩu xác nhận khớp
                   </li>
                 </ul>
@@ -170,23 +190,27 @@
               <!-- Terms -->
               <div class="terms">
                 <label class="checkbox">
-                  <input type="checkbox" v-model="form.agreeTerms" required>
+                  <input type="checkbox" v-model="form.agreeTerms" required />
                   <span>
-                    Tôi đồng ý với 
-                    <a href="#" @click.prevent="showTerms">điều khoản</a> 
-                    và 
-                    <a href="#" @click.prevent="showPrivacy">chính sách bảo mật</a>
+                    Tôi đồng ý với
+                    <a href="#" @click.prevent="showTerms">điều khoản</a>
+                    và
+                    <a href="#" @click.prevent="showPrivacy"
+                      >chính sách bảo mật</a
+                    >
                   </span>
                 </label>
               </div>
 
-              <button 
-                type="submit" 
-                class="auth-btn" 
+              <button
+                type="submit"
+                class="auth-btn"
                 :disabled="loading || !isFormValid"
               >
                 <span v-if="!loading">ĐĂNG KÝ</span>
-                <span v-else><i class="fas fa-spinner fa-spin"></i> Đang xử lý...</span>
+                <span v-else
+                  ><i class="fas fa-spinner fa-spin"></i> Đang xử lý...</span
+                >
               </button>
             </form>
 
@@ -194,11 +218,19 @@
             <div class="social-login">
               <p class="or-text">Hoặc đăng ký với</p>
               <div class="social-buttons">
-                <button class="social-btn facebook" @click="socialLogin('facebook')" :disabled="loading">
+                <button
+                  class="social-btn facebook"
+                  @click="socialLogin('facebook')"
+                  :disabled="loading"
+                >
                   <i class="fab fa-facebook-f"></i>
                   <span>Facebook</span>
                 </button>
-                <button class="social-btn google" @click="socialLogin('google')" :disabled="loading">
+                <button
+                  class="social-btn google"
+                  @click="socialLogin('google')"
+                  :disabled="loading"
+                >
                   <i class="fab fa-google"></i>
                   <span>Google</span>
                 </button>
@@ -207,7 +239,8 @@
 
             <!-- Login Link -->
             <div class="auth-footer">
-              <p>Đã có tài khoản? 
+              <p>
+                Đã có tài khoản?
                 <router-link to="/login">Đăng nhập</router-link>
               </p>
             </div>
@@ -254,98 +287,101 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
-import { useAuthStore } from '../../stores/authStore'
-import { useNotification } from '../../composables/useNotification'
-import ClientHeader from '../../components/client/ClientHeader.vue'
-import ClientFooter from '../../components/client/ClientFooter.vue'
+import { ref, computed } from "vue";
+import { useRouter } from "vue-router";
+import { useAuthStore } from "../../stores/authStore";
+import { useNotification } from "../../composables/useNotification";
+import ClientHeader from "../../components/client/ClientHeader.vue";
+import ClientFooter from "../../components/client/ClientFooter.vue";
 
-const router = useRouter()
-const authStore = useAuthStore()
-const { showNotification } = useNotification()
+const router = useRouter();
+const authStore = useAuthStore();
+const { showNotification } = useNotification();
 
 const form = ref({
-  firstName: '',
-  lastName: '',
-  email: '',
-  phone: '',
-  password: '',
-  confirmPassword: '',
-  agreeTerms: false
-})
+  firstName: "",
+  lastName: "",
+  email: "",
+  phone: "",
+  password: "",
+  confirmPassword: "",
+  agreeTerms: false,
+});
 
-const loading = ref(false)
-const error = ref('')
-const success = ref('')
-const showPassword = ref(false)
-const showConfirmPassword = ref(false)
+const loading = ref(false);
+const error = ref("");
+const success = ref("");
+const showPassword = ref(false);
+const showConfirmPassword = ref(false);
 
 // Computed
 const fullName = computed(() => {
-  return `${form.value.firstName} ${form.value.lastName}`.trim()
-})
+  return `${form.value.firstName} ${form.value.lastName}`.trim();
+});
 
-const hasMinLength = computed(() => form.value.password.length >= 6)
-const hasUpperCase = computed(() => /[A-Z]/.test(form.value.password))
-const hasLowerCase = computed(() => /[a-z]/.test(form.value.password))
-const hasNumber = computed(() => /[0-9]/.test(form.value.password))
-const hasMatch = computed(() => 
-  form.value.password && 
-  form.value.confirmPassword && 
-  form.value.password === form.value.confirmPassword
-)
+const hasMinLength = computed(() => form.value.password.length >= 6);
+const hasUpperCase = computed(() => /[A-Z]/.test(form.value.password));
+const hasLowerCase = computed(() => /[a-z]/.test(form.value.password));
+const hasNumber = computed(() => /[0-9]/.test(form.value.password));
+const hasMatch = computed(
+  () =>
+    form.value.password &&
+    form.value.confirmPassword &&
+    form.value.password === form.value.confirmPassword,
+);
 
 const isFormValid = computed(() => {
-  return hasMinLength.value &&
-         hasUpperCase.value &&
-         hasLowerCase.value &&
-         hasNumber.value &&
-         hasMatch.value &&
-         form.value.agreeTerms
-})
+  return (
+    hasMinLength.value &&
+    hasUpperCase.value &&
+    hasLowerCase.value &&
+    hasNumber.value &&
+    hasMatch.value &&
+    form.value.agreeTerms
+  );
+});
 
 // Password strength
 const passwordStrength = computed(() => {
-  let strength = 0
-  if (hasMinLength.value) strength += 25
-  if (hasUpperCase.value) strength += 25
-  if (hasLowerCase.value) strength += 25
-  if (hasNumber.value) strength += 25
-  return strength
-})
+  let strength = 0;
+  if (hasMinLength.value) strength += 25;
+  if (hasUpperCase.value) strength += 25;
+  if (hasLowerCase.value) strength += 25;
+  if (hasNumber.value) strength += 25;
+  return strength;
+});
 
 const strengthClass = computed(() => {
-  if (passwordStrength.value <= 25) return 'weak'
-  if (passwordStrength.value <= 50) return 'fair'
-  if (passwordStrength.value <= 75) return 'good'
-  return 'strong'
-})
+  if (passwordStrength.value <= 25) return "weak";
+  if (passwordStrength.value <= 50) return "fair";
+  if (passwordStrength.value <= 75) return "good";
+  return "strong";
+});
 
 const strengthText = computed(() => {
   const texts = {
-    weak: 'Yếu',
-    fair: 'Trung bình',
-    good: 'Khá',
-    strong: 'Mạnh'
-  }
-  return texts[strengthClass.value]
-})
+    weak: "Yếu",
+    fair: "Trung bình",
+    good: "Khá",
+    strong: "Mạnh",
+  };
+  return texts[strengthClass.value];
+});
 
 const validatePassword = () => {
   // Auto validate on input
-}
+};
 
 const handleRegister = async () => {
-  error.value = ''
-  success.value = ''
-  loading.value = true
+  error.value = "";
+  success.value = "";
+  loading.value = true;
 
   try {
     // Validate phone number (Vietnam format)
-    const phoneRegex = /(84|0[3|5|7|8|9])+([0-9]{8})\b/
+    const phoneRegex = /(84|0[3|5|7|8|9])+([0-9]{8})\b/;
     if (!phoneRegex.test(form.value.phone)) {
-      throw new Error('Số điện thoại không hợp lệ')
+      throw new Error("Số điện thoại không hợp lệ");
     }
 
     // Register
@@ -353,36 +389,35 @@ const handleRegister = async () => {
       name: fullName.value,
       email: form.value.email,
       phone: form.value.phone,
-      password: form.value.password
-    })
+      password: form.value.password,
+    });
 
-    success.value = 'Đăng ký thành công! Đang chuyển hướng...'
-    showNotification('Đăng ký thành công!', 'success')
+    success.value = "Đăng ký thành công! Đang chuyển hướng...";
+    showNotification("Đăng ký thành công!", "success");
 
     // Redirect to login after 2 seconds
     setTimeout(() => {
-      router.push('/login')
-    }, 2000)
-
+      router.push("/login");
+    }, 2000);
   } catch (err) {
-    error.value = err.message || 'Đăng ký thất bại. Vui lòng thử lại.'
-    showNotification(error.value, 'error')
+    error.value = err.message || "Đăng ký thất bại. Vui lòng thử lại.";
+    showNotification(error.value, "error");
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
 
 const socialLogin = (provider) => {
-  showNotification(`Đăng ký với ${provider} đang phát triển`, 'info')
-}
+  showNotification(`Đăng ký với ${provider} đang phát triển`, "info");
+};
 
 const showTerms = () => {
-  showNotification('Điều khoản sử dụng', 'info')
-}
+  showNotification("Điều khoản sử dụng", "info");
+};
 
 const showPrivacy = () => {
-  showNotification('Chính sách bảo mật', 'info')
-}
+  showNotification("Chính sách bảo mật", "info");
+};
 </script>
 
 <style scoped>
@@ -514,7 +549,7 @@ main {
   box-shadow: 0 0 0 3px rgba(230, 57, 70, 0.1);
 }
 
-.input-wrapper input:focus + i {
+.input-wrapper:focus-within i:not(.toggle-password) {
   color: var(--primary-red);
 }
 
@@ -525,7 +560,8 @@ main {
 
 .toggle-password {
   position: absolute;
-  right: 15px;
+  left: auto !important;
+  right: 15px !important;
   top: 50%;
   transform: translateY(-50%);
   cursor: pointer;
@@ -552,7 +588,9 @@ main {
 
 .strength-progress {
   height: 100%;
-  transition: width 0.3s, background 0.3s;
+  transition:
+    width 0.3s,
+    background 0.3s;
 }
 
 .strength-progress.weak {
@@ -700,7 +738,7 @@ main {
 
 .or-text::before,
 .or-text::after {
-  content: '';
+  content: "";
   position: absolute;
   top: 50%;
   width: 30%;

@@ -1,7 +1,8 @@
 <template>
   <div class="product-card" @click="goToDetail">
     <div class="product-image">
-      <i :class="['fas', `fa-${product.image}`]"></i>
+      <img v-if="isUrl(product.image)" :src="product.image" :alt="product.name" class="card-img" />
+      <i v-else :class="['fas', `fa-${product.image}`]"></i>
       <div v-if="product.tag" class="product-tag">{{ product.tag }}</div>
       <div class="product-wishlist" @click.stop="toggleWishlist">
         <i :class="[isInWishlist ? 'fas' : 'far', 'fa-heart']"></i>
@@ -91,6 +92,11 @@ const toggleWishlist = (event) => {
     showNotification('Đã thêm vào danh sách yêu thích!', 'success')
   }
 }
+
+const isUrl = (str) => {
+  if (!str) return false
+  return str.startsWith('http') || str.startsWith('data:image')
+}
 </script>
 
 <style scoped>
@@ -128,6 +134,17 @@ const toggleWishlist = (event) => {
 .product-card:hover .product-image i {
   transform: scale(1.1) rotate(5deg);
   color: var(--primary-red);
+}
+
+.card-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: var(--transition);
+}
+
+.product-card:hover .card-img {
+  transform: scale(1.05);
 }
 
 .product-tag {

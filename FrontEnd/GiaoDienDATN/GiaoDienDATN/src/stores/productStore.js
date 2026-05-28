@@ -111,6 +111,119 @@ export const useProductStore = defineStore("products", () => {
     },
   ]);
 
+  const images = ref([
+    {
+      id: 1,
+      name: 'Áo thun nam cổ tròn basic',
+      filename: 'ao-thun-nam-co-tron.jpg',
+      url: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=800',
+      type: 'product',
+      dimensions: '800 x 1000 px',
+      size: '124 KB',
+      uploadedAt: '2026-05-10',
+      productsAssoc: ['Áo thun nam cổ tròn', 'BST Áo Thun Basic']
+    },
+    {
+      id: 2,
+      name: 'Đầm nữ công sở dáng A thanh lịch',
+      filename: 'dam-nu-cong-so.jpg',
+      url: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=800',
+      type: 'product',
+      dimensions: '900 x 1200 px',
+      size: '245 KB',
+      uploadedAt: '2026-05-12',
+      productsAssoc: ['Đầm hoa văn công sở']
+    },
+    {
+      id: 3,
+      name: 'Quần jean nam bụi bặm regular',
+      filename: 'quan-jean-nam.jpg',
+      url: 'https://images.unsplash.com/photo-1542272604-787c3835535d?w=800',
+      type: 'product',
+      dimensions: '750 x 1050 px',
+      size: '189 KB',
+      uploadedAt: '2026-05-14',
+      productsAssoc: ['Quần jean nam rách gối']
+    },
+    {
+      id: 4,
+      name: 'Áo khoác gió nữ chống thấm nước',
+      filename: 'ao-khoac-gio-nu.jpg',
+      url: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?w=800',
+      type: 'product',
+      dimensions: '1200 x 1500 px',
+      size: '312 KB',
+      uploadedAt: '2026-05-15',
+      productsAssoc: ['Áo gió dù thể thao']
+    },
+    {
+      id: 5,
+      name: 'Quần short kaki trẻ em thoáng mát',
+      filename: 'quan-short-tre-em.jpg',
+      url: 'https://images.unsplash.com/photo-1591195853828-11db59a44f6b?w=800',
+      type: 'product',
+      dimensions: '800 x 800 px',
+      size: '95 KB',
+      uploadedAt: '2026-05-18',
+      productsAssoc: ['Bộ short thun bé trai']
+    },
+    {
+      id: 6,
+      name: 'Túi xách tay nữ da thật khóa vàng',
+      filename: 'tui-xach-da-nu.jpg',
+      url: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=800',
+      type: 'product',
+      dimensions: '1000 x 1000 px',
+      size: '156 KB',
+      uploadedAt: '2026-05-20',
+      productsAssoc: ['Túi xách cao cấp Hera']
+    },
+    {
+      id: 7,
+      name: 'Banner Quảng Cáo Mùa Hè Rực Rỡ',
+      filename: 'banner-summer-sale-2026.jpg',
+      url: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=1200',
+      type: 'banner',
+      dimensions: '1920 x 800 px',
+      size: '512 KB',
+      uploadedAt: '2026-05-25',
+      productsAssoc: ['Slider trang chủ - Banner chính']
+    },
+    {
+      id: 8,
+      name: 'Banner Khai Xuân Đón Lộc',
+      filename: 'banner-new-arrival.jpg',
+      url: 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=1200',
+      type: 'banner',
+      dimensions: '1920 x 800 px',
+      size: '489 KB',
+      uploadedAt: '2026-05-26',
+      productsAssoc: ['Slider trang chủ - Banner phụ 1']
+    },
+    {
+      id: 9,
+      name: 'Danh Mục Giày Sneaker Năng Động',
+      filename: 'category-giay-sneaker.jpg',
+      url: 'https://images.unsplash.com/photo-1549298916-b41d501d3772?w=800',
+      type: 'category',
+      dimensions: '600 x 600 px',
+      size: '88 KB',
+      uploadedAt: '2026-05-01',
+      productsAssoc: ['Danh mục Giày Sneaker']
+    },
+    {
+      id: 10,
+      name: 'Ảnh Đại Diện Admin Nguyễn Hà',
+      filename: 'avatar-admin-nguyen-ha.jpg',
+      url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500',
+      type: 'avatar',
+      dimensions: '400 x 400 px',
+      size: '42 KB',
+      uploadedAt: '2026-04-20',
+      productsAssoc: ['Hồ sơ quản trị viên']
+    }
+  ]);
+
   const filters = ref({
     category: "all",
     search: "",
@@ -251,11 +364,20 @@ export const useProductStore = defineStore("products", () => {
     }
   }
 
+  function addImage(image) {
+    images.value.unshift(image);
+  }
+
+  function deleteImage(id) {
+    images.value = images.value.filter((img) => img.id !== id);
+  }
+
   return {
     // State
     products,
     categories,
     filters,
+    images,
 
     // Getters
     filteredProducts,
@@ -270,5 +392,7 @@ export const useProductStore = defineStore("products", () => {
     updateProduct,
     deleteProduct,
     toggleProductStatus,
+    addImage,
+    deleteImage,
   };
 });

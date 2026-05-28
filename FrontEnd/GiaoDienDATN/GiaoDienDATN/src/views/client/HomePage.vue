@@ -1,7 +1,7 @@
 <template>
   <div class="home-page">
     <ClientHeader />
-    
+
     <main>
       <!-- Banner Slider -->
       <BannerSlider />
@@ -81,7 +81,11 @@
                 </div>
                 <div class="blog-title">{{ post.title }}</div>
                 <div class="blog-excerpt">{{ post.excerpt }}</div>
-                <a href="#" class="read-more" @click.prevent="showBlog(post.id)">
+                <a
+                  href="#"
+                  class="read-more"
+                  @click.prevent="showBlog(post.id)"
+                >
                   Đọc tiếp <i class="fas fa-arrow-right"></i>
                 </a>
               </div>
@@ -100,7 +104,7 @@
               type="email"
               v-model="newsletterEmail"
               placeholder="Nhập email của bạn"
-            >
+            />
             <button class="btn btn-primary" @click="subscribeNewsletter">
               Đăng ký
             </button>
@@ -111,78 +115,94 @@
 
     <ClientFooter />
     <CartModal />
-    <AuthModal />
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { useProductStore } from '../../stores/productStore'
-import { useNotification } from '../../composables/useNotification'
-import ClientHeader from '../../components/client/ClientHeader.vue'
-import ClientFooter from '../../components/client/ClientFooter.vue'
-import ProductCard from '../../components/client/ProductCard.vue'
-import BannerSlider from '../../components/client/BannerSlider.vue'
-import FilterBar from '../../components/client/FilterBar.vue'
-import CartModal from '../../components/client/CartModal.vue'
-import AuthModal from '../../components/client/AuthModal.vue'
+import { ref } from "vue";
+import { useRouter } from "vue-router";
+import { useProductStore } from "../../stores/productStore";
+import { useNotification } from "../../composables/useNotification";
+import ClientHeader from "../../components/client/ClientHeader.vue";
+import ClientFooter from "../../components/client/ClientFooter.vue";
+import ProductCard from "../../components/client/ProductCard.vue";
+import BannerSlider from "../../components/client/BannerSlider.vue";
+import FilterBar from "../../components/client/FilterBar.vue";
+import CartModal from "../../components/client/CartModal.vue";
 
-const router = useRouter()
-const productStore = useProductStore()
-const { showNotification } = useNotification()
+const router = useRouter();
+const productStore = useProductStore();
+const { showNotification } = useNotification();
 
-const gridView = ref(true)
-const newsletterEmail = ref('')
+const gridView = ref(true);
+const newsletterEmail = ref("");
 
 const categories = [
-  { id: 1, name: 'Thời trang nam', slug: 'men', icon: 'fas fa-user-tie', count: 234 },
-  { id: 2, name: 'Thời trang nữ', slug: 'women', icon: 'fas fa-female', count: 456 },
-  { id: 3, name: 'Trẻ em', slug: 'kids', icon: 'fas fa-child', count: 123 },
-  { id: 4, name: 'Phụ kiện', slug: 'accessories', icon: 'fas fa-glasses', count: 345 },
-  { id: 5, name: 'Khuyến mãi', slug: 'sale', icon: 'fas fa-tags', count: 89 }
-]
+  {
+    id: 1,
+    name: "Thời trang nam",
+    slug: "men",
+    icon: "fas fa-user-tie",
+    count: 234,
+  },
+  {
+    id: 2,
+    name: "Thời trang nữ",
+    slug: "women",
+    icon: "fas fa-female",
+    count: 456,
+  },
+  { id: 3, name: "Trẻ em", slug: "kids", icon: "fas fa-child", count: 123 },
+  {
+    id: 4,
+    name: "Phụ kiện",
+    slug: "accessories",
+    icon: "fas fa-glasses",
+    count: 345,
+  },
+  { id: 5, name: "Khuyến mãi", slug: "sale", icon: "fas fa-tags", count: 89 },
+];
 
 const blogPosts = [
   {
     id: 1,
-    title: 'Xu hướng thời trang hè 2024',
-    excerpt: 'Những xu hướng thời trang nổi bật nhất trong mùa hè năm nay...',
-    date: '15/03/2024',
-    icon: 'fas fa-tshirt'
+    title: "Xu hướng thời trang hè 2024",
+    excerpt: "Những xu hướng thời trang nổi bật nhất trong mùa hè năm nay...",
+    date: "15/03/2024",
+    icon: "fas fa-tshirt",
   },
   {
     id: 2,
-    title: 'Cách phối đồ với giày thể thao',
-    excerpt: 'Bí quyết phối đồ với giày thể thao cho nam và nữ...',
-    date: '12/03/2024',
-    icon: 'fas fa-shoe-prints'
+    title: "Cách phối đồ với giày thể thao",
+    excerpt: "Bí quyết phối đồ với giày thể thao cho nam và nữ...",
+    date: "12/03/2024",
+    icon: "fas fa-shoe-prints",
   },
   {
     id: 3,
-    title: 'Túi xách công sở cho nữ',
-    excerpt: 'Lựa chọn túi xách phù hợp cho môi trường công sở...',
-    date: '10/03/2024',
-    icon: 'fas fa-handbag'
-  }
-]
+    title: "Túi xách công sở cho nữ",
+    excerpt: "Lựa chọn túi xách phù hợp cho môi trường công sở...",
+    date: "10/03/2024",
+    icon: "fas fa-handbag",
+  },
+];
 
 const goToCategory = (slug) => {
-  router.push(`/shop?category=${slug}`)
-}
+  router.push(`/shop?category=${slug}`);
+};
 
 const showBlog = (id) => {
-  router.push(`/blog/${id}`)
-}
+  router.push(`/blog/${id}`);
+};
 
 const subscribeNewsletter = () => {
   if (newsletterEmail.value) {
-    showNotification('Cảm ơn bạn đã đăng ký nhận tin!', 'success')
-    newsletterEmail.value = ''
+    showNotification("Cảm ơn bạn đã đăng ký nhận tin!", "success");
+    newsletterEmail.value = "";
   } else {
-    showNotification('Vui lòng nhập email!', 'warning')
+    showNotification("Vui lòng nhập email!", "warning");
   }
-}
+};
 </script>
 
 <style scoped>
@@ -211,13 +231,18 @@ const subscribeNewsletter = () => {
 }
 
 .section-title::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 50%;
   left: 0;
   right: 0;
   height: 2px;
-  background: linear-gradient(90deg, transparent, var(--primary-red), transparent);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--primary-red),
+    transparent
+  );
 }
 
 .category-grid {
@@ -435,20 +460,20 @@ const subscribeNewsletter = () => {
   .section-title h2 {
     font-size: 28px;
   }
-  
+
   .category-grid {
     grid-template-columns: repeat(2, 1fr);
   }
-  
+
   .product-container {
     grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
     gap: 20px;
   }
-  
+
   .featured-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .newsletter-form {
     flex-direction: column;
     padding: 0 20px;
@@ -459,7 +484,7 @@ const subscribeNewsletter = () => {
   .category-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .product-container {
     grid-template-columns: 1fr;
   }

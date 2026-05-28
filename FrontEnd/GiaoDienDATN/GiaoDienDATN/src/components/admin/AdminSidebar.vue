@@ -54,6 +54,8 @@ const menuSections = [
     title: 'MANAGE',
     items: [
       { name: 'Danh mục', path: '/admin/categories', icon: 'fas fa-tags' },
+      { name: 'Quản lý hình ảnh', path: '/admin/images', icon: 'fas fa-images' },
+      { name: 'Quản lý size', path: '/admin/sizes', icon: 'fas fa-ruler-combined' },
       { name: 'Kho hàng', path: '/admin/inventory', icon: 'fas fa-boxes' },
       { name: 'Đánh giá', path: '/admin/reviews', icon: 'fas fa-star' },
       { name: 'Khuyến mãi', path: '/admin/discounts', icon: 'fas fa-percent' }
@@ -65,7 +67,8 @@ const menuSections = [
       { name: 'Cài đặt', path: '/admin/settings', icon: 'fas fa-cog' },
       { name: 'Báo cáo', path: '/admin/reports', icon: 'fas fa-chart-bar' }
     ]
-  }
+  },
+
 ]
 
 const isActive = (path) => {

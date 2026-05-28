@@ -73,7 +73,8 @@
     >
       <template #cell-image="{ row }">
         <div class="product-image">
-          <i :class="['fas', `fa-${row.image}`]"></i>
+          <img v-if="isUrl(row.image)" :src="row.image" :alt="row.name" class="thumbnail-img-fit" />
+          <i v-else :class="['fas', `fa-${row.image}`]"></i>
         </div>
       </template>
 
@@ -354,6 +355,11 @@ const confirmDelete = (id) => {
   }
 }
 
+const isUrl = (str) => {
+  if (!str) return false
+  return str.startsWith('http') || str.startsWith('data:image')
+}
+
 // Watch for filter changes
 watch(filters, () => {
   applyFilters()
@@ -460,6 +466,13 @@ watch(filters, () => {
 .product-image i {
   font-size: 25px;
   color: var(--medium-gray);
+}
+
+.thumbnail-img-fit {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 8px;
 }
 
 .rating {

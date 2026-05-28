@@ -1,7 +1,7 @@
 <template>
   <div class="auth-page">
     <ClientHeader />
-    
+
     <main>
       <div class="container">
         <div class="auth-container">
@@ -26,13 +26,13 @@
                 <label>Email</label>
                 <div class="input-wrapper">
                   <i class="fas fa-envelope"></i>
-                  <input 
-                    type="email" 
-                    v-model="form.email" 
+                  <input
+                    type="email"
+                    v-model="form.email"
                     placeholder="Nhập email của bạn"
                     required
                     :disabled="loading"
-                  >
+                  />
                 </div>
               </div>
 
@@ -40,15 +40,15 @@
                 <label>Mật khẩu</label>
                 <div class="input-wrapper">
                   <i class="fas fa-lock"></i>
-                  <input 
-                    :type="showPassword ? 'text' : 'password'" 
-                    v-model="form.password" 
+                  <input
+                    :type="showPassword ? 'text' : 'password'"
+                    v-model="form.password"
                     placeholder="Nhập mật khẩu"
                     required
                     :disabled="loading"
-                  >
-                  <i 
-                    class="fas fa-eye toggle-password" 
+                  />
+                  <i
+                    class="fas fa-eye toggle-password"
                     :class="{ 'fa-eye-slash': showPassword }"
                     @click="showPassword = !showPassword"
                   ></i>
@@ -57,7 +57,7 @@
 
               <div class="form-options">
                 <label class="checkbox">
-                  <input type="checkbox" v-model="form.remember">
+                  <input type="checkbox" v-model="form.remember" />
                   <span>Ghi nhớ đăng nhập</span>
                 </label>
                 <router-link to="/forgot-password" class="forgot-link">
@@ -67,7 +67,9 @@
 
               <button type="submit" class="auth-btn" :disabled="loading">
                 <span v-if="!loading">ĐĂNG NHẬP</span>
-                <span v-else><i class="fas fa-spinner fa-spin"></i> Đang xử lý...</span>
+                <span v-else
+                  ><i class="fas fa-spinner fa-spin"></i> Đang xử lý...</span
+                >
               </button>
             </form>
 
@@ -75,11 +77,19 @@
             <div class="social-login">
               <p class="or-text">Hoặc đăng nhập với</p>
               <div class="social-buttons">
-                <button class="social-btn facebook" @click="socialLogin('facebook')" :disabled="loading">
+                <button
+                  class="social-btn facebook"
+                  @click="socialLogin('facebook')"
+                  :disabled="loading"
+                >
                   <i class="fab fa-facebook-f"></i>
                   <span>Facebook</span>
                 </button>
-                <button class="social-btn google" @click="socialLogin('google')" :disabled="loading">
+                <button
+                  class="social-btn google"
+                  @click="socialLogin('google')"
+                  :disabled="loading"
+                >
                   <i class="fab fa-google"></i>
                   <span>Google</span>
                 </button>
@@ -88,7 +98,8 @@
 
             <!-- Register Link -->
             <div class="auth-footer">
-              <p>Chưa có tài khoản? 
+              <p>
+                Chưa có tài khoản?
                 <router-link to="/signup">Đăng ký ngay</router-link>
               </p>
             </div>
@@ -134,56 +145,60 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { useAuthStore } from '../../stores/authStore'
-import { useNotification } from '../../composables/useNotification'
-import ClientHeader from '../../components/client/ClientHeader.vue'
-import ClientFooter from '../../components/client/ClientFooter.vue'
+import { ref } from "vue";
+import { useRouter } from "vue-router";
+import { useAuthStore } from "../../stores/authStore";
+import { useNotification } from "../../composables/useNotification";
+import ClientHeader from "../../components/client/ClientHeader.vue";
+import ClientFooter from "../../components/client/ClientFooter.vue";
 
-const router = useRouter()
-const authStore = useAuthStore()
-const { showNotification } = useNotification()
+const router = useRouter();
+const authStore = useAuthStore();
+const { showNotification } = useNotification();
 
 const form = ref({
-  email: '',
-  password: '',
-  remember: false
-})
+  email: "",
+  password: "",
+  remember: false,
+});
 
-const loading = ref(false)
-const error = ref('')
-const showPassword = ref(false)
+const loading = ref(false);
+const error = ref("");
+const showPassword = ref(false);
 
 const handleLogin = async () => {
   // Reset error
-  error.value = ''
-  loading.value = true
+  error.value = "";
+  loading.value = true;
 
   try {
-    await authStore.login(form.value.email, form.value.password)
-    
+    const user = await authStore.login(form.value.email, form.value.password);
+
     // Check if user wants to be remembered
     if (form.value.remember) {
-      localStorage.setItem('rememberMe', 'true')
+      localStorage.setItem("rememberMe", "true");
     }
 
-    showNotification('Đăng nhập thành công!', 'success')
-    
-    // Redirect to previous page or home
-    const redirect = router.currentRoute.value.query.redirect || '/'
-    router.push(redirect)
+    showNotification("Đăng nhập thành công!", "success");
+
+    if (user.role === "admin" || user.role === "staff") {
+      window.location.href = "/admin"; // Redirect to admin dashboard
+    } else {
+      // Redirect to previous page or home
+      const redirect = router.currentRoute.value.query.redirect || "/home";
+      router.push(redirect);
+    }
   } catch (err) {
-    error.value = 'Email hoặc mật khẩu không đúng'
-    showNotification('Đăng nhập thất bại!', 'error')
+    error.value = "Email hoặc mật khẩu không đúng";
+    showNotification("Đăng nhập thất bại!", "error");
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
 
 const socialLogin = (provider) => {
-  showNotification(`Đăng nhập với ${provider} đang phát triển`, 'info')
-}
+  showNotification(`Đăng nhập với ${provider} đang phát triển`, "info");
+};
 </script>
 
 <style scoped>
@@ -303,7 +318,7 @@ main {
   box-shadow: 0 0 0 3px rgba(230, 57, 70, 0.1);
 }
 
-.input-wrapper input:focus + i {
+.input-wrapper:focus-within i:not(.toggle-password) {
   color: var(--primary-red);
 }
 
@@ -314,11 +329,13 @@ main {
 
 .toggle-password {
   position: absolute;
-  right: 15px;
+  left: auto !important;
+  right: 15px !important;
   top: 50%;
   transform: translateY(-50%);
   cursor: pointer;
   color: var(--medium-gray);
+  z-index: 2;
   z-index: 2;
 }
 
@@ -399,7 +416,7 @@ main {
 
 .or-text::before,
 .or-text::after {
-  content: '';
+  content: "";
   position: absolute;
   top: 50%;
   width: 30%;
