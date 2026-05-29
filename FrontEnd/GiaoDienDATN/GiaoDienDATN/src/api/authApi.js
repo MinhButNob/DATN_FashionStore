@@ -1,32 +1,20 @@
 import api from "./axios";
 
-export default {
-  // LOGIN
-  login(data) {
-    return api.post("/auth/login", data);
-  },
+export const loginApi = async (email, password) => {
+  const response = await api.post("/auth/login", {
+    email,
+    password,
+  });
 
-  // REGISTER
-  register(data) {
-    return api.post("/auth/register", data);
-  },
+  return response.data;
+};
 
-  // GOOGLE LOGIN
-  googleLogin(idToken) {
-    return api.post("/auth/google", {
-      idToken,
-    });
-  },
+export const registerApi = async (userData) => {
+  const response = await api.post("/auth/register", {
+    username: userData.name,
+    email: userData.email,
+    password: userData.password,
+  });
 
-  // FACEBOOK LOGIN
-  facebookLogin(accessToken) {
-    return api.post("/auth/facebook", {
-      accessToken,
-    });
-  },
-
-  // GET CURRENT USER
-  getCurrentUser() {
-    return api.get("/user/me");
-  },
+  return response.data;
 };

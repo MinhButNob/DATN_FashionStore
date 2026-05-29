@@ -1,96 +1,58 @@
 import { defineStore } from "pinia";
-import authApi from "../api/authApi";
+import axios from "axios";
+
+const API_URL = "http://localhost:8080/api/auth";
 
 export const useAuthStore = defineStore("auth", {
-  state: () => {
-    // Try to load user from local storage safely
-    let storedUser = null;
-    try {
-      const userStr = localStorage.getItem("user");
-      if (userStr) {
-        storedUser = JSON.parse(userStr);
-      }
-    } catch (e) {
-      console.error("Failed to parse user from local storage", e);
-    }
-    
-    return {
-      user: storedUser,
-      token: localStorage.getItem("accessToken") || null,
-    };
-  },
+  state: () => ({
+    user: JSON.parse(localStorage.getItem("user")) || null,
+    token: localStorage.getItem("token") || null,
+  }),
 
   getters: {
     isAuthenticated: (state) => !!state.token,
-    isAdmin: (state) => {
-      if (!state.user || !state.user.roles) return false;
-      return state.user.roles.includes("ROLE_ADMIN") || state.user.roles.includes("ROLE_STAFF");
-    }
   },
 
   actions: {
-    // LOGIN
     async login(email, password) {
-      const response = await authApi.login({
+      const response = await axios.post(`${API_URL}/login`, {
         email,
         password,
       });
 
-      const token = response.data.accessToken;
-      const user = response.data.user;
+      const data = response.data;
 
-      localStorage.setItem("accessToken", token);
-      localStorage.setItem("user", JSON.stringify(user));
+      // LƯU TOKEN
+      this.token = data.accessToken || data.token;
 
-      this.token = token;
-      this.user = user;
+      // LƯU USER
+      this.user = data.user;
 
-      return this.user;
-    },
+      // localStorage
+      localStorage.setItem("token", this.token);
 
-    // REGISTER
-    async register(data) {
-      return await authApi.register(data);
-    },
+      localStorage.setItem("user", JSON.stringify(this.user));
 
-    // GOOGLE LOGIN
-    async googleLogin(idToken) {
-      const response = await authApi.googleLogin(idToken);
-
-      const token = response.data.accessToken;
-      const user = response.data.user;
-
-      localStorage.setItem("accessToken", token);
-      localStorage.setItem("user", JSON.stringify(user));
-
-      this.token = token;
-      this.user = user;
+      // gắn Authorization header
+      axios.defaults.headers.common["Authorization"] = `Bearer ${this.token}`;
 
       return this.user;
     },
 
-    // FACEBOOK LOGIN
-    async facebookLogin(accessToken) {
-      const response = await authApi.facebookLogin(accessToken);
+    async register(registerData) {
+      const response = await axios.post(`${API_URL}/register`, registerData);
 
-      const token = response.data.accessToken;
-      const user = response.data.user;
-
-      localStorage.setItem("accessToken", token);
-      localStorage.setItem("user", JSON.stringify(user));
-
-      this.token = token;
-      this.user = user;
-
-      return this.user;
+      return response.data;
     },
 
-    // LOGOUT
     logout() {
-      localStorage.removeItem("accessToken");
-      localStorage.removeItem("user");
       this.user = null;
       this.token = null;
+
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+
+      delete axios.defaults.headers.common["Authorization"];
     },
   },
 });

@@ -298,6 +298,78 @@ const registerForm = ref({
   confirmPassword: "",
   agreeTerms: false,
 });
+const handleRegister = async () => {
+  const form = registerForm.value;
+
+  // validate
+  if (!form.name || !form.email || !form.password) {
+    showNotification(
+      "Vui lòng nhập đầy đủ thông tin",
+      "error"
+    );
+    return;
+  }
+
+  if (form.password.length < 6) {
+    showNotification(
+      "Mật khẩu phải ít nhất 6 ký tự",
+      "error"
+    );
+    return;
+  }
+
+  if (form.password !== form.confirmPassword) {
+    showNotification(
+      "Mật khẩu xác nhận không khớp",
+      "error"
+    );
+    return;
+  }
+
+  if (!form.agreeTerms) {
+    showNotification(
+      "Vui lòng đồng ý điều khoản",
+      "error"
+    );
+    return;
+  }
+
+  loading.value = true;
+
+  try {
+    await authStore.register({
+      name: form.name,
+      email: form.email,
+      password: form.password,
+    });
+
+    showNotification(
+      "Đăng ký thành công!",
+      "success"
+    );
+
+    // reset form
+    registerForm.value = {
+      name: "",
+      email: "",
+      phone: "",
+      password: "",
+      confirmPassword: "",
+      agreeTerms: false,
+    };
+
+    // chuyển sang login
+    activeTab.value = "login";
+  } catch (error) {
+    const message =
+      error?.response?.data?.message ||
+      "Email đã tồn tại hoặc đăng ký thất bại";
+
+    showNotification(message, "error");
+  } finally {
+    loading.value = false;
+  }
+};
 
 // Methods
 const openModal = (tab = "login") => {
@@ -347,66 +419,29 @@ const handleLogin = async () => {
   }
 
   loading.value = true;
+
   try {
     const user = await authStore.login(
       loginForm.value.email,
-      loginForm.value.password,
+      loginForm.value.password
     );
+
     showNotification("Đăng nhập thành công!", "success");
+
     closeModal();
 
-    // Redirect based on role
-    const roles = user.roles || [];
-    if (roles.includes("ROLE_ADMIN") || roles.includes("ROLE_STAFF")) {
-      window.location.href = "/admin"; // Redirect to admin dashboard
-    } else {
-      // Reload current page to update header/state for customer
-      // Or do nothing if reactivity updates the UI automatically
+    // redirect admin/staff
+    if (
+      user.roles?.includes("ADMIN") ||
+      user.roles?.includes("STAFF")
+    ) {
+      window.location.href = "/admin";
     }
   } catch (error) {
     showNotification(
-      "Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.",
-      "error",
+      "Sai email hoặc mật khẩu",
+      "error"
     );
-  } finally {
-    loading.value = false;
-  }
-};
-
-const handleRegister = async () => {
-  // Validate
-  if (
-    !registerForm.value.name ||
-    !registerForm.value.email ||
-    !registerForm.value.phone ||
-    !registerForm.value.password
-  ) {
-    showNotification("Vui lòng nhập đầy đủ thông tin", "error");
-    return;
-  }
-
-  if (registerForm.value.password !== registerForm.value.confirmPassword) {
-    showNotification("Mật khẩu xác nhận không khớp", "error");
-    return;
-  }
-
-  if (registerForm.value.password.length < 6) {
-    showNotification("Mật khẩu phải có ít nhất 6 ký tự", "error");
-    return;
-  }
-
-  loading.value = true;
-  try {
-    await authStore.register({
-      name: registerForm.value.name,
-      email: registerForm.value.email,
-      phone: registerForm.value.phone,
-      password: registerForm.value.password,
-    });
-    showNotification("Đăng ký thành công!", "success");
-    closeModal();
-  } catch (error) {
-    showNotification("Đăng ký thất bại. Vui lòng thử lại sau.", "error");
   } finally {
     loading.value = false;
   }
