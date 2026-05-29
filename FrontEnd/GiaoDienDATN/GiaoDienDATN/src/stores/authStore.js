@@ -1,48 +1,57 @@
 import { defineStore } from "pinia";
 import axios from "axios";
 
-const API_URL = "http://localhost:8080/api/auth";
+const API = "http://localhost:8080/api/auth";
 
 export const useAuthStore = defineStore("auth", {
   state: () => ({
     user: JSON.parse(localStorage.getItem("user")) || null,
+
     token: localStorage.getItem("token") || null,
   }),
 
-  getters: {
-    isAuthenticated: (state) => !!state.token,
-  },
-
   actions: {
+    async register(data) {
+      const response = await axios.post(`${API}/register`, data);
+
+      return response.data;
+    },
+
     async login(email, password) {
-      const response = await axios.post(`${API_URL}/login`, {
+      const response = await axios.post(`${API}/login`, {
         email,
         password,
       });
 
       const data = response.data;
 
-      // LƯU TOKEN
-      this.token = data.accessToken || data.token;
+      this.token = data.accessToken;
 
-      // LƯU USER
       this.user = data.user;
 
-      // localStorage
-      localStorage.setItem("token", this.token);
+      localStorage.setItem("token", data.accessToken);
 
-      localStorage.setItem("user", JSON.stringify(this.user));
+      localStorage.setItem("user", JSON.stringify(data.user));
 
-      // gắn Authorization header
-      axios.defaults.headers.common["Authorization"] = `Bearer ${this.token}`;
-
-      return this.user;
+      return data.user;
     },
 
-    async register(registerData) {
-      const response = await axios.post(`${API_URL}/register`, registerData);
+    async googleLogin(idToken) {
+      const response = await axios.post(`${API}/google`, {
+        idToken,
+      });
 
-      return response.data;
+      const data = response.data;
+
+      this.token = data.accessToken;
+
+      this.user = data.user;
+
+      localStorage.setItem("token", data.accessToken);
+
+      localStorage.setItem("user", JSON.stringify(data.user));
+
+      return data.user;
     },
 
     logout() {
@@ -50,9 +59,8 @@ export const useAuthStore = defineStore("auth", {
       this.token = null;
 
       localStorage.removeItem("token");
-      localStorage.removeItem("user");
 
-      delete axios.defaults.headers.common["Authorization"];
+      localStorage.removeItem("user");
     },
   },
 });

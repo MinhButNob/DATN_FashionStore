@@ -267,7 +267,8 @@
 import { ref, onMounted, onUnmounted } from "vue";
 import { useAuthStore } from "../../stores/authStore";
 import { useNotification } from "../../composables/useNotification";
-
+import { googleTokenLogin } from "vue3-google-login";
+import { googleSdkLoaded } from "vue3-google-login";
 const authStore = useAuthStore();
 const { showNotification } = useNotification();
 
@@ -448,36 +449,70 @@ const handleLogin = async () => {
 };
 
 const socialLogin = async (provider) => {
+  if (provider !== "google") return;
+
+  loading.value = true;
+
   try {
-    loading.value = true;
+    const response = await new Promise((resolve, reject) => {
+      google.accounts.id.initialize({
+        client_id:
+          "402914017010-6lmb8tf0937e9gpmjfjh36ps6mf94lu6.apps.googleusercontent.com",
 
-    if (provider === "google") {
-      // sau này lấy idToken từ Google SDK
-      const idToken = "GOOGLE_ID_TOKEN";
+        callback: (response) => {
+          if (!response.credential) {
+            reject(new Error("Google login cancelled"));
+            return;
+          }
 
-      await authStore.googleLogin(idToken);
-    }
+          resolve(response);
+        },
+      });
 
-    if (provider === "facebook") {
-      // sau này lấy accessToken từ Facebook SDK
-      const accessToken =
-        "FACEBOOK_ACCESS_TOKEN";
+      google.accounts.id.prompt((notification) => {
+        // user bấm X hoặc cancel
+        if (
+          notification.isNotDisplayed() ||
+          notification.isSkippedMoment()
+        ) {
+          reject(new Error("Google login cancelled"));
+        }
+      });
+    });
 
-      await authStore.facebookLogin(accessToken);
-    }
+    const idToken = response.credential;
+
+    const user = await authStore.googleLogin(idToken);
 
     showNotification(
-      "Đăng nhập thành công!",
-      "success",
+      "Đăng nhập Google thành công!",
+      "success"
     );
 
     closeModal();
+
+    if (
+      user.roles?.includes("ADMIN") ||
+      user.roles?.includes("STAFF")
+    ) {
+      window.location.href = "/admin";
+    }
   } catch (error) {
+    console.error("Google Login Error:", error);
+
+    // user tự đóng popup -> không báo lỗi đỏ
+    if (
+      error.message === "Google login cancelled"
+    ) {
+      return;
+    }
+
     showNotification(
-      "Đăng nhập thất bại",
-      "error",
+      "Đăng nhập Google thất bại",
+      "error"
     );
   } finally {
+    // QUAN TRỌNG
     loading.value = false;
   }
 };

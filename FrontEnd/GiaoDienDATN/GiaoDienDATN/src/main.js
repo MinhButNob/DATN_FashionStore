@@ -3,7 +3,7 @@ import { createPinia } from "pinia";
 import App from "./App.vue";
 import router from "./router";
 import "./assets/main.css";
-
+import vue3GoogleLogin from "vue3-google-login";
 
 
 // Import Bootstrap (nếu bạn dùng)
@@ -21,6 +21,10 @@ app.config.errorHandler = (err, vm, info) => {
   console.error("Vue Error:", err);
   console.error("Error Info:", info);
 };
+app.use(vue3GoogleLogin, {
+  clientId:
+    "402914017010-6lmb8tf0937e9gpmjfjh36ps6mf94lu6.apps.googleusercontent.com",
+});
 
 // Global properties (tùy chọn)
 app.config.globalProperties.$filters = {
