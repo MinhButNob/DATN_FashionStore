@@ -181,8 +181,9 @@ const handleLogin = async () => {
 
     showNotification("Đăng nhập thành công!", "success");
 
-    if (user.role === "admin" || user.role === "staff") {
-      window.location.href = "/admin"; // Redirect to admin dashboard
+    const roles = user.roles || [];
+    if (roles.includes("ROLE_ADMIN") || roles.includes("ROLE_STAFF")) {
+      window.location.href = "/admin";
     } else {
       // Redirect to previous page or home
       const redirect = router.currentRoute.value.query.redirect || "/home";
@@ -196,8 +197,34 @@ const handleLogin = async () => {
   }
 };
 
-const socialLogin = (provider) => {
-  showNotification(`Đăng nhập với ${provider} đang phát triển`, "info");
+const socialLogin = async (provider) => {
+  try {
+    loading.value = true;
+
+    if (provider === "google") {
+      const idToken = "GOOGLE_ID_TOKEN";
+      await authStore.googleLogin(idToken);
+    }
+
+    if (provider === "facebook") {
+      const accessToken = "FACEBOOK_ACCESS_TOKEN";
+      await authStore.facebookLogin(accessToken);
+    }
+
+    showNotification("Đăng nhập thành công!", "success");
+
+    const roles = authStore.user?.roles || [];
+    if (roles.includes("ROLE_ADMIN") || roles.includes("ROLE_STAFF")) {
+      window.location.href = "/admin";
+    } else {
+      const redirect = router.currentRoute.value.query.redirect || "/home";
+      router.push(redirect);
+    }
+  } catch (err) {
+    showNotification(`Đăng nhập với ${provider} thất bại`, "error");
+  } finally {
+    loading.value = false;
+  }
 };
 </script>
 

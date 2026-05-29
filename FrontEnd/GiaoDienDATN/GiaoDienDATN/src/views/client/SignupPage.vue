@@ -407,8 +407,27 @@ const handleRegister = async () => {
   }
 };
 
-const socialLogin = (provider) => {
-  showNotification(`Đăng ký với ${provider} đang phát triển`, "info");
+const socialLogin = async (provider) => {
+  try {
+    loading.value = true;
+
+    if (provider === "google") {
+      const idToken = "GOOGLE_ID_TOKEN";
+      await authStore.googleLogin(idToken);
+    }
+
+    if (provider === "facebook") {
+      const accessToken = "FACEBOOK_ACCESS_TOKEN";
+      await authStore.facebookLogin(accessToken);
+    }
+
+    showNotification("Đăng ký thành công!", "success");
+    router.push("/home");
+  } catch (err) {
+    showNotification(`Đăng ký với ${provider} thất bại`, "error");
+  } finally {
+    loading.value = false;
+  }
 };
 
 const showTerms = () => {

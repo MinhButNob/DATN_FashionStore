@@ -59,7 +59,7 @@ public class AuthServiceImpl
 
         userRepository.save(user);
 
-        ensureCustomerAccount(user, request.getName());
+        ensureCustomerAccount(user, request.getName(), request.getPhone());
 
         return buildAuthResponse(user);
     }
@@ -153,7 +153,7 @@ public class AuthServiceImpl
         return buildAuthResponse(user);
     }
 
-    private void ensureCustomerAccount(User user, String customerName) {
+    private void ensureCustomerAccount(User user, String customerName, String phone) {
         Role customerRole = roleRepository.findByRoleName("CUSTOMER")
                 .orElseGet(() -> roleRepository.save(Role.builder()
                         .roleName("CUSTOMER")
@@ -172,6 +172,7 @@ public class AuthServiceImpl
                 .orElseGet(() -> customerRepository.save(Customer.builder()
                         .user(user)
                         .customerName(customerName)
+                        .phone(phone)
                         .build()));
 
         boolean hasCart = cartRepository.existsByCustomer_CustomerId(customer.getCustomerId());
@@ -189,7 +190,7 @@ public class AuthServiceImpl
         }
         userRepository.save(user);
 
-        ensureCustomerAccount(user, user.getUsername());
+        ensureCustomerAccount(user, user.getUsername(), null);
     }
 
     private AuthResponse buildAuthResponse(User user) {

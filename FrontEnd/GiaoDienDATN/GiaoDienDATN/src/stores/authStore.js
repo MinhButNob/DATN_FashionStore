@@ -36,8 +36,8 @@ export const useAuthStore = defineStore("auth", {
         password,
       });
 
-      const token = response.data.accessToken;
-      const user = response.data.user;
+      const token = response.accessToken;
+      const user = response.user;
 
       localStorage.setItem("accessToken", token);
       localStorage.setItem("user", JSON.stringify(user));
@@ -57,8 +57,8 @@ export const useAuthStore = defineStore("auth", {
     async googleLogin(idToken) {
       const response = await authApi.googleLogin(idToken);
 
-      const token = response.data.accessToken;
-      const user = response.data.user;
+      const token = response.accessToken;
+      const user = response.user;
 
       localStorage.setItem("accessToken", token);
       localStorage.setItem("user", JSON.stringify(user));
@@ -73,8 +73,8 @@ export const useAuthStore = defineStore("auth", {
     async facebookLogin(accessToken) {
       const response = await authApi.facebookLogin(accessToken);
 
-      const token = response.data.accessToken;
-      const user = response.data.user;
+      const token = response.accessToken;
+      const user = response.user;
 
       localStorage.setItem("accessToken", token);
       localStorage.setItem("user", JSON.stringify(user));
