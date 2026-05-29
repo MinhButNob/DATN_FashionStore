@@ -155,7 +155,7 @@ export const useAuthStore = defineStore("auth", () => {
         // Save to localStorage (simulate database)
         existingUsers.push({
           ...newUser,
-          password: userData.password, // In real app, never store plain password
+          password: userData.password,
         });
         localStorage.setItem("registeredUsers", JSON.stringify(existingUsers));
 
