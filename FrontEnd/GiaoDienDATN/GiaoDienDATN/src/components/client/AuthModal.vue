@@ -356,7 +356,8 @@ const handleLogin = async () => {
     closeModal();
 
     // Redirect based on role
-    if (user.role === "admin" || user.role === "staff") {
+    const roles = user.roles || [];
+    if (roles.includes("ROLE_ADMIN") || roles.includes("ROLE_STAFF")) {
       window.location.href = "/admin"; // Redirect to admin dashboard
     } else {
       // Reload current page to update header/state for customer
@@ -411,8 +412,39 @@ const handleRegister = async () => {
   }
 };
 
-const socialLogin = (provider) => {
-  showNotification(`Đăng nhập với ${provider} đang phát triển`, "info");
+const socialLogin = async (provider) => {
+  try {
+    loading.value = true;
+
+    if (provider === "google") {
+      // sau này lấy idToken từ Google SDK
+      const idToken = "GOOGLE_ID_TOKEN";
+
+      await authStore.googleLogin(idToken);
+    }
+
+    if (provider === "facebook") {
+      // sau này lấy accessToken từ Facebook SDK
+      const accessToken =
+        "FACEBOOK_ACCESS_TOKEN";
+
+      await authStore.facebookLogin(accessToken);
+    }
+
+    showNotification(
+      "Đăng nhập thành công!",
+      "success",
+    );
+
+    closeModal();
+  } catch (error) {
+    showNotification(
+      "Đăng nhập thất bại",
+      "error",
+    );
+  } finally {
+    loading.value = false;
+  }
 };
 
 const showForgotPassword = () => {

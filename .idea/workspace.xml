@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="94ba42c1-db4a-4169-b41e-4cf003b4a4fd" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/BackEnd/BackEnd_FashionStore/src/main/java/com/example/backend_fashionstore/entity/Role.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/BackEnd/BackEnd_FashionStore/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/BackEnd/BackEnd_FashionStore/pom.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/BackEnd/BackEnd_FashionStore/src/main/resources/application.properties" beforeDir="false" afterPath="$PROJECT_DIR$/BackEnd/BackEnd_FashionStore/src/main/resources/application.properties" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/GiaoDienDATN/src/components/client/AuthModal.vue" beforeDir="false" afterPath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/GiaoDienDATN/src/components/client/AuthModal.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/GiaoDienDATN/src/services/api.js" beforeDir="false" afterPath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/GiaoDienDATN/src/services/api.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/GiaoDienDATN/src/services/index.js" beforeDir="false" afterPath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/GiaoDienDATN/src/services/index.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/GiaoDienDATN/src/stores/authStore.js" beforeDir="false" afterPath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/GiaoDienDATN/src/stores/authStore.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/.package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/.package-lock.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/CHANGELOG.md" beforeDir="false" afterPath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/CHANGELOG.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/dist/axios.js" beforeDir="false" afterPath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/dist/axios.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/dist/axios.js.map" beforeDir="false" afterPath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/dist/axios.js.map" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/dist/axios.min.js" beforeDir="false" afterPath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/dist/axios.min.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/dist/axios.min.js.map" beforeDir="false" afterPath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/dist/axios.min.js.map" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/dist/browser/axios.cjs" beforeDir="false" afterPath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/dist/browser/axios.cjs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/dist/browser/axios.cjs.map" beforeDir="false" afterPath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/dist/browser/axios.cjs.map" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/dist/esm/axios.js" beforeDir="false" afterPath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/dist/esm/axios.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/dist/esm/axios.js.map" beforeDir="false" afterPath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/dist/esm/axios.js.map" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/dist/esm/axios.min.js" beforeDir="false" afterPath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/dist/esm/axios.min.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/dist/esm/axios.min.js.map" beforeDir="false" afterPath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/dist/esm/axios.min.js.map" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/dist/node/axios.cjs" beforeDir="false" afterPath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/dist/node/axios.cjs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/dist/node/axios.cjs.map" beforeDir="false" afterPath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/dist/node/axios.cjs.map" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/index.d.cts" beforeDir="false" afterPath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/index.d.cts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/index.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/index.d.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/index.js" beforeDir="false" afterPath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/index.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/lib/adapters/adapters.js" beforeDir="false" afterPath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/lib/adapters/adapters.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/lib/adapters/fetch.js" beforeDir="false" afterPath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/lib/adapters/fetch.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/lib/adapters/http.js" beforeDir="false" afterPath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/lib/adapters/http.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/lib/adapters/xhr.js" beforeDir="false" afterPath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/lib/adapters/xhr.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/lib/core/Axios.js" beforeDir="false" afterPath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/lib/core/Axios.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/lib/core/AxiosError.js" beforeDir="false" afterPath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/lib/core/AxiosError.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/lib/core/AxiosHeaders.js" beforeDir="false" afterPath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/lib/core/AxiosHeaders.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/lib/core/buildFullPath.js" beforeDir="false" afterPath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/lib/core/buildFullPath.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/lib/core/dispatchRequest.js" beforeDir="false" afterPath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/lib/core/dispatchRequest.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/lib/core/mergeConfig.js" beforeDir="false" afterPath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/lib/core/mergeConfig.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/lib/core/settle.js" beforeDir="false" afterPath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/lib/core/settle.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/lib/defaults/index.js" beforeDir="false" afterPath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/lib/defaults/index.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/lib/env/data.js" beforeDir="false" afterPath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/lib/env/data.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/lib/helpers/AxiosURLSearchParams.js" beforeDir="false" afterPath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/lib/helpers/AxiosURLSearchParams.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/lib/helpers/buildURL.js" beforeDir="false" afterPath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/lib/helpers/buildURL.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/lib/helpers/composeSignals.js" beforeDir="false" afterPath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/lib/helpers/composeSignals.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/lib/helpers/cookies.js" beforeDir="false" afterPath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/lib/helpers/cookies.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/lib/helpers/estimateDataURLDecodedBytes.js" beforeDir="false" afterPath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/lib/helpers/estimateDataURLDecodedBytes.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/lib/helpers/formDataToJSON.js" beforeDir="false" afterPath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/lib/helpers/formDataToJSON.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/lib/helpers/formDataToStream.js" beforeDir="false" afterPath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/lib/helpers/formDataToStream.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/lib/helpers/fromDataURI.js" beforeDir="false" afterPath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/lib/helpers/fromDataURI.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/lib/helpers/parseProtocol.js" beforeDir="false" afterPath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/lib/helpers/parseProtocol.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/lib/helpers/progressEventReducer.js" beforeDir="false" afterPath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/lib/helpers/progressEventReducer.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/lib/helpers/resolveConfig.js" beforeDir="false" afterPath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/lib/helpers/resolveConfig.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/lib/helpers/toFormData.js" beforeDir="false" afterPath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/lib/helpers/toFormData.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/lib/helpers/validator.js" beforeDir="false" afterPath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/lib/helpers/validator.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/lib/utils.js" beforeDir="false" afterPath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/lib/utils.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/axios/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/follow-redirects/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/follow-redirects/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/follow-redirects/index.js" beforeDir="false" afterPath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/follow-redirects/index.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/follow-redirects/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/follow-redirects/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/proxy-from-env/.eslintrc" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/proxy-from-env/.travis.yml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/proxy-from-env/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/proxy-from-env/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/proxy-from-env/index.js" beforeDir="false" afterPath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/proxy-from-env/index.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/proxy-from-env/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/proxy-from-env/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/node_modules/proxy-from-env/test.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/package-lock.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/FrontEnd/GiaoDienDATN/package.json" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="CopilotPersistence">
+    <persistenceIdMap>
+      <entry key="_C:/Application/OneDrive/Máy tính/DATN_FashionStore" value="3EOxMS1DMT7yCc7vqaFDpvS0y89" />
+    </persistenceIdMap>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="ProjectColorInfo"><![CDATA[{
+  "associatedIndex": 4
+}]]></component>
+  <component name="ProjectId" id="3EOxMS1DMT7yCc7vqaFDpvS0y89" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "git-widget-placeholder": "main",
+    "ignore.virus.scanning.warn.message": "true",
+    "kotlin-language-version-configured": "true",
+    "last_opened_file_path": "C:/Application/OneDrive/Máy tính/DATN_FashionStore",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "vue.rearranger.settings.migration": "true"
+  }
+}]]></component>
+  <component name="RunManager">
+    <configuration name="BackEndFashionStoreApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" nameIsGenerated="true">
+      <option name="FRAME_DEACTIVATION_UPDATE_POLICY" value="UpdateClassesAndResources" />
+      <module name="BackEnd_FashionStore" />
+      <option name="SPRING_BOOT_MAIN_CLASS" value="com.example.backend_fashionstore.BackEndFashionStoreApplication" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-jdk-9823dce3aa75-fdfe4dae3a2d-intellij.indexing.shared.core-IU-243.22562.218" />
+        <option value="bundled-js-predefined-d6986cc7102b-deb605915726-JavaScript-IU-243.22562.218" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="94ba42c1-db4a-4169-b41e-4cf003b4a4fd" name="Changes" comment="" />
+      <created>1780063368283</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1780063368283</updated>
+      <workItem from="1780063369417" duration="985000" />
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="github-copilot-workspace">
+    <instructionFileLocations>
+      <option value=".github/instructions" />
+    </instructionFileLocations>
+    <promptFileLocations>
+      <option value=".github/prompts" />
+    </promptFileLocations>
+  </component>
+</project>

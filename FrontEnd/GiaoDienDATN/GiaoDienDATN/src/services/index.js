@@ -9,8 +9,8 @@ export const authService = {
     return api.post("/auth/register", userData);
   },
 
-  getProfile() {
-    return api.get("/auth/me");
+  getCurrentUser() {
+    return api.get("/user/me");
   },
 
   updateProfile(data) {
