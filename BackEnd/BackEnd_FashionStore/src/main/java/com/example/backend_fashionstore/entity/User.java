@@ -2,7 +2,6 @@ package com.example.backend_fashionstore.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
-
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
@@ -31,7 +30,7 @@ public class User {
     private String passwordHash;
 
     @Column(length = 20)
-    private String provider;
+    private String provider = "LOCAL";
 
     @Column(name = "provider_id")
     private String providerId;
@@ -39,21 +38,29 @@ public class User {
     @Column(name = "avatar_url")
     private String avatarUrl;
 
+    @Column(name = "is_active")
+    private Boolean isActive = true;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    @OneToMany(mappedBy = "user",
-            cascade = CascadeType.ALL,
-            fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private Set<UserRole> userRoles = new HashSet<>();
+
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private Customer customer;
 
     @PrePersist
     public void prePersist() {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
     }
-}
 
+    @PreUpdate
+    public void preUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
+}
