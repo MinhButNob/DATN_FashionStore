@@ -28,73 +28,112 @@ import java.util.List;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
+
     private final JwtAuthenticationFilter jwtFilter;
     private final CustomUserDetailsService customUserDetailsService;
+
 
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
+
     @Bean
     public AuthenticationManager authenticationManager(
             AuthenticationConfiguration config
     ) throws Exception {
 
+
         return config.getAuthenticationManager();
     }
 
+
     @Bean
-    public AuthenticationProvider authenticationProvider() {
-        DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
-        provider.setUserDetailsService(customUserDetailsService);
-        provider.setPasswordEncoder(passwordEncoder());
+    public AuthenticationProvider authProvider() {
+
+
+        DaoAuthenticationProvider provider =
+
+
+                new DaoAuthenticationProvider(
+                        customUserDetailsService
+                );
+
+
+        provider.setPasswordEncoder(
+                passwordEncoder()
+        );
+
+
         return provider;
     }
 
+
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(List.of("*"));
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Cache-Control", "Content-Type", "Accept", "Origin", "X-Requested-With"));
-        configuration.setExposedHeaders(List.of("Authorization"));
 
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", configuration);
+
+        CorsConfiguration configuration =
+                new CorsConfiguration();
+
+
+        configuration.setAllowedOriginPatterns(
+                List.of("*")
+        );
+
+
+        configuration.setAllowedMethods(
+                List.of(
+                        "GET",
+                        "POST",
+                        "PUT",
+                        "DELETE",
+                        "PATCH",
+                        "OPTIONS"
+                )
+        );
+
+
+        configuration.setAllowedHeaders(
+                List.of("*")
+        );
+
+
+        configuration.setExposedHeaders(
+                List.of("Authorization")
+        );
+
+
+        configuration.setAllowCredentials(true);
+
+
+        UrlBasedCorsConfigurationSource source =
+                new UrlBasedCorsConfigurationSource();
+
+
+        source.registerCorsConfiguration(
+                "/**",
+                configuration
+        );
+
+
         return source;
     }
+
 
     @Bean
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http
     ) throws Exception {
 
+
         http
                 .csrf(csrf -> csrf.disable())
+
+
                 .cors(Customizer.withDefaults())
 
-                .authenticationProvider(authenticationProvider())
-
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(
-                                "/api/auth/**",
-                                "/oauth2/**",
-                                "/error",
-                                "/favicon.ico",
-                                "/actuator/health"
-                        )
-                        .permitAll()
-
-                        .requestMatchers("/api/user/**")
-                        .authenticated()
-
-                        .requestMatchers(HttpMethod.OPTIONS, "/**")
-                        .permitAll()
-
-                        .anyRequest()
-                        .authenticated()
-                )
 
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(
@@ -102,12 +141,48 @@ public class SecurityConfig {
                         )
                 )
 
+
+                .authenticationProvider(
+                        authProvider()
+                )
+
+
+                .authorizeHttpRequests(auth -> auth
+
+
+                        .requestMatchers(
+                                "/api/auth/**",
+                                "/oauth2/**",
+                                "/error",
+                                "/favicon.ico"
+                        )
+                        .permitAll()
+
+
+                        .requestMatchers(
+                                HttpMethod.OPTIONS,
+                                "/**"
+                        )
+                        .permitAll()
+
+
+                        .requestMatchers(
+                                "/api/user/**"
+                        )
+                        .authenticated()
+
+
+                        .anyRequest()
+                        .permitAll()
+                )
+
+
                 .addFilterBefore(
                         jwtFilter,
                         UsernamePasswordAuthenticationFilter.class
                 );
 
+
         return http.build();
     }
 }
-
