@@ -31,167 +31,46 @@ import AdminSizes from "../views/admin/AdminSizes.vue";
 import AdminImages from "../views/admin/AdminImages.vue";
 
 const routes = [
-  // ========== REDIRECT ROOT TO CLIENT HOME ==========
-  {
-    path: "/",
-    redirect: "/home",
-  },
-
-  // ========== CLIENT ROUTES ==========
-  {
-    path: "/home", // Đổi thành /home thay vì /
-    name: "home",
-    component: HomePage,
-  },
-  {
-    path: "/shop",
-    name: "shop",
-    component: ShopPage,
-  },
-  {
-    path: "/product/:id",
-    name: "product-detail",
-    component: ProductDetailPage,
-  },
-  {
-    path: "/cart",
-    name: "cart",
-    component: CartPage,
-  },
-  {
-    path: "/checkout",
-    name: "checkout",
-    component: CheckoutPage,
-    meta: { requiresAuth: true },
-  },
-  {
-    path: "/profile",
-    name: "profile",
-    component: ProfilePage,
-    meta: { requiresAuth: true },
-  },
-  {
-    path: "/wishlist",
-    name: "wishlist",
-    component: WishlistPage,
-    meta: { requiresAuth: true },
-  },
-
-  // Auth routes
-  {
-    path: "/login",
-    name: "login",
-    component: LoginPage,
-    meta: { guest: true },
-  },
-  {
-    path: "/signup",
-    name: "signup",
-    component: SignupPage,
-    meta: { guest: true },
-  },
-  {
-    path: "/forgot-password",
-    name: "forgot-password",
-    component: ForgotPasswordPage,
-    meta: { guest: true },
-  },
-  {
-    path: "/reset-password/:token",
-    name: "reset-password",
-    component: ResetPasswordPage,
-    meta: { guest: true },
-  },
-
-  // Static pages
-  {
-    path: "/about",
-    name: "about",
-    component: AboutPage,
-  },
-  {
-    path: "/contact",
-    name: "contact",
-    component: ContactPage,
-  },
-  {
-    path: "/blog/:id",
-    name: "blog-detail",
-    component: BlogDetailPage,
-  },
-
-  // ========== ADMIN ROUTES ==========
-  {
-    path: "/admin/login",
-    name: "admin-login",
-    component: AdminLogin,
-    meta: { guest: true },
-  },
+  { path: "/", redirect: "/home" },
+  { path: "/home", name: "home", component: HomePage },
+  { path: "/shop", name: "shop", component: ShopPage },
+  { path: "/product/:id", name: "product-detail", component: ProductDetailPage },
+  { path: "/cart", name: "cart", component: CartPage },
+  { path: "/checkout", name: "checkout", component: CheckoutPage, meta: { requiresAuth: true } },
+  { path: "/profile", name: "profile", component: ProfilePage, meta: { requiresAuth: true } },
+  { path: "/wishlist", name: "wishlist", component: WishlistPage, meta: { requiresAuth: true } },
+  { path: "/login", name: "login", component: LoginPage, meta: { guest: true } },
+  { path: "/signup", name: "signup", component: SignupPage, meta: { guest: true } },
+  { path: "/forgot-password", name: "forgot-password", component: ForgotPasswordPage, meta: { guest: true } },
+  { path: "/reset-password/:token", name: "reset-password", component: ResetPasswordPage, meta: { guest: true } },
+  { path: "/about", name: "about", component: AboutPage },
+  { path: "/contact", name: "contact", component: ContactPage },
+  { path: "/blog/:id", name: "blog-detail", component: BlogDetailPage },
+  { path: "/admin/login", name: "admin-login", component: AdminLogin, meta: { guest: true } },
   {
     path: "/admin",
     component: AdminLayout,
     meta: { requiresAdmin: true },
     children: [
-      {
-        path: "",
-        name: "admin-dashboard",
-        component: AdminDashboard,
-      },
-      {
-        path: "products",
-        name: "admin-products",
-        component: AdminProducts,
-      },
-      {
-        path: "orders",
-        name: "admin-orders",
-        component: AdminOrders,
-      },
-      {
-        path: "categories",
-        name: "admin-categories",
-        component: AdminCategories,
-      },
-      {
-        path: "sizes",
-        name: "admin-sizes",
-        component: AdminSizes,
-      },
-      {
-        path: "images",
-        name: "admin-images",
-        component: AdminImages,
-      },
-      {
-        path: "customers",
-        name: "admin-customers",
-        component: AdminCustomers,
-      },
-      {
-        path: "settings",
-        name: "admin-settings",
-        component: AdminSettings,
-      },
+      { path: "", name: "admin-dashboard", component: AdminDashboard },
+      { path: "products", name: "admin-products", component: AdminProducts },
+      { path: "orders", name: "admin-orders", component: AdminOrders },
+      { path: "categories", name: "admin-categories", component: AdminCategories },
+      { path: "sizes", name: "admin-sizes", component: AdminSizes },
+      { path: "images", name: "admin-images", component: AdminImages },
+      { path: "customers", name: "admin-customers", component: AdminCustomers },
+      { path: "settings", name: "admin-settings", component: AdminSettings },
     ],
   },
-
-  // ========== 404 ROUTE ==========
-  {
-    path: "/:pathMatch(.*)*",
-    name: "not-found",
-    component: NotFoundPage,
-  },
+  { path: "/:pathMatch(.*)*", name: "not-found", component: NotFoundPage },
 ];
 
 const router = createRouter({
   history: createWebHistory(),
   routes,
   scrollBehavior(to, from, savedPosition) {
-    if (savedPosition) {
-      return savedPosition;
-    } else {
-      return { top: 0 };
-    }
+    if (savedPosition) return savedPosition;
+    return { top: 0 };
   },
 });
 
@@ -199,30 +78,15 @@ const router = createRouter({
 router.beforeEach((to, from, next) => {
   const authStore = useAuthStore();
 
-  // Routes that require authentication
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
-    next({
-      name: "login",
-      query: { redirect: to.fullPath },
-    });
-  }
-
-  // Routes that require admin role
-  else if (to.meta.requiresAdmin && !authStore.isAdmin) {
+    next({ name: "login", query: { redirect: to.fullPath } });
+  } else if (to.meta.requiresAdmin && !authStore.isAdmin) {
     if (authStore.isAuthenticated) {
-      // User is logged in but not admin
       next({ name: "home" });
     } else {
-      // User not logged in
-      next({
-        name: "admin-login",
-        query: { redirect: to.fullPath },
-      });
+      next({ name: "admin-login", query: { redirect: to.fullPath } });
     }
-  }
-
-  // Routes for guests only (login, signup, etc.) - redirect if already authenticated
-  else if (to.meta.guest && authStore.isAuthenticated) {
+  } else if (to.meta.guest && authStore.isAuthenticated) {
     next({ name: "home" });
   } else {
     next();

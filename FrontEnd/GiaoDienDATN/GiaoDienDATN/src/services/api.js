@@ -46,5 +46,38 @@ api.interceptors.response.use(
     return Promise.reject(error);
   },
 );
+// ======================
+// CUSTOMER APIS
+// ======================
+
+export const getCustomers = (page = 0, size = 10, keyword = '', sortBy = 'customerId', sortDir = 'asc') => {
+    return api.get('/admin/customers', {
+        params: { page, size, keyword, sortBy, sortDir }
+    })
+}
+
+export const getCustomerById = (id) => {
+    return api.get(`/admin/customers/${id}`)
+}
+
+export const createCustomer = (data) => {
+    return api.post('/admin/customers', data)
+}
+
+export const updateCustomer = (id, data) => {
+    return api.put(`/admin/customers/${id}`, data)
+}
+
+export const deleteCustomer = (id) => {
+    return api.delete(`/admin/customers/${id}`)
+}
+
+export const toggleLockCustomer = (id) => {
+    return api.patch(`/admin/customers/${id}/toggle-lock`)
+}
+
+export const getCustomerStatistics = () => {
+    return api.get('/admin/customers/statistics')
+}
 
 export default api;

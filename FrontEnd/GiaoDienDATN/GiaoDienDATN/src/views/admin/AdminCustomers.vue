@@ -2,6 +2,37 @@
   <div class="admin-customers">
     <div class="admin-header">
       <h1 class="page-title">Quản lý khách hàng</h1>
+      <button class="btn btn-primary" @click="openAddModal">
+        <i class="fas fa-plus"></i> Thêm khách hàng
+      </button>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="stats-grid">
+      <StatsCard
+        title="Tổng khách hàng"
+        :value="statistics?.totalCustomers || 0"
+        icon="fas fa-users"
+        color="#e63946"
+      />
+      <StatsCard
+        title="Đang hoạt động"
+        :value="statistics?.activeCustomers || 0"
+        icon="fas fa-user-check"
+        color="#28a745"
+      />
+      <StatsCard
+        title="Tạm khóa"
+        :value="statistics?.lockedCustomers || 0"
+        icon="fas fa-user-lock"
+        color="#dc3545"
+      />
+      <StatsCard
+        title="Danh mục có SP"
+        :value="statistics?.categoriesWithProducts || 0"
+        icon="fas fa-boxes"
+        color="#17a2b8"
+      />
     </div>
 
     <!-- Filters -->
@@ -10,238 +41,179 @@
         <i class="fas fa-search"></i>
         <input
           type="text"
-          v-model="filters.search"
+          v-model="keyword"
           placeholder="Tìm kiếm theo tên, email, SĐT..."
-          @input="applyFilters"
-        >
+          @input="onSearch"
+        />
       </div>
-
-      <select v-model="filters.status" @change="applyFilters">
-        <option value="all">Tất cả trạng thái</option>
-        <option value="active">Hoạt động</option>
-        <option value="inactive">Không hoạt động</option>
-      </select>
-
-      <select v-model="filters.sort" @change="applyFilters">
-        <option value="newest">Mới nhất</option>
-        <option value="oldest">Cũ nhất</option>
-        <option value="most-orders">Nhiều đơn nhất</option>
-        <option value="highest-spent">Chi tiêu cao nhất</option>
-      </select>
+      <button class="btn btn-outline" @click="refreshData">
+        <i class="fas fa-sync-alt"></i> Làm mới
+      </button>
     </div>
 
-    <!-- Customers Table -->
-    <div class="table-container">
-      <table>
+    <!-- Loading -->
+    <div v-if="customerStore.loading" class="loading-container">
+      <div class="spinner"></div>
+      <p>Đang tải dữ liệu...</p>
+    </div>
+
+    <!-- Table -->
+    <div v-else class="table-container">
+      <table class="customer-table">
         <thead>
           <tr>
             <th>ID</th>
             <th>Khách hàng</th>
-            <th>Liên hệ</th>
+            <th>Email</th>
+            <th>Số điện thoại</th>
             <th>Địa chỉ</th>
-            <th>Tổng đơn</th>
-            <th>Tổng chi tiêu</th>
-            <th>Lần cuối mua</th>
             <th>Trạng thái</th>
+            <th>Ngày tạo</th>
             <th>Thao tác</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="customer in paginatedCustomers" :key="customer.id">
-            <td>#{{ customer.id }}</td>
+          <tr
+            v-for="customer in customerStore.customers"
+            :key="customer.customerId"
+          >
+            <td>#{{ customer.customerId }}</td>
             <td>
               <div class="customer-info">
                 <div class="customer-avatar">
                   <i class="fas fa-user-circle"></i>
                 </div>
-                <div>
-                  <div class="customer-name">{{ customer.name }}</div>
-                  <div class="customer-date">Đã tham gia: {{ customer.joinedDate }}</div>
-                </div>
+                <div class="customer-name">{{ customer.customerName }}</div>
               </div>
             </td>
+            <td>{{ customer.email }}</td>
+            <td>{{ customer.phone || "---" }}</td>
+            <td>{{ customer.address || "---" }}</td>
             <td>
-              <div class="contact-info">
-                <div><i class="fas fa-envelope"></i> {{ customer.email }}</div>
-                <div><i class="fas fa-phone"></i> {{ customer.phone }}</div>
-              </div>
-            </td>
-            <td>{{ customer.address || 'Chưa cập nhật' }}</td>
-            <td class="text-center">{{ customer.totalOrders }}</td>
-            <td>
-              <span class="total-spent">{{ formatPrice(customer.totalSpent) }}</span>
-            </td>
-            <td>{{ customer.lastPurchase || 'Chưa mua' }}</td>
-            <td>
-              <span 
-                class="status-badge" 
-                :class="customer.status === 'active' ? 'status-active' : 'status-inactive'"
+              <span
+                class="status-badge"
+                :class="customer.isLocked ? 'status-locked' : 'status-active'"
               >
-                {{ customer.status === 'active' ? 'Hoạt động' : 'Không hoạt động' }}
+                {{ customer.isLocked ? "Tạm khóa" : "Hoạt động" }}
               </span>
             </td>
+            <td>{{ formatDate(customer.createdAt) }}</td>
             <td>
               <div class="action-buttons">
-                <button 
-                  class="action-btn view-btn" 
+                <button
+                  class="action-btn view-btn"
                   @click="viewCustomerDetail(customer)"
                   title="Xem chi tiết"
                 >
                   <i class="fas fa-eye"></i>
                 </button>
-                <button 
-                  class="action-btn edit-btn" 
-                  @click="editCustomer(customer)"
+                <button
+                  class="action-btn edit-btn"
+                  @click="openEditModal(customer)"
                   title="Sửa"
                 >
                   <i class="fas fa-edit"></i>
                 </button>
-                <button 
-                  class="action-btn delete-btn" 
-                  @click="confirmDelete(customer.id)"
+                <button
+                  class="action-btn"
+                  :class="customer.isLocked ? 'unlock-btn' : 'lock-btn'"
+                  @click="confirmToggleLock(customer)"
+                  :title="customer.isLocked ? 'Mở khóa' : 'Khóa'"
+                >
+                  <i
+                    :class="
+                      customer.isLocked ? 'fas fa-unlock-alt' : 'fas fa-lock'
+                    "
+                  ></i>
+                </button>
+                <button
+                  class="action-btn delete-btn"
+                  @click="confirmDelete(customer.customerId)"
                   title="Xóa"
                 >
                   <i class="fas fa-trash"></i>
                 </button>
+                <!-- Nút khôi phục - chỉ hiển thị khi tài khoản không hoạt động -->
+                <button
+                  v-if="!customer.isActive"
+                  class="action-btn restore-btn"
+                  @click="confirmRestore(customer.customerId)"
+                  title="Khôi phục"
+                >
+                  <i class="fas fa-undo-alt"></i>
+                </button>
               </div>
             </td>
           </tr>
-          <tr v-if="filteredCustomers.length === 0">
-            <td colspan="9" class="no-data">
-              Không tìm thấy khách hàng nào
-            </td>
+          <tr v-if="customerStore.customers.length === 0">
+            <td colspan="8" class="no-data">Không tìm thấy khách hàng nào</td>
           </tr>
         </tbody>
       </table>
     </div>
 
     <!-- Pagination -->
-    <div class="pagination">
+    <div class="pagination" v-if="customerStore.totalPages > 0">
       <button
         class="page-btn"
-        :disabled="currentPage === 1"
-        @click="currentPage--"
+        :disabled="customerStore.currentPage === 0"
+        @click="goToPage(customerStore.currentPage - 1)"
       >
         <i class="fas fa-chevron-left"></i>
       </button>
-
       <button
         v-for="page in displayedPages"
         :key="page"
         class="page-btn"
-        :class="{ active: currentPage === page }"
-        @click="currentPage = page"
+        :class="{ active: customerStore.currentPage === page }"
+        @click="goToPage(page)"
       >
-        {{ page }}
+        {{ page + 1 }}
       </button>
-
       <button
         class="page-btn"
-        :disabled="currentPage === totalPages"
-        @click="currentPage++"
+        :disabled="customerStore.currentPage === customerStore.totalPages - 1"
+        @click="goToPage(customerStore.currentPage + 1)"
       >
         <i class="fas fa-chevron-right"></i>
       </button>
     </div>
 
-    <!-- Customer Detail Modal -->
-    <div v-if="showDetailModal" class="modal">
-      <div class="modal-content modal-lg">
+    <!-- Detail Modal -->
+    <div v-if="showDetailModal" class="modal" @click.self="closeDetailModal">
+      <div class="modal-content">
         <div class="modal-header">
           <h2>Chi tiết khách hàng</h2>
           <button class="close-btn" @click="closeDetailModal">
             <i class="fas fa-times"></i>
           </button>
         </div>
-
         <div class="modal-body">
-          <div class="customer-profile">
-            <div class="profile-header">
-              <div class="profile-avatar">
-                <i class="fas fa-user-circle"></i>
-              </div>
-              <div class="profile-info">
-                <h3>{{ selectedCustomer?.name }}</h3>
-                <p>ID: #{{ selectedCustomer?.id }}</p>
-                <p>Đã tham gia: {{ selectedCustomer?.joinedDate }}</p>
-              </div>
-              <span 
-                class="status-badge" 
-                :class="selectedCustomer?.status === 'active' ? 'status-active' : 'status-inactive'"
-              >
-                {{ selectedCustomer?.status === 'active' ? 'Hoạt động' : 'Không hoạt động' }}
-              </span>
-            </div>
-
-            <div class="profile-stats">
-              <div class="stat-card">
-                <div class="stat-icon">
-                  <i class="fas fa-shopping-bag"></i>
-                </div>
-                <div class="stat-info">
-                  <span class="stat-label">Tổng đơn hàng</span>
-                  <span class="stat-value">{{ selectedCustomer?.totalOrders }}</span>
-                </div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-icon">
-                  <i class="fas fa-dollar-sign"></i>
-                </div>
-                <div class="stat-info">
-                  <span class="stat-label">Tổng chi tiêu</span>
-                  <span class="stat-value">{{ formatPrice(selectedCustomer?.totalSpent) }}</span>
-                </div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-icon">
-                  <i class="fas fa-calendar-check"></i>
-                </div>
-                <div class="stat-info">
-                  <span class="stat-label">Lần cuối mua</span>
-                  <span class="stat-value">{{ selectedCustomer?.lastPurchase || 'Chưa mua' }}</span>
-                </div>
-              </div>
-            </div>
-
-            <div class="profile-details">
-              <div class="details-section">
-                <h4>Thông tin liên hệ</h4>
-                <p><strong>Email:</strong> {{ selectedCustomer?.email }}</p>
-                <p><strong>Số điện thoại:</strong> {{ selectedCustomer?.phone }}</p>
-                <p><strong>Địa chỉ:</strong> {{ selectedCustomer?.address || 'Chưa cập nhật' }}</p>
-              </div>
-
-              <div class="details-section">
-                <h4>Đơn hàng gần đây</h4>
-                <div v-if="recentOrders.length === 0" class="no-orders">
-                  Khách hàng chưa có đơn hàng nào
-                </div>
-                <div v-else class="recent-orders">
-                  <div v-for="order in recentOrders" :key="order.id" class="recent-order">
-                    <div class="order-header">
-                      <span class="order-id">Mã đơn: {{ order.id }}</span>
-                      <span class="order-date">{{ order.date }}</span>
-                    </div>
-                    <div class="order-products">
-                      {{ order.items.length }} sản phẩm
-                    </div>
-                    <div class="order-footer">
-                      <span class="order-total">{{ formatPrice(order.total) }}</span>
-                      <span class="order-status" :class="`status-${order.status}`">
-                        {{ getStatusText(order.status) }}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+          <div class="detail-item">
+            <strong>ID:</strong> {{ selectedCustomer?.customerId }}
+          </div>
+          <div class="detail-item">
+            <strong>Tên:</strong> {{ selectedCustomer?.customerName }}
+          </div>
+          <div class="detail-item">
+            <strong>Email:</strong> {{ selectedCustomer?.email }}
+          </div>
+          <div class="detail-item">
+            <strong>SĐT:</strong> {{ selectedCustomer?.phone || "---" }}
+          </div>
+          <div class="detail-item">
+            <strong>Địa chỉ:</strong> {{ selectedCustomer?.address || "---" }}
+          </div>
+          <div class="detail-item">
+            <strong>Trạng thái:</strong>
+            {{ selectedCustomer?.isLocked ? "Tạm khóa" : "Hoạt động" }}
+          </div>
+          <div class="detail-item">
+            <strong>Ngày tạo:</strong>
+            {{ formatDate(selectedCustomer?.createdAt) }}
           </div>
         </div>
-
         <div class="modal-footer">
-          <button class="btn btn-primary" @click="sendEmail">
-            <i class="fas fa-envelope"></i> Gửi email
-          </button>
           <button class="btn btn-outline" @click="closeDetailModal">
             Đóng
           </button>
@@ -249,315 +221,251 @@
       </div>
     </div>
 
-    <!-- Delete Confirmation Modal -->
-    <div v-if="showDeleteModal" class="modal">
-      <div class="modal-content modal-sm">
-        <div class="modal-header">
-          <h2>Xác nhận xóa</h2>
-          <button class="close-btn" @click="closeDeleteModal">
-            <i class="fas fa-times"></i>
-          </button>
-        </div>
+    <!-- Add/Edit Modal -->
+    <CustomerModal
+      :visible="showCustomerModal"
+      :is-edit="isEditMode"
+      :initial-data="editingCustomer"
+      @close="closeCustomerModal"
+      @submit="handleCustomerSubmit"
+    />
 
-        <div class="modal-body">
-          <p>Bạn có chắc chắn muốn xóa khách hàng này?</p>
-          <p class="warning-text">Hành động này không thể hoàn tác!</p>
-        </div>
-
-        <div class="modal-footer">
-          <button class="btn btn-danger" @click="deleteCustomer">
-            Xóa
-          </button>
-          <button class="btn btn-outline" @click="closeDeleteModal">
-            Hủy
-          </button>
-        </div>
-      </div>
-    </div>
+    <!-- Confirm Dialog -->
+    <ConfirmDialog
+      :visible="showConfirmDialog"
+      :title="confirmTitle"
+      :message="confirmMessage"
+      :confirm-text="confirmButtonText"
+      @confirm="handleConfirm"
+      @cancel="closeConfirmDialog"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
-import { useNotification } from '../../composables/useNotification'
-import { formatPrice } from '../../utils/helpers'
+import { ref, computed, onMounted } from "vue";
+import { storeToRefs } from "pinia";
+import { useCustomerStore } from "../../stores/customerStore";
+import { useNotification } from "../../composables/useNotification";
+import StatsCard from "../../components/admin/StatsCard.vue";
+import CustomerModal from "../../components/admin/CustomerModal.vue";
+import ConfirmDialog from "../../components/admin/ConfirmDialog.vue";
 
-const { showNotification } = useNotification()
-
-// Mock data
-const customers = ref([
-  {
-    id: 1,
-    name: 'Nguyễn Văn A',
-    email: 'nguyenvana@email.com',
-    phone: '0123456789',
-    address: '123 Nguyễn Huệ, Quận 1, Hồ Chí Minh',
-    joinedDate: '01/01/2024',
-    totalOrders: 5,
-    totalSpent: 2450000,
-    lastPurchase: '15/03/2024',
-    status: 'active'
-  },
-  {
-    id: 2,
-    name: 'Trần Thị B',
-    email: 'tranthib@email.com',
-    phone: '0987654321',
-    address: '456 Lê Lợi, Quận 1, Hồ Chí Minh',
-    joinedDate: '15/02/2024',
-    totalOrders: 3,
-    totalSpent: 1250000,
-    lastPurchase: '10/03/2024',
-    status: 'active'
-  },
-  {
-    id: 3,
-    name: 'Lê Văn C',
-    email: 'levanc@email.com',
-    phone: '0369852147',
-    address: '789 Điện Biên Phủ, Quận 3, Hồ Chí Minh',
-    joinedDate: '20/02/2024',
-    totalOrders: 2,
-    totalSpent: 850000,
-    lastPurchase: '05/03/2024',
-    status: 'inactive'
-  },
-  {
-    id: 4,
-    name: 'Phạm Thị D',
-    email: 'phamthid@email.com',
-    phone: '0912345678',
-    address: '321 Hoàng Diệu, Quận 4, Hồ Chí Minh',
-    joinedDate: '01/03/2024',
-    totalOrders: 4,
-    totalSpent: 1890000,
-    lastPurchase: '12/03/2024',
-    status: 'active'
-  },
-  {
-    id: 5,
-    name: 'Hoàng Văn E',
-    email: 'hoangvane@email.com',
-    phone: '0975314682',
-    address: '654 Võ Văn Kiệt, Quận 5, Hồ Chí Minh',
-    joinedDate: '10/03/2024',
-    totalOrders: 1,
-    totalSpent: 299000,
-    lastPurchase: '10/03/2024',
-    status: 'active'
-  }
-])
-
-// Mock orders for customer detail
-const recentOrders = ref([
-  {
-    id: 'DH001',
-    date: '15/03/2024',
-    items: [{ id: 1, name: 'Áo thun nam', quantity: 2 }],
-    total: 398000,
-    status: 'delivered'
-  },
-  {
-    id: 'DH002',
-    date: '10/03/2024',
-    items: [{ id: 2, name: 'Đầm nữ', quantity: 1 }],
-    total: 399000,
-    status: 'delivered'
-  }
-])
+const customerStore = useCustomerStore();
+const { statistics } = storeToRefs(customerStore);
+const { showNotification } = useNotification();
 
 // State
-const filters = ref({
-  search: '',
-  status: 'all',
-  sort: 'newest'
-})
-
-const currentPage = ref(1)
-const itemsPerPage = 10
-const showDetailModal = ref(false)
-const showDeleteModal = ref(false)
-const selectedCustomer = ref(null)
-const deleteId = ref(null)
+const keyword = ref("");
+const showDetailModal = ref(false);
+const showCustomerModal = ref(false);
+const showConfirmDialog = ref(false);
+const selectedCustomer = ref(null);
+const isEditMode = ref(false);
+const editingCustomer = ref(null);
+const confirmAction = ref("");
+const confirmTitle = ref("");
+const confirmMessage = ref("");
+const confirmButtonText = ref("");
+let pendingCustomerId = null;
 
 // Computed
-const filteredCustomers = computed(() => {
-  let filtered = [...customers.value]
-
-  // Search filter
-  if (filters.value.search) {
-    const searchTerm = filters.value.search.toLowerCase()
-    filtered = filtered.filter(customer =>
-      customer.name.toLowerCase().includes(searchTerm) ||
-      customer.email.toLowerCase().includes(searchTerm) ||
-      customer.phone.includes(searchTerm)
-    )
-  }
-
-  // Status filter
-  if (filters.value.status !== 'all') {
-    filtered = filtered.filter(customer => customer.status === filters.value.status)
-  }
-
-  // Sort
-  switch (filters.value.sort) {
-    case 'newest':
-      filtered.sort((a, b) => new Date(b.joinedDate.split('/').reverse().join('-')) - 
-                                new Date(a.joinedDate.split('/').reverse().join('-')))
-      break
-    case 'oldest':
-      filtered.sort((a, b) => new Date(a.joinedDate.split('/').reverse().join('-')) - 
-                                new Date(b.joinedDate.split('/').reverse().join('-')))
-      break
-    case 'most-orders':
-      filtered.sort((a, b) => b.totalOrders - a.totalOrders)
-      break
-    case 'highest-spent':
-      filtered.sort((a, b) => b.totalSpent - a.totalSpent)
-      break
-  }
-
-  return filtered
-})
-
-const paginatedCustomers = computed(() => {
-  const start = (currentPage.value - 1) * itemsPerPage
-  const end = start + itemsPerPage
-  return filteredCustomers.value.slice(start, end)
-})
-
-const totalPages = computed(() => {
-  return Math.ceil(filteredCustomers.value.length / itemsPerPage)
-})
-
 const displayedPages = computed(() => {
-  const delta = 2
-  const range = []
-  const rangeWithDots = []
-  let l
-
-  for (let i = 1; i <= totalPages.value; i++) {
-    if (i === 1 || i === totalPages.value || (i >= currentPage.value - delta && i <= currentPage.value + delta)) {
-      range.push(i)
-    }
+  const total = customerStore.totalPages;
+  const current = customerStore.currentPage;
+  const delta = 2;
+  const range = [];
+  const rangeWithDots = [];
+  let l;
+  for (let i = 0; i < total; i++) {
+    if (
+      i === 0 ||
+      i === total - 1 ||
+      (i >= current - delta && i <= current + delta)
+    )
+      range.push(i);
   }
-
   range.forEach((i) => {
     if (l) {
-      if (i - l === 2) {
-        rangeWithDots.push(l + 1)
-      } else if (i - l !== 1) {
-        rangeWithDots.push('...')
-      }
+      if (i - l === 2) rangeWithDots.push(l + 1);
+      else if (i - l !== 1) rangeWithDots.push("...");
     }
-    rangeWithDots.push(i)
-    l = i
-  })
-
-  return rangeWithDots
-})
+    rangeWithDots.push(i);
+    l = i;
+  });
+  return rangeWithDots;
+});
 
 // Methods
-const applyFilters = () => {
-  currentPage.value = 1
-}
-
-const getStatusText = (status) => {
-  const statuses = {
-    'pending': 'Chờ xác nhận',
-    'processing': 'Đang xử lý',
-    'shipped': 'Đang giao',
-    'delivered': 'Đã giao',
-    'cancelled': 'Đã hủy'
+const loadData = async () => {
+  try {
+    await Promise.all([
+      customerStore.fetchCustomers(0, 10, keyword.value),
+      customerStore.fetchStatistics(),
+    ]);
+  } catch (error) {
+    showNotification("Lỗi khi tải dữ liệu", "error");
   }
-  return statuses[status] || status
-}
+};
+
+const onSearch = () => {
+  customerStore.fetchCustomers(0, 10, keyword.value);
+};
+const refreshData = () => {
+  keyword.value = "";
+  loadData();
+};
+const goToPage = (page) => {
+  customerStore.fetchCustomers(page, 10, keyword.value);
+};
+const formatDate = (dateString) => {
+  if (!dateString) return "---";
+  return new Date(dateString).toLocaleDateString("vi-VN");
+};
 
 const viewCustomerDetail = (customer) => {
-  selectedCustomer.value = customer
-  showDetailModal.value = true
-}
-
+  selectedCustomer.value = customer;
+  showDetailModal.value = true;
+};
 const closeDetailModal = () => {
-  showDetailModal.value = false
-  selectedCustomer.value = null
-}
+  showDetailModal.value = false;
+  selectedCustomer.value = null;
+};
 
-const editCustomer = (customer) => {
-  showNotification('Chức năng đang phát triển', 'info')
-}
+const openAddModal = () => {
+  isEditMode.value = false;
+  editingCustomer.value = null;
+  showCustomerModal.value = true;
+};
+const openEditModal = (customer) => {
+  isEditMode.value = true;
+  editingCustomer.value = { ...customer };
+  showCustomerModal.value = true;
+};
+const closeCustomerModal = () => {
+  showCustomerModal.value = false;
+  editingCustomer.value = null;
+};
+
+const handleCustomerSubmit = async (data) => {
+  try {
+    if (isEditMode.value) {
+      await customerStore.editCustomer(editingCustomer.value.customerId, {
+        customerName: data.customerName,
+        phone: data.phone,
+        address: data.address,
+      });
+      showNotification("Cập nhật thành công!", "success");
+    } else {
+      await customerStore.addCustomer(data);
+      showNotification("Thêm thành công!", "success");
+    }
+  } catch (error) {
+    showNotification(error.response?.data?.message || "Có lỗi xảy ra", "error");
+  }
+};
+
+const confirmToggleLock = (customer) => {
+  pendingCustomerId = customer.customerId;
+  const isLocking = !customer.isLocked;
+  confirmTitle.value = isLocking
+    ? "Xác nhận khóa tài khoản"
+    : "Xác nhận mở khóa";
+  confirmMessage.value = isLocking
+    ? `Khóa tài khoản của "${customer.customerName}"?`
+    : `Mở khóa tài khoản của "${customer.customerName}"?`;
+  confirmButtonText.value = isLocking ? "Khóa" : "Mở khóa";
+  confirmAction.value = "toggleLock";
+  showConfirmDialog.value = true;
+};
 
 const confirmDelete = (id) => {
-  deleteId.value = id
-  showDeleteModal.value = true
-}
+  pendingCustomerId = id;
+  confirmTitle.value = "Xác nhận xóa";
+  confirmMessage.value = "Bạn có chắc chắn muốn xóa khách hàng này?";
+  confirmButtonText.value = "Xóa";
+  confirmAction.value = "delete";
+  showConfirmDialog.value = true;
+};
 
-const closeDeleteModal = () => {
-  showDeleteModal.value = false
-  deleteId.value = null
-}
+const confirmRestore = (id) => {
+  pendingCustomerId = id;
+  confirmTitle.value = "Xác nhận khôi phục";
+  confirmMessage.value = "Bạn có chắc chắn muốn khôi phục khách hàng này?";
+  confirmButtonText.value = "Khôi phục";
+  confirmAction.value = "restore";
+  showConfirmDialog.value = true;
+};
 
-const deleteCustomer = () => {
-  const index = customers.value.findIndex(c => c.id === deleteId.value)
-  if (index !== -1) {
-    customers.value.splice(index, 1)
-    showNotification('Xóa khách hàng thành công!', 'success')
+const closeConfirmDialog = () => {
+  showConfirmDialog.value = false;
+  pendingCustomerId = null;
+  confirmAction.value = "";
+};
+
+const handleConfirm = async () => {
+  try {
+    if (confirmAction.value === "toggleLock") {
+      await customerStore.toggleLock(pendingCustomerId);
+      showNotification("Thay đổi trạng thái thành công!", "success");
+    } else if (confirmAction.value === "delete") {
+      await customerStore.removeCustomer(pendingCustomerId);
+      showNotification("Xóa khách hàng thành công!", "success");
+    } else if (confirmAction.value === "restore") {
+      await customerStore.restoreCustomer(pendingCustomerId);
+      showNotification("Khôi phục khách hàng thành công!", "success");
+    }
+  } catch (error) {
+    showNotification(error.response?.data?.message || "Có lỗi xảy ra", "error");
+  } finally {
+    closeConfirmDialog();
   }
-  closeDeleteModal()
-}
+};
 
-const sendEmail = () => {
-  showNotification('Chức năng gửi email đang phát triển', 'info')
-}
-
-// Watch for filter changes
-watch(filters, () => {
-  applyFilters()
-}, { deep: true })
+// Lifecycle
+onMounted(() => {
+  loadData();
+});
 </script>
 
 <style scoped>
 .admin-customers {
-  animation: fadeIn 0.3s;
+  padding: 20px;
 }
-
 .admin-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 25px;
 }
-
 .page-title {
   font-size: 28px;
-  color: var(--dark-gray);
+  color: #333;
+  margin: 0;
 }
-
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 20px;
+  margin-bottom: 25px;
+}
 .filters-bar {
   background: white;
   padding: 20px;
   border-radius: 10px;
-  box-shadow: var(--shadow);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
   display: flex;
   gap: 15px;
-  flex-wrap: wrap;
   margin-bottom: 20px;
 }
-
 .search-box {
   flex: 1;
-  min-width: 250px;
   display: flex;
   align-items: center;
-  background: var(--light-gray);
+  background: #f5f5f5;
   border-radius: 8px;
   padding: 0 15px;
 }
-
-.search-box i {
-  color: var(--medium-gray);
-}
-
 .search-box input {
   border: none;
   background: none;
@@ -565,115 +473,54 @@ watch(filters, () => {
   width: 100%;
   outline: none;
 }
-
-.filters-bar select {
-  padding: 12px 15px;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  outline: none;
-  min-width: 150px;
-  cursor: pointer;
-  background: white;
-}
-
-.filters-bar select:focus {
-  border-color: var(--primary-red);
-}
-
-/* Table */
 .table-container {
   background: white;
   border-radius: 15px;
-  box-shadow: var(--shadow);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
   overflow-x: auto;
-  margin-bottom: 20px;
 }
-
-table {
+.customer-table {
   width: 100%;
   border-collapse: collapse;
 }
-
-th {
-  background: var(--light-gray);
+.customer-table th {
+  background: #f8f9fa;
   padding: 15px;
   text-align: left;
   font-weight: 600;
-  color: var(--dark-gray);
-  border-bottom: 2px solid var(--border-color);
+  color: #555;
+  border-bottom: 2px solid #eee;
 }
-
-td {
+.customer-table td {
   padding: 15px;
-  border-bottom: 1px solid var(--border-color);
-  color: var(--medium-gray);
+  border-bottom: 1px solid #eee;
+  color: #666;
 }
-
-tr:hover {
-  background: var(--light-gray);
+.customer-table tr:hover {
+  background: #f8f9fa;
 }
-
-.text-center {
-  text-align: center;
-}
-
-/* Customer Info */
 .customer-info {
   display: flex;
   align-items: center;
   gap: 10px;
 }
-
 .customer-avatar {
   width: 40px;
   height: 40px;
-  background: var(--light-gray);
+  background: #f5f5f5;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
 }
-
 .customer-avatar i {
   font-size: 24px;
-  color: var(--primary-red);
+  color: #e63946;
 }
-
 .customer-name {
-  font-weight: 600;
-  color: var(--dark-gray);
-  margin-bottom: 3px;
+  font-weight: 500;
+  color: #333;
 }
-
-.customer-date {
-  font-size: 11px;
-  color: var(--medium-gray);
-}
-
-/* Contact Info */
-.contact-info {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.contact-info div {
-  font-size: 13px;
-}
-
-.contact-info i {
-  width: 18px;
-  color: var(--primary-red);
-  font-size: 12px;
-}
-
-/* Total Spent */
-.total-spent {
-  font-weight: 600;
-  color: var(--primary-red);
-}
-
-/* Status Badge */
 .status-badge {
   display: inline-block;
   padding: 5px 12px;
@@ -681,418 +528,203 @@ tr:hover {
   font-size: 12px;
   font-weight: 600;
 }
-
 .status-active {
   background: #d4edda;
   color: #155724;
 }
-
-.status-inactive {
+.status-locked {
   background: #f8d7da;
   color: #721c24;
 }
-
-/* Action Buttons */
 .action-buttons {
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
 }
-
 .action-btn {
-  width: 35px;
-  height: 35px;
+  width: 32px;
+  height: 32px;
   border: none;
-  border-radius: 8px;
+  border-radius: 6px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.3s;
 }
-
 .view-btn {
   background: #17a2b8;
   color: white;
 }
-
 .view-btn:hover {
   background: #138496;
-  transform: translateY(-2px);
 }
-
 .edit-btn {
   background: #ffc107;
-  color: var(--dark-gray);
+  color: #333;
 }
-
 .edit-btn:hover {
   background: #e0a800;
-  transform: translateY(-2px);
 }
-
-.delete-btn {
+.lock-btn {
   background: #dc3545;
   color: white;
 }
-
-.delete-btn:hover {
+.lock-btn:hover {
   background: #c82333;
-  transform: translateY(-2px);
 }
-
-/* No Data */
+.unlock-btn {
+  background: #28a745;
+  color: white;
+}
+.unlock-btn:hover {
+  background: #218838;
+}
+.delete-btn {
+  background: #6c757d;
+  color: white;
+}
+.delete-btn:hover {
+  background: #5a6268;
+}
+.restore-btn {
+  background: #17a2b8;
+  color: white;
+}
+.restore-btn:hover {
+  background: #138496;
+}
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 50px;
+  background: white;
+  border-radius: 15px;
+}
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #e63946;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
 .no-data {
   text-align: center;
   padding: 40px;
-  color: var(--medium-gray);
+  color: #999;
 }
-
-/* Modal */
+.pagination {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 20px;
+}
+.page-btn {
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  background: white;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+.page-btn:hover:not(:disabled) {
+  background: #e63946;
+  color: white;
+  border-color: #e63946;
+}
+.page-btn.active {
+  background: #e63946;
+  color: white;
+  border-color: #e63946;
+}
+.page-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.3s;
+}
+.btn-primary {
+  background: #e63946;
+  color: white;
+}
+.btn-primary:hover {
+  background: #c82333;
+}
+.btn-outline {
+  background: none;
+  border: 1px solid #ddd;
+  color: #666;
+}
+.btn-outline:hover {
+  background: #f5f5f5;
+}
 .modal {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0,0,0,0.5);
+  background: rgba(0, 0, 0, 0.5);
   display: flex;
   justify-content: center;
   align-items: center;
   z-index: 1000;
-  backdrop-filter: blur(5px);
 }
-
 .modal-content {
   background: white;
   border-radius: 15px;
   width: 90%;
-  max-width: 800px;
+  max-width: 500px;
   max-height: 90vh;
   overflow-y: auto;
-  animation: slideUp 0.3s;
 }
-
-.modal-content.modal-lg {
-  max-width: 1000px;
-}
-
-.modal-content.modal-sm {
-  max-width: 400px;
-}
-
 .modal-header {
   padding: 20px 25px;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid #eee;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  position: sticky;
-  top: 0;
-  background: white;
-  border-radius: 15px 15px 0 0;
 }
-
 .modal-header h2 {
-  color: var(--dark-gray);
   font-size: 20px;
+  color: #333;
+  margin: 0;
 }
-
 .close-btn {
   background: none;
   border: none;
   font-size: 20px;
   cursor: pointer;
-  color: var(--medium-gray);
-  transition: all 0.3s;
+  color: #999;
 }
-
-.close-btn:hover {
-  color: var(--primary-red);
-  transform: rotate(90deg);
-}
-
 .modal-body {
   padding: 25px;
 }
-
+.detail-item {
+  margin-bottom: 12px;
+}
 .modal-footer {
   padding: 20px 25px;
-  border-top: 1px solid var(--border-color);
+  border-top: 1px solid #eee;
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  background: var(--light-gray);
-  border-radius: 0 0 15px 15px;
-}
-
-/* Customer Profile */
-.customer-profile {
-  display: flex;
-  flex-direction: column;
-  gap: 25px;
-}
-
-.profile-header {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  position: relative;
-  flex-wrap: wrap;
-}
-
-.profile-avatar {
-  width: 80px;
-  height: 80px;
-  background: var(--light-gray);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.profile-avatar i {
-  font-size: 50px;
-  color: var(--primary-red);
-}
-
-.profile-info h3 {
-  color: var(--dark-gray);
-  font-size: 20px;
-  margin-bottom: 5px;
-}
-
-.profile-info p {
-  color: var(--medium-gray);
-  font-size: 14px;
-}
-
-/* Profile Stats */
-.profile-stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
-}
-
-.stat-card {
-  background: var(--light-gray);
-  padding: 15px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
-
-.stat-icon {
-  width: 50px;
-  height: 50px;
-  background: white;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.stat-icon i {
-  font-size: 24px;
-  color: var(--primary-red);
-}
-
-.stat-info {
-  display: flex;
-  flex-direction: column;
-}
-
-.stat-label {
-  font-size: 13px;
-  color: var(--medium-gray);
-  margin-bottom: 3px;
-}
-
-.stat-value {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--dark-gray);
-}
-
-/* Profile Details */
-.profile-details {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 25px;
-}
-
-.details-section h4 {
-  color: var(--dark-gray);
-  margin-bottom: 15px;
-  font-size: 16px;
-}
-
-.details-section p {
-  color: var(--medium-gray);
-  margin-bottom: 8px;
-  font-size: 14px;
-}
-
-.details-section p strong {
-  color: var(--dark-gray);
-  margin-right: 5px;
-}
-
-/* Recent Orders */
-.recent-orders {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.recent-order {
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  padding: 12px;
-  transition: all 0.3s;
-}
-
-.recent-order:hover {
-  box-shadow: var(--shadow);
-}
-
-.order-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 5px;
-}
-
-.order-id {
-  font-weight: 600;
-  color: var(--primary-red);
-}
-
-.order-date {
-  font-size: 12px;
-  color: var(--medium-gray);
-}
-
-.order-products {
-  font-size: 13px;
-  color: var(--medium-gray);
-  margin-bottom: 8px;
-}
-
-.order-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.order-total {
-  font-weight: 600;
-  color: var(--dark-gray);
-}
-
-.order-status {
-  padding: 3px 8px;
-  border-radius: 15px;
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.order-status.status-pending {
-  background: #fff3cd;
-  color: #856404;
-}
-
-.order-status.status-processing {
-  background: #cce5ff;
-  color: #004085;
-}
-
-.order-status.status-shipped {
-  background: #d1ecf1;
-  color: #0c5460;
-}
-
-.order-status.status-delivered {
-  background: #d4edda;
-  color: #155724;
-}
-
-.order-status.status-cancelled {
-  background: #f8d7da;
-  color: #721c24;
-}
-
-.no-orders {
-  color: var(--medium-gray);
-  font-size: 14px;
-  font-style: italic;
-}
-
-/* Warning Text */
-.warning-text {
-  color: #dc3545;
-  font-size: 14px;
-  margin-top: 10px;
-}
-
-/* Animations */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(50px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* Responsive */
-@media (max-width: 1024px) {
-  .profile-stats {
-    grid-template-columns: 1fr;
-  }
-
-  .profile-details {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 768px) {
-  .page-title {
-    font-size: 24px;
-  }
-
-  .filters-bar {
-    flex-direction: column;
-  }
-
-  .filters-bar select {
-    width: 100%;
-  }
-
-  .profile-header {
-    flex-direction: column;
-    text-align: center;
-  }
-
-  .profile-header .status-badge {
-    align-self: center;
-  }
-
-  .modal-content {
-    width: 95%;
-  }
 }
 </style>
