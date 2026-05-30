@@ -85,14 +85,23 @@
                   <i class="fab fa-facebook-f"></i>
                   <span>Facebook</span>
                 </button>
-                <button
-                  class="social-btn google"
-                  @click="socialLogin('google')"
-                  :disabled="loading"
-                >
-                  <i class="fab fa-google"></i>
-                  <span>Google</span>
-                </button>
+                <div class="google-btn-wrapper">
+                  <GoogleLogin
+                    :callback="handleGoogleCallback"
+                    custom
+                    v-slot="{ login }"
+                  >
+                    <button
+                      class="social-btn google"
+                      @click.prevent="login"
+                      :disabled="loading"
+                      style="width: 100%"
+                    >
+                      <i class="fab fa-google"></i>
+                      <span>Google</span>
+                    </button>
+                  </GoogleLogin>
+                </div>
               </div>
             </div>
 
@@ -197,7 +206,33 @@ const handleLogin = async () => {
 };
 
 const socialLogin = (provider) => {
-  showNotification(`Đăng nhập với ${provider} đang phát triển`, "info");
+  if (provider === "facebook") {
+    showNotification(`Đăng nhập với ${provider} đang phát triển`, "info");
+  }
+};
+
+const handleGoogleCallback = async (response) => {
+  if (!response.credential) {
+    showNotification("Đăng nhập Google thất bại", "error");
+    return;
+  }
+  loading.value = true;
+  error.value = "";
+  try {
+    const user = await authStore.googleLogin(response.credential);
+    showNotification("Đăng nhập Google thành công!", "success");
+    if (user.role === "admin" || user.role === "staff") {
+      window.location.href = "/admin";
+    } else {
+      const redirect = router.currentRoute.value.query.redirect || "/home";
+      router.push(redirect);
+    }
+  } catch (err) {
+    error.value = "Đăng nhập Google thất bại";
+    showNotification("Đăng nhập Google thất bại", "error");
+  } finally {
+    loading.value = false;
+  }
 };
 </script>
 

@@ -269,6 +269,7 @@ import { useAuthStore } from "../../stores/authStore";
 import { useNotification } from "../../composables/useNotification";
 import { googleTokenLogin } from "vue3-google-login";
 import { googleSdkLoaded } from "vue3-google-login";
+
 const authStore = useAuthStore();
 const { showNotification } = useNotification();
 
@@ -304,34 +305,22 @@ const handleRegister = async () => {
 
   // validate
   if (!form.name || !form.email || !form.password) {
-    showNotification(
-      "Vui lòng nhập đầy đủ thông tin",
-      "error"
-    );
+    showNotification("Vui lòng nhập đầy đủ thông tin", "error");
     return;
   }
 
   if (form.password.length < 6) {
-    showNotification(
-      "Mật khẩu phải ít nhất 6 ký tự",
-      "error"
-    );
+    showNotification("Mật khẩu phải ít nhất 6 ký tự", "error");
     return;
   }
 
   if (form.password !== form.confirmPassword) {
-    showNotification(
-      "Mật khẩu xác nhận không khớp",
-      "error"
-    );
+    showNotification("Mật khẩu xác nhận không khớp", "error");
     return;
   }
 
   if (!form.agreeTerms) {
-    showNotification(
-      "Vui lòng đồng ý điều khoản",
-      "error"
-    );
+    showNotification("Vui lòng đồng ý điều khoản", "error");
     return;
   }
 
@@ -344,10 +333,7 @@ const handleRegister = async () => {
       password: form.password,
     });
 
-    showNotification(
-      "Đăng ký thành công!",
-      "success"
-    );
+    showNotification("Đăng ký thành công!", "success");
 
     // reset form
     registerForm.value = {
@@ -373,6 +359,27 @@ const handleRegister = async () => {
 };
 
 // Methods
+const handleGoogleCallback = async (response) => {
+  if (!response.credential) {
+    showNotification("Đăng nhập Google thất bại", "error");
+    return;
+  }
+  loading.value = true;
+  try {
+    const user = await authStore.googleLogin(response.credential);
+    showNotification("Đăng nhập Google thành công!", "success");
+    closeModal();
+    if (user.roles?.includes("ADMIN") || user.roles?.includes("STAFF")) {
+      window.location.href = "/admin";
+    }
+  } catch (error) {
+    console.error("Google Login Error:", error);
+    showNotification("Đăng nhập Google thất bại", "error");
+  } finally {
+    loading.value = false;
+  }
+};
+
 const openModal = (tab = "login") => {
   activeTab.value = tab;
   isOpen.value = true;
@@ -424,7 +431,7 @@ const handleLogin = async () => {
   try {
     const user = await authStore.login(
       loginForm.value.email,
-      loginForm.value.password
+      loginForm.value.password,
     );
 
     showNotification("Đăng nhập thành công!", "success");
@@ -432,87 +439,174 @@ const handleLogin = async () => {
     closeModal();
 
     // redirect admin/staff
-    if (
-      user.roles?.includes("ADMIN") ||
-      user.roles?.includes("STAFF")
-    ) {
+    if (user.roles?.includes("ADMIN") || user.roles?.includes("STAFF")) {
       window.location.href = "/admin";
     }
   } catch (error) {
-    showNotification(
-      "Sai email hoặc mật khẩu",
-      "error"
-    );
+    showNotification("Sai email hoặc mật khẩu", "error");
   } finally {
     loading.value = false;
   }
 };
 
-const socialLogin = async (provider) => {
-  if (provider !== "google") return;
+// const socialLogin = async (provider) => {
+//   if (provider !== "google") return;
 
+//   loading.value = true;
+
+//   try {
+//     const response = await new Promise((resolve, reject) => {
+//       google.accounts.id.initialize({
+//         client_id:
+//           "402914017010-6lmb8tf0937e9gpmjfjh36ps6mf94lu6.apps.googleusercontent.com",
+
+//         callback: (response) => {
+//           if (!response.credential) {
+//             reject(new Error("Google login cancelled"));
+//             return;
+//           }
+
+//           resolve(response);
+//         },
+//       });
+
+//       google.accounts.id.prompt((notification) => {
+//         // user bấm X hoặc cancel
+//         if (
+//           notification.isNotDisplayed() ||
+//           notification.isSkippedMoment()
+//         ) {
+//           reject(new Error("Google login cancelled"));
+//         }
+//       });
+//     });
+
+//     const idToken = response.credential;
+
+//     const user = await authStore.googleLogin(idToken);
+
+//     showNotification(
+//       "Đăng nhập Google thành công!",
+//       "success"
+//     );
+
+//     closeModal();
+
+//     if (
+//       user.roles?.includes("ADMIN") ||
+//       user.roles?.includes("STAFF")
+//     ) {
+//       window.location.href = "/admin";
+//     }
+//   } catch (error) {
+//     console.error("Google Login Error:", error);
+
+//     // user tự đóng popup -> không báo lỗi đỏ
+//     if (
+//       error.message === "Google login cancelled"
+//     ) {
+//       return;
+//     }
+
+//     showNotification(
+//       "Đăng nhập Google thất bại",
+//       "error"
+//     );
+//   } finally {
+//     // QUAN TRỌNG
+//     loading.value = false;
+//   }
+// };
+
+const socialLogin = async (provider) => {
   loading.value = true;
 
   try {
-    const response = await new Promise((resolve, reject) => {
-      google.accounts.id.initialize({
-        client_id:
-          "402914017010-6lmb8tf0937e9gpmjfjh36ps6mf94lu6.apps.googleusercontent.com",
+    // ======================
+    // GOOGLE LOGIN
+    // ======================
+    if (provider === "google") {
+      const response = await new Promise((resolve, reject) => {
+        google.accounts.id.initialize({
+          client_id:
+            "402914017010-6lmb8tf0937e9gpmjfjh36ps6mf94lu6.apps.googleusercontent.com",
 
-        callback: (response) => {
-          if (!response.credential) {
+          callback: (response) => {
+            if (!response.credential) {
+              reject(new Error("Google login cancelled"));
+              return;
+            }
+
+            resolve(response);
+          },
+        });
+
+        google.accounts.id.prompt((notification) => {
+          if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
             reject(new Error("Google login cancelled"));
-            return;
           }
-
-          resolve(response);
-        },
+        });
       });
 
-      google.accounts.id.prompt((notification) => {
-        // user bấm X hoặc cancel
-        if (
-          notification.isNotDisplayed() ||
-          notification.isSkippedMoment()
-        ) {
-          reject(new Error("Google login cancelled"));
-        }
-      });
-    });
+      const idToken = response.credential;
 
-    const idToken = response.credential;
+      const user = await authStore.googleLogin(idToken);
 
-    const user = await authStore.googleLogin(idToken);
+      showNotification("Đăng nhập Google thành công!", "success");
 
-    showNotification(
-      "Đăng nhập Google thành công!",
-      "success"
-    );
+      closeModal();
 
-    closeModal();
+      if (user.roles?.includes("ADMIN") || user.roles?.includes("STAFF")) {
+        window.location.href = "/admin";
+      }
 
-    if (
-      user.roles?.includes("ADMIN") ||
-      user.roles?.includes("STAFF")
-    ) {
-      window.location.href = "/admin";
-    }
-  } catch (error) {
-    console.error("Google Login Error:", error);
-
-    // user tự đóng popup -> không báo lỗi đỏ
-    if (
-      error.message === "Google login cancelled"
-    ) {
       return;
     }
 
-    showNotification(
-      "Đăng nhập Google thất bại",
-      "error"
-    );
+    // ======================
+    // FACEBOOK LOGIN
+    // ======================
+    if (provider === "facebook") {
+      const response = await new Promise((resolve, reject) => {
+        FB.login(
+          (response) => {
+            if (response.authResponse) {
+              resolve(response);
+            } else {
+              reject(new Error("Facebook login cancelled"));
+            }
+          },
+          {
+            scope: "public_profile,email",
+          },
+        );
+      });
+
+      const accessToken = response.authResponse.accessToken;
+
+      console.log("FACEBOOK TOKEN:", accessToken);
+
+      const user = await authStore.facebookLogin(accessToken);
+
+      showNotification("Đăng nhập Facebook thành công!", "success");
+
+      closeModal();
+
+      if (user.roles?.includes("ADMIN") || user.roles?.includes("STAFF")) {
+        window.location.href = "/admin";
+      }
+
+      return;
+    }
+  } catch (error) {
+    console.error("Social Login Error:", error);
+
+    if (error.message?.includes("cancelled")) {
+      return;
+    }
+
+    showNotification("Đăng nhập thất bại", "error");
   } finally {
-    // QUAN TRỌNG
     loading.value = false;
   }
 };

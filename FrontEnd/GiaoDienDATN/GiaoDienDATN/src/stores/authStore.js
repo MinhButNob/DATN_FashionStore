@@ -10,6 +10,10 @@ export const useAuthStore = defineStore("auth", {
     token: localStorage.getItem("token") || null,
   }),
 
+  getters: {
+    isAuthenticated: (state) => !!state.token,
+  },
+
   actions: {
     async register(data) {
       const response = await axios.post(`${API}/register`, data);
@@ -45,6 +49,23 @@ export const useAuthStore = defineStore("auth", {
 
       this.token = data.accessToken;
 
+      this.user = data.user;
+
+      localStorage.setItem("token", data.accessToken);
+
+      localStorage.setItem("user", JSON.stringify(data.user));
+
+      return data.user;
+    },
+
+    async facebookLogin(accessToken) {
+      const response = await axios.post(`${API}/facebook`, {
+        accessToken,
+      });
+
+      const data = response.data;
+
+      this.token = data.accessToken;
       this.user = data.user;
 
       localStorage.setItem("token", data.accessToken);

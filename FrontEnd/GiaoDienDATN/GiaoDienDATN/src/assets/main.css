@@ -7,7 +7,7 @@
   --medium-gray: #6c757d;
   --dark-gray: #343a40;
   --border-color: #dee2e6;
-  --shadow: 0 5px 20px rgba(0,0,0,0.08);
+  --shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
   --shadow-hover: 0 8px 25px rgba(230, 57, 70, 0.15);
   --transition: all 0.3s ease;
 }
@@ -16,12 +16,17 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
 }
 
 body {
   background-color: var(--light-gray);
   overflow-x: hidden;
+}
+
+main,
+.page-wrapper {
+  padding-top: 140px;
 }
 
 .container {
@@ -146,7 +151,7 @@ body {
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0,0,0,0.5);
+  background: rgba(0, 0, 0, 0.5);
   z-index: 2000;
   display: flex;
   justify-content: center;
@@ -262,8 +267,12 @@ tr:hover {
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 /* Notification */
@@ -311,11 +320,12 @@ tr:hover {
   .container {
     padding: 0 15px;
   }
-  
-  th, td {
+
+  th,
+  td {
     padding: 10px 15px;
   }
-  
+
   .notification {
     top: 80px;
     right: 10px;
@@ -328,7 +338,7 @@ tr:hover {
   .pagination {
     flex-wrap: wrap;
   }
-  
+
   .page-btn {
     width: 35px;
     height: 35px;
