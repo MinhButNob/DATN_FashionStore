@@ -41,6 +41,7 @@ public class SecurityConfig {
     public AuthenticationManager authenticationManager(
             AuthenticationConfiguration config
     ) throws Exception {
+
         return config.getAuthenticationManager();
     }
 
@@ -48,6 +49,7 @@ public class SecurityConfig {
     public AuthenticationProvider authProvider() {
 
         DaoAuthenticationProvider provider =
+
                 new DaoAuthenticationProvider(
                         customUserDetailsService
                 );
