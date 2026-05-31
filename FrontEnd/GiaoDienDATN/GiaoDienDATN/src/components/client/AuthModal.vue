@@ -369,7 +369,7 @@ const handleGoogleCallback = async (response) => {
     const user = await authStore.googleLogin(response.credential);
     showNotification("Đăng nhập Google thành công!", "success");
     closeModal();
-    if (user.roles?.includes("ADMIN") || user.roles?.includes("STAFF")) {
+    if (authStore.isAdmin) {
       window.location.href = "/admin";
     }
   } catch (error) {
@@ -439,7 +439,7 @@ const handleLogin = async () => {
     closeModal();
 
     // redirect admin/staff
-    if (user.roles?.includes("ADMIN") || user.roles?.includes("STAFF")) {
+    if (authStore.isAdmin) {
       window.location.href = "/admin";
     }
   } catch (error) {
@@ -556,7 +556,7 @@ const socialLogin = async (provider) => {
 
       closeModal();
 
-      if (user.roles?.includes("ADMIN") || user.roles?.includes("STAFF")) {
+      if (authStore.isAdmin) {
         window.location.href = "/admin";
       }
 
@@ -592,7 +592,7 @@ const socialLogin = async (provider) => {
 
       closeModal();
 
-      if (user.roles?.includes("ADMIN") || user.roles?.includes("STAFF")) {
+      if (authStore.isAdmin) {
         window.location.href = "/admin";
       }
 

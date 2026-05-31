@@ -432,7 +432,7 @@ const handleGoogleCallback = async (response) => {
   try {
     const user = await authStore.googleLogin(response.credential);
     showNotification("Đăng nhập Google thành công!", "success");
-    if (user.role === "admin" || user.role === "staff") {
+    if (authStore.isAdmin) {
       window.location.href = "/admin";
     } else {
       router.push("/home");

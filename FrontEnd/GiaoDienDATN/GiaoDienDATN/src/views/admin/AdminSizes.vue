@@ -32,10 +32,10 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-if="filteredSizes.length === 0">
+          <tr v-if="sizes.length === 0">
             <td colspan="5" class="empty-state">Không có dữ liệu</td>
           </tr>
-          <tr v-for="size in filteredSizes" :key="size.id">
+          <tr v-for="size in sizes" :key="size.id">
             <td>#{{ size.id }}</td>
             <td class="font-bold">{{ size.name }}</td>
             <td>{{ size.description }}</td>
@@ -65,6 +65,33 @@
           </tr>
         </tbody>
       </table>
+    </div>
+
+    <!-- Pagination -->
+    <div class="pagination-section" v-if="totalPages > 1">
+      <button
+        :disabled="currentPage === 0"
+        @click="
+          currentPage--;
+          fetchSizes();
+        "
+        class="pagination-btn"
+      >
+        <i class="fas fa-chevron-left"></i>
+      </button>
+      <span class="pagination-info"
+        >Trang {{ currentPage + 1 }} / {{ totalPages }}</span
+      >
+      <button
+        :disabled="currentPage >= totalPages - 1"
+        @click="
+          currentPage++;
+          fetchSizes();
+        "
+        class="pagination-btn"
+      >
+        <i class="fas fa-chevron-right"></i>
+      </button>
     </div>
 
     <!-- Modal cho Thêm/Sửa Size -->
@@ -116,19 +143,17 @@
 </template>
 
 <script setup>
-import { ref, computed } from "vue";
+import { ref, onMounted, watch } from "vue";
 import { useNotification } from "../../composables/useNotification";
+import { sizeService } from "../../services/sizeService";
 
 const { showNotification } = useNotification();
 
-// Mock data
-const sizes = ref([
-  { id: 1, name: "S", description: "Size Nhỏ", isActive: true },
-  { id: 2, name: "M", description: "Size Trung bình", isActive: true },
-  { id: 3, name: "L", description: "Size Lớn", isActive: true },
-  { id: 4, name: "XL", description: "Size Rất lớn", isActive: true },
-  { id: 5, name: "XXL", description: "Size Cực lớn", isActive: false },
-]);
+const sizes = ref([]);
+const totalElements = ref(0);
+const totalPages = ref(0);
+const currentPage = ref(0);
+const pageSize = ref(10);
 
 const searchQuery = ref("");
 const showModal = ref(false);
@@ -142,11 +167,29 @@ const defaultForm = {
 };
 const formData = ref({ ...defaultForm });
 
-// Computed
-const filteredSizes = computed(() => {
-  return sizes.value.filter((size) =>
-    size.name.toLowerCase().includes(searchQuery.value.toLowerCase()),
-  );
+const fetchSizes = async () => {
+  try {
+    const data = await sizeService.getSizes(
+      currentPage.value,
+      pageSize.value,
+      searchQuery.value,
+    );
+    sizes.value = data.content || [];
+    totalElements.value = data.totalElements || 0;
+    totalPages.value = data.totalPages || 0;
+  } catch (error) {
+    console.error("Lỗi khi tải danh sách size:", error);
+    showNotification("Không thể tải danh sách size!", "error");
+  }
+};
+
+watch(searchQuery, () => {
+  currentPage.value = 0;
+  fetchSizes();
+});
+
+onMounted(() => {
+  fetchSizes();
 });
 
 // Methods
@@ -166,30 +209,33 @@ const closeModal = () => {
   showModal.value = false;
 };
 
-const saveSize = () => {
-  if (isEditing.value) {
-    const index = sizes.value.findIndex((s) => s.id === formData.value.id);
-    if (index !== -1) {
-      sizes.value[index] = { ...formData.value };
+const saveSize = async () => {
+  try {
+    if (isEditing.value) {
+      await sizeService.updateSize(formData.value.id, formData.value);
+      showNotification("Cập nhật size thành công!", "success");
+    } else {
+      await sizeService.createSize(formData.value);
+      showNotification("Thêm size mới thành công!", "success");
     }
-    showNotification("Cập nhật size thành công!", "success");
-  } else {
-    const newId = sizes.value.length
-      ? Math.max(...sizes.value.map((s) => s.id)) + 1
-      : 1;
-    sizes.value.push({
-      ...formData.value,
-      id: newId,
-    });
-    showNotification("Thêm size mới thành công!", "success");
+    fetchSizes();
+    closeModal();
+  } catch (error) {
+    console.error("Lỗi khi lưu size:", error);
+    showNotification("Lỗi khi lưu size!", "error");
   }
-  closeModal();
 };
 
-const confirmDelete = (id) => {
+const confirmDelete = async (id) => {
   if (confirm("Bạn có chắc chắn muốn xóa size này?")) {
-    sizes.value = sizes.value.filter((s) => s.id !== id);
-    showNotification("Đã xóa size!", "success");
+    try {
+      await sizeService.deleteSize(id);
+      showNotification("Đã xóa size!", "success");
+      fetchSizes();
+    } catch (error) {
+      console.error("Lỗi khi xóa size:", error);
+      showNotification("Lỗi khi xóa size!", "error");
+    }
   }
 };
 </script>
@@ -484,5 +530,44 @@ const confirmDelete = (id) => {
   margin-top: 24px;
   padding-top: 20px;
   border-top: 1px solid #f3f4f6;
+}
+
+/* Pagination Styles */
+.pagination-section {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.pagination-btn {
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #4b5563;
+  transition: all 0.2s;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background: #f3f4f6;
+  color: #1f2937;
+}
+
+.pagination-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pagination-info {
+  font-size: 14px;
+  color: #4b5563;
+  font-weight: 500;
 }
 </style>

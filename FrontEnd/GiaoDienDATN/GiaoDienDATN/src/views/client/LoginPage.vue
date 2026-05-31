@@ -190,7 +190,7 @@ const handleLogin = async () => {
 
     showNotification("Đăng nhập thành công!", "success");
 
-    if (user.role === "admin" || user.role === "staff") {
+    if (authStore.isAdmin) {
       window.location.href = "/admin"; // Redirect to admin dashboard
     } else {
       // Redirect to previous page or home
@@ -221,7 +221,7 @@ const handleGoogleCallback = async (response) => {
   try {
     const user = await authStore.googleLogin(response.credential);
     showNotification("Đăng nhập Google thành công!", "success");
-    if (user.role === "admin" || user.role === "staff") {
+    if (authStore.isAdmin) {
       window.location.href = "/admin";
     } else {
       const redirect = router.currentRoute.value.query.redirect || "/home";

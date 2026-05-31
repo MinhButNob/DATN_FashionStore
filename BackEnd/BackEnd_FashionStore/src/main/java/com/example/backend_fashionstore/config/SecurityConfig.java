@@ -139,6 +139,22 @@ public class SecurityConfig {
                         )
                         .permitAll()
 
+                        // ADMIN
+                        .requestMatchers(
+                                "/api/admin/**"
+                        )
+                        .hasRole("ADMIN")
+
+                        // STAFF + ADMIN
+                        .requestMatchers(
+                                "/api/staff/**"
+                        )
+                        .hasAnyRole(
+                                "ADMIN",
+                                "STAFF"
+                        )
+
+                        // USER ĐĂNG NHẬP
                         .requestMatchers(
                                 "/api/user/**"
                         )

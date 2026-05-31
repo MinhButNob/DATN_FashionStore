@@ -152,7 +152,7 @@ const handleLogin = async () => {
     await authStore.login(form.value.email, form.value.password);
 
     // Check if user is admin
-    if (authStore.user.role !== "admin" && authStore.user.role !== "staff") {
+    if (!authStore.isAdmin) {
       authStore.logout();
       throw new Error("Tài khoản không có quyền truy cập admin");
     }
