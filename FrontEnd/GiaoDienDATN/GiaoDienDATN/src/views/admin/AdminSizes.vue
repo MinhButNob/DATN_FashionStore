@@ -25,6 +25,7 @@
         <thead>
           <tr>
             <th>ID</th>
+            <th>Mã Size</th>
             <th>Tên Size</th>
             <th>Mô tả</th>
             <th>Trạng thái</th>
@@ -33,17 +34,18 @@
         </thead>
         <tbody>
           <tr v-if="sizes.length === 0">
-            <td colspan="5" class="empty-state">Không có dữ liệu</td>
+            <td colspan="6" class="empty-state">Không có dữ liệu</td>
           </tr>
-          <tr v-for="size in sizes" :key="size.id">
-            <td>#{{ size.id }}</td>
-            <td class="font-bold">{{ size.name }}</td>
+          <tr v-for="size in sizes" :key="size.sizeId">
+            <td>#{{ size.sizeId }}</td>
+            <td class="font-bold">{{ size.sizeCode }}</td>
+            <td class="font-bold">{{ size.sizeName }}</td>
             <td>{{ size.description }}</td>
             <td>
               <span
-                :class="['status-badge', size.isActive ? 'active' : 'inactive']"
+                :class="['status-badge', size.status ? 'active' : 'inactive']"
               >
-                {{ size.isActive ? "Hoạt động" : "Tạm ẩn" }}
+                {{ size.status ? "Hoạt động" : "Tạm ẩn" }}
               </span>
             </td>
             <td class="actions">
@@ -56,7 +58,7 @@
               </button>
               <button
                 class="btn-icon delete"
-                @click="confirmDelete(size.id)"
+                @click="confirmDelete(size.sizeId)"
                 title="Xóa"
               >
                 <i class="fas fa-trash"></i>
@@ -68,30 +70,25 @@
     </div>
 
     <!-- Pagination -->
-    <div class="pagination-section" v-if="totalPages > 1">
-      <button
-        :disabled="currentPage === 0"
-        @click="
-          currentPage--;
-          fetchSizes();
-        "
-        class="pagination-btn"
-      >
-        <i class="fas fa-chevron-left"></i>
-      </button>
-      <span class="pagination-info"
-        >Trang {{ currentPage + 1 }} / {{ totalPages }}</span
-      >
-      <button
-        :disabled="currentPage >= totalPages - 1"
-        @click="
-          currentPage++;
-          fetchSizes();
-        "
-        class="pagination-btn"
-      >
-        <i class="fas fa-chevron-right"></i>
-      </button>
+    <div class="pagination-section">
+      <span class="pagination-total">Tổng: {{ totalElements }} bản ghi</span>
+      <div class="pagination-controls">
+        <button
+          :disabled="currentPage === 0"
+          @click="currentPage--; fetchSizes();"
+          class="pagination-btn"
+        >
+          <i class="fas fa-chevron-left"></i>
+        </button>
+        <span class="pagination-info">Trang {{ currentPage + 1 }} / {{ totalPages || 1 }}</span>
+        <button
+          :disabled="currentPage >= totalPages - 1"
+          @click="currentPage++; fetchSizes();"
+          class="pagination-btn"
+        >
+          <i class="fas fa-chevron-right"></i>
+        </button>
+      </div>
     </div>
 
     <!-- Modal cho Thêm/Sửa Size -->
@@ -104,12 +101,22 @@
         <div class="modal-body">
           <form @submit.prevent="saveSize">
             <div class="form-group">
+              <label>Mã Size <span class="required">*</span></label>
+              <input
+                type="text"
+                v-model="formData.sizeCode"
+                required
+                placeholder="Ví dụ: S, M, L, XL..."
+              />
+            </div>
+
+            <div class="form-group">
               <label>Tên Size <span class="required">*</span></label>
               <input
                 type="text"
-                v-model="formData.name"
+                v-model="formData.sizeName"
                 required
-                placeholder="Ví dụ: S, M, L, XL, 38, 39..."
+                placeholder="Ví dụ: Small, Medium, Large..."
               />
             </div>
 
@@ -124,7 +131,7 @@
 
             <div class="form-group checkbox-group">
               <label>
-                <input type="checkbox" v-model="formData.isActive" />
+                <input type="checkbox" v-model="formData.status" />
                 Đang hoạt động
               </label>
             </div>
@@ -160,10 +167,11 @@ const showModal = ref(false);
 const isEditing = ref(false);
 
 const defaultForm = {
-  id: null,
-  name: "",
+  sizeId: null,
+  sizeCode: "",
+  sizeName: "",
   description: "",
-  isActive: true,
+  status: true,
 };
 const formData = ref({ ...defaultForm });
 
@@ -212,7 +220,7 @@ const closeModal = () => {
 const saveSize = async () => {
   try {
     if (isEditing.value) {
-      await sizeService.updateSize(formData.value.id, formData.value);
+      await sizeService.updateSize(formData.value.sizeId, formData.value);
       showNotification("Cập nhật size thành công!", "success");
     } else {
       await sizeService.createSize(formData.value);
@@ -535,10 +543,21 @@ const confirmDelete = async (id) => {
 /* Pagination Styles */
 .pagination-section {
   display: flex;
-  justify-content: center;
+  justify-content: space-between;
   align-items: center;
-  gap: 16px;
   margin-top: 20px;
+  padding: 12px 4px;
+}
+
+.pagination-total {
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .pagination-btn {
@@ -556,12 +575,13 @@ const confirmDelete = async (id) => {
 }
 
 .pagination-btn:hover:not(:disabled) {
-  background: #f3f4f6;
-  color: #1f2937;
+  background: #3b82f6;
+  color: white;
+  border-color: #3b82f6;
 }
 
 .pagination-btn:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
@@ -569,5 +589,7 @@ const confirmDelete = async (id) => {
   font-size: 14px;
   color: #4b5563;
   font-weight: 500;
+  min-width: 100px;
+  text-align: center;
 }
 </style>
