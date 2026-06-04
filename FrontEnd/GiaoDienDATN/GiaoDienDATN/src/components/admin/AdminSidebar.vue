@@ -54,6 +54,7 @@ const menuSections = [
     title: 'MANAGE',
     items: [
       { name: 'Danh mục', path: '/admin/categories', icon: 'fas fa-tags' },
+      { name: 'Quản lý nhân viên', path: '/admin/employees', icon: 'fas fa-user-tie' },
       { name: 'Quản lý hình ảnh', path: '/admin/images', icon: 'fas fa-images' },
       { name: 'Quản lý size', path: '/admin/sizes', icon: 'fas fa-ruler-combined' },
       { name: 'Kho hàng', path: '/admin/inventory', icon: 'fas fa-boxes' },
@@ -64,11 +65,11 @@ const menuSections = [
   {
     title: 'SYSTEM',
     items: [
+      // ❌ ĐÃ XÓA: { name: 'Nhân viên đã xóa', path: '/admin/employees/deleted', icon: 'fas fa-trash-alt' },
       { name: 'Cài đặt', path: '/admin/settings', icon: 'fas fa-cog' },
       { name: 'Báo cáo', path: '/admin/reports', icon: 'fas fa-chart-bar' }
     ]
   },
-
 ]
 
 const isActive = (path) => {
