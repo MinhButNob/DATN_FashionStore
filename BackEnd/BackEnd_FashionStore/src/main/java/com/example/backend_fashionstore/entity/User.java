@@ -1,5 +1,6 @@
 package com.example.backend_fashionstore.entity;
 
+import com.example.backend_fashionstore.enums.UserStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
@@ -38,9 +39,18 @@ public class User {
     @Column(name = "avatar_url")
     private String avatarUrl;
 
-    @Column(name = "is_active")
-    private Boolean isActive = true;
+//    // XÓA dòng này
+//    @Column(name = "is_active")
+//    private Boolean isActive = true;
 
+    // THÊM vào (sau avatarUrl)
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private UserStatus status = UserStatus.ACTIVE;
+
+    // THÊM deleted_at (nếu chưa có)
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
@@ -57,6 +67,9 @@ public class User {
     public void prePersist() {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
+        if (status == null) {
+            status = UserStatus.ACTIVE;
+        }
     }
 
     @PreUpdate

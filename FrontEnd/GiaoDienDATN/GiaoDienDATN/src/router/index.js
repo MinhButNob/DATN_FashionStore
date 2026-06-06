@@ -30,25 +30,70 @@ import AdminLogin from "../views/admin/AdminLogin.vue";
 import AdminSizes from "../views/admin/AdminSizes.vue";
 import AdminImages from "../views/admin/AdminImages.vue";
 import AdminEmployees from "../views/admin/AdminEmployees.vue";
+import AdminRoles from "../views/admin/AdminRoles.vue";
 // ❌ ĐÃ XÓA: import AdminDeletedEmployees
 
 const routes = [
   { path: "/", redirect: "/home" },
   { path: "/home", name: "home", component: HomePage },
   { path: "/shop", name: "shop", component: ShopPage },
-  { path: "/product/:id", name: "product-detail", component: ProductDetailPage },
+  {
+    path: "/product/:id",
+    name: "product-detail",
+    component: ProductDetailPage,
+  },
   { path: "/cart", name: "cart", component: CartPage },
-  { path: "/checkout", name: "checkout", component: CheckoutPage, meta: { requiresAuth: true } },
-  { path: "/profile", name: "profile", component: ProfilePage, meta: { requiresAuth: true } },
-  { path: "/wishlist", name: "wishlist", component: WishlistPage, meta: { requiresAuth: true } },
-  { path: "/login", name: "login", component: LoginPage, meta: { guest: true } },
-  { path: "/signup", name: "signup", component: SignupPage, meta: { guest: true } },
-  { path: "/forgot-password", name: "forgot-password", component: ForgotPasswordPage, meta: { guest: true } },
-  { path: "/reset-password/:token", name: "reset-password", component: ResetPasswordPage, meta: { guest: true } },
+  {
+    path: "/checkout",
+    name: "checkout",
+    component: CheckoutPage,
+    meta: { requiresAuth: true },
+  },
+  {
+    path: "/profile",
+    name: "profile",
+    component: ProfilePage,
+    meta: { requiresAuth: true },
+  },
+  {
+    path: "/wishlist",
+    name: "wishlist",
+    component: WishlistPage,
+    meta: { requiresAuth: true },
+  },
+  {
+    path: "/login",
+    name: "login",
+    component: LoginPage,
+    meta: { guest: true },
+  },
+  {
+    path: "/signup",
+    name: "signup",
+    component: SignupPage,
+    meta: { guest: true },
+  },
+  {
+    path: "/forgot-password",
+    name: "forgot-password",
+    component: ForgotPasswordPage,
+    meta: { guest: true },
+  },
+  {
+    path: "/reset-password/:token",
+    name: "reset-password",
+    component: ResetPasswordPage,
+    meta: { guest: true },
+  },
   { path: "/about", name: "about", component: AboutPage },
   { path: "/contact", name: "contact", component: ContactPage },
   { path: "/blog/:id", name: "blog-detail", component: BlogDetailPage },
-  { path: "/admin/login", name: "admin-login", component: AdminLogin, meta: { guest: true } },
+  {
+    path: "/admin/login",
+    name: "admin-login",
+    component: AdminLogin,
+    meta: { guest: true },
+  },
   {
     path: "/admin",
     component: AdminLayout,
@@ -57,11 +102,16 @@ const routes = [
       { path: "", name: "admin-dashboard", component: AdminDashboard },
       { path: "products", name: "admin-products", component: AdminProducts },
       { path: "orders", name: "admin-orders", component: AdminOrders },
-      { path: "categories", name: "admin-categories", component: AdminCategories },
+      {
+        path: "categories",
+        name: "admin-categories",
+        component: AdminCategories,
+      },
       { path: "sizes", name: "admin-sizes", component: AdminSizes },
       { path: "images", name: "admin-images", component: AdminImages },
       { path: "customers", name: "admin-customers", component: AdminCustomers },
       { path: "employees", name: "admin-employees", component: AdminEmployees },
+      { path: "roles", name: "admin-roles", component: AdminRoles },
       // ❌ ĐÃ XÓA: { path: "employees/deleted", ... }
       { path: "settings", name: "admin-settings", component: AdminSettings },
     ],

@@ -4,6 +4,7 @@ import com.example.backend_fashionstore.auth.repository.RoleRepository;
 import com.example.backend_fashionstore.auth.repository.UserRepository;
 import com.example.backend_fashionstore.auth.repository.UserRoleRepository;
 import com.example.backend_fashionstore.entity.*;
+import com.example.backend_fashionstore.enums.UserStatus;  // ✅ THÊM IMPORT
 import com.example.backend_fashionstore.quanlyNhanVien.dto.EmployeeCreateRequest;
 import com.example.backend_fashionstore.quanlyNhanVien.repo.EmployeeRepository;
 import lombok.RequiredArgsConstructor;
@@ -40,13 +41,13 @@ public class SaveServiceEmployee {
             throw new RuntimeException("Email user đã tồn tại: " + request.getEmployeeEmail());
         }
 
-        // 3. Tạo User
+        // 3. Tạo User - ĐÃ SỬA
         User newUser = User.builder()
                 .username(request.getUsername())
                 .email(request.getEmployeeEmail())
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
                 .provider("LOCAL")
-                .isActive(true)
+                .status(UserStatus.ACTIVE)  // ✅ ĐÃ SỬA
                 .build();
         User savedUser = userRepository.save(newUser);
 

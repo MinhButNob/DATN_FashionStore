@@ -2,6 +2,7 @@ package com.example.backend_fashionstore.quanLyKhachHang.service;
 
 import com.example.backend_fashionstore.auth.repository.UserRepository;
 import com.example.backend_fashionstore.entity.*;
+import com.example.backend_fashionstore.enums.UserStatus;
 import com.example.backend_fashionstore.quanLyKhachHang.dto.*;
 import com.example.backend_fashionstore.quanLyKhachHang.repository.KhachHangCustomerRepository;
 import lombok.RequiredArgsConstructor;
@@ -11,6 +12,8 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
@@ -50,7 +53,7 @@ public class CustomerService {
                 .email(dto.getEmail())
                 .passwordHash(passwordEncoder.encode(dto.getPassword()))
                 .provider("LOCAL")
-                .isActive(true)
+                .status(UserStatus.ACTIVE)  // ✅ ĐÃ SỬA
                 .build();
         user = userRepository.save(user);
 
@@ -80,13 +83,14 @@ public class CustomerService {
         return convertToDTO(customer);
     }
 
-    // Xóa khách hàng (soft delete - chỉ ẩn)
+    // Xóa khách hàng (soft delete - chuyển status thành DELETED)
     @Transactional
     public void deleteCustomer(Integer id) {
         Customer customer = customerRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy khách hàng"));
         User user = customer.getUser();
-        user.setIsActive(false);
+        user.setStatus(UserStatus.DELETED);  // ✅ ĐÃ SỬA
+        user.setDeletedAt(LocalDateTime.now());  // ✅ THÊM deleted_at
         userRepository.save(user);
     }
 
@@ -96,7 +100,8 @@ public class CustomerService {
         Customer customer = customerRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy khách hàng"));
         User user = customer.getUser();
-        user.setIsActive(true);
+        user.setStatus(UserStatus.ACTIVE);  // ✅ ĐÃ SỬA
+        user.setDeletedAt(null);  // ✅ XÓA deleted_at
         userRepository.save(user);
     }
 
@@ -106,12 +111,14 @@ public class CustomerService {
         Customer customer = customerRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy khách hàng"));
 
-        if ("LOCKED".equals(customer.getCustomerStatus())) {
-            customer.setCustomerStatus("ACTIVE");
+        User user = customer.getUser();
+
+        if (user.getStatus() == UserStatus.BANNED) {
+            user.setStatus(UserStatus.ACTIVE);  // Mở khóa
         } else {
-            customer.setCustomerStatus("LOCKED");
+            user.setStatus(UserStatus.BANNED);  // Khóa
         }
-        customerRepository.save(customer);
+        userRepository.save(user);
     }
 
     // Thống kê số lượng khách hàng
@@ -134,8 +141,8 @@ public class CustomerService {
         dto.setCustomerName(c.getCustomerName());
         dto.setPhone(c.getPhone());
         dto.setAddress(c.getAddress());
-        dto.setIsLocked("LOCKED".equals(c.getCustomerStatus()));
-        dto.setIsActive(c.getUser().getIsActive());
+        dto.setIsLocked(c.getUser().getStatus() == UserStatus.BANNED);  // ✅ ĐÃ SỬA
+        dto.setIsActive(c.getUser().getStatus() == UserStatus.ACTIVE);  // ✅ ĐÃ SỬA
         dto.setCreatedAt(c.getCreatedAt());
         dto.setUpdatedAt(c.getUpdatedAt());
         return dto;

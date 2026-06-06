@@ -6,7 +6,7 @@ import org.springframework.data.domain.Page;
 
 public interface SizeService {
 
-    Page<SizeResponseDTO> getAll(int page, int size);
+    Page<SizeResponseDTO> getAll(int page, int size, String status);
 
     SizeResponseDTO getById(Integer id);
 
@@ -19,4 +19,6 @@ public interface SizeService {
     Page<SizeResponseDTO> search(String keyword, int page, int size);
 
     long count();
+
+    SizeResponseDTO restore(Integer id);
 }
