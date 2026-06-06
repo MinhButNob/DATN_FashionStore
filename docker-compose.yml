@@ -1,0 +1,43 @@
+services:
+  postgres-db:
+    image: postgres:15-alpine
+    container_name: postgres-datn-container
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 1234$
+      POSTGRES_DB: datn
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - shop-network
+
+  backend-api:
+    build:
+      context: ./BackEnd/BackEnd_FashionStore
+    container_name: backend-datn-container
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres-db
+    networks:
+      - shop-network
+
+  frontend-web:
+    build:
+      context: ./FrontEnd/GiaoDienDATN/GiaoDienDATN
+    container_name: frontend-datn-container
+    ports:
+      - "80:80"
+    depends_on:
+      - backend-api
+    networks:
+      - shop-network
+
+volumes:
+  postgres_data:
+
+networks:
+  shop-network:
+    driver: bridge
