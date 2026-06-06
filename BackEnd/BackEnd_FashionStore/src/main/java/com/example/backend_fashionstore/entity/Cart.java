@@ -2,7 +2,6 @@ package com.example.backend_fashionstore.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
-
 import java.time.LocalDateTime;
 
 @Entity
@@ -20,13 +19,13 @@ public class Cart {
     private Integer cartId;
 
     @OneToOne
-    @JoinColumn(name = "customer_id")
+    @JoinColumn(name = "cart_customer_id", nullable = false)  // ✅ SỬA: cart_customer_id
     private Customer customer;
 
-    @Column(name = "created_at")
+    @Column(name = "cart_created_at")
     private LocalDateTime createdAt;
 
-    @Column(name = "updated_at")
+    @Column(name = "cart_updated_at")
     private LocalDateTime updatedAt;
 
     @PrePersist

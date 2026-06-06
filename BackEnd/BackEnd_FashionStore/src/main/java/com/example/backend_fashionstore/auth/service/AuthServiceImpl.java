@@ -3,6 +3,7 @@ package com.example.backend_fashionstore.auth.service;
 import com.example.backend_fashionstore.auth.dto.*;
 import com.example.backend_fashionstore.auth.repository.*;
 import com.example.backend_fashionstore.entity.*;
+import com.example.backend_fashionstore.enums.RoleStatus;
 import com.example.backend_fashionstore.security.JwtService;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import lombok.RequiredArgsConstructor;
@@ -185,67 +186,47 @@ public class AuthServiceImpl implements AuthService {
             String customerName
     ) {
 
-        Role customerRole =
-                roleRepository.findByRoleName(
-                        "CUSTOMER"
-                ).orElseGet(() ->
-                        roleRepository.save(
-                                Role.builder()
-                                        .roleName("CUSTOMER")
-                                        .build()
-                        )
-                );
+        // 1. Role CUSTOMER
+        Role customerRole = roleRepository.findByRoleName("CUSTOMER")
+                .orElseGet(() -> roleRepository.save(
+                        Role.builder()
+                                .roleName("CUSTOMER")
+                                .status(RoleStatus.ACTIVE)
+                                .build()
+                ));
 
-        boolean hasRole =
-                userRoleRepository
-                        .existsByUser_UserIdAndRole_RoleName(
-                                user.getUserId(),
-                                "CUSTOMER"
-                        );
-
-        if (!hasRole) {
-
-            UserRole userRole =
+        // 2. Gán role
+        if (!userRoleRepository.existsByUser_UserIdAndRole_RoleName(
+                user.getUserId(), "CUSTOMER")) {
+            userRoleRepository.save(
                     UserRole.builder()
-                            .id(
-                                    new UserRoleId(
-                                            user.getUserId(),
-                                            customerRole.getRoleId()
-                                    )
-                            )
+                            .id(new UserRoleId(user.getUserId(), customerRole.getRoleId()))
                             .user(user)
                             .role(customerRole)
-                            .build();
-
-            userRoleRepository.save(userRole);
-        }
-
-        Customer customer =
-                customerRepository
-                        .findByUser_UserId(
-                                user.getUserId()
-                        )
-                        .orElseGet(() ->
-                                customerRepository.save(
-                                        Customer.builder()
-                                                .user(user)
-                                                .customerName(customerName)
-                                                .build()
-                                )
-                        );
-
-        boolean hasCart =
-                cartRepository
-                        .existsByCustomer_CustomerId(
-                                customer.getCustomerId()
-                        );
-
-        if (!hasCart) {
-            cartRepository.save(
-                    Cart.builder()
-                            .customer(customer)
                             .build()
             );
+        }
+
+        // 3. Tạo Customer - ĐẢM BẢO SAVE NGAY
+        Customer customer = customerRepository
+                .findByUser_UserId(user.getUserId())
+                .orElse(null);
+
+        if (customer == null) {
+            customer = Customer.builder()
+                    .user(user)
+                    .customerName(customerName)
+                    .customerStatus("ACTIVE")
+                    .build();
+            customer = customerRepository.save(customer);  // ✅ Lưu và lấy lại customer có ID
+        }
+
+        // 4. Tạo Cart - DÙNG customer ĐÃ CÓ ID
+        if (!cartRepository.existsByCustomer_CustomerId(customer.getCustomerId())) {
+            Cart cart = Cart.builder()
+                    .customer(customer)
+                    .build();
+            cartRepository.save(cart);
         }
     }
 
