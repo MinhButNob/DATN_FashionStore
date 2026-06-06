@@ -31,58 +31,75 @@
 </template>
 
 <script setup>
-import { useRoute, useRouter } from 'vue-router'
-import { useAuthStore } from '../../stores/authStore'
-import { useNotification } from '../../composables/useNotification'
+import { useRoute, useRouter } from "vue-router";
+import { useAuthStore } from "../../stores/authStore";
+import { useNotification } from "../../composables/useNotification";
 
-const route = useRoute()
-const router = useRouter()
-const authStore = useAuthStore()
-const { showNotification } = useNotification()
+const route = useRoute();
+const router = useRouter();
+const authStore = useAuthStore();
+const { showNotification } = useNotification();
 
 const menuSections = [
   {
-    title: 'MAIN',
+    title: "MAIN",
     items: [
-      { name: 'Dashboard', path: '/admin', icon: 'fas fa-tachometer-alt' },
-      { name: 'Sản phẩm', path: '/admin/products', icon: 'fas fa-tshirt' },
-      { name: 'Đơn hàng', path: '/admin/orders', icon: 'fas fa-shopping-cart' },
-      { name: 'Khách hàng', path: '/admin/customers', icon: 'fas fa-users' }
-    ]
+      { name: "Dashboard", path: "/admin", icon: "fas fa-tachometer-alt" },
+      { name: "Sản phẩm", path: "/admin/products", icon: "fas fa-tshirt" },
+      { name: "Đơn hàng", path: "/admin/orders", icon: "fas fa-shopping-cart" },
+      { name: "Khách hàng", path: "/admin/customers", icon: "fas fa-users" },
+    ],
   },
   {
-    title: 'MANAGE',
+    title: "MANAGE",
     items: [
-      { name: 'Danh mục', path: '/admin/categories', icon: 'fas fa-tags' },
-      { name: 'Quản lý nhân viên', path: '/admin/employees', icon: 'fas fa-user-tie' },
-      { name: 'Quản lý hình ảnh', path: '/admin/images', icon: 'fas fa-images' },
-      { name: 'Quản lý size', path: '/admin/sizes', icon: 'fas fa-ruler-combined' },
-      { name: 'Kho hàng', path: '/admin/inventory', icon: 'fas fa-boxes' },
-      { name: 'Đánh giá', path: '/admin/reviews', icon: 'fas fa-star' },
-      { name: 'Khuyến mãi', path: '/admin/discounts', icon: 'fas fa-percent' }
-    ]
+      { name: "Danh mục", path: "/admin/categories", icon: "fas fa-tags" },
+      {
+        name: "Quản lý nhân viên",
+        path: "/admin/employees",
+        icon: "fas fa-user-tie",
+      },
+      {
+        name: "Quản lý vai trò",
+        path: "/admin/roles",
+        icon: "fas fa-user-shield",
+      },
+      {
+        name: "Quản lý hình ảnh",
+        path: "/admin/images",
+        icon: "fas fa-images",
+      },
+      {
+        name: "Quản lý size",
+        path: "/admin/sizes",
+        icon: "fas fa-ruler-combined",
+      },
+      { name: "Kho hàng", path: "/admin/inventory", icon: "fas fa-boxes" },
+      { name: "Đánh giá", path: "/admin/reviews", icon: "fas fa-star" },
+      { name: "Khuyến mãi", path: "/admin/discounts", icon: "fas fa-percent" },
+    ],
   },
   {
-    title: 'SYSTEM',
+    title: "SYSTEM",
     items: [
       // ❌ ĐÃ XÓA: { name: 'Nhân viên đã xóa', path: '/admin/employees/deleted', icon: 'fas fa-trash-alt' },
-      { name: 'Cài đặt', path: '/admin/settings', icon: 'fas fa-cog' },
-      { name: 'Báo cáo', path: '/admin/reports', icon: 'fas fa-chart-bar' }
-    ]
+      { name: "Cài đặt", path: "/admin/settings", icon: "fas fa-cog" },
+      { name: "Báo cáo", path: "/admin/reports", icon: "fas fa-chart-bar" },
+    ],
   },
-]
+];
 
 const isActive = (path) => {
-  return route.path === path
-}
+  return route.path === path;
+};
 
 const handleLogout = () => {
-  if (confirm('Bạn có chắc muốn đăng xuất?')) {
-    authStore.logout()
-    showNotification('Đã đăng xuất thành công!', 'success')
-    router.push('/')
+  if (confirm("Bạn có chắc muốn đăng xuất?")) {
+    authStore.logout();
+    showNotification("Đã đăng xuất thành công!", "success");
+    router.push("/");
   }
-}
+};
 </script>
 
 <style scoped>
@@ -95,13 +112,13 @@ const handleLogout = () => {
   display: flex;
   flex-direction: column;
   transition: all 0.3s;
-  box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+  box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
 }
 
 .sidebar-header {
   padding: 30px 20px;
   text-align: center;
-  border-bottom: 1px solid rgba(255,255,255,0.1);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .sidebar-header h2 {
@@ -137,7 +154,7 @@ const handleLogout = () => {
   align-items: center;
   gap: 12px;
   padding: 12px 20px;
-  color: rgba(255,255,255,0.8);
+  color: rgba(255, 255, 255, 0.8);
   text-decoration: none;
   transition: all 0.3s;
   position: relative;
@@ -151,7 +168,7 @@ const handleLogout = () => {
 }
 
 .menu-item.active::before {
-  content: '';
+  content: "";
   position: absolute;
   left: 0;
   top: 0;
@@ -167,14 +184,14 @@ const handleLogout = () => {
 
 .sidebar-footer {
   padding: 20px;
-  border-top: 1px solid rgba(255,255,255,0.1);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .logout-btn {
   width: 100%;
   padding: 12px;
   background: none;
-  border: 1px solid rgba(255,255,255,0.2);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   color: white;
   border-radius: 8px;
   cursor: pointer;

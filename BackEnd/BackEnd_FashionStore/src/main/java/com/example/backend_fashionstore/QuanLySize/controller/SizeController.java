@@ -18,9 +18,10 @@ public class SizeController {
     @GetMapping
     public Page<SizeResponseDTO> getAll(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String status
     ){
-        return sizeService.getAll(page,size);
+        return sizeService.getAll(page, size, status);
     }
 
     @GetMapping("/{id}")
@@ -29,9 +30,7 @@ public class SizeController {
     }
 
     @PostMapping
-    public SizeResponseDTO create(
-            @RequestBody SizeRequestDTO request
-    ){
+    public SizeResponseDTO create(@RequestBody SizeRequestDTO request){
         return sizeService.create(request);
     }
 
@@ -40,13 +39,11 @@ public class SizeController {
             @PathVariable Integer id,
             @RequestBody SizeRequestDTO request
     ){
-        return sizeService.update(id,request);
+        return sizeService.update(id, request);
     }
 
     @DeleteMapping("/{id}")
-    public void delete(
-            @PathVariable Integer id
-    ){
+    public void delete(@PathVariable Integer id){
         sizeService.delete(id);
     }
 
@@ -56,11 +53,16 @@ public class SizeController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ){
-        return sizeService.search(keyword,page,size);
+        return sizeService.search(keyword, page, size);
     }
 
     @GetMapping("/count")
     public long count(){
         return sizeService.count();
+    }
+
+    @PatchMapping("/{id}/restore")
+    public SizeResponseDTO restore(@PathVariable Integer id) {
+        return sizeService.restore(id);
     }
 }

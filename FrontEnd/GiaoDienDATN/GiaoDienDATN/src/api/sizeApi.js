@@ -3,8 +3,12 @@ import axios from "./axios";
 const API_URL = "/sizes";
 
 export const sizeApi = {
-  getAll(params) {
-    return axios.get(API_URL, { params });
+  getAll(page = 0, size = 10, status = null) {
+    let url = `${API_URL}?page=${page}&size=${size}`;
+    if (status) {
+      url += `&status=${status}`;
+    }
+    return axios.get(url);
   },
 
   getById(id) {
@@ -23,9 +27,13 @@ export const sizeApi = {
     return axios.delete(`${API_URL}/${id}`);
   },
 
-  search(keyword, params) {
+  restore(id) {
+    return axios.patch(`${API_URL}/${id}/restore`);
+  },
+
+  search(keyword, page = 0, size = 10) {
     return axios.get(`${API_URL}/search`, {
-      params: { keyword, ...params?.params },
+      params: { keyword, page, size },
     });
   },
 

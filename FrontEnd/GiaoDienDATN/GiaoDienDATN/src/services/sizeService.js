@@ -1,17 +1,13 @@
 import { sizeApi } from "../api/sizeApi";
 
 export const sizeService = {
-  async getSizes(page = 0, size = 10, keyword = "") {
+  async getSizes(page = 0, size = 10, keyword = "", status = null) {
     let response;
     if (keyword) {
-      response = await sizeApi.search(keyword, { params: { page, size } });
+      response = await sizeApi.search(keyword, page, size);
     } else {
-      response = await sizeApi.getAll({
-        page,
-        size,
-      });
+      response = await sizeApi.getAll(page, size, status);
     }
-
     return response.data;
   },
 
@@ -21,17 +17,40 @@ export const sizeService = {
   },
 
   async createSize(data) {
-    const response = await sizeApi.create(data);
+    // status đã là string "ACTIVE"/"INACTIVE" từ form select
+    const payload = {
+      sizeCode: data.sizeCode,
+      sizeName: data.sizeName,
+      description: data.description,
+      status: typeof data.status === "boolean"
+        ? (data.status ? "ACTIVE" : "INACTIVE")
+        : (data.status || "ACTIVE"),
+    };
+    const response = await sizeApi.create(payload);
     return response.data;
   },
 
   async updateSize(id, data) {
-    const response = await sizeApi.update(id, data);
+    // status đã là string "ACTIVE"/"INACTIVE" từ form select
+    const payload = {
+      sizeCode: data.sizeCode,
+      sizeName: data.sizeName,
+      description: data.description,
+      status: typeof data.status === "boolean"
+        ? (data.status ? "ACTIVE" : "INACTIVE")
+        : (data.status || "ACTIVE"),
+    };
+    const response = await sizeApi.update(id, payload);
     return response.data;
   },
 
   async deleteSize(id) {
     const response = await sizeApi.delete(id);
+    return response.data;
+  },
+
+  async restoreSize(id) {
+    const response = await sizeApi.restore(id);
     return response.data;
   },
 

@@ -1,5 +1,7 @@
 package com.example.backend_fashionstore.quanlyNhanVien.controller;
 
+import com.example.backend_fashionstore.QuanLyRole.dto.RoleResponseDTO;
+import com.example.backend_fashionstore.QuanLyRole.service.RoleService;
 import com.example.backend_fashionstore.entity.Employee;
 import com.example.backend_fashionstore.quanlyNhanVien.dto.EmployeeCreateRequest;
 import com.example.backend_fashionstore.quanlyNhanVien.dto.EmployeeMapper;
@@ -31,6 +33,7 @@ public class EmployeeController {
     private final PageServiceEmployee pageService;
     private final TimKiemServiceEmployee timKiemService;
     private final EmployeeMapper employeeMapper;
+    private final RoleService roleService;
 
     private Map<String, String> getValidationErrors(BindingResult bindingResult) {
         Map<String, String> errors = new HashMap<>();
@@ -117,5 +120,10 @@ public class EmployeeController {
         stats.put("totalEmployees", timKiemService.countTotalEmployees());
         stats.put("activeEmployees", timKiemService.countActiveEmployees());
         return ResponseEntity.ok(stats);
+    }
+
+    @GetMapping("/roles")
+    public ResponseEntity<List<RoleResponseDTO>> getAllRoles(){
+        return ResponseEntity.ok(roleService.getAllRoles());
     }
 }

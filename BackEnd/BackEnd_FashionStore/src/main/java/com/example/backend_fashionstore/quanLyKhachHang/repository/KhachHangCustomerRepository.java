@@ -1,6 +1,7 @@
 package com.example.backend_fashionstore.quanLyKhachHang.repository;
 
 import com.example.backend_fashionstore.entity.Customer;
+import com.example.backend_fashionstore.enums.UserStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -17,19 +18,23 @@ public interface KhachHangCustomerRepository extends JpaRepository<Customer, Int
 
     Optional<Customer> findByUserEmail(String email);
 
+    // ✅ ĐÃ SỬA: thay c.user.isActive = true bằng c.user.status = 'ACTIVE'
     @Query("SELECT c FROM Customer c WHERE " +
-            "c.user.isActive = true AND (" +
+            "c.user.status = 'ACTIVE' AND (" +
             "LOWER(c.customerName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
             "LOWER(c.user.email) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
             "c.phone LIKE CONCAT('%', :keyword, '%'))")
     Page<Customer> searchCustomers(@Param("keyword") String keyword, Pageable pageable);
 
-    @Query("SELECT COUNT(c) FROM Customer c WHERE c.customerStatus = 'LOCKED' AND c.user.isActive = true")
+    // ✅ ĐÃ SỬA: thay c.user.isActive = true bằng c.user.status = 'ACTIVE'
+    @Query("SELECT COUNT(c) FROM Customer c WHERE c.customerStatus = 'LOCKED' AND c.user.status = 'ACTIVE'")
     long countLockedCustomers();
 
-    @Query("SELECT COUNT(c) FROM Customer c WHERE c.customerStatus = 'ACTIVE' AND c.user.isActive = true")
+    // ✅ ĐÃ SỬA: thay c.user.isActive = true bằng c.user.status = 'ACTIVE'
+    @Query("SELECT COUNT(c) FROM Customer c WHERE c.customerStatus = 'ACTIVE' AND c.user.status = 'ACTIVE'")
     long countActiveCustomers();
 
-    @Query("SELECT COUNT(c) FROM Customer c WHERE c.user.isActive = true")
+    // ✅ ĐÃ SỬA: thay c.user.isActive = true bằng c.user.status = 'ACTIVE'
+    @Query("SELECT COUNT(c) FROM Customer c WHERE c.user.status = 'ACTIVE'")
     long countAllActiveCustomers();
 }

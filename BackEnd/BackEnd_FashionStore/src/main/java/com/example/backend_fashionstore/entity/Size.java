@@ -1,6 +1,6 @@
 package com.example.backend_fashionstore.entity;
 
-
+import com.example.backend_fashionstore.enums.SizeStatus;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -26,13 +26,33 @@ public class Size {
     @Column(name = "size_name", nullable = false)
     private String sizeName;
 
+    @Column(name = "size_description")
     private String description;
 
-    private Boolean status;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "size_status", nullable = false, length = 20)
+    private SizeStatus status = SizeStatus.ACTIVE;
 
-    @Column(name = "created_at")
+    @Column(name = "size_created_at")
     private LocalDateTime createdAt;
 
-    @Column(name = "updated_at")
+    @Column(name = "size_updated_at")
     private LocalDateTime updatedAt;
+
+    @Column(name = "size_deleted_at")
+    private LocalDateTime deletedAt;
+
+    @PrePersist
+    public void prePersist() {
+        createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
+        if (status == null) {
+            status = SizeStatus.ACTIVE;
+        }
+    }
+
+    @PreUpdate
+    public void preUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
 }
