@@ -8,8 +8,6 @@ import com.example.backend_fashionstore.quanLyKhachHang.repository.KhachHangCust
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,15 +19,31 @@ public class CustomerService {
 
     private final KhachHangCustomerRepository customerRepository;
     private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder(12);
 
-    // Lấy danh sách khách hàng (chỉ hiển thị khách hàng đang hoạt động)
-    public Page<CustomerDTO> getAllCustomers(String keyword, Pageable pageable) {
+    // Lấy danh sách khách hàng (có hỗ trợ filter)
+    public Page<CustomerDTO> getAllCustomers(String keyword, String statusParam, Pageable pageable) {
+        UserStatus status = null;
+        if (statusParam != null && !statusParam.isEmpty()) {
+            if (statusParam.equalsIgnoreCase("ACTIVE")) status = UserStatus.ACTIVE;
+            else if (statusParam.equalsIgnoreCase("LOCKED")) status = UserStatus.BANNED;
+            else if (statusParam.equalsIgnoreCase("DELETED")) status = UserStatus.DELETED;
+        }
+
         Page<Customer> customers;
-        if (keyword != null && !keyword.isEmpty()) {
-            customers = customerRepository.searchCustomers(keyword, pageable);
+        boolean hasKeyword = (keyword != null && !keyword.isEmpty());
+
+        if (status != null) {
+            if (hasKeyword) {
+                customers = customerRepository.searchCustomersByStatus(keyword, status, pageable);
+            } else {
+                customers = customerRepository.findAllByStatus(status, pageable);
+            }
         } else {
-            customers = customerRepository.findAll(pageable);
+            if (hasKeyword) {
+                customers = customerRepository.searchCustomers(keyword, pageable);
+            } else {
+                customers = customerRepository.findAllActiveCustomers(pageable);
+            }
         }
         return customers.map(this::convertToDTO);
     }
@@ -38,47 +52,11 @@ public class CustomerService {
     public CustomerDTO getCustomerById(Integer id) {
         Customer customer = customerRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy khách hàng"));
-        return convertToDTO(customer);
-    }
 
-    // Thêm khách hàng mới
-    @Transactional
-    public CustomerDTO createCustomer(CustomerCreateDTO dto) {
-        if (userRepository.existsByEmail(dto.getEmail())) {
-            throw new RuntimeException("Email đã tồn tại: " + dto.getEmail());
+        // Kiểm tra nếu customer đã bị xóa mềm
+        if (customer.getUser().getStatus() == UserStatus.DELETED) {
+            throw new RuntimeException("Khách hàng đã bị xóa");
         }
-
-        User user = User.builder()
-                .username(dto.getEmail().split("@")[0])
-                .email(dto.getEmail())
-                .passwordHash(passwordEncoder.encode(dto.getPassword()))
-                .provider("LOCAL")
-                .status(UserStatus.ACTIVE)  // ✅ ĐÃ SỬA
-                .build();
-        user = userRepository.save(user);
-
-        Customer customer = Customer.builder()
-                .user(user)
-                .customerName(dto.getCustomerName())
-                .phone(dto.getPhone())
-                .address(dto.getAddress())
-                .customerStatus("ACTIVE")
-                .build();
-        customer = customerRepository.save(customer);
-
-        return convertToDTO(customer);
-    }
-
-    // Cập nhật thông tin khách hàng
-    @Transactional
-    public CustomerDTO updateCustomer(Integer id, CustomerUpdateDTO dto) {
-        Customer customer = customerRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy khách hàng"));
-
-        customer.setCustomerName(dto.getCustomerName());
-        customer.setPhone(dto.getPhone());
-        customer.setAddress(dto.getAddress());
-        customer = customerRepository.save(customer);
 
         return convertToDTO(customer);
     }
@@ -88,9 +66,16 @@ public class CustomerService {
     public void deleteCustomer(Integer id) {
         Customer customer = customerRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy khách hàng"));
+
         User user = customer.getUser();
-        user.setStatus(UserStatus.DELETED);  // ✅ ĐÃ SỬA
-        user.setDeletedAt(LocalDateTime.now());  // ✅ THÊM deleted_at
+
+        // Không cho xóa nếu đã xóa rồi
+        if (user.getStatus() == UserStatus.DELETED) {
+            throw new RuntimeException("Khách hàng đã bị xóa trước đó");
+        }
+
+        user.setStatus(UserStatus.DELETED);
+        user.setDeletedAt(LocalDateTime.now());
         userRepository.save(user);
     }
 
@@ -99,13 +84,19 @@ public class CustomerService {
     public void restoreCustomer(Integer id) {
         Customer customer = customerRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy khách hàng"));
+
         User user = customer.getUser();
-        user.setStatus(UserStatus.ACTIVE);  // ✅ ĐÃ SỬA
-        user.setDeletedAt(null);  // ✅ XÓA deleted_at
+
+        if (user.getStatus() != UserStatus.DELETED) {
+            throw new RuntimeException("Chỉ có thể khôi phục khách hàng đã bị xóa");
+        }
+
+        user.setStatus(UserStatus.ACTIVE);
+        user.setDeletedAt(null);
         userRepository.save(user);
     }
 
-    // Khóa / Mở khóa tài khoản khách hàng
+    // Khóa / Mở khóa tài khoản khách hàng (BANNED)
     @Transactional
     public void toggleLockCustomer(Integer id) {
         Customer customer = customerRepository.findById(id)
@@ -113,36 +104,43 @@ public class CustomerService {
 
         User user = customer.getUser();
 
+        // Không cho khóa nếu đã xóa
+        if (user.getStatus() == UserStatus.DELETED) {
+            throw new RuntimeException("Không thể khóa khách hàng đã bị xóa");
+        }
+
         if (user.getStatus() == UserStatus.BANNED) {
             user.setStatus(UserStatus.ACTIVE);  // Mở khóa
         } else {
-            user.setStatus(UserStatus.BANNED);  // Khóa
+            user.setStatus(UserStatus.BANNED);   // Khóa
         }
         userRepository.save(user);
     }
 
     // Thống kê số lượng khách hàng
     public StatisticsDTO getStatistics() {
-        long total = customerRepository.countAllActiveCustomers();
-        long locked = customerRepository.countLockedCustomers();
-        long active = customerRepository.countActiveCustomers();
-        long categories = 0;
+        long total = customerRepository.countAllCustomers();           // Tổng số khách (kể cả đã xóa)
+        long active = customerRepository.countByUserStatus(UserStatus.ACTIVE);      // Đang hoạt động
+        long locked = customerRepository.countByUserStatus(UserStatus.BANNED);      // Bị khóa
+        long deleted = customerRepository.countByUserStatus(UserStatus.DELETED);    // Đã xóa
 
-        return new StatisticsDTO(total, active, locked, categories);
+        return new StatisticsDTO(total, active, locked, deleted);
     }
 
     // Chuyển đổi từ Entity sang DTO
     private CustomerDTO convertToDTO(Customer c) {
+        User user = c.getUser();
+
         CustomerDTO dto = new CustomerDTO();
         dto.setCustomerId(c.getCustomerId());
-        dto.setUserId(c.getUser().getUserId());
-        dto.setEmail(c.getUser().getEmail());
-        dto.setUsername(c.getUser().getUsername());
+        dto.setUserId(user.getUserId());
+        dto.setEmail(user.getEmail());
+        dto.setUsername(user.getUsername());
         dto.setCustomerName(c.getCustomerName());
         dto.setPhone(c.getPhone());
         dto.setAddress(c.getAddress());
-        dto.setIsLocked(c.getUser().getStatus() == UserStatus.BANNED);  // ✅ ĐÃ SỬA
-        dto.setIsActive(c.getUser().getStatus() == UserStatus.ACTIVE);  // ✅ ĐÃ SỬA
+        dto.setIsLocked(user.getStatus() == UserStatus.BANNED);
+        dto.setIsActive(user.getStatus() == UserStatus.ACTIVE);
         dto.setCreatedAt(c.getCreatedAt());
         dto.setUpdatedAt(c.getUpdatedAt());
         return dto;

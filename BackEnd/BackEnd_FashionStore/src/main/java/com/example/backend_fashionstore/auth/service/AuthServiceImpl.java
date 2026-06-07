@@ -216,7 +216,6 @@ public class AuthServiceImpl implements AuthService {
             customer = Customer.builder()
                     .user(user)
                     .customerName(customerName)
-                    .customerStatus("ACTIVE")
                     .build();
             customer = customerRepository.save(customer);  // ✅ Lưu và lấy lại customer có ID
         }

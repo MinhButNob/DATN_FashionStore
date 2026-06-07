@@ -15,26 +15,34 @@ import java.util.Optional;
 public interface KhachHangCustomerRepository extends JpaRepository<Customer, Integer> {
 
     Optional<Customer> findByUserUserId(Integer userId);
-
     Optional<Customer> findByUserEmail(String email);
 
-    // ✅ ĐÃ SỬA: thay c.user.isActive = true bằng c.user.status = 'ACTIVE'
+    // ✅ Tìm kiếm khách hàng (kể cả đã xóa? tùy logic)
     @Query("SELECT c FROM Customer c WHERE " +
-            "c.user.status = 'ACTIVE' AND (" +
+            "c.user.status <> 'DELETED' AND (" +
             "LOWER(c.customerName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
             "LOWER(c.user.email) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
             "c.phone LIKE CONCAT('%', :keyword, '%'))")
     Page<Customer> searchCustomers(@Param("keyword") String keyword, Pageable pageable);
 
-    // ✅ ĐÃ SỬA: thay c.user.isActive = true bằng c.user.status = 'ACTIVE'
-    @Query("SELECT COUNT(c) FROM Customer c WHERE c.customerStatus = 'LOCKED' AND c.user.status = 'ACTIVE'")
-    long countLockedCustomers();
+    @Query("SELECT c FROM Customer c WHERE c.user.status = :status AND (" +
+            "LOWER(c.customerName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+            "LOWER(c.user.email) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+            "c.phone LIKE CONCAT('%', :keyword, '%'))")
+    Page<Customer> searchCustomersByStatus(@Param("keyword") String keyword, @Param("status") UserStatus status, Pageable pageable);
 
-    // ✅ ĐÃ SỬA: thay c.user.isActive = true bằng c.user.status = 'ACTIVE'
-    @Query("SELECT COUNT(c) FROM Customer c WHERE c.customerStatus = 'ACTIVE' AND c.user.status = 'ACTIVE'")
-    long countActiveCustomers();
+    @Query("SELECT c FROM Customer c WHERE c.user.status = :status")
+    Page<Customer> findAllByStatus(@Param("status") UserStatus status, Pageable pageable);
 
-    // ✅ ĐÃ SỬA: thay c.user.isActive = true bằng c.user.status = 'ACTIVE'
-    @Query("SELECT COUNT(c) FROM Customer c WHERE c.user.status = 'ACTIVE'")
-    long countAllActiveCustomers();
+    // ✅ Lấy tất cả khách hàng chưa xóa
+    @Query("SELECT c FROM Customer c WHERE c.user.status <> 'DELETED'")
+    Page<Customer> findAllActiveCustomers(Pageable pageable);
+
+    // ✅ Đếm theo status của user
+    @Query("SELECT COUNT(c) FROM Customer c WHERE c.user.status = :status")
+    long countByUserStatus(@Param("status") UserStatus status);
+
+    // ✅ Tổng số khách hàng (kể cả đã xóa)
+    @Query("SELECT COUNT(c) FROM Customer c")
+    long countAllCustomers();
 }
