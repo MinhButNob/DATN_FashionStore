@@ -43,6 +43,7 @@ public class EmployeeController {
         return errors;
     }
 
+    // ✅ Tạo nhân viên mới
     @PostMapping
     public ResponseEntity<?> create(@Valid @RequestBody EmployeeCreateRequest request, BindingResult bindingResult) {
         if (bindingResult.hasErrors()) {
@@ -56,6 +57,7 @@ public class EmployeeController {
         }
     }
 
+    // ✅ Cập nhật nhân viên
     @PutMapping("/{id}")
     public ResponseEntity<?> update(@PathVariable Integer id,
                                     @Valid @RequestBody EmployeeUpdateRequest request,
@@ -71,16 +73,43 @@ public class EmployeeController {
         }
     }
 
+    // ❌ Xóa cứng - không dùng nữa, thay bằng xóa mềm
+    // @DeleteMapping("/{id}")
+
+    // ✅ Xóa mềm nhân viên (chuyển user.status = DELETED)
     @DeleteMapping("/{id}")
-    public ResponseEntity<?> delete(@PathVariable Integer id) {
+    public ResponseEntity<?> softDelete(@PathVariable Integer id) {
         try {
-            removeService.deleteEmployee(id);
-            return ResponseEntity.ok(Map.of("message", "Xoá nhân viên thành công"));
+            updateService.softDeleteEmployee(id);
+            return ResponseEntity.ok(Map.of("message", "Đã chuyển nhân viên sang trạng thái đã xóa"));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 
+    // ✅ Khôi phục nhân viên đã xóa
+    @PatchMapping("/{id}/restore")
+    public ResponseEntity<?> restore(@PathVariable Integer id) {
+        try {
+            updateService.restoreEmployee(id);
+            return ResponseEntity.ok(Map.of("message", "Khôi phục nhân viên thành công"));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // ✅ Khóa / Mở khóa tài khoản nhân viên
+    @PatchMapping("/{id}/toggle-lock")
+    public ResponseEntity<?> toggleLock(@PathVariable Integer id) {
+        try {
+            updateService.toggleLockEmployee(id);
+            return ResponseEntity.ok(Map.of("message", "Thay đổi trạng thái tài khoản thành công"));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // ✅ Lấy chi tiết nhân viên
     @GetMapping("/{id}")
     public ResponseEntity<?> getById(@PathVariable Integer id) {
         try {
@@ -92,6 +121,7 @@ public class EmployeeController {
         }
     }
 
+    // ✅ Lấy tất cả nhân viên
     @GetMapping
     public ResponseEntity<List<EmployeeResponse>> getAll() {
         List<EmployeeResponse> responses = timKiemService.findAll().stream()
@@ -100,6 +130,7 @@ public class EmployeeController {
         return ResponseEntity.ok(responses);
     }
 
+    // ✅ Tìm kiếm nhân viên có phân trang
     @GetMapping("/search")
     public ResponseEntity<Page<EmployeeResponse>> search(
             @RequestParam(required = false) String keyword,
@@ -114,14 +145,18 @@ public class EmployeeController {
         return ResponseEntity.ok(responsePage);
     }
 
+    // ✅ Thống kê nhân viên
     @GetMapping("/statistics")
     public ResponseEntity<Map<String, Long>> getStatistics() {
         Map<String, Long> stats = new HashMap<>();
         stats.put("totalEmployees", timKiemService.countTotalEmployees());
         stats.put("activeEmployees", timKiemService.countActiveEmployees());
+        stats.put("lockedEmployees", timKiemService.countByUserStatus(com.example.backend_fashionstore.enums.UserStatus.BANNED));
+        stats.put("deletedEmployees", timKiemService.countByUserStatus(com.example.backend_fashionstore.enums.UserStatus.DELETED));
         return ResponseEntity.ok(stats);
     }
 
+    // ✅ Lấy danh sách roles
     @GetMapping("/roles")
     public ResponseEntity<List<RoleResponseDTO>> getAllRoles(){
         return ResponseEntity.ok(roleService.getAllRoles());

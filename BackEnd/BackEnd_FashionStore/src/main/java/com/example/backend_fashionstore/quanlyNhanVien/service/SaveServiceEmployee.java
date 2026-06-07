@@ -4,7 +4,8 @@ import com.example.backend_fashionstore.auth.repository.RoleRepository;
 import com.example.backend_fashionstore.auth.repository.UserRepository;
 import com.example.backend_fashionstore.auth.repository.UserRoleRepository;
 import com.example.backend_fashionstore.entity.*;
-import com.example.backend_fashionstore.enums.UserStatus;  // ✅ THÊM IMPORT
+import com.example.backend_fashionstore.enums.RoleStatus;
+import com.example.backend_fashionstore.enums.UserStatus;
 import com.example.backend_fashionstore.quanlyNhanVien.dto.EmployeeCreateRequest;
 import com.example.backend_fashionstore.quanlyNhanVien.repo.EmployeeRepository;
 import lombok.RequiredArgsConstructor;
@@ -41,51 +42,50 @@ public class SaveServiceEmployee {
             throw new RuntimeException("Email user đã tồn tại: " + request.getEmployeeEmail());
         }
 
-        // 3. Tạo User - ĐÃ SỬA
+        // 3. Tạo User
         User newUser = User.builder()
                 .username(request.getUsername())
                 .email(request.getEmployeeEmail())
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
                 .provider("LOCAL")
-                .status(UserStatus.ACTIVE)  // ✅ ĐÃ SỬA
+                .status(UserStatus.ACTIVE)
                 .build();
         User savedUser = userRepository.save(newUser);
 
-        // 4. Lấy hoặc tạo role STAFF
-        Role staffRole = roleRepository.findByRoleName("STAFF")
+        // 4. Lấy role được chọn (nếu không có thì STAFF)
+        String roleName = (request.getRoleName() != null && !request.getRoleName().isBlank()) 
+                ? request.getRoleName() : "STAFF";
+
+        Role requestedRole = roleRepository.findByRoleName(roleName)
                 .orElseGet(() -> roleRepository.save(
-                        Role.builder().roleName("STAFF").build()
+                        Role.builder()
+                                .roleName(roleName)
+                                .status(RoleStatus.ACTIVE)
+                                .build()
                 ));
 
-        // 5. Gán role STAFF cho user (mặc định nhân viên là STAFF)
+        // 5. Gán role cho user
         boolean hasRole = userRoleRepository
-                .existsByUser_UserIdAndRole_RoleName(savedUser.getUserId(), "STAFF");
+                .existsByUser_UserIdAndRole_RoleName(savedUser.getUserId(), roleName);
         if (!hasRole) {
             UserRole userRole = UserRole.builder()
-                    .id(new UserRoleId(savedUser.getUserId(), staffRole.getRoleId()))
+                    .id(new UserRoleId(savedUser.getUserId(), requestedRole.getRoleId()))
                     .user(savedUser)
-                    .role(staffRole)
+                    .role(requestedRole)
                     .build();
             userRoleRepository.save(userRole);
         }
 
-        // 6. Tạo Employee
-        Employee employee = new Employee();
-        employee.setUserId(savedUser.getUserId());
-        employee.setEmployeeFullname(request.getEmployeeFullname());
-        employee.setEmployeeGender(request.getEmployeeGender());
-        employee.setEmployeeAge(request.getEmployeeAge());
-        employee.setEmployeePhone(request.getEmployeePhone());
-        employee.setEmployeeEmail(request.getEmployeeEmail());
-        employee.setEmployeeStatus(
-                request.getEmployeeStatus() != null ? request.getEmployeeStatus() : "ACTIVE"
-        );
-        // ✅ Mặc định chức vụ là "Nhân viên" nếu FE không truyền
-        employee.setEmployeePosition(
-                (request.getEmployeePosition() != null && !request.getEmployeePosition().isBlank())
-                        ? request.getEmployeePosition()
-                        : "Nhân viên"
-        );
+        // 6. Tạo Employee - ✅ SỬA: dùng user thay vì userId
+        Employee employee = Employee.builder()
+                .user(savedUser)  // ✅ Set user object
+                .employeeFullname(request.getEmployeeFullname())
+                .employeeGender(request.getEmployeeGender())
+                .employeePhone(request.getEmployeePhone())
+                .employeeEmail(request.getEmployeeEmail())
+                .employeeStatus("ACTIVE")
+                .employeePosition(request.getRoleName() != null ? request.getRoleName() : (request.getEmployeePosition() != null ? request.getEmployeePosition() : "Nhân viên"))
+                .build();
 
         return employeeRepository.save(employee);
     }
