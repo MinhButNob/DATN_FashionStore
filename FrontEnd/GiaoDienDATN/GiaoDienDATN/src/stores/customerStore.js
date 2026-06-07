@@ -16,6 +16,7 @@ export const useCustomerStore = defineStore('customer', () => {
     const currentPage = ref(0)
     const pageSize = ref(10)
     const loading = ref(false)
+    const filterStatus = ref('')
     const statistics = ref({
         totalCustomers: 0,
         activeCustomers: 0,
@@ -23,10 +24,10 @@ export const useCustomerStore = defineStore('customer', () => {
         categoriesWithProducts: 0
     })
 
-    const fetchCustomers = async (page = 0, size = 10, keyword = '') => {
+    const fetchCustomers = async (page = 0, size = 10, keyword = '', status = null) => {
         loading.value = true
         try {
-            const res = await getCustomers(page, size, keyword)
+            const res = await getCustomers(page, size, keyword, 'customerId', 'asc', status)
             console.log('API response:', res) // Debug xem cấu trúc response
             
             // Xử lý response linh hoạt
@@ -78,7 +79,7 @@ export const useCustomerStore = defineStore('customer', () => {
     const addCustomer = async (data) => {
         try {
             await createCustomer(data)
-            await fetchCustomers(currentPage.value, pageSize.value)
+            await fetchCustomers(currentPage.value, pageSize.value, '', filterStatus.value || null)
             await fetchStatistics()
         } catch (error) {
             console.error('Lỗi khi thêm:', error)
@@ -89,7 +90,7 @@ export const useCustomerStore = defineStore('customer', () => {
     const editCustomer = async (id, data) => {
         try {
             await updateCustomer(id, data)
-            await fetchCustomers(currentPage.value, pageSize.value)
+            await fetchCustomers(currentPage.value, pageSize.value, '', filterStatus.value || null)
         } catch (error) {
             console.error('Lỗi khi cập nhật:', error)
             throw error
@@ -99,7 +100,7 @@ export const useCustomerStore = defineStore('customer', () => {
     const removeCustomer = async (id) => {
         try {
             await deleteCustomer(id)
-            await fetchCustomers(currentPage.value, pageSize.value)
+            await fetchCustomers(currentPage.value, pageSize.value, '', filterStatus.value || null)
             await fetchStatistics()
         } catch (error) {
             console.error('Lỗi khi xóa:', error)
@@ -111,7 +112,7 @@ export const useCustomerStore = defineStore('customer', () => {
         try {
             const { default: api } = await import('../services/api')
             await api.patch(`/admin/customers/${id}/restore`)
-            await fetchCustomers(currentPage.value, pageSize.value)
+            await fetchCustomers(currentPage.value, pageSize.value, '', filterStatus.value || null)
             await fetchStatistics()
         } catch (error) {
             console.error('Lỗi khi khôi phục:', error)
@@ -122,7 +123,7 @@ export const useCustomerStore = defineStore('customer', () => {
     const toggleLock = async (id) => {
         try {
             await toggleLockCustomer(id)
-            await fetchCustomers(currentPage.value, pageSize.value)
+            await fetchCustomers(currentPage.value, pageSize.value, '', filterStatus.value || null)
             await fetchStatistics()
         } catch (error) {
             console.error('Lỗi khi khóa/mở khóa:', error)
@@ -137,6 +138,7 @@ export const useCustomerStore = defineStore('customer', () => {
         currentPage,
         pageSize,
         loading,
+        filterStatus,
         statistics,
         fetchCustomers,
         fetchStatistics,

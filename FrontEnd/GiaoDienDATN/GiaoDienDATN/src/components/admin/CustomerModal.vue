@@ -2,36 +2,26 @@
   <div v-if="visible" class="modal-overlay" @click.self="close">
     <div class="modal-container">
       <div class="modal-header">
-        <h3>{{ isEdit ? 'Cập nhật khách hàng' : 'Thêm khách hàng mới' }}</h3>
+        <h3>Cập nhật trạng thái khách hàng</h3>
         <button class="close-btn" @click="close">&times;</button>
       </div>
       <div class="modal-body">
         <form @submit.prevent="handleSubmit">
           <div class="form-group">
-            <label>Họ tên *</label>
-            <input type="text" v-model="form.customerName" class="form-control" required />
+            <label>Tên khách hàng</label>
+            <input type="text" :value="initialData?.customerName" class="form-control" disabled />
           </div>
           <div class="form-group">
-            <label>Email *</label>
-            <input type="email" v-model="form.email" class="form-control" :disabled="isEdit" required />
-            <small v-if="isEdit" class="text-muted">Email không thể thay đổi</small>
-          </div>
-          <div class="form-group" v-if="!isEdit">
-            <label>Mật khẩu *</label>
-            <input type="password" v-model="form.password" class="form-control" required />
-          </div>
-          <div class="form-group">
-            <label>Số điện thoại</label>
-            <input type="tel" v-model="form.phone" class="form-control" />
-          </div>
-          <div class="form-group">
-            <label>Địa chỉ</label>
-            <textarea v-model="form.address" class="form-control" rows="2"></textarea>
+            <label>Trạng thái *</label>
+            <select v-model="form.isLocked" class="form-control" required>
+              <option :value="false">Hoạt động</option>
+              <option :value="true">Tạm khóa</option>
+            </select>
           </div>
           <div class="modal-footer">
             <button type="button" class="btn-secondary" @click="close">Hủy</button>
             <button type="submit" class="btn-primary" :disabled="submitting">
-              {{ submitting ? 'Đang xử lý...' : (isEdit ? 'Cập nhật' : 'Thêm mới') }}
+              {{ submitting ? 'Đang xử lý...' : 'Cập nhật' }}
             </button>
           </div>
         </form>
@@ -45,18 +35,13 @@ import { ref, watch } from 'vue'
 
 const props = defineProps({
   visible: Boolean,
-  isEdit: Boolean,
   initialData: Object
 })
 
 const emit = defineEmits(['close', 'submit'])
 
 const form = ref({
-  customerName: '',
-  email: '',
-  password: '',
-  phone: '',
-  address: ''
+  isLocked: false
 })
 
 const submitting = ref(false)
@@ -64,24 +49,13 @@ const submitting = ref(false)
 watch(() => props.initialData, (newData) => {
   if (newData) {
     form.value = {
-      customerName: newData.customerName || '',
-      email: newData.email || '',
-      password: '',
-      phone: newData.phone || '',
-      address: newData.address || ''
+      isLocked: !!newData.isLocked
     }
   }
 }, { immediate: true })
 
 watch(() => props.visible, (newVal) => {
   if (!newVal) {
-    form.value = {
-      customerName: '',
-      email: '',
-      password: '',
-      phone: '',
-      address: ''
-    }
     submitting.value = false
   }
 })
@@ -91,8 +65,8 @@ const close = () => emit('close')
 const handleSubmit = async () => {
   submitting.value = true
   try {
-    await emit('submit', { ...form.value })
-    close()
+    await emit('submit', { isLocked: form.value.isLocked })
+    // Remove close() here, AdminCustomers handles it
   } catch (error) {
     console.error('Submit error:', error)
   } finally {
@@ -118,7 +92,7 @@ const handleSubmit = async () => {
   background: white;
   border-radius: 15px;
   width: 90%;
-  max-width: 500px;
+  max-width: 400px;
   max-height: 90vh;
   overflow-y: auto;
 }
@@ -130,7 +104,7 @@ const handleSubmit = async () => {
   align-items: center;
 }
 .modal-header h3 {
-  font-size: 20px;
+  font-size: 18px;
   color: #333;
   margin: 0;
 }
@@ -164,12 +138,9 @@ const handleSubmit = async () => {
   outline: none;
   border-color: #e63946;
 }
-textarea.form-control {
-  resize: vertical;
-}
-.text-muted {
-  font-size: 12px;
-  color: #999;
+.form-control:disabled {
+  background-color: #f5f5f5;
+  cursor: not-allowed;
 }
 .modal-footer {
   padding: 15px 0 0;

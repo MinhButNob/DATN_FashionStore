@@ -2,9 +2,6 @@
   <div class="admin-customers">
     <div class="admin-header">
       <h1 class="page-title">Quản lý khách hàng</h1>
-      <button class="btn btn-primary" @click="openAddModal">
-        <i class="fas fa-plus"></i> Thêm khách hàng
-      </button>
     </div>
 
     <!-- Statistics Cards -->
@@ -46,6 +43,16 @@
           @input="onSearch"
         />
       </div>
+      <select
+        v-model="filterStatus"
+        @change="onFilterStatus"
+        class="filter-select"
+      >
+        <option value="">Tất cả trạng thái</option>
+        <option value="ACTIVE">Hoạt động</option>
+        <option value="LOCKED">Tạm khóa</option>
+        <option value="DELETED">Đã xóa</option>
+      </select>
       <button class="btn btn-outline" @click="refreshData">
         <i class="fas fa-sync-alt"></i> Làm mới
       </button>
@@ -76,6 +83,8 @@
           <tr
             v-for="customer in customerStore.customers"
             :key="customer.customerId"
+            class="table-row"
+            :class="{ 'row-deleted': !customer.isLocked && (customer.isActive === false || customer.isActive === 0) }"
           >
             <td>#{{ customer.customerId }}</td>
             <td>
@@ -92,9 +101,21 @@
             <td>
               <span
                 class="status-badge"
-                :class="customer.isLocked ? 'status-locked' : 'status-active'"
+                :class="
+                  customer.isLocked
+                    ? 'status-locked'
+                    : (customer.isActive === false || customer.isActive === 0)
+                    ? 'status-deleted'
+                    : 'status-active'
+                "
               >
-                {{ customer.isLocked ? "Tạm khóa" : "Hoạt động" }}
+                {{
+                  customer.isLocked
+                    ? "Tạm khóa"
+                    : (customer.isActive === false || customer.isActive === 0)
+                    ? "Đã xóa"
+                    : "Hoạt động"
+                }}
               </span>
             </td>
             <td>{{ formatDate(customer.createdAt) }}</td>
@@ -107,41 +128,27 @@
                 >
                   <i class="fas fa-eye"></i>
                 </button>
-                <button
-                  class="action-btn edit-btn"
-                  @click="openEditModal(customer)"
-                  title="Sửa"
-                >
-                  <i class="fas fa-edit"></i>
-                </button>
-                <button
-                  class="action-btn"
-                  :class="customer.isLocked ? 'unlock-btn' : 'lock-btn'"
-                  @click="confirmToggleLock(customer)"
-                  :title="customer.isLocked ? 'Mở khóa' : 'Khóa'"
-                >
-                  <i
-                    :class="
-                      customer.isLocked ? 'fas fa-unlock-alt' : 'fas fa-lock'
-                    "
-                  ></i>
-                </button>
-                <button
-                  class="action-btn delete-btn"
-                  @click="confirmDelete(customer.customerId)"
-                  title="Xóa"
-                >
-                  <i class="fas fa-trash"></i>
-                </button>
-                <!-- Nút khôi phục - chỉ hiển thị khi tài khoản không hoạt động -->
-                <button
-                  v-if="!customer.isActive"
-                  class="action-btn restore-btn"
-                  @click="confirmRestore(customer.customerId)"
-                  title="Khôi phục"
-                >
-                  <i class="fas fa-undo-alt"></i>
-                </button>
+                <!-- Nút Sửa / Xóa: chỉ hiện khi chưa bị xóa -->
+                <template v-if="customer.isLocked || (customer.isActive !== false && customer.isActive !== 0)">
+                  <button
+                    class="action-btn edit-btn"
+                    @click="openEditModal(customer)"
+                    title="Sửa trạng thái"
+                  >
+                    <i class="fas fa-edit"></i>
+                  </button>
+                  <button
+                    class="action-btn delete-btn"
+                    @click="confirmDelete(customer.customerId)"
+                    title="Xóa"
+                  >
+                    <i class="fas fa-trash"></i>
+                  </button>
+                </template>
+                <!-- Đã xóa: chỉ xem -->
+                <template v-else>
+                  <span class="readonly-label">Chỉ xem</span>
+                </template>
               </div>
             </td>
           </tr>
@@ -221,10 +228,9 @@
       </div>
     </div>
 
-    <!-- Add/Edit Modal -->
+    <!-- Edit Modal -->
     <CustomerModal
       :visible="showCustomerModal"
-      :is-edit="isEditMode"
       :initial-data="editingCustomer"
       @close="closeCustomerModal"
       @submit="handleCustomerSubmit"
@@ -252,7 +258,7 @@ import CustomerModal from "../../components/admin/CustomerModal.vue";
 import ConfirmDialog from "../../components/admin/ConfirmDialog.vue";
 
 const customerStore = useCustomerStore();
-const { statistics } = storeToRefs(customerStore);
+const { statistics, filterStatus } = storeToRefs(customerStore);
 const { showNotification } = useNotification();
 
 // State
@@ -261,7 +267,6 @@ const showDetailModal = ref(false);
 const showCustomerModal = ref(false);
 const showConfirmDialog = ref(false);
 const selectedCustomer = ref(null);
-const isEditMode = ref(false);
 const editingCustomer = ref(null);
 const confirmAction = ref("");
 const confirmTitle = ref("");
@@ -300,7 +305,7 @@ const displayedPages = computed(() => {
 const loadData = async () => {
   try {
     await Promise.all([
-      customerStore.fetchCustomers(0, 10, keyword.value),
+      customerStore.fetchCustomers(0, 10, keyword.value, filterStatus.value || null),
       customerStore.fetchStatistics(),
     ]);
   } catch (error) {
@@ -309,14 +314,18 @@ const loadData = async () => {
 };
 
 const onSearch = () => {
-  customerStore.fetchCustomers(0, 10, keyword.value);
+  customerStore.fetchCustomers(0, 10, keyword.value, filterStatus.value || null);
+};
+const onFilterStatus = () => {
+  customerStore.fetchCustomers(0, 10, keyword.value, filterStatus.value || null);
 };
 const refreshData = () => {
   keyword.value = "";
+  filterStatus.value = "";
   loadData();
 };
 const goToPage = (page) => {
-  customerStore.fetchCustomers(page, 10, keyword.value);
+  customerStore.fetchCustomers(page, 10, keyword.value, filterStatus.value || null);
 };
 const formatDate = (dateString) => {
   if (!dateString) return "---";
@@ -332,13 +341,7 @@ const closeDetailModal = () => {
   selectedCustomer.value = null;
 };
 
-const openAddModal = () => {
-  isEditMode.value = false;
-  editingCustomer.value = null;
-  showCustomerModal.value = true;
-};
 const openEditModal = (customer) => {
-  isEditMode.value = true;
   editingCustomer.value = { ...customer };
   showCustomerModal.value = true;
 };
@@ -349,34 +352,18 @@ const closeCustomerModal = () => {
 
 const handleCustomerSubmit = async (data) => {
   try {
-    if (isEditMode.value) {
-      await customerStore.editCustomer(editingCustomer.value.customerId, {
-        customerName: data.customerName,
-        phone: data.phone,
-        address: data.address,
-      });
-      showNotification("Cập nhật thành công!", "success");
+    const isCurrentlyLocked = !!editingCustomer.value.isLocked;
+    if (data.isLocked !== isCurrentlyLocked) {
+      await customerStore.toggleLock(editingCustomer.value.customerId);
+      showNotification("Cập nhật trạng thái thành công!", "success");
     } else {
-      await customerStore.addCustomer(data);
-      showNotification("Thêm thành công!", "success");
+      showNotification("Không có thay đổi nào", "info");
     }
   } catch (error) {
     showNotification(error.response?.data?.message || "Có lỗi xảy ra", "error");
+  } finally {
+    closeCustomerModal();
   }
-};
-
-const confirmToggleLock = (customer) => {
-  pendingCustomerId = customer.customerId;
-  const isLocking = !customer.isLocked;
-  confirmTitle.value = isLocking
-    ? "Xác nhận khóa tài khoản"
-    : "Xác nhận mở khóa";
-  confirmMessage.value = isLocking
-    ? `Khóa tài khoản của "${customer.customerName}"?`
-    : `Mở khóa tài khoản của "${customer.customerName}"?`;
-  confirmButtonText.value = isLocking ? "Khóa" : "Mở khóa";
-  confirmAction.value = "toggleLock";
-  showConfirmDialog.value = true;
 };
 
 const confirmDelete = (id) => {
@@ -388,15 +375,6 @@ const confirmDelete = (id) => {
   showConfirmDialog.value = true;
 };
 
-const confirmRestore = (id) => {
-  pendingCustomerId = id;
-  confirmTitle.value = "Xác nhận khôi phục";
-  confirmMessage.value = "Bạn có chắc chắn muốn khôi phục khách hàng này?";
-  confirmButtonText.value = "Khôi phục";
-  confirmAction.value = "restore";
-  showConfirmDialog.value = true;
-};
-
 const closeConfirmDialog = () => {
   showConfirmDialog.value = false;
   pendingCustomerId = null;
@@ -405,15 +383,9 @@ const closeConfirmDialog = () => {
 
 const handleConfirm = async () => {
   try {
-    if (confirmAction.value === "toggleLock") {
-      await customerStore.toggleLock(pendingCustomerId);
-      showNotification("Thay đổi trạng thái thành công!", "success");
-    } else if (confirmAction.value === "delete") {
+    if (confirmAction.value === "delete") {
       await customerStore.removeCustomer(pendingCustomerId);
       showNotification("Xóa khách hàng thành công!", "success");
-    } else if (confirmAction.value === "restore") {
-      await customerStore.restoreCustomer(pendingCustomerId);
-      showNotification("Khôi phục khách hàng thành công!", "success");
     }
   } catch (error) {
     showNotification(error.response?.data?.message || "Có lỗi xảy ra", "error");
@@ -457,6 +429,22 @@ onMounted(() => {
   display: flex;
   gap: 15px;
   margin-bottom: 20px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.filter-select {
+  padding: 10px 14px;
+  border: 1px solid #e0e6ed;
+  border-radius: 8px;
+  outline: none;
+  background-color: white;
+  cursor: pointer;
+  font-size: 14px;
+  color: #555;
+  transition: border-color 0.2s;
+}
+.filter-select:focus {
+  border-color: #e63946;
 }
 .search-box {
   flex: 1;
@@ -535,6 +523,26 @@ onMounted(() => {
 .status-locked {
   background: #f8d7da;
   color: #721c24;
+}
+.status-deleted {
+  background: #f3f4f6;
+  color: #9ca3af;
+}
+.row-deleted {
+  opacity: 0.55;
+  background-color: #fafafa;
+}
+.row-deleted td {
+  color: #9ca3af;
+}
+.readonly-label {
+  font-size: 12px;
+  color: #9ca3af;
+  font-style: italic;
+  padding: 4px 8px;
+  background: #f3f4f6;
+  border-radius: 6px;
+  white-space: nowrap;
 }
 .action-buttons {
   display: flex;

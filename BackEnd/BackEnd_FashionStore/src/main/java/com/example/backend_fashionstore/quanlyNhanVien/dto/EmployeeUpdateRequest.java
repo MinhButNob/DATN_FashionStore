@@ -10,6 +10,6 @@ public class EmployeeUpdateRequest extends EmployeeRequest {
     private String username;
     private String password;
 
-    // THÊM trường userId
-    private Integer userId;
+    // ✅ THÊM: cập nhật role
+    private String roleName;
 }

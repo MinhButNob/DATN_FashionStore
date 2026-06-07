@@ -1,6 +1,7 @@
 package com.example.backend_fashionstore.quanlyNhanVien.repo;
 
 import com.example.backend_fashionstore.entity.Employee;
+import com.example.backend_fashionstore.enums.UserStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -13,33 +14,53 @@ import java.util.Optional;
 @Repository
 public interface EmployeeRepository extends JpaRepository<Employee, Integer> {
 
+    // ✅ Tìm kiếm nhân viên (có lọc theo status của User)
     @Query("SELECT e FROM Employee e WHERE " +
-            "(:keyword IS NULL OR LOWER(e.employeeFullname) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) OR " +
-            "LOWER(e.employeePhone) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) OR " +
-            "LOWER(e.employeePosition) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) OR " +
-            "LOWER(e.employeeEmail) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%'))) AND " +
-            "(:status IS NULL OR CAST(e.employeeStatus AS string) = CAST(:status AS string))")
+            "(:keyword IS NULL OR " +
+            "LOWER(e.employeeFullname) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+            "LOWER(e.employeePhone) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+            "LOWER(e.employeePosition) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+            "LOWER(e.employeeEmail) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+            "LOWER(e.user.email) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+            "LOWER(e.user.username) LIKE LOWER(CONCAT('%', :keyword, '%'))) AND " +
+            "(:status IS NULL OR e.employeeStatus = :status)")
     Page<Employee> searchEmployees(@Param("keyword") String keyword,
                                    @Param("status") String status,
                                    Pageable pageable);
 
+    // ✅ Lấy tất cả nhân viên (kể cả đã xóa)
+    @Query("SELECT e FROM Employee e")
+    Page<Employee> findAllWithDeleted(Pageable pageable);
+
+    // ✅ Lấy nhân viên chưa bị xóa (user.status <> DELETED)
+    @Query("SELECT e FROM Employee e WHERE e.user.status <> 'DELETED'")
+    Page<Employee> findAllActive(Pageable pageable);
+
+    // ✅ Lọc nhân viên theo status của User
+    @Query("SELECT e FROM Employee e WHERE e.user.status = :userStatus")
+    Page<Employee> findByUserStatus(@Param("userStatus") UserStatus userStatus, Pageable pageable);
+
+    // ✅ Đếm nhân viên theo status của User
+    @Query("SELECT COUNT(e) FROM Employee e WHERE e.user.status = :userStatus")
+    long countByUserStatus(@Param("userStatus") UserStatus userStatus);
+
+    // ✅ Tổng số nhân viên
+    @Query("SELECT COUNT(e) FROM Employee e")
+    long countTotalEmployees();
+
+    // ✅ Đếm nhân viên theo employeeStatus (ACTIVE, INACTIVE...)
+    @Query("SELECT COUNT(e) FROM Employee e WHERE e.employeeStatus = 'ACTIVE'")
+    long countActiveEmployees();
+
+    // Các method cũ giữ nguyên
     Optional<Employee> findByEmployeeId(Integer employeeId);
 
-    // Kiểm tra tồn tại khi tạo mới
     boolean existsByEmployeePhone(String employeePhone);
     boolean existsByEmployeeEmail(String employeeEmail);
 
-    // Kiểm tra tồn tại khi cập nhật (bỏ qua chính nó)
     @Query("SELECT COUNT(e) > 0 FROM Employee e WHERE e.employeePhone = :phone AND e.employeeId != :id")
     boolean existsByEmployeePhoneAndEmployeeIdNot(@Param("phone") String phone, @Param("id") Integer id);
 
     @Query("SELECT COUNT(e) > 0 FROM Employee e WHERE e.employeeEmail = :email AND e.employeeId != :id")
     boolean existsByEmployeeEmailAndEmployeeIdNot(@Param("email") String email, @Param("id") Integer id);
-
-    // Thống kê
-    @Query("SELECT COUNT(e) FROM Employee e")
-    long countTotalEmployees();
-
-    @Query("SELECT COUNT(e) FROM Employee e WHERE e.employeeStatus = 'ACTIVE'")
-    long countActiveEmployees();
 }

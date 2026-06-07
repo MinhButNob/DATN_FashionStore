@@ -16,4 +16,7 @@ public class EmployeeCreateRequest extends EmployeeRequest {
     @NotBlank(message = "Mật khẩu không được để trống")
     @Size(min = 6, message = "Mật khẩu phải ít nhất 6 ký tự")
     private String password;
+
+    // ✅ THÊM: role khi tạo nhân viên (mặc định STAFF)
+    private String roleName = "STAFF";
 }

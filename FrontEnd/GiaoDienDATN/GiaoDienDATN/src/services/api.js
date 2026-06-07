@@ -51,17 +51,13 @@ api.interceptors.response.use(
 // CUSTOMER APIS
 // ======================
 
-export const getCustomers = (
-  page = 0,
-  size = 10,
-  keyword = "",
-  sortBy = "customerId",
-  sortDir = "asc",
-) => {
-  return api.get("/admin/customers", {
-    params: { page, size, keyword, sortBy, sortDir },
-  });
-};
+
+
+export const getCustomers = (page = 0, size = 10, keyword = '', sortBy = 'customerId', sortDir = 'asc', status = null) => {
+    const params = { page, size, keyword, sortBy, sortDir }
+    if (status) params.status = status
+    return api.get('/admin/customers', { params })
+}
 
 export const getCustomerById = (id) => {
   return api.get(`/admin/customers/${id}`);
