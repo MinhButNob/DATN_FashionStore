@@ -13,10 +13,10 @@ public class EmployeeRequest {
     @NotNull(message = "Giới tính không được để trống")
     private Boolean employeeGender;
 
-    @NotNull(message = "Tuổi không được để trống")
-    @Min(value = 18, message = "Tuổi phải từ 18 trở lên")
-    @Max(value = 100, message = "Tuổi không được vượt quá 100")
-    private Integer employeeAge;
+//    @NotNull(message = "Tuổi không được để trống")
+//    @Min(value = 18, message = "Tuổi phải từ 18 trở lên")
+//    @Max(value = 100, message = "Tuổi không được vượt quá 100")
+//    private Integer employeeAge;
 
     @NotBlank(message = "Số điện thoại không được để trống")
     @Pattern(regexp = "^(0[1-9][0-9]{8,9})$", message = "Số điện thoại không hợp lệ (VD: 0912345678)")
@@ -26,11 +26,8 @@ public class EmployeeRequest {
     @Email(message = "Email không hợp lệ")
     private String employeeEmail;
 
-    @NotBlank(message = "Trạng thái không được để trống")
-    @Pattern(regexp = "^(ACTIVE|INACTIVE|ON_LEAVE|TERMINATED)$", message = "Trạng thái không hợp lệ")
-    private String employeeStatus;
+    // ❌ XÓA employeeStatus - dùng user.status thay thế
 
-    // ✅ SỬA: bỏ @NotBlank để cho phép FE không truyền, service sẽ set mặc định "Nhân viên"
     @Size(max = 50, message = "Chức vụ không được quá 50 ký tự")
     private String employeePosition;
 }

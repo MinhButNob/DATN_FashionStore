@@ -29,6 +29,15 @@ export const employeeApi = {
     return axios.get(`${API_URL}/search`, { params })
   },
 
+  // Thêm vào employeeApi.js
+toggleLock(id) {
+  return axios.patch(`${API_URL}/${id}/toggle-lock`)
+},
+
+restore(id) {
+  return axios.patch(`${API_URL}/${id}/restore`)
+},
+
   getStatistics() {
     return axios.get(`${API_URL}/statistics`)
   }

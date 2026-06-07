@@ -27,6 +27,20 @@
           <div class="stat-label">Đang hoạt động</div>
         </div>
       </div>
+      <div class="stat-card stat-locked">
+        <div class="stat-icon">🔒</div>
+        <div class="stat-info">
+          <div class="stat-value">{{ statistics.lockedEmployees || 0 }}</div>
+          <div class="stat-label">Tạm khóa</div>
+        </div>
+      </div>
+      <div class="stat-card stat-deleted">
+        <div class="stat-icon">🗑️</div>
+        <div class="stat-info">
+          <div class="stat-value">{{ statistics.deletedEmployees || 0 }}</div>
+          <div class="stat-label">Đã xóa</div>
+        </div>
+      </div>
     </div>
 
     <!-- Hiển thị lỗi nếu có -->
@@ -50,11 +64,10 @@
       </div>
       <select v-model="filterStatus" @change="handleSearch" class="filter-select">
         <option value="">Tất cả trạng thái</option>
-        <option value="ACTIVE">Đang hoạt động</option>
+        <option value="ACTIVE">Hoạt động</option>
         <option value="INACTIVE">Không hoạt động</option>
-        <option value="ON_LEAVE">Nghỉ phép</option>
-        <!-- ✅ Thêm TERMINATED để có thể lọc nhân viên đã nghỉ việc -->
-        <option value="TERMINATED">Đã nghỉ việc</option>
+        <option value="BANNED">Tạm khóa</option>
+        <option value="DELETED">Đã xóa</option>
       </select>
       <select v-model="pageSize" @change="handleSearch" class="page-size-select">
         <option :value="5">5 / trang</option>
@@ -83,16 +96,16 @@
               </span>
             </th>
             <th>Giới tính</th>
-            <th>Tuổi</th>
-            <th>Số điện thoại</th>
+            <th>SĐT</th>
             <th>Email</th>
             <th>Chức vụ</th>
+            <th>Vai trò</th>
             <th>Trạng thái</th>
             <th>Thao tác</th>
           </tr>
         </thead>
         <tbody v-if="!loading">
-          <tr v-for="emp in employees" :key="emp.employeeId" class="table-row">
+          <tr v-for="emp in employees" :key="emp.employeeId" class="table-row" :class="{ 'row-deleted': emp.userStatus === 'DELETED' }">
             <td><span class="id-badge">#{{ emp.employeeId }}</span></td>
             <td>
               <div class="employee-name">
@@ -105,31 +118,47 @@
                 {{ emp.employeeGender ? '♂ Nam' : '♀ Nữ' }}
               </span>
             </td>
-            <td>{{ emp.employeeAge }}</td>
             <td>{{ emp.employeePhone }}</td>
             <td>{{ emp.employeeEmail }}</td>
             <td>{{ emp.employeePosition }}</td>
             <td>
-              <select
-                :value="emp.employeeStatus"
-                @change="updateStatus(emp.employeeId, $event.target.value)"
-                class="status-select"
-                :class="'status-' + emp.employeeStatus"
-              >
-                <option value="ACTIVE">Đang hoạt động</option>
-                <option value="INACTIVE">Không hoạt động</option>
-                <option value="ON_LEAVE">Nghỉ phép</option>
-                <!-- ✅ Thêm TERMINATED -->
-                <option value="TERMINATED">Đã nghỉ việc</option>
-              </select>
+              <span class="role-badge" :class="emp.roleName === 'ADMIN' ? 'role-admin' : 'role-staff'">
+                {{ emp.roleName === 'ADMIN' ? 'Quản trị viên' : 'Nhân viên' }}
+              </span>
+            </td>
+            <td>
+              <span class="status-badge" :class="getStatusClass(emp)">
+                {{ getStatusText(emp) }}
+              </span>
             </td>
             <td class="actions">
-              <button class="btn-edit" @click="openEditModal(emp)" title="Sửa">✏️</button>
-              <button class="btn-delete" @click="confirmDelete(emp.employeeId)" title="Xoá">🗑️</button>
+              <div class="action-buttons">
+                <!-- Xem chi tiết -->
+                <button class="action-btn view-btn" @click="viewDetail(emp)" title="Xem chi tiết">👁️</button>
+
+                <!-- Sửa & Xóa - chỉ hiện khi chưa xóa -->
+                <template v-if="emp.userStatus !== 'DELETED'">
+                  <button 
+                    class="action-btn edit-btn" 
+                    @click="openEditModal(emp)" 
+                    title="Sửa">
+                    ✏️
+                  </button>
+                  
+                  <!-- Xóa mềm -->
+                  <button class="action-btn delete-btn" @click="confirmDelete(emp)" title="Xóa">🗑️</button>
+                </template>
+
+                <!-- Đã xóa: chỉ xem + nút khôi phục -->
+                <template v-else>
+                  <span class="readonly-label">Chỉ xem</span>
+                  <button class="action-btn restore-btn" @click="confirmRestore(emp)" title="Khôi phục">↩️</button>
+                </template>
+              </div>
             </td>
           </tr>
           <tr v-if="employees.length === 0 && !loading">
-            <td colspan="9" class="empty-row">
+            <td colspan="10" class="empty-row">
               <div class="empty-state">
                 <div class="empty-icon">📭</div>
                 <p>Không có dữ liệu nhân viên</p>
@@ -140,13 +169,13 @@
         </tbody>
         <tbody v-if="loading">
           <tr>
-            <td colspan="9" class="loading-row">
+            <td colspan="10" class="loading-row">
               <div class="loading-spinner"></div>
               <span>Đang tải dữ liệu...</span>
             </td>
           </tr>
         </tbody>
-      </table>
+       </table>
     </div>
 
     <!-- Phân trang -->
@@ -170,7 +199,42 @@
       @submit="handleSubmit"
     />
 
-    <!-- ✅ Toast dùng class động thay vì document.querySelector -->
+    <!-- Detail Modal -->
+    <div v-if="showDetailModal" class="modal" @click.self="closeDetailModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Chi tiết nhân viên</h2>
+          <button class="close-btn" @click="closeDetailModal">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="detail-item"><strong>ID:</strong> {{ selectedEmployeeDetail?.employeeId }}</div>
+          <div class="detail-item"><strong>Họ tên:</strong> {{ selectedEmployeeDetail?.employeeFullname }}</div>
+          <div class="detail-item"><strong>Email:</strong> {{ selectedEmployeeDetail?.email }}</div>
+          <div class="detail-item"><strong>SĐT:</strong> {{ selectedEmployeeDetail?.employeePhone }}</div>
+          <div class="detail-item"><strong>Giới tính:</strong> {{ selectedEmployeeDetail?.employeeGender ? 'Nam' : 'Nữ' }}</div>
+          <div class="detail-item"><strong>Chức vụ:</strong> {{ selectedEmployeeDetail?.employeePosition }}</div>
+          <div class="detail-item"><strong>Vai trò:</strong> {{ selectedEmployeeDetail?.roleName === 'ADMIN' ? 'Quản trị viên' : 'Nhân viên' }}</div>
+          <div class="detail-item"><strong>Trạng thái:</strong> {{ getStatusText(selectedEmployeeDetail) }}</div>
+          <div class="detail-item"><strong>Ngày tạo:</strong> {{ formatDate(selectedEmployeeDetail?.createdAt) }}</div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" @click="closeDetailModal">Đóng</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Confirm Dialog -->
+    <ConfirmDialog
+      v-if="showConfirmDialog"
+      :visible="showConfirmDialog"
+      :title="confirmTitle"
+      :message="confirmMessage"
+      :confirm-text="confirmButtonText"
+      @confirm="handleConfirm"
+      @cancel="closeConfirmDialog"
+    />
+
+    <!-- Toast -->
     <div :class="['toast', { 'toast-error': toastType === 'error', show: toastShow }]">
       {{ toastMessage }}
     </div>
@@ -181,10 +245,11 @@
 import { nextTick } from 'vue'
 import { useEmployeeStore } from '@/stores/employeeStore'
 import EmployeeModal from '@/components/admin/EmployeeModal.vue'
+import ConfirmDialog from '@/components/admin/ConfirmDialog.vue'
 
 export default {
   name: 'AdminEmployees',
-  components: { EmployeeModal },
+  components: { EmployeeModal, ConfirmDialog },
   data() {
     return {
       searchKeyword: '',
@@ -192,14 +257,22 @@ export default {
       sortByField: 'employeeId',
       sortDirection: 'desc',
       showModal: false,
+      showDetailModal: false,
+      showConfirmDialog: false,
       isEdit: false,
       selectedEmployee: null,
+      selectedEmployeeDetail: null,
       currentPage: 0,
-      pageSize: 5,
+      pageSize: 10,
       toastShow: false,
       toastMessage: '',
-      toastType: 'success', // ✅ 'success' | 'error' — dùng reactive thay vì DOM manipulation
-      toastTimer: null
+      toastType: 'success',
+      toastTimer: null,
+      confirmTitle: '',
+      confirmMessage: '',
+      confirmButtonText: '',
+      confirmAction: '',
+      pendingEmployee: null
     }
   },
   computed: {
@@ -230,7 +303,25 @@ export default {
       return parts[parts.length - 1].charAt(0).toUpperCase()
     },
 
-    // ✅ Dùng toastType reactive, không dùng document.querySelector
+    getStatusClass(emp) {
+      if (emp.userStatus === 'DELETED') return 'status-deleted'
+      if (emp.userStatus === 'INACTIVE') return 'status-inactive'
+      if (emp.isLocked) return 'status-locked'
+      return 'status-active'
+    },
+
+    getStatusText(emp) {
+      if (emp.userStatus === 'DELETED') return 'Đã xóa'
+      if (emp.userStatus === 'INACTIVE') return 'Không hoạt động'
+      if (emp.isLocked) return 'Tạm khóa'
+      return 'Hoạt động'
+    },
+
+    formatDate(dateString) {
+      if (!dateString) return '---'
+      return new Date(dateString).toLocaleDateString('vi-VN')
+    },
+
     showToast(message, isError = false) {
       if (this.toastTimer) clearTimeout(this.toastTimer)
       this.toastMessage = message
@@ -294,20 +385,49 @@ export default {
       this.showModal = true
     },
 
-    openEditModal(employee) {
-      this.isEdit = true
-      this.selectedEmployee = {
-        employeeId: employee.employeeId,
-        userId: employee.userId,
-        employeeFullname: employee.employeeFullname,
-        employeeGender: employee.employeeGender,
-        employeeAge: employee.employeeAge,
-        employeePhone: employee.employeePhone,
-        employeeEmail: employee.employeeEmail,
-        employeePosition: employee.employeePosition,
-        employeeStatus: employee.employeeStatus
-      }
-      this.showModal = true
+    // openEditModal(employee) {
+    //   this.isEdit = true
+    //   this.selectedEmployee = {
+    //     employeeId: employee.employeeId,
+    //     userId: employee.userId,
+    //     employeeFullname: employee.employeeFullname,
+    //     employeeGender: employee.employeeGender,
+    //     employeePhone: employee.employeePhone,
+    //     employeeEmail: employee.employeeEmail,
+    //     employeePosition: employee.employeePosition,
+    //     roleName: employee.roleName
+    //   }
+    //   this.showModal = true
+    // },
+
+    
+    // Trong AdminEmployees.vue, sửa method openEditModal
+openEditModal(employee) {
+  this.isEdit = true
+  // ✅ Load đầy đủ dữ liệu từ employee hiện tại
+  this.selectedEmployee = {
+    employeeId: employee.employeeId,
+    userId: employee.userId,
+    employeeFullname: employee.employeeFullname,
+    employeeGender: employee.employeeGender,
+    employeePhone: employee.employeePhone,
+    employeeEmail: employee.employeeEmail,
+    employeePosition: employee.employeePosition,
+    roleName: employee.roleName,
+    userStatus: employee.userStatus || (employee.isLocked ? 'BANNED' : 'ACTIVE')
+  }
+  this.showModal = true
+},
+
+
+    viewDetail(employee) {
+      this.selectedEmployeeDetail = employee
+      this.showDetailModal = true
+    },
+
+    closeDetailModal() {
+      this.showDetailModal = false
+      this.selectedEmployeeDetail = null
     },
 
     closeModal() {
@@ -317,8 +437,6 @@ export default {
 
     async handleSubmit(formData) {
       useEmployeeStore().error = null
-
-      // ✅ Lưu lại isEdit TRƯỚC KHI closeModal reset nó
       const wasEdit = this.isEdit
 
       let result
@@ -335,38 +453,66 @@ export default {
         await this.loadData(0)
         await this.loadStatistics()
         await nextTick()
-        // ✅ Dùng wasEdit thay vì this.isEdit (đã bị reset bởi closeModal)
         this.showToast(wasEdit ? 'Cập nhật thành công!' : 'Thêm nhân viên thành công!')
       } else {
         this.showToast(result.error || 'Có lỗi xảy ra!', true)
       }
     },
 
-    async updateStatus(id, status) {
-      const result = await useEmployeeStore().updateEmployeeStatus(id, status)
-      if (result.success) {
-        await this.loadData(this.currentPage)
-        await this.loadStatistics()
-        await nextTick()
-        this.showToast('Cập nhật trạng thái thành công!')
-      } else {
-        this.showToast(result.error || 'Cập nhật thất bại!', true)
-        // Reload lại để đưa dropdown về đúng giá trị cũ
-        await this.loadData(this.currentPage)
-      }
+    confirmToggleLock(employee) {
+      this.pendingEmployee = employee
+      const isLocking = !employee.isLocked
+      this.confirmTitle = isLocking ? 'Xác nhận khóa tài khoản' : 'Xác nhận mở khóa'
+      this.confirmMessage = isLocking 
+        ? `Khóa tài khoản của "${employee.employeeFullname}"?` 
+        : `Mở khóa tài khoản của "${employee.employeeFullname}"?`
+      this.confirmButtonText = isLocking ? 'Khóa' : 'Mở khóa'
+      this.confirmAction = 'toggleLock'
+      this.showConfirmDialog = true
     },
 
-    async confirmDelete(id) {
-      if (confirm('Bạn có chắc muốn xoá nhân viên này?')) {
-        const result = await useEmployeeStore().deleteEmployee(id)
-        if (result.success) {
-          await this.loadData(0)
-          await this.loadStatistics()
-          await nextTick()
-          this.showToast('Xoá nhân viên thành công!')
-        } else {
-          this.showToast(result.error || 'Xoá thất bại!', true)
+    confirmDelete(employee) {
+      this.pendingEmployee = employee
+      this.confirmTitle = 'Xác nhận xóa'
+      this.confirmMessage = `Bạn có chắc chắn muốn xóa nhân viên "${employee.employeeFullname}"?`
+      this.confirmButtonText = 'Xóa'
+      this.confirmAction = 'delete'
+      this.showConfirmDialog = true
+    },
+
+    confirmRestore(employee) {
+      this.pendingEmployee = employee
+      this.confirmTitle = 'Xác nhận khôi phục'
+      this.confirmMessage = `Khôi phục nhân viên "${employee.employeeFullname}"?`
+      this.confirmButtonText = 'Khôi phục'
+      this.confirmAction = 'restore'
+      this.showConfirmDialog = true
+    },
+
+    closeConfirmDialog() {
+      this.showConfirmDialog = false
+      this.pendingEmployee = null
+      this.confirmAction = ''
+    },
+
+    async handleConfirm() {
+      try {
+        if (this.confirmAction === 'toggleLock') {
+          await useEmployeeStore().toggleLockEmployee(this.pendingEmployee.employeeId)
+          this.showToast(`Đã ${this.confirmButtonText} tài khoản "${this.pendingEmployee.employeeFullname}"!`)
+        } else if (this.confirmAction === 'delete') {
+          await useEmployeeStore().softDeleteEmployee(this.pendingEmployee.employeeId)
+          this.showToast(`Đã xóa nhân viên "${this.pendingEmployee.employeeFullname}"!`)
+        } else if (this.confirmAction === 'restore') {
+          await useEmployeeStore().restoreEmployee(this.pendingEmployee.employeeId)
+          this.showToast(`Đã khôi phục nhân viên "${this.pendingEmployee.employeeFullname}"!`)
         }
+        await this.loadData(this.currentPage)
+        await this.loadStatistics()
+      } catch (error) {
+        this.showToast(error.message || 'Có lỗi xảy ra!', true)
+      } finally {
+        this.closeConfirmDialog()
       }
     }
   }
@@ -374,52 +520,441 @@ export default {
 </script>
 
 <style scoped>
+/* Giữ nguyên style cũ và thêm các style mới theo phong cách AdminSizes */
+
 .admin-employees {
-  padding: 24px;
-  background: #f0f2f5;
-  min-height: 100vh;
-  font-family: 'Segoe UI', sans-serif;
+  padding: 20px;
+  background-color: #f8f9fa;
+  min-height: calc(100vh - 60px);
+  animation: fadeIn 0.3s ease-in-out;
 }
 
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Header */
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 24px;
 }
+
 .header-left h2 {
-  margin: 0;
-  font-size: 22px;
-  font-weight: 700;
-  color: #1a1a2e;
+  margin: 0 0 5px 0;
+  color: #2c3e50;
+  font-size: 24px;
+  font-weight: 600;
 }
+
 .subtitle {
-  margin: 4px 0 0;
-  font-size: 13px;
-  color: #888;
+  margin: 0;
+  color: #7f8c8d;
+  font-size: 14px;
 }
+
 .btn-add {
+  background-color: #3498db;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
   display: flex;
   align-items: center;
   gap: 8px;
+  transition: all 0.3s;
+}
+
+.btn-add:hover {
+  background-color: #2980b9;
+  transform: translateY(-2px);
+}
+
+/* Stats Row */
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.stat-card {
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  border-left: 4px solid;
+}
+
+.stat-total { border-left-color: #3b82f6; }
+.stat-active { border-left-color: #10b981; }
+.stat-locked { border-left-color: #f59e0b; }
+.stat-deleted { border-left-color: #ef4444; }
+
+.stat-icon { font-size: 32px; }
+.stat-value { font-size: 28px; font-weight: 700; color: #1a1a2e; }
+.stat-label { font-size: 12px; color: #6b7280; margin-top: 4px; }
+
+/* Filter Bar */
+.filter-bar {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 20px;
+  background: white;
+  padding: 15px;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  flex-wrap: wrap;
+}
+
+.search-box {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 250px;
+}
+
+.search-icon {
+  position: absolute;
+  left: 12px;
+  color: #95a5a6;
+}
+
+.search-box input {
+  width: 100%;
+  padding: 10px 35px;
+  border: 1px solid #e0e6ed;
+  border-radius: 8px;
+  outline: none;
+  transition: border-color 0.2s;
+  font-size: 14px;
+}
+
+.search-box input:focus {
+  border-color: #3498db;
+}
+
+.clear-search {
+  position: absolute;
+  right: 12px;
+  background: none;
+  border: none;
+  color: #95a5a6;
+  cursor: pointer;
+}
+
+.filter-select, .page-size-select {
+  padding: 10px;
+  border: 1px solid #e0e6ed;
+  border-radius: 8px;
+  outline: none;
+  background-color: white;
+  cursor: pointer;
+}
+
+.btn-search {
   padding: 10px 20px;
-  background: #3b82f6;
+  background-color: #2c3e50;
   color: white;
   border: none;
   border-radius: 8px;
   cursor: pointer;
-  font-size: 14px;
-  font-weight: 600;
-  transition: all 0.2s;
-  box-shadow: 0 2px 8px rgba(59,130,246,0.3);
+  transition: background 0.2s;
 }
-.btn-add:hover {
-  background: #2563eb;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(59,130,246,0.4);
-}
-.btn-icon { font-size: 16px; font-weight: 400; }
 
+.btn-search:hover {
+  background-color: #34495e;
+}
+
+/* Table */
+.table-container {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+  overflow-x: auto;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th, .data-table td {
+  padding: 15px;
+  text-align: left;
+  border-bottom: 1px solid #f1f4f8;
+}
+
+.data-table th {
+  background-color: #f8f9fa;
+  color: #2c3e50;
+  font-weight: 600;
+  font-size: 14px;
+  text-transform: uppercase;
+}
+
+.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.sort-icon {
+  margin-left: 4px;
+}
+
+.table-row:hover {
+  background: #f9fafb;
+}
+
+.row-deleted {
+  opacity: 0.55;
+  background-color: #fafafa;
+}
+
+.row-deleted td {
+  color: #9ca3af;
+}
+
+.id-badge {
+  background: #f1f4f8;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-family: monospace;
+  font-size: 13px;
+  color: #7f8c8d;
+}
+
+.employee-name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.avatar {
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.gender-badge {
+  font-size: 12px;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-weight: 500;
+}
+.gender-badge.male { background: #dbeafe; color: #1d4ed8; }
+.gender-badge.female { background: #fce7f3; color: #be185d; }
+
+.role-badge {
+  font-size: 12px;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-weight: 500;
+}
+.role-badge.role-admin { background: #fef3c7; color: #92400e; }
+.role-badge.role-staff { background: #e0e7ff; color: #4338ca; }
+
+.status-badge {
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  display: inline-block;
+}
+.status-active { background-color: #e8f8f5; color: #27ae60; }
+.status-inactive { background-color: #fdf2e9; color: #f39c12; }
+.status-locked { background-color: #fee2e2; color: #e74c3c; }
+.status-deleted { background-color: #f3f4f6; color: #9ca3af; }
+
+.action-buttons {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.action-btn {
+  background: none;
+  border: none;
+  padding: 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.view-btn:hover { background-color: #e8f4f8; }
+.edit-btn:hover { background-color: #fef3c7; }
+.lock-btn:hover { background-color: #fde8e8; }
+.unlock-btn:hover { background-color: #e8f8f5; }
+.delete-btn:hover { background-color: #fde8e8; }
+.restore-btn:hover { background-color: #e8f4f8; }
+
+.readonly-label {
+  font-size: 12px;
+  color: #9ca3af;
+  font-style: italic;
+  padding: 4px 8px;
+  background: #f3f4f6;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+/* Pagination */
+.pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 20px;
+  padding: 15px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.page-total {
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.page-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.page-controls button {
+  padding: 5px 12px;
+  border: 1px solid #e0e6ed;
+  background: white;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.page-controls button:hover:not(:disabled) {
+  background: #3498db;
+  color: white;
+  border-color: #3498db;
+}
+
+.page-controls button:disabled {
+  background: #f8f9fa;
+  color: #bdc3c7;
+  cursor: not-allowed;
+}
+
+.page-info {
+  font-size: 14px;
+  color: #4b5563;
+  font-weight: 500;
+  min-width: 70px;
+  text-align: center;
+}
+
+/* Modal details */
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  animation: fadeIn 0.2s ease-in-out;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 500px;
+  max-height: 90vh;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  overflow-y: auto;
+}
+
+.modal-header {
+  padding: 20px;
+  border-bottom: 1px solid #f3f4f6;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 18px;
+  color: #1f2937;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: #9ca3af;
+  cursor: pointer;
+}
+
+.close-btn:hover {
+  color: #1f2937;
+}
+
+.modal-body {
+  padding: 20px;
+}
+
+.detail-item {
+  margin-bottom: 10px;
+  color: #374151;
+}
+
+.modal-footer {
+  padding: 16px 20px;
+  border-top: 1px solid #f3f4f6;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.btn-outline {
+  padding: 8px 16px;
+  background: #f3f4f6;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  color: #4b5563;
+  transition: background 0.2s;
+}
+
+.btn-outline:hover {
+  background: #e5e7eb;
+}
+
+/* Error/Empty/Loading */
 .error-alert {
   background: #fee2e2;
   border-left: 4px solid #ef4444;
@@ -430,276 +965,75 @@ export default {
   align-items: center;
   gap: 12px;
 }
-.error-icon { font-size: 18px; }
-.error-message { flex: 1; color: #991b1b; font-size: 14px; }
-.error-close {
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: #991b1b;
-  font-size: 16px;
-  padding: 0 4px;
-}
-.error-close:hover { opacity: 0.7; }
 
-.stats-row {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
-  margin-bottom: 24px;
-}
-.stat-card {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  background: white;
-  padding: 20px 24px;
-  border-radius: 12px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
-  border-left: 4px solid transparent;
-  transition: all 0.2s;
-}
-.stat-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
-}
-.stat-total { border-left-color: #3b82f6; }
-.stat-active { border-left-color: #10b981; }
-.stat-icon { font-size: 28px; }
-.stat-value { font-size: 28px; font-weight: 700; color: #1a1a2e; line-height: 1; }
-.stat-label { font-size: 12px; color: #888; margin-top: 4px; }
-
-.filter-bar {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 20px;
-  align-items: center;
-}
-.search-box {
-  flex: 1;
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-.search-icon { position: absolute; left: 12px; font-size: 14px; }
-.search-box input {
-  width: 100%;
-  padding: 10px 36px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  font-size: 14px;
-  background: white;
-  transition: all 0.2s;
-  box-sizing: border-box;
-}
-.search-box input:focus {
-  outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
-}
-.clear-search {
-  position: absolute;
-  right: 10px;
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: #aaa;
-  font-size: 12px;
-  padding: 2px 6px;
-}
-.clear-search:hover { color: #555; }
-.filter-select {
-  padding: 10px 14px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  font-size: 14px;
-  background: white;
-  cursor: pointer;
-  min-width: 180px;
-}
-.filter-select:focus { outline: none; border-color: #3b82f6; }
-.page-size-select {
-  padding: 10px 14px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  font-size: 14px;
-  background: white;
-  cursor: pointer;
-  min-width: 120px;
-}
-.page-size-select:focus { outline: none; border-color: #3b82f6; }
-.btn-search {
-  padding: 10px 20px;
-  background: #1a1a2e;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  white-space: nowrap;
-  transition: all 0.2s;
-}
-.btn-search:hover { background: #2d2d4e; }
-
-.table-container {
-  background: white;
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
-}
-.data-table { width: 100%; border-collapse: collapse; }
-.data-table th {
-  padding: 13px 16px;
-  text-align: left;
-  background: #f8fafc;
-  font-size: 12px;
-  font-weight: 600;
-  color: #64748b;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  border-bottom: 1px solid #e5e7eb;
-}
-.data-table th.sortable { cursor: pointer; user-select: none; }
-.data-table th.sortable:hover { background: #f1f5f9; color: #3b82f6; }
-.sort-icon { margin-left: 4px; color: #3b82f6; }
-.data-table td {
-  padding: 13px 16px;
-  font-size: 14px;
-  color: #374151;
-  border-bottom: 1px solid #f3f4f6;
-}
-.table-row:hover td { background: #fafbff; }
-.table-row:last-child td { border-bottom: none; }
-
-.id-badge {
-  background: #eff6ff;
-  color: #3b82f6;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 600;
-}
-.employee-name { display: flex; align-items: center; gap: 10px; }
-.avatar {
-  width: 32px;
-  height: 32px;
-  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-  color: white;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 13px;
-  font-weight: 600;
-  flex-shrink: 0;
-}
-.gender-badge { font-size: 12px; padding: 3px 8px; border-radius: 12px; font-weight: 500; }
-.gender-badge.male { background: #dbeafe; color: #1d4ed8; }
-.gender-badge.female { background: #fce7f3; color: #be185d; }
-
-.status-select {
-  padding: 5px 10px;
-  border: none;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  appearance: none;
-  -webkit-appearance: none;
+.loading-row {
   text-align: center;
+  padding: 40px;
 }
-.status-select.status-ACTIVE { background: #d1fae5; color: #065f46; }
-.status-select.status-INACTIVE { background: #fee2e2; color: #991b1b; }
-.status-select.status-ON_LEAVE { background: #fef3c7; color: #92400e; }
-/* ✅ Thêm style cho TERMINATED */
-.status-select.status-TERMINATED { background: #f3f4f6; color: #374151; }
 
-.actions { display: flex; gap: 6px; }
-.btn-edit, .btn-delete {
-  padding: 6px 9px;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 14px;
-  transition: all 0.15s;
-}
-.btn-edit { background: #eff6ff; }
-.btn-edit:hover { background: #dbeafe; transform: scale(1.1); }
-.btn-delete { background: #fff5f5; }
-.btn-delete:hover { background: #fee2e2; transform: scale(1.1); }
-.btn-retry {
-  margin-top: 12px;
-  padding: 6px 16px;
-  background: #3b82f6;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 13px;
-}
-.btn-retry:hover { background: #2563eb; }
-
-.empty-row { text-align: center; padding: 40px; }
-.empty-state { display: flex; flex-direction: column; align-items: center; gap: 8px; color: #9ca3af; }
-.empty-icon { font-size: 40px; }
-.loading-row { text-align: center; padding: 40px; display: flex; align-items: center; justify-content: center; gap: 12px; color: #9ca3af; }
 .loading-spinner {
-  width: 20px; height: 20px;
+  width: 20px;
+  height: 20px;
   border: 2px solid #e5e7eb;
   border-top-color: #3b82f6;
   border-radius: 50%;
   animation: spin 0.6s linear infinite;
+  display: inline-block;
+  margin-right: 8px;
 }
-@keyframes spin { to { transform: rotate(360deg); } }
 
-.pagination {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 4px;
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
-.page-total { font-size: 13px; color: #6b7280; }
-.page-controls { display: flex; align-items: center; gap: 6px; }
-.page-controls button {
-  padding: 6px 12px;
-  border: 1px solid #e5e7eb;
-  background: white;
+
+.empty-row {
+  text-align: center;
+  padding: 40px;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: #9ca3af;
+}
+
+.empty-icon {
+  font-size: 40px;
+}
+
+.btn-retry {
+  margin-top: 10px;
+  padding: 8px 16px;
+  background: #3498db;
+  color: white;
+  border: none;
   border-radius: 6px;
   cursor: pointer;
-  font-size: 14px;
-  transition: all 0.15s;
-  color: #374151;
 }
-.page-controls button:hover:not(:disabled) {
-  background: #eff6ff;
-  border-color: #3b82f6;
-  color: #3b82f6;
-}
-.page-controls button:disabled { opacity: 0.4; cursor: not-allowed; }
-.page-info { padding: 6px 14px; font-size: 13px; color: #374151; font-weight: 500; }
 
-/* ✅ Toast dùng class động */
+/* Toast */
 .toast {
   position: fixed;
   bottom: 30px;
   right: 30px;
-  padding: 12px 20px;
+  padding: 12px 24px;
   border-radius: 8px;
-  background: #10b981;
+  background: #27ae60;
   color: white;
   font-size: 14px;
-  font-weight: 500;
   z-index: 9999;
   opacity: 0;
   transform: translateY(20px);
   transition: all 0.3s ease;
-  pointer-events: none;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
+
 .toast.toast-error {
-  background: #ef4444;
+  background: #e74c3c;
 }
+
 .toast.show {
   opacity: 1;
   transform: translateY(0);
