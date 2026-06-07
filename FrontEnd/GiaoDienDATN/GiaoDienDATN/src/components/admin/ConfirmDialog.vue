@@ -11,7 +11,9 @@
         </div>
         <div class="confirm-footer">
           <button class="btn-cancel" @click="cancel">Hủy</button>
-          <button class="btn-confirm" @click="confirm">{{ confirmText }}</button>
+          <button class="btn-confirm" @click="confirm">
+            {{ confirmText }}
+          </button>
         </div>
       </div>
     </div>
@@ -21,15 +23,15 @@
 <script setup>
 defineProps({
   visible: { type: Boolean, default: false },
-  title: { type: String, default: 'Xác nhận' },
-  message: { type: String, default: 'Bạn có chắc chắn?' },
-  confirmText: { type: String, default: 'Xác nhận' }
-})
+  title: { type: String, default: "Xác nhận" },
+  message: { type: String, default: "Bạn có chắc chắn?" },
+  confirmText: { type: String, default: "Xác nhận" },
+});
 
-const emit = defineEmits(['confirm', 'cancel'])
+const emit = defineEmits(["confirm", "cancel"]);
 
-const confirm = () => emit('confirm')
-const cancel = () => emit('cancel')
+const confirm = () => emit("confirm");
+const cancel = () => emit("cancel");
 </script>
 
 <style scoped>
@@ -89,7 +91,8 @@ const cancel = () => emit('cancel')
   justify-content: flex-end;
   gap: 10px;
 }
-.btn-cancel, .btn-confirm {
+.btn-cancel,
+.btn-confirm {
   padding: 8px 18px;
   border: none;
   border-radius: 6px;

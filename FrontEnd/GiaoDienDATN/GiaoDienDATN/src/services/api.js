@@ -12,7 +12,8 @@ const api = axios.create({
 // Request interceptor
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("token") || localStorage.getItem("accessToken");
+    const token =
+      localStorage.getItem("token") || localStorage.getItem("accessToken");
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -50,34 +51,87 @@ api.interceptors.response.use(
 // CUSTOMER APIS
 // ======================
 
-export const getCustomers = (page = 0, size = 10, keyword = '', sortBy = 'customerId', sortDir = 'asc') => {
-    return api.get('/admin/customers', {
-        params: { page, size, keyword, sortBy, sortDir }
-    })
-}
+export const getCustomers = (
+  page = 0,
+  size = 10,
+  keyword = "",
+  sortBy = "customerId",
+  sortDir = "asc",
+) => {
+  return api.get("/admin/customers", {
+    params: { page, size, keyword, sortBy, sortDir },
+  });
+};
 
 export const getCustomerById = (id) => {
-    return api.get(`/admin/customers/${id}`)
-}
+  return api.get(`/admin/customers/${id}`);
+};
 
 export const createCustomer = (data) => {
-    return api.post('/admin/customers', data)
-}
+  return api.post("/admin/customers", data);
+};
 
 export const updateCustomer = (id, data) => {
-    return api.put(`/admin/customers/${id}`, data)
-}
+  return api.put(`/admin/customers/${id}`, data);
+};
 
 export const deleteCustomer = (id) => {
-    return api.delete(`/admin/customers/${id}`)
-}
+  return api.delete(`/admin/customers/${id}`);
+};
 
 export const toggleLockCustomer = (id) => {
-    return api.patch(`/admin/customers/${id}/toggle-lock`)
-}
+  return api.patch(`/admin/customers/${id}/toggle-lock`);
+};
 
 export const getCustomerStatistics = () => {
-    return api.get('/admin/customers/statistics')
-}
+  return api.get("/admin/customers/statistics");
+};
+// ======================
+// PROMOTION APIS
+// ======================
 
+export const getPromotions = (
+  page = 0,
+  size = 10,
+  status = "",
+  keyword = "",
+  sortBy = "promotionId",
+  sortDir = "asc",
+) => {
+  return api.get("/admin/promotions", {
+    params: { page, size, status, keyword, sortBy, sortDir },
+  });
+};
+
+export const getDeletedPromotions = (page = 0, size = 10) => {
+  return api.get("/admin/promotions/deleted", { params: { page, size } });
+};
+
+export const getPromotionById = (id) => {
+  return api.get(`/admin/promotions/${id}`);
+};
+
+export const createPromotion = (data) => {
+  return api.post("/admin/promotions", data);
+};
+
+export const updatePromotion = (id, data) => {
+  return api.put(`/admin/promotions/${id}`, data);
+};
+
+export const softDeletePromotion = (id) => {
+  return api.delete(`/admin/promotions/${id}`);
+};
+
+export const restorePromotion = (id) => {
+  return api.patch(`/admin/promotions/${id}/restore`);
+};
+
+export const togglePromotionStatus = (id) => {
+  return api.patch(`/admin/promotions/${id}/toggle-status`);
+};
+
+export const getPromotionStatistics = () => {
+  return api.get("/admin/promotions/statistics");
+};
 export default api;
