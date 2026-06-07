@@ -8,8 +8,8 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class StatisticsDTO {
-    private long totalCustomers;
-    private long activeCustomers;
-    private long lockedCustomers;
-    private long categoriesWithProducts;
+    private long totalCustomers;      // Tổng số khách
+    private long activeCustomers;     // Đang hoạt động (ACTIVE)
+    private long lockedCustomers;     // Bị khóa (BANNED)
+    private long deletedCustomers;    // Đã xóa (DELETED)
 }

@@ -19,7 +19,7 @@ public class Cart {
     private Integer cartId;
 
     @OneToOne
-    @JoinColumn(name = "cart_customer_id", nullable = false)  // ✅ SỬA: cart_customer_id
+    @JoinColumn(name = "cart_customer_id", nullable = false)
     private Customer customer;
 
     @Column(name = "cart_created_at")
