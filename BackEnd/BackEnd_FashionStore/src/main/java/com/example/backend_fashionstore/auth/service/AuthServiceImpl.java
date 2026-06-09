@@ -4,11 +4,13 @@ import com.example.backend_fashionstore.auth.dto.*;
 import com.example.backend_fashionstore.auth.repository.*;
 import com.example.backend_fashionstore.entity.*;
 import com.example.backend_fashionstore.enums.RoleStatus;
+import com.example.backend_fashionstore.enums.UserStatus;
 import com.example.backend_fashionstore.security.JwtService;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,12 +44,9 @@ public class AuthServiceImpl implements AuthService {
         User user = User.builder()
                 .username(request.getName())
                 .email(request.getEmail())
-                .passwordHash(
-                        passwordEncoder.encode(
-                                request.getPassword()
-                        )
-                )
+                .passwordHash(passwordEncoder.encode(request.getPassword()))
                 .provider("LOCAL")
+                .status(UserStatus.ACTIVE)  // ✅ Mặc định ACTIVE khi đăng ký
                 .build();
 
         // save user
@@ -68,16 +67,39 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public AuthResponse login(LoginRequest request) {
 
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        request.getEmail(),
-                        request.getPassword()
-                )
-        );
+        // ✅ Kiểm tra user có tồn tại không
+        User user = userRepository.findByEmailWithRoles(request.getEmail())
+                .orElseThrow(() -> new RuntimeException("Email hoặc mật khẩu không đúng"));
 
-        User user = userRepository
-                .findByEmailWithRoles(request.getEmail())
-                .orElseThrow();
+        // ✅ KIỂM TRA STATUS TRƯỚC KHI CHO ĐĂNG NHẬP
+        if (user.getStatus() == UserStatus.BANNED) {
+            throw new RuntimeException("Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.");
+        }
+
+        if (user.getStatus() == UserStatus.INACTIVE) {
+            throw new RuntimeException("Tài khoản của bạn đã bị vô hiệu hóa.");
+        }
+
+        if (user.getStatus() == UserStatus.DELETED) {
+            throw new RuntimeException("Tài khoản đã bị xóa. Không thể đăng nhập.");
+        }
+
+        // ✅ Chỉ cho phép đăng nhập khi status = ACTIVE
+        if (user.getStatus() != UserStatus.ACTIVE) {
+            throw new RuntimeException("Tài khoản chưa được kích hoạt. Vui lòng liên hệ quản trị viên.");
+        }
+
+        // Xác thực mật khẩu
+        try {
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            request.getEmail(),
+                            request.getPassword()
+                    )
+            );
+        } catch (AuthenticationException e) {
+            throw new RuntimeException("Email hoặc mật khẩu không đúng");
+        }
 
         return buildAuthResponse(user);
     }
@@ -86,8 +108,7 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public AuthResponse googleLogin(String idToken) {
 
-        GoogleIdToken.Payload payload =
-                googleVerifyService.verify(idToken);
+        GoogleIdToken.Payload payload = googleVerifyService.verify(idToken);
 
         String email = payload.getEmail();
         String name = (String) payload.get("name");
@@ -96,22 +117,31 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepository
                 .findByEmailWithRoles(email)
                 .orElseGet(() -> {
-
                     User u = new User();
                     u.setEmail(email);
                     u.setUsername(name);
                     u.setAvatarUrl(picture);
                     u.setProvider("GOOGLE");
                     u.setProviderId(payload.getSubject());
-
+                    u.setStatus(UserStatus.ACTIVE);  // ✅ Mặc định ACTIVE
                     return userRepository.save(u);
                 });
 
-        ensureSocialAccount(
-                user,
-                name,
-                "GOOGLE"
-        );
+        // ✅ KIỂM TRA STATUS CHO GOOGLE LOGIN
+        if (user.getStatus() == UserStatus.BANNED) {
+            throw new RuntimeException("Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.");
+        }
+        if (user.getStatus() == UserStatus.INACTIVE) {
+            throw new RuntimeException("Tài khoản của bạn đã bị vô hiệu hóa.");
+        }
+        if (user.getStatus() == UserStatus.DELETED) {
+            throw new RuntimeException("Tài khoản đã bị xóa. Không thể đăng nhập.");
+        }
+        if (user.getStatus() != UserStatus.ACTIVE) {
+            throw new RuntimeException("Tài khoản chưa được kích hoạt.");
+        }
+
+        ensureSocialAccount(user, name, "GOOGLE");
 
         return buildAuthResponse(user);
     }
@@ -120,32 +150,18 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public AuthResponse facebookLogin(String accessToken) {
 
-        FacebookUserInfo info =
-                facebookVerifyService.verify(accessToken);
+        FacebookUserInfo info = facebookVerifyService.verify(accessToken);
 
-        if (info == null
-                || info.getEmail() == null
-                || info.getEmail().isBlank()) {
-
-            throw new RuntimeException(
-                    "Invalid Facebook token or missing email"
-            );
+        if (info == null || info.getEmail() == null || info.getEmail().isBlank()) {
+            throw new RuntimeException("Invalid Facebook token or missing email");
         }
 
         String avatarUrl = null;
-
-        if (info.getPicture() != null
-                && info.getPicture().getData() != null) {
-
-            avatarUrl =
-                    info.getPicture()
-                            .getData()
-                            .getUrl();
+        if (info.getPicture() != null && info.getPicture().getData() != null) {
+            avatarUrl = info.getPicture().getData().getUrl();
         }
 
-        final String finalAvatarUrl =
-                avatarUrl;
-
+        final String finalAvatarUrl = avatarUrl;
         String email = info.getEmail();
         String name = info.getName();
         String facebookId = info.getId();
@@ -153,38 +169,41 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepository
                 .findByEmailWithRoles(email)
                 .orElseGet(() -> {
-
                     User u = new User();
-
                     u.setEmail(email);
                     u.setUsername(name);
                     u.setAvatarUrl(finalAvatarUrl);
                     u.setProvider("FACEBOOK");
                     u.setProviderId(facebookId);
-
+                    u.setStatus(UserStatus.ACTIVE);  // ✅ Mặc định ACTIVE
                     return userRepository.save(u);
                 });
 
-        if (user.getAvatarUrl() == null
-                && finalAvatarUrl != null) {
+        // ✅ KIỂM TRA STATUS CHO FACEBOOK LOGIN
+        if (user.getStatus() == UserStatus.BANNED) {
+            throw new RuntimeException("Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.");
+        }
+        if (user.getStatus() == UserStatus.INACTIVE) {
+            throw new RuntimeException("Tài khoản của bạn đã bị vô hiệu hóa.");
+        }
+        if (user.getStatus() == UserStatus.DELETED) {
+            throw new RuntimeException("Tài khoản đã bị xóa. Không thể đăng nhập.");
+        }
+        if (user.getStatus() != UserStatus.ACTIVE) {
+            throw new RuntimeException("Tài khoản chưa được kích hoạt.");
+        }
 
+        if (user.getAvatarUrl() == null && finalAvatarUrl != null) {
             user.setAvatarUrl(finalAvatarUrl);
             userRepository.save(user);
         }
 
-        ensureSocialAccount(
-                user,
-                name,
-                "FACEBOOK"
-        );
+        ensureSocialAccount(user, name, "FACEBOOK");
 
         return buildAuthResponse(user);
     }
 
-    private void ensureCustomerAccount(
-            User user,
-            String customerName
-    ) {
+    private void ensureCustomerAccount(User user, String customerName) {
 
         // 1. Role CUSTOMER
         Role customerRole = roleRepository.findByRoleName("CUSTOMER")
@@ -196,8 +215,7 @@ public class AuthServiceImpl implements AuthService {
                 ));
 
         // 2. Gán role
-        if (!userRoleRepository.existsByUser_UserIdAndRole_RoleName(
-                user.getUserId(), "CUSTOMER")) {
+        if (!userRoleRepository.existsByUser_UserIdAndRole_RoleName(user.getUserId(), "CUSTOMER")) {
             userRoleRepository.save(
                     UserRole.builder()
                             .id(new UserRoleId(user.getUserId(), customerRole.getRoleId()))
@@ -207,7 +225,7 @@ public class AuthServiceImpl implements AuthService {
             );
         }
 
-        // 3. Tạo Customer - ĐẢM BẢO SAVE NGAY
+        // 3. Tạo Customer
         Customer customer = customerRepository
                 .findByUser_UserId(user.getUserId())
                 .orElse(null);
@@ -217,10 +235,10 @@ public class AuthServiceImpl implements AuthService {
                     .user(user)
                     .customerName(customerName)
                     .build();
-            customer = customerRepository.save(customer);  // ✅ Lưu và lấy lại customer có ID
+            customer = customerRepository.save(customer);
         }
 
-        // 4. Tạo Cart - DÙNG customer ĐÃ CÓ ID
+        // 4. Tạo Cart
         if (!cartRepository.existsByCustomer_CustomerId(customer.getCustomerId())) {
             Cart cart = Cart.builder()
                     .customer(customer)
@@ -229,58 +247,35 @@ public class AuthServiceImpl implements AuthService {
         }
     }
 
-    private void ensureSocialAccount(
-            User user,
-            String displayName,
-            String provider
-    ) {
+    private void ensureSocialAccount(User user, String displayName, String provider) {
 
-        if (user.getProvider() == null
-                || user.getProvider().isBlank()) {
-
+        if (user.getProvider() == null || user.getProvider().isBlank()) {
             user.setProvider(provider);
         }
 
-        if (user.getUsername() == null
-                || user.getUsername().isBlank()) {
-
+        if (user.getUsername() == null || user.getUsername().isBlank()) {
             user.setUsername(displayName);
         }
 
         userRepository.save(user);
 
-        ensureCustomerAccount(
-                user,
-                user.getUsername()
-        );
+        ensureCustomerAccount(user, user.getUsername());
     }
 
-    private AuthResponse buildAuthResponse(
-            User user
-    ) {
+    private AuthResponse buildAuthResponse(User user) {
 
-        User authUser =
-                userRepository
-                        .findByEmailWithRoles(
-                                user.getEmail()
-                        )
-                        .orElse(user);
+        User authUser = userRepository
+                .findByEmailWithRoles(user.getEmail())
+                .orElse(user);
 
-        String token =
-                jwtService.generateToken(
-                        authUser.getEmail()
-                );
+        String token = jwtService.generateToken(authUser.getEmail());
 
-        // FIX NULL POINTER
-        List<String> roles =
-                authUser.getUserRoles() == null
-                        ? List.of()
-                        : authUser.getUserRoles()
-                        .stream()
-                        .map(role ->
-                                role.getRole().getRoleName()
-                        )
-                        .toList();
+        List<String> roles = authUser.getUserRoles() == null
+                ? List.of()
+                : authUser.getUserRoles()
+                .stream()
+                .map(role -> role.getRole().getRoleName())
+                .toList();
 
         return AuthResponse.builder()
                 .accessToken(token)
@@ -296,4 +291,4 @@ public class AuthServiceImpl implements AuthService {
                 )
                 .build();
     }
-}
+} 

@@ -33,6 +33,14 @@ import AdminEmployees from "../views/admin/AdminEmployees.vue";
 import AdminRoles from "../views/admin/AdminRoles.vue";
 import AdminPromotions from "../views/admin/AdminPromotions.vue"; // ← THÊM DÒNG NÀY
 
+import StaffLayout from "../views/staff/StaffLayout.vue";
+import StaffDashboard from "../views/staff/StaffDashboard.vue";
+import StaffPos from "../views/staff/StaffPos.vue";
+import StaffOrders from "../views/staff/StaffOrders.vue";
+import StaffCustomers from "../views/staff/StaffCustomers.vue";
+import StaffReturns from "../views/staff/StaffReturns.vue";
+import StaffChat from "../views/staff/StaffChat.vue";
+
 const routes = [
   { path: "/", redirect: "/home" },
   { path: "/home", name: "home", component: HomePage },
@@ -97,7 +105,7 @@ const routes = [
   {
     path: "/admin",
     component: AdminLayout,
-    meta: { requiresAdmin: true },
+    meta: { requiresAuth: true, roles: ["ADMIN"] },
     children: [
       { path: "", name: "admin-dashboard", component: AdminDashboard },
       { path: "products", name: "admin-products", component: AdminProducts },
@@ -120,6 +128,19 @@ const routes = [
       { path: "settings", name: "admin-settings", component: AdminSettings },
     ],
   },
+  {
+    path: "/staff",
+    component: StaffLayout,
+    meta: { requiresAuth: true, roles: ["STAFF"] },
+    children: [
+      { path: "", name: "staff-dashboard", component: StaffDashboard },
+      { path: "pos", name: "staff-pos", component: StaffPos },
+      { path: "orders", name: "staff-orders", component: StaffOrders },
+      { path: "customers", name: "staff-customers", component: StaffCustomers },
+      { path: "returns", name: "staff-returns", component: StaffReturns },
+      { path: "chat", name: "staff-chat", component: StaffChat },
+    ],
+  },
   { path: "/:pathMatch(.*)*", name: "not-found", component: NotFoundPage },
 ];
 
@@ -133,19 +154,24 @@ const router = createRouter({
 });
 
 // ========== NAVIGATION GUARDS ==========
+const getDefaultRouteByRole = (authStore) => {
+  if (authStore.isAdmin) return { name: "admin-dashboard" };
+  if (authStore.isStaff) return { name: "staff-dashboard" };
+  return { name: "home" };
+};
+
 router.beforeEach((to, from, next) => {
   const authStore = useAuthStore();
 
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
     next({ name: "login", query: { redirect: to.fullPath } });
-  } else if (to.meta.requiresAdmin && !authStore.isAdmin) {
-    if (authStore.isAuthenticated) {
-      next({ name: "home" });
-    } else {
-      next({ name: "admin-login", query: { redirect: to.fullPath } });
-    }
+  } else if (
+    to.meta.roles &&
+    !to.meta.roles.some((role) => authStore.userRoles.includes(role))
+  ) {
+    next(getDefaultRouteByRole(authStore));
   } else if (to.meta.guest && authStore.isAuthenticated) {
-    next({ name: "home" });
+    next(getDefaultRouteByRole(authStore));
   } else {
     next();
   }
