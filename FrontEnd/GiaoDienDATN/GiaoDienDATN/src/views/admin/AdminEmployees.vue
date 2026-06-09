@@ -408,7 +408,7 @@ openEditModal(employee) {
   this.selectedEmployee = {
     employeeId: employee.employeeId,
     userId: employee.userId,
-    employeeFullname: employee.employeeFullname,
+    employeeFullname: employee.employeeFullname,                                                                                                                                                                                                                                        
     employeeGender: employee.employeeGender,
     employeePhone: employee.employeePhone,
     employeeEmail: employee.employeeEmail,

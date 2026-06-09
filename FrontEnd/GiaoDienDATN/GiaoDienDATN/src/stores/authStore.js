@@ -12,14 +12,35 @@ export const useAuthStore = defineStore("auth", {
 
   getters: {
     isAuthenticated: (state) => !!state.token,
-    isAdmin: (state) => {
-      if (!state.user) return false;
-      const role = state.user.role || state.user.roles;
-      if (Array.isArray(role)) {
-        return role.some(r => r === 'ADMIN' || r === 'admin' || r.name === 'ADMIN');
-      }
-      return role === 'ADMIN' || role === 'admin' || role === 'staff' || role === 'STAFF';
-    }
+    userRoles: (state) => {
+      if (!state.user) return [];
+
+      const roles = state.user.roles || state.user.role || state.user.authorities || [];
+      const normalizedRoles = Array.isArray(roles) ? roles : [roles];
+
+      return normalizedRoles
+        .map((role) => {
+          if (typeof role === "string") return role;
+          return role?.name || role?.roleName || role?.authority || "";
+        })
+        .map((role) => role.replace("ROLE_", "").toUpperCase())
+        .filter(Boolean);
+    },
+    isAdmin() {
+      return this.userRoles.includes("ADMIN");
+    },
+    isStaff() {
+      return this.userRoles.includes("STAFF");
+    },
+    isCustomer() {
+      return this.userRoles.includes("CUSTOMER");
+    },
+    primaryRole() {
+      if (this.userRoles.includes("ADMIN")) return "ADMIN";
+      if (this.userRoles.includes("STAFF")) return "STAFF";
+      if (this.userRoles.includes("CUSTOMER")) return "CUSTOMER";
+      return null;
+    },
   },
 
   actions: {
