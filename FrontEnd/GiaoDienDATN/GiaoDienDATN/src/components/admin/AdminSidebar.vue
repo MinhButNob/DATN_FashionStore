@@ -77,12 +77,12 @@ const menuSections = [
       { name: "Quản lý màu sắc", path: "/admin/colors", icon: "fas fa-boxes" },
       { name: "Đánh giá", path: "/admin/reviews", icon: "fas fa-star" },
       { name: "Khuyến mãi", path: "/admin/promotions", icon: "fas fa-percent" },
+      { name: "Voucher", path: "/admin/vouchers", icon: "fas fa-ticket-alt" },
     ],
   },
   {
     title: "SYSTEM",
     items: [
-      // ❌ ĐÃ XÓA: { name: 'Nhân viên đã xóa', path: '/admin/employees/deleted', icon: 'fas fa-trash-alt' },
       { name: "Cài đặt", path: "/admin/settings", icon: "fas fa-cog" },
       { name: "Báo cáo", path: "/admin/reports", icon: "fas fa-chart-bar" },
     ],
