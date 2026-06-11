@@ -51,13 +51,18 @@ api.interceptors.response.use(
 // CUSTOMER APIS
 // ======================
 
-
-
-export const getCustomers = (page = 0, size = 10, keyword = '', sortBy = 'customerId', sortDir = 'asc', status = null) => {
-    const params = { page, size, keyword, sortBy, sortDir }
-    if (status) params.status = status
-    return api.get('/admin/customers', { params })
-}
+export const getCustomers = (
+  page = 0,
+  size = 10,
+  keyword = "",
+  sortBy = "customerId",
+  sortDir = "asc",
+  status = null,
+) => {
+  const params = { page, size, keyword, sortBy, sortDir };
+  if (status) params.status = status;
+  return api.get("/admin/customers", { params });
+};
 
 export const getCustomerById = (id) => {
   return api.get(`/admin/customers/${id}`);
@@ -130,4 +135,53 @@ export const togglePromotionStatus = (id) => {
 export const getPromotionStatistics = () => {
   return api.get("/admin/promotions/statistics");
 };
+// ======================
+// VOUCHER APIS
+// ======================
+
+export const getVouchers = (
+  page = 0,
+  size = 10,
+  status = "",
+  keyword = "",
+  sortBy = "voucherId",
+  sortDir = "asc",
+) => {
+  return api.get("/admin/vouchers", {
+    params: { page, size, status, keyword, sortBy, sortDir },
+  });
+};
+
+export const getDeletedVouchers = (page = 0, size = 10) => {
+  return api.get("/admin/vouchers/deleted", { params: { page, size } });
+};
+
+export const getVoucherById = (id) => {
+  return api.get(`/admin/vouchers/${id}`);
+};
+
+export const createVoucher = (data) => {
+  return api.post("/admin/vouchers", data);
+};
+
+export const updateVoucher = (id, data) => {
+  return api.put(`/admin/vouchers/${id}`, data);
+};
+
+export const softDeleteVoucher = (id) => {
+  return api.delete(`/admin/vouchers/${id}`);
+};
+
+export const restoreVoucher = (id) => {
+  return api.patch(`/admin/vouchers/${id}/restore`);
+};
+
+export const toggleVoucherStatus = (id) => {
+  return api.patch(`/admin/vouchers/${id}/toggle-status`);
+};
+
+export const getVoucherStatistics = () => {
+  return api.get("/admin/vouchers/statistics");
+};
+
 export default api;
