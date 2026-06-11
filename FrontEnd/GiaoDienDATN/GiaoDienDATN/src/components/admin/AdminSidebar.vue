@@ -74,9 +74,9 @@ const menuSections = [
         path: "/admin/sizes",
         icon: "fas fa-ruler-combined",
       },
-      { name: "Kho hàng", path: "/admin/inventory", icon: "fas fa-boxes" },
+      { name: "Quản lý màu sắc", path: "/admin/colors", icon: "fas fa-boxes" },
       { name: "Đánh giá", path: "/admin/reviews", icon: "fas fa-star" },
-      { name: "Khuyến mãi", path: "/admin/discounts", icon: "fas fa-percent" },
+      { name: "Khuyến mãi", path: "/admin/promotions", icon: "fas fa-percent" },
     ],
   },
   {

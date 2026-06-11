@@ -31,6 +31,7 @@ import AdminSizes from "../views/admin/AdminSizes.vue";
 import AdminImages from "../views/admin/AdminImages.vue";
 import AdminEmployees from "../views/admin/AdminEmployees.vue";
 import AdminRoles from "../views/admin/AdminRoles.vue";
+import AdminColors from "../views/admin/AdminColors.vue";
 import AdminPromotions from "../views/admin/AdminPromotions.vue"; // ← THÊM DÒNG NÀY
 
 import StaffLayout from "../views/staff/StaffLayout.vue";
@@ -120,9 +121,10 @@ const routes = [
       { path: "customers", name: "admin-customers", component: AdminCustomers },
       { path: "employees", name: "admin-employees", component: AdminEmployees },
       { path: "roles", name: "admin-roles", component: AdminRoles },
+      { path: "colors", name: "admin-colors", component: AdminColors },
       {
-        path: "discounts",
-        name: "admin-discounts",
+        path: "promotions",
+        name: "admin-promotions",
         component: AdminPromotions,
       }, // ← THÊM DÒNG NÀY
       { path: "settings", name: "admin-settings", component: AdminSettings },
