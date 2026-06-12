@@ -193,11 +193,43 @@ const addToCartDirect = (product) => {
   showNotification('Đã thêm sản phẩm vào giỏ hàng!', 'success');
 };
 
+// ✅ SỬA LẠI HÀM NÀY - Thêm số lượng sản phẩm cho từng danh mục
 const loadCategories = async () => {
   try {
+    // Lấy danh sách danh mục
     const response = await axios.get(`${API_BASE}/categories/active`);
-    categories.value = response.data || [];
-    console.log("✅ Categories loaded:", categories.value.length);
+    const categoriesData = response.data || [];
+    
+    // Lấy tất cả sản phẩm để đếm số lượng theo danh mục
+    const productsResponse = await axios.get(`${API_BASE}/products`, {
+      params: { page: 0, size: 1000 }
+    });
+    
+    let allProducts = [];
+    if (productsResponse.data?.data?.content) {
+      allProducts = productsResponse.data.data.content;
+    } else if (productsResponse.data?.content) {
+      allProducts = productsResponse.data.content;
+    } else if (Array.isArray(productsResponse.data)) {
+      allProducts = productsResponse.data;
+    }
+    
+    // Đếm số lượng sản phẩm theo từng danh mục
+    const productCountByCategory = {};
+    allProducts.forEach(product => {
+      const catId = product.categoryId || product.category?.categoryId;
+      if (catId) {
+        productCountByCategory[catId] = (productCountByCategory[catId] || 0) + 1;
+      }
+    });
+    
+    // Gán productCount cho từng danh mục
+    categories.value = categoriesData.map(cat => ({
+      ...cat,
+      productCount: productCountByCategory[cat.categoryId] || 0
+    }));
+    
+    console.log("✅ Categories loaded with counts:", categories.value);
   } catch (error) {
     console.error("Lỗi tải danh mục:", error);
     categories.value = [];
