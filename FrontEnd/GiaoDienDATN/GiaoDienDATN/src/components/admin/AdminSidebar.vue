@@ -45,15 +45,15 @@ const menuSections = [
     title: "MAIN",
     items: [
       { name: "Dashboard", path: "/admin", icon: "fas fa-tachometer-alt" },
-      { name: "Sản phẩm", path: "/admin/products", icon: "fas fa-tshirt" },
+      { name: "Quản lý sản phẩm", path: "/admin/products", icon: "fas fa-tshirt" },
       { name: "Đơn hàng", path: "/admin/orders", icon: "fas fa-shopping-cart" },
-      { name: "Khách hàng", path: "/admin/customers", icon: "fas fa-users" },
+      { name: "Quản lý khách hàng", path: "/admin/customers", icon: "fas fa-users" },
     ],
   },
   {
     title: "MANAGE",
     items: [
-      { name: "Danh mục", path: "/admin/categories", icon: "fas fa-tags" },
+      { name: "Quản lý danh mục", path: "/admin/categories", icon: "fas fa-tags" },
       {
         name: "Quản lý nhân viên",
         path: "/admin/employees",
@@ -76,7 +76,7 @@ const menuSections = [
       },
       { name: "Quản lý màu sắc", path: "/admin/colors", icon: "fas fa-boxes" },
       { name: "Đánh giá", path: "/admin/reviews", icon: "fas fa-star" },
-      { name: "Khuyến mãi", path: "/admin/promotions", icon: "fas fa-percent" },
+      { name: "Quản lý khuyến mãi", path: "/admin/promotions", icon: "fas fa-percent" },
     ],
   },
   {

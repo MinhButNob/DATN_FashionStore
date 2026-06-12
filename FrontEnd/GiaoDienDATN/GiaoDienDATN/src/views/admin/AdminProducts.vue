@@ -79,8 +79,7 @@
             <th>ID</th>
             <th>Tên sản phẩm</th>
             <th>Danh mục</th>
-            <th>Biến thể</th>
-            <th>Tồn kho</th>
+            <th>Biến thể & Tồn kho</th>
             <th>Trạng thái</th>
             <th>Thao tác</th>
           </tr>
@@ -90,18 +89,35 @@
             <td class="id-cell">#{{ product.productId }}</td>
             <td class="product-name">{{ product.productName }}</td>
             <td class="category-cell">{{ product.category?.categoryName || '-' }}</td>
+            
+            <!-- Cột gộp: Biến thể + Tồn kho theo từng phiên bản -->
             <td class="variants-cell">
               <div class="variants-list">
                 <div v-for="(v, idx) in product.variants" :key="idx" class="variant-item">
-                  <span class="variant-color" :style="{ backgroundColor: getColorHex(v.color) }"></span>
-                  <span>{{ v.color || '?' }} - {{ v.size || '?' }}</span>
-                  <span class="variant-price">{{ formatPrice(v.price) }}</span>
-                  <span class="variant-stock">({{ v.quantity }})</span>
+                  <div class="variant-info">
+                    <span class="variant-color" :style="{ backgroundColor: getColorHex(v.color) }"></span>
+                    <span class="variant-name">{{ v.color || '?' }} - {{ v.size || '?' }}</span>
+                  </div>
+                  <div class="variant-price-stock">
+                    <span class="variant-price">{{ formatPrice(v.price) }}</span>
+                    <span 
+                      class="variant-stock" 
+                      :class="{ 
+                        'stock-low': v.quantity <= 5 && v.quantity > 0,
+                        'stock-out': v.quantity === 0 
+                      }"
+                    >
+                      📦 {{ v.quantity }}
+                    </span>
+                  </div>
                   <span v-if="v.promotionName" class="variant-promotion">🎁 {{ v.promotionName }}</span>
+                </div>
+                <div v-if="!product.variants || product.variants.length === 0" class="no-variant">
+                  Không có biến thể
                 </div>
               </div>
             </td>
-            <td class="stock-cell">{{ product.totalStock || 0 }}</td>
+            
             <td class="status-cell">
               <span :class="['status-badge', product.status === 'ACTIVE' ? 'status-active' : 'status-inactive']">
                 {{ product.status === 'ACTIVE' ? 'Đang bán' : 'Ngừng bán' }}
@@ -119,7 +135,7 @@
             </td>
           </tr>
           <tr v-if="allProducts.length === 0 && !loading">
-            <td colspan="7" class="empty-row">
+            <td colspan="6" class="empty-row">
               <div class="empty-state">
                 <div class="empty-icon">📭</div>
                 <p>Không có sản phẩm nào</p>
@@ -241,7 +257,7 @@
                         <input type="text" :value="formatPrice(variant.discountedPrice)" class="discounted-price" readonly disabled />
                       </td>
                       <td>
-                        <input type="number" v-model="variant.quantity" placeholder="SL" required />
+                        <input type="number" v-model="variant.quantity" placeholder="Số lượng" required min="0" />
                       </td>
                       <td>
                         <input type="text" v-model="variant.sku" placeholder="SKU" />
@@ -281,7 +297,7 @@
         </div>
         <div class="modal-body">
           <p>Bạn có chắc muốn xóa sản phẩm <strong>{{ deleteProductName }}</strong>?</p>
-          <p class="warning-text">Sau khi xóa, sản phẩm sẽ không thể sửa được nữa!</p>
+          <p class="warning-text">Sau khi xóa, sản phẩm sẽ không thể khôi phục!</p>
         </div>
         <div class="modal-footer">
           <button class="btn-cancel" @click="closeDeleteModal">Hủy</button>
@@ -463,7 +479,6 @@ const fetchStatistics = async () => {
 
 const fetchCategories = async () => {
   try {
-    // ✅ Dùng API getAll thay vì /active
     const response = await axios.get(`${API_BASE}/categories`);
     let categories = [];
     
@@ -475,7 +490,6 @@ const fetchCategories = async () => {
       categories = response.data;
     }
     
-    // Lọc chỉ lấy category ACTIVE và chưa xóa
     categoryList.value = categories.filter(c => 
       c.status === 'ACTIVE' && !c.deletedAt && c.categoryStatus !== 'DELETED'
     );
@@ -485,7 +499,6 @@ const fetchCategories = async () => {
     categoryList.value = [];
   }
 };
-
 
 const fetchColors = async () => {
   try {
@@ -537,10 +550,8 @@ const fetchSizes = async () => {
   }
 };
 
-
 const fetchPromotions = async () => {
   try {
-    // Thử gọi API admin/promotions (có thể cần token)
     const token = localStorage.getItem('token');
     const response = await axios.get(`${API_BASE}/admin/promotions`, {
       params: { page: 0, size: 100 },
@@ -558,14 +569,12 @@ const fetchPromotions = async () => {
       promotions = response.data;
     }
     
-    // Lọc promotion ACTIVE
     promotionList.value = promotions.filter(p => 
       p.promotionStatus === 'ACTIVE' && !p.promotionDeletedAt
     );
     console.log('✅ Promotions loaded:', promotionList.value.length);
   } catch (error) {
     console.error('Lỗi tải khuyến mãi:', error);
-    // Nếu lỗi 403, thử dùng API khác
     if (error.response?.status === 403) {
       console.log('⚠️ Không có quyền, thử API /promotions...');
       try {
@@ -586,6 +595,7 @@ const fetchPromotions = async () => {
     }
   }
 };
+
 // Filter actions
 const resetFilters = () => {
   searchKeyword.value = '';
@@ -617,7 +627,6 @@ const removeVariant = (index) => {
   form.value.variants.splice(index, 1);
 };
 
-// ✅ Tìm ID từ tên màu/size/promotion
 const findColorIdByName = (colorName) => {
   const color = colorList.value.find(c => c.colorName === colorName);
   return color?.colorId || null;
@@ -647,9 +656,7 @@ const openCreateModal = () => {
   showModal.value = true;
 };
 
-// ✅ SỬA: Mở modal sửa - hiển thị đúng dữ liệu cũ
 const openEditModal = async (product) => {
-  // Đảm bảo đã load đủ dữ liệu
   if (categoryList.value.length === 0) await fetchCategories();
   if (colorList.value.length === 0) await fetchColors();
   if (sizeList.value.length === 0) await fetchSizes();
@@ -657,28 +664,23 @@ const openEditModal = async (product) => {
   
   isEdit.value = true;
   
-  // Tìm categoryId từ tên category
   let categoryId = product.categoryId || product.category?.categoryId || null;
   if (!categoryId && product.category?.categoryName) {
     const foundCategory = categoryList.value.find(c => c.categoryName === product.category.categoryName);
     categoryId = foundCategory?.categoryId || null;
   }
   
-  // Xử lý variants - map từ tên sang ID
   const variants = (product.variants || []).map(v => {
-    // Tìm colorId từ tên màu
     let colorId = v.colorId;
     if (!colorId && v.color) {
       colorId = findColorIdByName(v.color);
     }
     
-    // Tìm sizeId từ tên size
     let sizeId = v.sizeId;
     if (!sizeId && v.size) {
       sizeId = findSizeIdByName(v.size);
     }
     
-    // Tìm promotionId từ tên khuyến mãi
     let promotionId = v.promotionId;
     if (!promotionId && v.promotionName) {
       promotionId = findPromotionIdByName(v.promotionName);
@@ -695,7 +697,6 @@ const openEditModal = async (product) => {
     };
   });
   
-  // Tính lại giá sau khuyến mãi cho từng variant
   variants.forEach((_, idx) => {
     calculateDiscountedPrice(idx);
   });
@@ -745,6 +746,15 @@ const handleSubmit = async () => {
   if (form.value.variants.length === 0) {
     showNotification('Vui lòng thêm ít nhất 1 biến thể!', 'error');
     return;
+  }
+  
+  // Kiểm tra số lượng tồn kho không âm
+  for (let i = 0; i < form.value.variants.length; i++) {
+    const v = form.value.variants[i];
+    if (v.quantity < 0) {
+      showNotification(`Số lượng biến thể ${i + 1} không được nhỏ hơn 0!`, 'error');
+      return;
+    }
   }
   
   saving.value = true;
@@ -822,7 +832,6 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-/* Giữ nguyên style cũ */
 .admin-products {
   padding: 20px;
   background-color: #f8f9fa;
@@ -1002,7 +1011,7 @@ onMounted(async () => {
 .data-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 900px;
+  min-width: 800px;
 }
 
 .data-table th, .data-table td {
@@ -1037,23 +1046,36 @@ onMounted(async () => {
   color: #666;
 }
 
+/* Variants Cell - Quan trọng: Hiển thị số lượng theo từng phiên bản */
 .variants-cell {
-  max-width: 300px;
+  max-width: 450px;
 }
 
 .variants-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 10px;
 }
 
 .variant-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 13px;
-  padding: 4px 0;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
   flex-wrap: wrap;
+}
+
+.variant-item:last-child {
+  border-bottom: none;
+}
+
+.variant-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 110px;
 }
 
 .variant-color {
@@ -1063,29 +1085,60 @@ onMounted(async () => {
   border: 1px solid #ddd;
 }
 
+.variant-name {
+  font-weight: 500;
+  font-size: 13px;
+  color: #374151;
+}
+
+.variant-price-stock {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
 .variant-price {
   color: #e74c3c;
-  font-weight: 500;
+  font-weight: 600;
+  font-size: 13px;
 }
 
 .variant-stock {
-  color: #7f8c8d;
-  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  background-color: #e8f5e9;
+  color: #2e7d32;
+}
+
+.variant-stock.stock-low {
+  background-color: #fff3e0;
+  color: #e65100;
+}
+
+.variant-stock.stock-out {
+  background-color: #ffebee;
+  color: #c62828;
 }
 
 .variant-promotion {
   font-size: 11px;
   color: #e63946;
   background: #fff3cd;
-  padding: 2px 6px;
-  border-radius: 4px;
-  margin-left: 5px;
+  padding: 2px 8px;
+  border-radius: 20px;
   white-space: nowrap;
 }
 
-.stock-cell {
-  font-weight: 600;
-  color: #2c3e50;
+.no-variant {
+  color: #9ca3af;
+  font-style: italic;
+  padding: 8px 0;
+  text-align: center;
 }
 
 /* Status Badges */
@@ -1556,8 +1609,19 @@ onMounted(async () => {
   .search-box { min-width: auto; }
   .btn-search, .btn-reset { justify-content: center; }
   .table-container { overflow-x: auto; }
-  .data-table { min-width: 800px; }
+  .data-table { min-width: 700px; }
   .pagination { flex-direction: column; gap: 12px; }
   .modal-container { width: 95%; }
+  
+  .variant-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+  
+  .variant-price-stock {
+    justify-content: space-between;
+    width: 100%;
+  }
 }
 </style>
