@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useCartStore } from '../../stores/cartStore'
 import { useNotification } from '../../composables/useNotification'
@@ -22,8 +22,10 @@ const selectedColorId = ref(null)
 const selectedSizeId = ref(null)
 
 const formatPrice = (price) => {
-  if (!price) return '0đ'
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price)
+  if (!price && price !== 0) return '0đ'
+  const numPrice = typeof price === 'string' ? parseFloat(price) : price
+  if (isNaN(numPrice) || numPrice === 0) return '0đ'
+  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(numPrice)
 }
 
 const productImages = computed(() => {
@@ -46,22 +48,43 @@ const uniqueSizes = computed(() => {
   return product.value.sizeOptions
 })
 
+// ✅ SỬA: Tính toán biến thể được chọn dựa trên colorId và sizeId
 const selectedVariant = computed(() => {
   if (!product.value?.variants || product.value.variants.length === 0) return null
   
-  let found = product.value.variants.find(v => 
-    (!selectedColorId.value || v.colorId === selectedColorId.value) &&
-    (!selectedSizeId.value || v.sizeId === selectedSizeId.value)
-  )
-  
-  if (!found) {
-    found = product.value.variants[0]
+  // Nếu chưa chọn màu và size, lấy variant đầu tiên
+  if (!selectedColorId.value && !selectedSizeId.value) {
+    return product.value.variants[0]
   }
   
-  return found
+  // Tìm variant khớp với cả màu và size
+  let found = product.value.variants.find(v => {
+    const colorMatch = !selectedColorId.value || v.colorId === selectedColorId.value
+    const sizeMatch = !selectedSizeId.value || v.sizeId === selectedSizeId.value
+    return colorMatch && sizeMatch
+  })
+  
+  // Nếu không tìm thấy, thử tìm theo màu hoặc size
+  if (!found && selectedColorId.value) {
+    found = product.value.variants.find(v => v.colorId === selectedColorId.value)
+  }
+  if (!found && selectedSizeId.value) {
+    found = product.value.variants.find(v => v.sizeId === selectedSizeId.value)
+  }
+  
+  return found || product.value.variants[0]
 })
 
-// ✅ Gọi API customer để lấy chi tiết sản phẩm
+// ✅ Theo dõi khi variant thay đổi để reset quantity nếu cần
+watch(selectedVariant, (newVariant) => {
+  if (newVariant) {
+    const maxQty = newVariant.quantity || 0
+    if (quantity.value > maxQty && maxQty > 0) {
+      quantity.value = maxQty
+    }
+  }
+})
+
 const loadProductDetail = async () => {
   loading.value = true
   try {
@@ -75,13 +98,17 @@ const loadProductDetail = async () => {
       return
     }
     
-    console.log("🟡 Đang gọi API customer:", `${API_BASE}/customer/home/products/${productId}`)
+    console.log("🟡 Đang gọi API:", `${API_BASE}/customer/home/products/${productId}`)
     
-    // ✅ Gọi API customer
     const response = await axios.get(`${API_BASE}/customer/home/products/${productId}`)
     console.log("🟢 Response:", response.data)
     
     product.value = response.data
+    
+    // Log variants để debug
+    if (product.value?.variants) {
+      console.log("📦 Variants:", product.value.variants)
+    }
     
     // Set default selections
     if (uniqueColors.value.length > 0) {
@@ -105,8 +132,18 @@ const loadProductDetail = async () => {
 }
 
 const addToCart = () => {
-  if (!selectedVariant.value || selectedVariant.value.quantity === 0) {
+  if (!selectedVariant.value) {
+    showNotification('Vui lòng chọn màu sắc và kích thước!', 'error')
+    return
+  }
+  
+  if (selectedVariant.value.quantity === 0) {
     showNotification('Sản phẩm đã hết hàng!', 'error')
+    return
+  }
+  
+  if (quantity.value > selectedVariant.value.quantity) {
+    showNotification(`Chỉ còn ${selectedVariant.value.quantity} sản phẩm!`, 'error')
     return
   }
   
@@ -118,14 +155,17 @@ const addToCart = () => {
     quantity: quantity.value,
     color: selectedVariant.value.colorName,
     size: selectedVariant.value.sizeName,
-    image: mainImage.value
+    image: mainImage.value,
+    sku: selectedVariant.value.sku
   })
   showNotification('Đã thêm vào giỏ hàng!', 'success')
 }
 
 const buyNow = () => {
   addToCart()
-  router.push('/cart')
+  setTimeout(() => {
+    router.push('/cart')
+  }, 500)
 }
 
 onMounted(() => {
@@ -187,9 +227,10 @@ onMounted(() => {
             <h1 class="product-title">{{ product.productName }}</h1>
             <p class="product-description">{{ product.description }}</p>
 
+            <!-- ✅ HIỂN THỊ GIÁ THEO BIẾN THỂ ĐƯỢC CHỌN -->
             <div class="product-price">
-              <span class="current-price">{{ formatPrice(product.minPrice) }}</span>
-              <span v-if="product.maxPrice !== product.minPrice" class="price-range">
+              <span class="current-price">{{ formatPrice(selectedVariant?.price || product.minPrice) }}</span>
+              <span v-if="product.maxPrice && product.maxPrice !== product.minPrice" class="price-range">
                 - {{ formatPrice(product.maxPrice) }}
               </span>
             </div>
@@ -228,12 +269,17 @@ onMounted(() => {
 
             <!-- Selected Variant Info -->
             <div class="selected-variant" v-if="selectedVariant">
-              <div class="variant-price">
-                Giá: <strong>{{ formatPrice(selectedVariant.price) }}</strong>
-              </div>
-              <div class="variant-stock" :class="{ 'out-of-stock': !selectedVariant.inStock }">
-                <i class="fas" :class="selectedVariant.inStock ? 'fa-check-circle' : 'fa-times-circle'"></i>
-                {{ selectedVariant.inStock ? `Còn ${selectedVariant.quantity} sản phẩm` : 'Hết hàng' }}
+              <div class="variant-info">
+                <div class="variant-price">
+                  Giá: <strong>{{ formatPrice(selectedVariant.price) }}</strong>
+                </div>
+                <div class="variant-sku" v-if="selectedVariant.sku">
+                  Mã SKU: {{ selectedVariant.sku }}
+                </div>
+                <div class="variant-stock" :class="{ 'out-of-stock': !selectedVariant.inStock }">
+                  <i class="fas" :class="selectedVariant.inStock ? 'fa-check-circle' : 'fa-times-circle'"></i>
+                  {{ selectedVariant.inStock ? `Còn ${selectedVariant.quantity} sản phẩm` : 'Hết hàng' }}
+                </div>
               </div>
             </div>
 
@@ -263,7 +309,7 @@ onMounted(() => {
         <div class="variants-table" v-if="product?.variants && product.variants.length > 1">
           <h3>Bảng thông số kỹ thuật</h3>
           <div class="table-wrapper">
-            <table>
+            <table class="variant-table">
               <thead>
                 <tr>
                   <th>Màu sắc</th>
@@ -282,7 +328,7 @@ onMounted(() => {
                   <td>{{ variant.sizeName }}</td>
                   <td>{{ variant.sku }}</td>
                   <td>{{ formatPrice(variant.price) }}</td>
-                  <td :class="{ 'out-of-stock': variant.quantity === 0 }">
+                  <td :class="{ 'out-of-stock-text': variant.quantity === 0 }">
                     {{ variant.quantity > 0 ? variant.quantity + ' sản phẩm' : 'Hết hàng' }}
                   </td>
                 </tr>
@@ -456,6 +502,8 @@ main {
 
 .product-price {
   margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #eee;
 }
 
 .current-price {
@@ -508,8 +556,9 @@ main {
 }
 
 .size-btn {
-  width: 50px;
+  min-width: 50px;
   height: 40px;
+  padding: 0 12px;
   border: 1px solid #ddd;
   background: white;
   border-radius: 8px;
@@ -532,9 +581,15 @@ main {
   margin: 15px 0;
 }
 
+.variant-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  align-items: baseline;
+}
+
 .variant-price {
   font-size: 18px;
-  margin-bottom: 5px;
 }
 
 .variant-price strong {
@@ -542,12 +597,22 @@ main {
   font-size: 22px;
 }
 
+.variant-sku {
+  font-size: 13px;
+  color: #999;
+}
+
 .variant-stock {
+  font-size: 14px;
   color: #28a745;
 }
 
 .variant-stock.out-of-stock {
   color: #e63946;
+}
+
+.variant-stock i {
+  margin-right: 5px;
 }
 
 .product-quantity {
@@ -663,20 +728,20 @@ main {
   overflow-x: auto;
 }
 
-.variants-table table {
+.variant-table {
   width: 100%;
   border-collapse: collapse;
   min-width: 500px;
 }
 
-.variants-table th,
-.variants-table td {
+.variant-table th,
+.variant-table td {
   padding: 12px;
   text-align: left;
   border-bottom: 1px solid #eee;
 }
 
-.variants-table th {
+.variant-table th {
   background: #f8f9fa;
   font-weight: 600;
   color: #2c3e50;
@@ -692,7 +757,7 @@ main {
   border: 1px solid #ddd;
 }
 
-.out-of-stock {
+.out-of-stock-text {
   color: #e63946;
 }
 
@@ -731,6 +796,11 @@ main {
 
   .product-actions {
     flex-direction: column;
+  }
+  
+  .variant-info {
+    flex-direction: column;
+    gap: 8px;
   }
 }
 </style>

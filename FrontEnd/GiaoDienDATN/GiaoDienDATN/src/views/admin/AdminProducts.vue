@@ -418,13 +418,14 @@ const calculateDiscountedPrice = (index) => {
   const variant = form.value.variants[index];
   if (!variant) return;
   
-  const originalPrice = variant.price || 0;
+  const originalPrice = Number(variant.price) || 0;
   const promotionId = variant.promotionId;
   
   if (promotionId) {
-    const promotion = promotionList.value.find(p => p.promotionId === promotionId);
+    // Ép kiểu promotionId về number để so sánh chính xác
+    const promotion = promotionList.value.find(p => Number(p.promotionId) === Number(promotionId));
     if (promotion && promotion.promotionDiscountPercent) {
-      const discountPercent = promotion.promotionDiscountPercent;
+      const discountPercent = Number(promotion.promotionDiscountPercent);
       variant.discountedPrice = originalPrice * (1 - discountPercent / 100);
     } else {
       variant.discountedPrice = originalPrice;
@@ -629,17 +630,17 @@ const removeVariant = (index) => {
 
 const findColorIdByName = (colorName) => {
   const color = colorList.value.find(c => c.colorName === colorName);
-  return color?.colorId || null;
+  return color?.colorId ? Number(color.colorId) : null;
 };
 
 const findSizeIdByName = (sizeName) => {
   const size = sizeList.value.find(s => s.sizeName === sizeName);
-  return size?.sizeId || null;
+  return size?.sizeId ? Number(size.sizeId) : null;
 };
 
 const findPromotionIdByName = (promotionName) => {
   const promo = promotionList.value.find(p => p.promotionName === promotionName);
-  return promo?.promotionId || null;
+  return promo?.promotionId ? Number(promo.promotionId) : null;
 };
 
 // Modal functions
@@ -667,42 +668,51 @@ const openEditModal = async (product) => {
   let categoryId = product.categoryId || product.category?.categoryId || null;
   if (!categoryId && product.category?.categoryName) {
     const foundCategory = categoryList.value.find(c => c.categoryName === product.category.categoryName);
-    categoryId = foundCategory?.categoryId || null;
+    categoryId = foundCategory?.categoryId ? Number(foundCategory.categoryId) : null;
+  } else if (categoryId) {
+    categoryId = Number(categoryId);
   }
   
   const variants = (product.variants || []).map(v => {
     let colorId = v.colorId;
     if (!colorId && v.color) {
       colorId = findColorIdByName(v.color);
+    } else if (colorId) {
+      colorId = Number(colorId);
     }
     
     let sizeId = v.sizeId;
     if (!sizeId && v.size) {
       sizeId = findSizeIdByName(v.size);
+    } else if (sizeId) {
+      sizeId = Number(sizeId);
     }
     
     let promotionId = v.promotionId;
     if (!promotionId && v.promotionName) {
       promotionId = findPromotionIdByName(v.promotionName);
+    } else if (promotionId) {
+      promotionId = Number(promotionId);
     }
     
     return {
       colorId: colorId,
       sizeId: sizeId,
-      price: v.price || 0,
-      quantity: v.quantity || 0,
+      price: Number(v.price) || 0,
+      quantity: Number(v.quantity) || 0,
       sku: v.sku || '',
       promotionId: promotionId,
-      discountedPrice: v.price || 0
+      discountedPrice: Number(v.price) || 0
     };
   });
   
+  // Tính lại giá sau khuyến mãi cho từng biến thể
   variants.forEach((_, idx) => {
     calculateDiscountedPrice(idx);
   });
   
   form.value = {
-    productId: product.productId,
+    productId: Number(product.productId),
     productName: product.productName,
     categoryId: categoryId,
     description: product.description || '',
@@ -714,7 +724,8 @@ const openEditModal = async (product) => {
     productId: form.value.productId,
     productName: form.value.productName,
     categoryId: form.value.categoryId,
-    variantsCount: form.value.variants.length
+    variantsCount: form.value.variants.length,
+    promotions: form.value.variants.map(v => v.promotionId)
   });
   
   showModal.value = true;
@@ -755,6 +766,18 @@ const handleSubmit = async () => {
       showNotification(`Số lượng biến thể ${i + 1} không được nhỏ hơn 0!`, 'error');
       return;
     }
+    if (!v.colorId) {
+      showNotification(`Vui lòng chọn màu cho biến thể ${i + 1}!`, 'error');
+      return;
+    }
+    if (!v.sizeId) {
+      showNotification(`Vui lòng chọn kích thước cho biến thể ${i + 1}!`, 'error');
+      return;
+    }
+    if (!v.price || v.price <= 0) {
+      showNotification(`Vui lòng nhập giá hợp lệ cho biến thể ${i + 1}!`, 'error');
+      return;
+    }
   }
   
   saving.value = true;
@@ -762,16 +785,16 @@ const handleSubmit = async () => {
   try {
     const submitData = {
       productName: form.value.productName,
-      categoryId: form.value.categoryId,
+      categoryId: Number(form.value.categoryId),
       description: form.value.description || '',
       status: form.value.isActive ? 'ACTIVE' : 'INACTIVE',
       variants: form.value.variants.map((v, index) => ({
-        colorId: v.colorId,
-        sizeId: v.sizeId,
-        price: v.price,
-        quantity: v.quantity,
+        colorId: Number(v.colorId),
+        sizeId: Number(v.sizeId),
+        price: Number(v.price),
+        quantity: Number(v.quantity),
         sku: v.sku || `SKU-${Date.now()}-${index}`,
-        promotionId: v.promotionId || null
+        promotionId: v.promotionId ? Number(v.promotionId) : null
       }))
     };
     

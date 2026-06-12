@@ -34,14 +34,13 @@
         <p>Đang tải sản phẩm...</p>
       </div>
 
-      <!-- Product Grid - SỬA LẠI HOÀN TOÀN -->
+      <!-- Product Grid -->
       <section v-else-if="latestProducts.length > 0" class="product-section">
         <div class="container">
           <div class="section-title">
             <h2>SẢN PHẨM MỚI</h2>
           </div>
           
-          <!-- ✅ CÁCH 1: Hiển thị trực tiếp không qua component -->
           <div class="product-grid">
             <div 
               v-for="product in latestProducts" 
@@ -50,7 +49,14 @@
               @click="goToProductDetail(product.productId)"
             >
               <div class="product-image-direct">
-                <div class="no-image-placeholder">
+                <img 
+                  v-if="product.mainImageUrl" 
+                  :src="product.mainImageUrl" 
+                  :alt="product.productName" 
+                  class="product-img-direct"
+                  @error="handleImageError"
+                />
+                <div v-else class="no-image-placeholder">
                   <i class="fas fa-tshirt"></i>
                 </div>
               </div>
@@ -59,14 +65,17 @@
                 <h3 class="product-name-direct">{{ product.productName }}</h3>
                 <div class="product-price-direct">
                   <span class="current-price-direct">
-                    {{ (product.minPrice || 0).toLocaleString('vi-VN') }}đ
+                    {{ formatPriceVND(product.minPrice) }}
+                  </span>
+                  <span v-if="product.maxPrice && product.maxPrice !== product.minPrice" class="price-range-direct">
+                    - {{ formatPriceVND(product.maxPrice) }}
                   </span>
                 </div>
-                <div class="product-stock-direct">
-                  <i class="fas fa-check-circle"></i>
-                  Còn {{ product.totalStock || 0 }} sản phẩm
+                <div class="product-stock-direct" :class="{ 'out-of-stock': (product.totalStock || 0) === 0 }">
+                  <i class="fas" :class="(product.totalStock || 0) > 0 ? 'fa-check-circle' : 'fa-times-circle'"></i>
+                  {{ (product.totalStock || 0) > 0 ? `Còn ${product.totalStock} sản phẩm` : 'Hết hàng' }}
                 </div>
-                <button class="add-to-cart-direct" @click.stop="addToCartDirect(product)">
+                <button class="add-to-cart-direct" @click.stop="addToCartDirect(product)" :disabled="(product.totalStock || 0) === 0">
                   <i class="fas fa-shopping-cart"></i> Thêm vào giỏ
                 </button>
               </div>
@@ -130,6 +139,21 @@ const latestProducts = ref([]);
 const categories = ref([]);
 const newsletterEmail = ref("");
 
+// Format price
+const formatPriceVND = (price) => {
+  if (price === undefined || price === null) return '0₫'
+  const numPrice = typeof price === 'number' ? price : Number(price)
+  if (isNaN(numPrice) || numPrice === 0) return '0₫'
+  return numPrice.toLocaleString('vi-VN') + '₫'
+}
+
+// Handle image error
+const handleImageError = (event) => {
+  event.target.style.display = 'none'
+  const placeholder = event.target.parentElement.querySelector('.no-image-placeholder')
+  if (placeholder) placeholder.style.display = 'flex'
+}
+
 const getCategoryIcon = (categoryName) => {
   const icons = {
     "Áo thun": "fas fa-tshirt",
@@ -152,13 +176,19 @@ const goToProductDetail = (productId) => {
 };
 
 const addToCartDirect = (product) => {
+  const stock = product.totalStock || 0
+  if (stock === 0) {
+    showNotification('Sản phẩm đã hết hàng!', 'error')
+    return
+  }
+  
   const price = product.minPrice || 0;
   cartStore.addToCart({
     productId: product.productId,
     productName: product.productName,
     price: price,
     quantity: 1,
-    image: null
+    image: product.mainImageUrl
   });
   showNotification('Đã thêm sản phẩm vào giỏ hàng!', 'success');
 };
@@ -190,7 +220,6 @@ const loadProducts = async () => {
     
     let products = response.data?.products || [];
     
-    // Đảm bảo dữ liệu đúng format
     products = products.map(p => ({
       ...p,
       minPrice: Number(p.minPrice) || 0,
@@ -237,7 +266,7 @@ onMounted(() => {
   padding: 0 20px;
 }
 
-/* Product Card Direct Styles */
+/* Product Card Styles */
 .product-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -265,6 +294,13 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   position: relative;
+  overflow: hidden;
+}
+
+.product-img-direct {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .no-image-placeholder {
@@ -315,10 +351,19 @@ onMounted(() => {
   color: #e63946;
 }
 
+.price-range-direct {
+  font-size: 14px;
+  color: #999;
+}
+
 .product-stock-direct {
   font-size: 12px;
   margin-bottom: 15px;
   color: #28a745;
+}
+
+.product-stock-direct.out-of-stock {
+  color: #e63946;
 }
 
 .product-stock-direct i {
@@ -341,9 +386,14 @@ onMounted(() => {
   gap: 8px;
 }
 
-.add-to-cart-direct:hover {
+.add-to-cart-direct:hover:not(:disabled) {
   background: linear-gradient(135deg, #c82333, #e63946);
   transform: translateY(-2px);
+}
+
+.add-to-cart-direct:disabled {
+  background: #ccc;
+  cursor: not-allowed;
 }
 
 /* Category styles */
@@ -489,6 +539,8 @@ onMounted(() => {
   cursor: pointer;
   font-weight: 600;
   transition: all 0.3s;
+  text-decoration: none;
+  display: inline-block;
 }
 
 .btn-primary:hover {
@@ -503,6 +555,15 @@ onMounted(() => {
   
   .product-image-direct {
     height: 220px;
+  }
+  
+  .product-name-direct {
+    font-size: 14px;
+    height: 38px;
+  }
+  
+  .current-price-direct {
+    font-size: 16px;
   }
 }
 </style>
