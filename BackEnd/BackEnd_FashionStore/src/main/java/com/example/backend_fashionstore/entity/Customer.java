@@ -19,14 +19,16 @@ public class Customer {
     private Integer customerId;
 
     @OneToOne
-    @JoinColumn(name = "user_id")
+    @JoinColumn(name = "customer_user_id", nullable = false)
     private User user;
 
     @Column(name = "customer_name", nullable = false)
     private String customerName;
 
+    @Column(name = "customer_phone")
     private String phone;
 
+    @Column(name = "customer_address")
     private String address;
 
     // ❌ NÊN XÓA - dùng user.status thay thế

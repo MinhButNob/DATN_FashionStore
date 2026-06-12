@@ -6,10 +6,10 @@
         :src="product.mainImageUrl" 
         :alt="product.productName" 
         class="card-img" 
+        @error="handleImageError"
       />
-      <i v-else class="fas fa-tshirt"></i>
-      <div v-if="product.discountPercent" class="product-tag">
-        -{{ product.discountPercent }}%
+      <div v-else class="no-image">
+        <i class="fas fa-tshirt"></i>
       </div>
       <div class="product-wishlist" @click.stop="toggleWishlist">
         <i :class="[isInWishlist ? 'fas' : 'far', 'fa-heart']"></i>
@@ -21,9 +21,9 @@
       <h3 class="product-name">{{ product.productName }}</h3>
 
       <div class="product-price">
-        <span class="current-price">{{ formatPrice(product.minPrice) }}</span>
-        <span v-if="product.maxPrice !== product.minPrice" class="price-range">
-          - {{ formatPrice(product.maxPrice) }}
+        <span class="current-price">{{ formatPriceVND(product.minPrice) }}</span>
+        <span v-if="product.maxPrice && product.maxPrice !== product.minPrice" class="price-range">
+          - {{ formatPriceVND(product.maxPrice) }}
         </span>
       </div>
 
@@ -40,7 +40,12 @@
         </span>
       </div>
 
-      <button class="add-to-cart" @click.stop="addToCart">
+      <div class="product-stock" :class="{ 'out-of-stock': (product.totalStock || 0) === 0 }">
+        <i class="fas" :class="(product.totalStock || 0) > 0 ? 'fa-check-circle' : 'fa-times-circle'"></i>
+        {{ (product.totalStock || 0) > 0 ? `Còn ${product.totalStock} sản phẩm` : 'Hết hàng' }}
+      </div>
+
+      <button class="add-to-cart" @click.stop="addToCart" :disabled="(product.totalStock || 0) === 0">
         <i class="fas fa-shopping-cart"></i> Thêm vào giỏ
       </button>
     </div>
@@ -66,31 +71,62 @@ const cartStore = useCartStore()
 const authStore = useAuthStore()
 const { showNotification } = useNotification()
 
-const formatPrice = (price) => {
-  if (!price) return '0đ'
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price)
+// ✅ HÀM FORMAT GIÁ ĐÚNG - QUAN TRỌNG
+const formatPriceVND = (price) => {
+  // Nếu price là undefined hoặc null
+  if (price === undefined || price === null) {
+    return '0₫'
+  }
+  
+  // Chuyển đổi sang số
+  let numPrice = 0
+  
+  if (typeof price === 'number') {
+    numPrice = price
+  } else if (typeof price === 'string') {
+    numPrice = parseFloat(price.replace(/[^0-9.-]/g, ''))
+  } else {
+    numPrice = Number(price)
+  }
+  
+  // Kiểm tra NaN
+  if (isNaN(numPrice) || numPrice === 0) {
+    return '0₫'
+  }
+  
+  // Format theo VND
+  return numPrice.toLocaleString('vi-VN') + '₫'
 }
 
 const getColorHex = (colorName) => {
   const colorMap = {
     'Đỏ': '#FF0000',
     'Đen': '#000000',
+    'Trắ': '#FFFFFF',
     'Trắng': '#FFFFFF',
     'Xanh': '#0000FF',
     'Navy': '#1B2951',
     'Vàng': '#FFFF00',
-    'Hồng': '#FFC0CB'
+    'Hồng': '#FFC0CB',
+    'Xám': '#808080',
+    'Nâu': '#8B4513',
+    'Tím': '#800080',
+    'Cam': '#FFA500'
   }
   return colorMap[colorName] || '#CCCCCC'
+}
+
+const handleImageError = (event) => {
+  event.target.style.display = 'none'
+  const noImageDiv = event.target.parentElement.querySelector('.no-image')
+  if (noImageDiv) noImageDiv.style.display = 'flex'
 }
 
 const isInWishlist = computed(() => false)
 
 const goToDetail = () => {
-  // ✅ Lấy productId từ props
   const productId = props.product.productId
   console.log('🟡 Chuyển đến chi tiết sản phẩm ID:', productId)
-  console.log('🟡 Product data:', props.product)
   
   if (productId && productId !== 'undefined') {
     router.push(`/product/${productId}`)
@@ -102,10 +138,20 @@ const goToDetail = () => {
 
 const addToCart = (event) => {
   event.stopPropagation()
+  
+  const stock = props.product.totalStock || 0
+  if (stock === 0) {
+    showNotification('Sản phẩm đã hết hàng!', 'error')
+    return
+  }
+  
+  const price = props.product.minPrice || 0
+  const numericPrice = typeof price === 'number' ? price : Number(price)
+  
   cartStore.addToCart({
     productId: props.product.productId,
     productName: props.product.productName,
-    price: props.product.minPrice,
+    price: numericPrice,
     quantity: 1,
     image: props.product.mainImageUrl
   })
@@ -120,10 +166,15 @@ const toggleWishlist = (event) => {
   }
   showNotification('Chức năng đang phát triển', 'info')
 }
+
+// ✅ Log để debug
+console.log('ProductCard component loaded')
+console.log('Product data:', props.product)
+console.log('minPrice:', props.product.minPrice)
+console.log('Formatted price:', formatPriceVND(props.product.minPrice))
 </script>
 
 <style scoped>
-/* Giữ nguyên style cũ */
 .product-card {
   background: white;
   border-radius: 15px;
@@ -148,7 +199,16 @@ const toggleWishlist = (event) => {
   overflow: hidden;
 }
 
-.product-image i {
+.no-image {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f5f5f5;
+}
+
+.no-image i {
   font-size: 80px;
   color: #ccc;
 }
@@ -164,18 +224,6 @@ const toggleWishlist = (event) => {
   transform: scale(1.05);
 }
 
-.product-tag {
-  position: absolute;
-  top: 15px;
-  left: 15px;
-  background: linear-gradient(135deg, #e63946, #ff6b6b);
-  color: white;
-  padding: 5px 12px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 600;
-}
-
 .product-wishlist {
   position: absolute;
   top: 15px;
@@ -189,6 +237,7 @@ const toggleWishlist = (event) => {
   justify-content: center;
   cursor: pointer;
   transition: all 0.3s;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
 }
 
 .product-wishlist:hover {
@@ -239,21 +288,41 @@ const toggleWishlist = (event) => {
 .product-colors {
   display: flex;
   gap: 8px;
-  margin-bottom: 15px;
+  margin-bottom: 12px;
   flex-wrap: wrap;
 }
 
 .color-dot {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   border: 1px solid #ddd;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.color-dot:hover {
+  transform: scale(1.1);
 }
 
 .more-colors {
   font-size: 12px;
   color: #999;
-  line-height: 20px;
+  line-height: 22px;
+}
+
+.product-stock {
+  font-size: 12px;
+  margin-bottom: 15px;
+  color: #28a745;
+}
+
+.product-stock.out-of-stock {
+  color: #e63946;
+}
+
+.product-stock i {
+  margin-right: 5px;
 }
 
 .add-to-cart {
@@ -272,9 +341,14 @@ const toggleWishlist = (event) => {
   gap: 8px;
 }
 
-.add-to-cart:hover {
+.add-to-cart:hover:not(:disabled) {
   background: linear-gradient(135deg, #c82333, #e63946);
   transform: translateY(-2px);
+}
+
+.add-to-cart:disabled {
+  background: #ccc;
+  cursor: not-allowed;
 }
 
 @media (max-width: 768px) {

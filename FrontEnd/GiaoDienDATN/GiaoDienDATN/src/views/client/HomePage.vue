@@ -3,7 +3,6 @@
     <ClientHeader />
 
     <main>
-      <!-- Banner Slider -->
       <BannerSlider />
 
       <!-- Category Section -->
@@ -35,24 +34,49 @@
         <p>Đang tải sản phẩm...</p>
       </div>
 
-      <!-- Product Grid -->
+      <!-- Product Grid - SỬA LẠI HOÀN TOÀN -->
       <section v-else-if="latestProducts.length > 0" class="product-section">
         <div class="container">
           <div class="section-title">
             <h2>SẢN PHẨM MỚI</h2>
           </div>
+          
+          <!-- ✅ CÁCH 1: Hiển thị trực tiếp không qua component -->
           <div class="product-grid">
-            <ProductCard
-              v-for="product in latestProducts.slice(0, 9)"
+            <div 
+              v-for="product in latestProducts" 
               :key="product.productId"
-              :product="product"
-            />
+              class="product-card-direct"
+              @click="goToProductDetail(product.productId)"
+            >
+              <div class="product-image-direct">
+                <div class="no-image-placeholder">
+                  <i class="fas fa-tshirt"></i>
+                </div>
+              </div>
+              <div class="product-info-direct">
+                <div class="product-category-direct">{{ product.categoryName || 'Sản phẩm' }}</div>
+                <h3 class="product-name-direct">{{ product.productName }}</h3>
+                <div class="product-price-direct">
+                  <span class="current-price-direct">
+                    {{ (product.minPrice || 0).toLocaleString('vi-VN') }}đ
+                  </span>
+                </div>
+                <div class="product-stock-direct">
+                  <i class="fas fa-check-circle"></i>
+                  Còn {{ product.totalStock || 0 }} sản phẩm
+                </div>
+                <button class="add-to-cart-direct" @click.stop="addToCartDirect(product)">
+                  <i class="fas fa-shopping-cart"></i> Thêm vào giỏ
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
       <!-- Empty State -->
-      <div v-else class="empty-state">
+      <div v-else-if="!loading && latestProducts.length === 0" class="empty-state">
         <div class="empty-icon">📦</div>
         <h3>Chưa có sản phẩm nào</h3>
         <p>Hãy thêm sản phẩm đầu tiên trong Admin Panel</p>
@@ -91,15 +115,15 @@ import { useRouter } from "vue-router";
 import { useNotification } from "../../composables/useNotification";
 import ClientHeader from "../../components/client/ClientHeader.vue";
 import ClientFooter from "../../components/client/ClientFooter.vue";
-import ProductCard from "../../components/client/ProductCard.vue";
 import BannerSlider from "../../components/client/BannerSlider.vue";
 import CartModal from "../../components/client/CartModal.vue";
+import { useCartStore } from "../../stores/cartStore";
 import axios from "axios";
 
 const router = useRouter();
 const { showNotification } = useNotification();
+const cartStore = useCartStore();
 const API_BASE = "http://localhost:8080/api";
-const IMAGE_BASE = "http://localhost:8080";
 
 const loading = ref(true);
 const latestProducts = ref([]);
@@ -122,6 +146,23 @@ const goToCategory = (categoryId) => {
   router.push(`/shop?categoryId=${categoryId}`);
 };
 
+const goToProductDetail = (productId) => {
+  console.log("Chuyển đến chi tiết sản phẩm:", productId);
+  router.push(`/product/${productId}`);
+};
+
+const addToCartDirect = (product) => {
+  const price = product.minPrice || 0;
+  cartStore.addToCart({
+    productId: product.productId,
+    productName: product.productName,
+    price: price,
+    quantity: 1,
+    image: null
+  });
+  showNotification('Đã thêm sản phẩm vào giỏ hàng!', 'success');
+};
+
 const loadCategories = async () => {
   try {
     const response = await axios.get(`${API_BASE}/categories/active`);
@@ -136,49 +177,35 @@ const loadCategories = async () => {
 const loadProducts = async () => {
   loading.value = true;
   try {
-    console.log("🟡 Đang gọi API lấy sản phẩm...");
+    console.log("🟡 Đang gọi API:", `${API_BASE}/customer/home/latest-products`);
     
-    const response = await axios.get(`${API_BASE}/products`, {
+    const response = await axios.get(`${API_BASE}/customer/home/latest-products`, {
       params: {
         page: 0,
-        size: 20,
-        sortBy: "productId",
-        sortDir: "DESC"
+        size: 12
       }
     });
     
-    // ✅ IN RA CẤU TRÚC DỮ LIỆU CHI TIẾT
-    console.log("🔍 FULL RESPONSE:", JSON.stringify(response.data, null, 2));
+    console.log("🔍 Response:", response.data);
     
-    let products = [];
-    if (response.data?.data?.content) {
-      products = response.data.data.content;
-    } else if (response.data?.content) {
-      products = response.data.content;
-    }
+    let products = response.data?.products || [];
     
-    console.log("📦 Số lượng sản phẩm:", products.length);
+    // Đảm bảo dữ liệu đúng format
+    products = products.map(p => ({
+      ...p,
+      minPrice: Number(p.minPrice) || 0,
+      maxPrice: Number(p.maxPrice) || 0,
+      totalStock: Number(p.totalStock) || 0
+    }));
     
-    // ✅ IN CHI TIẾT TỪNG SẢN PHẨM
-    products.forEach((product, index) => {
-      console.log(`\n========== SẢN PHẨM ${index + 1} ==========`);
-      console.log("productId:", product.productId);
-      console.log("productName:", product.productName);
-      console.log("description:", product.description);
-      console.log("status:", product.status);
-      console.log("totalStock:", product.totalStock);
-      console.log("category:", product.category);
-      console.log("variants:", product.variants);
-      console.log("images:", product.images);
-      console.log("createdAt:", product.createdAt);
-      console.log("=====================================\n");
-    });
+    console.log(`✅ Đã tải ${products.length} sản phẩm`);
+    console.log("📦 Sản phẩm đầu tiên:", products[0]);
     
-    // Thử hiển thị trực tiếp trên giao diện để debug
     latestProducts.value = products;
     
   } catch (error) {
-    console.error("❌ Lỗi:", error);
+    console.error("❌ Lỗi tải sản phẩm:", error);
+    latestProducts.value = [];
   } finally {
     loading.value = false;
   }
@@ -204,13 +231,130 @@ onMounted(() => {
   min-height: 100vh;
 }
 
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+/* Product Card Direct Styles */
+.product-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 30px;
+}
+
+.product-card-direct {
+  background: white;
+  border-radius: 15px;
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s;
+  cursor: pointer;
+}
+
+.product-card-direct:hover {
+  transform: translateY(-10px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+}
+
+.product-image-direct {
+  height: 280px;
+  background: #f5f5f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.no-image-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.no-image-placeholder i {
+  font-size: 80px;
+  color: #ccc;
+}
+
+.product-info-direct {
+  padding: 20px;
+}
+
+.product-category-direct {
+  color: #e63946;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.product-name-direct {
+  font-size: 16px;
+  font-weight: 600;
+  color: #2c3e50;
+  margin-bottom: 10px;
+  line-height: 1.4;
+  height: 44px;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.product-price-direct {
+  margin-bottom: 12px;
+}
+
+.current-price-direct {
+  font-size: 18px;
+  font-weight: 700;
+  color: #e63946;
+}
+
+.product-stock-direct {
+  font-size: 12px;
+  margin-bottom: 15px;
+  color: #28a745;
+}
+
+.product-stock-direct i {
+  margin-right: 5px;
+}
+
+.add-to-cart-direct {
+  width: 100%;
+  background: linear-gradient(135deg, #e63946, #ff6b6b);
+  color: white;
+  border: none;
+  padding: 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.add-to-cart-direct:hover {
+  background: linear-gradient(135deg, #c82333, #e63946);
+  transform: translateY(-2px);
+}
+
+/* Category styles */
 .category-section {
-  padding: 40px 0;
+  padding: 60px 0;
+  background: #f8f9fa;
 }
 
 .section-title {
   text-align: center;
-  margin-bottom: 40px;
+  margin-bottom: 50px;
   position: relative;
 }
 
@@ -271,24 +415,14 @@ onMounted(() => {
   color: white;
 }
 
-.category-card h3 {
-  color: #2c3e50;
-  margin-bottom: 10px;
-}
-
-.category-card p {
-  color: #7f8c8d;
-  font-size: 14px;
-}
-
 .loading-state {
   text-align: center;
-  padding: 60px;
+  padding: 80px;
 }
 
 .spinner {
-  width: 40px;
-  height: 40px;
+  width: 50px;
+  height: 50px;
   border: 4px solid #f3f3f3;
   border-top: 4px solid #e63946;
   border-radius: 50%;
@@ -302,64 +436,31 @@ onMounted(() => {
 }
 
 .product-section {
-  padding: 40px 0;
-}
-
-.product-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 30px;
+  padding: 60px 0;
 }
 
 .empty-state {
   text-align: center;
-  padding: 60px;
+  padding: 80px;
   background: white;
   border-radius: 15px;
-  margin: 20px;
-}
-
-.empty-icon {
-  font-size: 60px;
-  margin-bottom: 20px;
-  color: #ccc;
-}
-
-.empty-state h3 {
-  color: #2c3e50;
-  margin-bottom: 10px;
-}
-
-.empty-state p {
-  color: #7f8c8d;
-  margin-bottom: 20px;
-}
-
-.empty-state .btn-primary {
-  display: inline-block;
-  padding: 12px 24px;
-  background: linear-gradient(135deg, #e63946, #ff6b6b);
-  color: white;
-  text-decoration: none;
-  border-radius: 8px;
-  font-weight: 600;
+  margin: 40px;
 }
 
 .newsletter {
-  background: white;
-  padding: 60px 0;
+  background: linear-gradient(135deg, #2c3e50, #1a252f);
+  padding: 80px 0;
   text-align: center;
-  margin-top: 40px;
+  color: white;
 }
 
 .newsletter h2 {
   font-size: 32px;
-  color: #2c3e50;
   margin-bottom: 15px;
 }
 
 .newsletter p {
-  color: #7f8c8d;
+  opacity: 0.9;
   margin-bottom: 30px;
 }
 
@@ -373,15 +474,10 @@ onMounted(() => {
 .newsletter-form input {
   flex: 1;
   padding: 15px;
-  border: 1px solid #ddd;
+  border: none;
   border-radius: 8px;
   outline: none;
   font-size: 16px;
-}
-
-.newsletter-form input:focus {
-  border-color: #e63946;
-  box-shadow: 0 0 0 3px rgba(230, 57, 70, 0.1);
 }
 
 .btn-primary {
@@ -400,34 +496,13 @@ onMounted(() => {
   transform: translateY(-2px);
 }
 
-@media (max-width: 1024px) {
-  .product-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
 @media (max-width: 768px) {
-  .section-title h2 {
-    font-size: 28px;
-  }
-
-  .category-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
   .product-grid {
     grid-template-columns: 1fr;
   }
-
-  .newsletter-form {
-    flex-direction: column;
-    padding: 0 20px;
-  }
-}
-
-@media (max-width: 480px) {
-  .category-grid {
-    grid-template-columns: 1fr;
+  
+  .product-image-direct {
+    height: 220px;
   }
 }
 </style>
