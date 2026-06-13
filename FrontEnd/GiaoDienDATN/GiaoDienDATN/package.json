@@ -16,7 +16,8 @@
     "vue": "^3.4.0",
     "vue-chartjs": "^5.2.0",
     "vue-router": "^4.2.5",
-    "vue3-google-login": "^2.1.4"
+    "vue3-google-login": "^2.1.4",
+    "vue3-google-signin": "^2.1.1"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^4.6.2",

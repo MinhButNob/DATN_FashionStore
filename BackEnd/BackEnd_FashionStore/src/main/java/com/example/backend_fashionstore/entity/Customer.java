@@ -18,8 +18,12 @@ public class Customer {
     @Column(name = "customer_id")
     private Integer customerId;
 
-    @OneToOne
-    @JoinColumn(name = "customer_user_id", nullable = false)
+//    @OneToOne
+//    @JoinColumn(name = "customer_user_id", nullable = false)
+//    private User user;
+
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
     @Column(name = "customer_name", nullable = false)
