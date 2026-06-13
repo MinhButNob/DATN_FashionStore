@@ -21,4 +21,7 @@ public class ProductDetailCustomerResponse {
     private BigDecimal minPrice;
     private BigDecimal maxPrice;
     private Integer totalStock;
+
+    // ✅ Thêm promotion cho sản phẩm
+    private PromotionSummaryResponse promotion;
 }

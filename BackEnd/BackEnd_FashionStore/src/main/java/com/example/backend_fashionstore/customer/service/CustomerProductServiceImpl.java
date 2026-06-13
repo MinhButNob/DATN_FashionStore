@@ -4,6 +4,8 @@ import com.example.backend_fashionstore.customer.dto.request.ProductFilterCustom
 import com.example.backend_fashionstore.customer.dto.response.*;
 import com.example.backend_fashionstore.customer.repository.CustomerProductRepository;
 import com.example.backend_fashionstore.entity.*;
+import com.example.backend_fashionstore.quanLyKhuyenMai.repository.ProductPromotionRepository;
+import com.example.backend_fashionstore.quanLyKhuyenMai.repository.PromotionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -14,8 +16,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -25,6 +29,8 @@ import java.util.stream.Collectors;
 public class CustomerProductServiceImpl implements CustomerProductService {
 
     private final CustomerProductRepository customerProductRepository;
+    private final ProductPromotionRepository productPromotionRepository;
+    private final PromotionRepository promotionRepository;
 
     private static final String BASE_IMAGE_URL = "http://localhost:8080";
 
@@ -61,17 +67,21 @@ public class CustomerProductServiceImpl implements CustomerProductService {
         Product product = customerProductRepository.findProductDetailById(productId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy sản phẩm"));
 
-        List<VariantCustomerResponse> variants = customerProductRepository
-                .findActiveVariantsByProductId(productId)
-                .stream()
-                .map(this::convertToVariantResponse)
+        // ✅ Lấy promotion của sản phẩm (áp dụng chung cho tất cả variants)
+        Promotion productPromotion = getPromotionForProduct(product);
+
+        // ✅ Lấy tất cả variants và tính discountedPrice
+        List<ProductDetail> activeVariants = customerProductRepository.findActiveVariantsByProductId(productId);
+
+        List<VariantCustomerResponse> variants = activeVariants.stream()
+                .map(variant -> convertToVariantResponse(variant, productPromotion))
                 .collect(Collectors.toList());
 
         // Lấy ảnh từ variant đầu tiên
         List<ImageCustomerResponse> images = Collections.emptyList();
-        if (!variants.isEmpty()) {
+        if (!activeVariants.isEmpty()) {
             images = customerProductRepository
-                    .findActiveImagesByVariantId(variants.get(0).getProductDetailId())
+                    .findActiveImagesByVariantId(activeVariants.get(0).getProductDetailId())
                     .stream()
                     .map(this::convertToImageResponse)
                     .collect(Collectors.toList());
@@ -89,19 +99,19 @@ public class CustomerProductServiceImpl implements CustomerProductService {
                 .map(this::convertToSizeOptionResponse)
                 .collect(Collectors.toList());
 
-        // Tính khoảng giá
+        // Tính khoảng giá (sau khuyến mãi nếu có)
         BigDecimal minPrice = BigDecimal.ZERO;
         BigDecimal maxPrice = BigDecimal.ZERO;
 
         if (variants != null && !variants.isEmpty()) {
             minPrice = variants.stream()
-                    .map(VariantCustomerResponse::getPrice)
+                    .map(VariantCustomerResponse::getDiscountedPrice)
                     .filter(price -> price != null && price.compareTo(BigDecimal.ZERO) > 0)
                     .min(BigDecimal::compareTo)
                     .orElse(BigDecimal.ZERO);
 
             maxPrice = variants.stream()
-                    .map(VariantCustomerResponse::getPrice)
+                    .map(VariantCustomerResponse::getDiscountedPrice)
                     .filter(price -> price != null && price.compareTo(BigDecimal.ZERO) > 0)
                     .max(BigDecimal::compareTo)
                     .orElse(BigDecimal.ZERO);
@@ -110,6 +120,16 @@ public class CustomerProductServiceImpl implements CustomerProductService {
         int totalStock = variants.stream()
                 .mapToInt(v -> v.getQuantity() != null ? v.getQuantity() : 0)
                 .sum();
+
+        // ✅ Tạo promotion response
+        PromotionSummaryResponse promotionSummary = null;
+        if (productPromotion != null) {
+            promotionSummary = PromotionSummaryResponse.builder()
+                    .promotionId(productPromotion.getPromotionId())
+                    .promotionName(productPromotion.getPromotionName())
+                    .promotionDiscountPercent(productPromotion.getPromotionDiscountPercent())
+                    .build();
+        }
 
         return ProductDetailCustomerResponse.builder()
                 .productId(product.getProductId())
@@ -124,7 +144,38 @@ public class CustomerProductServiceImpl implements CustomerProductService {
                 .minPrice(minPrice)
                 .maxPrice(maxPrice)
                 .totalStock(totalStock)
+                .promotion(promotionSummary)  // ✅ Thêm promotion vào response
                 .build();
+    }
+
+    // ✅ Lấy promotion cho sản phẩm
+    private Promotion getPromotionForProduct(Product product) {
+        if (product.getProductDetails() == null) return null;
+
+        for (ProductDetail detail : product.getProductDetails()) {
+            if (detail.getDeletedAt() == null && detail.getProductDetailId() != null) {
+                List<ProductPromotion> promotions = productPromotionRepository.findByProductDetailId(detail.getProductDetailId());
+                if (!promotions.isEmpty()) {
+                    Promotion promo = promotions.get(0).getPromotion();
+                    // Kiểm tra promotion còn hiệu lực
+                    if (promo != null && promo.getPromotionDeletedAt() == null &&
+                            "ACTIVE".equals(promo.getPromotionStatus())) {
+                        return promo;
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    // ✅ Tính giá sau khuyến mãi
+    private BigDecimal calculateDiscountedPrice(BigDecimal originalPrice, Promotion promotion) {
+        if (promotion == null || originalPrice == null) return originalPrice;
+        BigDecimal discountPercent = promotion.getPromotionDiscountPercent();
+        if (discountPercent == null || discountPercent.compareTo(BigDecimal.ZERO) == 0) return originalPrice;
+
+        BigDecimal discount = originalPrice.multiply(discountPercent.divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP));
+        return originalPrice.subtract(discount).setScale(0, RoundingMode.HALF_UP);
     }
 
     @Override
@@ -182,6 +233,9 @@ public class CustomerProductServiceImpl implements CustomerProductService {
     }
 
     private ProductCardResponse convertToCardResponse(Product product) {
+        // ✅ Lấy promotion của sản phẩm
+        Promotion productPromotion = getPromotionForProduct(product);
+
         List<ProductDetail> variants = customerProductRepository.findActiveVariantsByProductId(product.getProductId());
 
         BigDecimal minPrice = BigDecimal.ZERO;
@@ -190,28 +244,32 @@ public class CustomerProductServiceImpl implements CustomerProductService {
         String mainImageUrl = null;
 
         if (variants != null && !variants.isEmpty()) {
-            minPrice = variants.stream()
+            // Tính giá gốc min/max
+            BigDecimal originalMinPrice = variants.stream()
                     .map(ProductDetail::getPrice)
                     .filter(price -> price != null && price.compareTo(BigDecimal.ZERO) > 0)
                     .min(BigDecimal::compareTo)
                     .orElse(BigDecimal.ZERO);
 
-            maxPrice = variants.stream()
+            BigDecimal originalMaxPrice = variants.stream()
                     .map(ProductDetail::getPrice)
                     .filter(price -> price != null && price.compareTo(BigDecimal.ZERO) > 0)
                     .max(BigDecimal::compareTo)
                     .orElse(BigDecimal.ZERO);
 
+            // ✅ Tính giá sau khuyến mãi
+            minPrice = calculateDiscountedPrice(originalMinPrice, productPromotion);
+            maxPrice = calculateDiscountedPrice(originalMaxPrice, productPromotion);
+
             totalStock = variants.stream()
                     .mapToInt(pd -> pd.getQuantity() != null ? pd.getQuantity() : 0)
                     .sum();
 
-            // ✅ SỬA: Lấy ảnh từ tất cả variants, không chỉ variant đầu tiên
+            // Lấy ảnh
             for (ProductDetail variant : variants) {
                 try {
                     List<ProductImage> images = customerProductRepository.findActiveImagesByVariantId(variant.getProductDetailId());
                     if (images != null && !images.isEmpty()) {
-                        // Tìm ảnh chính hoặc ảnh đầu tiên
                         ProductImage mainImage = images.stream()
                                 .filter(img -> img.getIsMain() != null && img.getIsMain())
                                 .findFirst()
@@ -225,7 +283,7 @@ public class CustomerProductServiceImpl implements CustomerProductService {
                                 String cleanPath = imagePath.startsWith("/") ? imagePath : "/" + imagePath;
                                 mainImageUrl = BASE_IMAGE_URL + cleanPath;
                             }
-                            break; // ✅ Thoát khi tìm được ảnh đầu tiên
+                            break;
                         }
                     }
                 } catch (Exception e) {
@@ -234,32 +292,6 @@ public class CustomerProductServiceImpl implements CustomerProductService {
             }
         }
 
-        // ✅ Nếu vẫn không có ảnh, thử lấy ảnh từ bảng ProductImage trực tiếp theo productId
-        if (mainImageUrl == null) {
-            try {
-                List<ProductImage> productImages = customerProductRepository.findMainImagesByProductId(product.getProductId());
-                if (productImages != null && !productImages.isEmpty()) {
-                    ProductImage mainImage = productImages.stream()
-                            .filter(img -> img.getIsMain() != null && img.getIsMain())
-                            .findFirst()
-                            .orElse(productImages.get(0));
-
-                    String imagePath = mainImage.getProductImagePath();
-                    if (imagePath != null && !imagePath.isEmpty()) {
-                        if (imagePath.startsWith("http")) {
-                            mainImageUrl = imagePath;
-                        } else {
-                            String cleanPath = imagePath.startsWith("/") ? imagePath : "/" + imagePath;
-                            mainImageUrl = BASE_IMAGE_URL + cleanPath;
-                        }
-                    }
-                }
-            } catch (Exception e) {
-                log.error("Lỗi lấy ảnh chính cho sản phẩm {}: {}", product.getProductId(), e.getMessage());
-            }
-        }
-
-        // ✅ Fallback: dùng ảnh mặc định nếu không có ảnh nào
         if (mainImageUrl == null) {
             mainImageUrl = "https://via.placeholder.com/300x300?text=No+Image";
         }
@@ -289,16 +321,22 @@ public class CustomerProductServiceImpl implements CustomerProductService {
                 .build();
     }
 
-    private VariantCustomerResponse convertToVariantResponse(ProductDetail detail) {
+    // ✅ Sửa: Thêm discountedPrice và promotionId
+    private VariantCustomerResponse convertToVariantResponse(ProductDetail detail, Promotion promotion) {
+        BigDecimal discountedPrice = calculateDiscountedPrice(detail.getPrice(), promotion);
+
         return VariantCustomerResponse.builder()
                 .productDetailId(detail.getProductDetailId())
                 .sku(detail.getSku())
+                .colorId(detail.getColor() != null ? detail.getColor().getColorId() : null)
                 .colorName(detail.getColor() != null ? detail.getColor().getColorName() : null)
                 .colorCode(detail.getColor() != null ? detail.getColor().getColorCode() : null)
                 .hexCode(detail.getColor() != null ? detail.getColor().getHexCode() : null)
+                .sizeId(detail.getSize() != null ? detail.getSize().getSizeId() : null)
                 .sizeName(detail.getSize() != null ? detail.getSize().getSizeName() : null)
                 .sizeCode(detail.getSize() != null ? detail.getSize().getSizeCode() : null)
                 .price(detail.getPrice())
+                .discountedPrice(discountedPrice)  // ✅ Thêm giá sau khuyến mãi
                 .quantity(detail.getQuantity() != null ? detail.getQuantity() : 0)
                 .inStock(detail.getQuantity() != null && detail.getQuantity() > 0)
                 .build();

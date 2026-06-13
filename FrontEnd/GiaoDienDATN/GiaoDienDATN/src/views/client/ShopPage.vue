@@ -11,32 +11,29 @@
           <span>{{ selectedCategoryName || 'Cửa hàng' }}</span>
         </div>
 
-        <!-- Filter Bar -->
-        <FilterBar />
-
         <div class="shop-layout">
-          <!-- Sidebar Filters -->
+          <!-- Sidebar Filters - BÊN TRÁI -->
           <aside class="sidebar">
             <div class="filter-widget">
-              <h3>Danh mục</h3>
+              <h3>📂 Danh mục</h3>
               <ul>
                 <li v-for="category in categories" :key="category.categoryId">
-                  <label>
+                  <label class="checkbox-label">
                     <input 
                       type="checkbox" 
                       :value="category.categoryId"
                       v-model="selectedCategoryIds"
                       @change="applyFilters"
                     >
-                    {{ category.categoryName }} 
-                    <span class="category-count">({{ category.productCount || 0 }})</span>
+                    <span>{{ category.categoryName }}</span>
+                    <span class="count">({{ category.productCount || 0 }})</span>
                   </label>
                 </li>
               </ul>
             </div>
 
             <div class="filter-widget">
-              <h3>Khoảng giá</h3>
+              <h3>💰 Khoảng giá</h3>
               <div class="price-range">
                 <input 
                   type="range" 
@@ -55,10 +52,10 @@
             </div>
 
             <div class="filter-widget">
-              <h3>Màu sắc</h3>
+              <h3>🎨 Màu sắc</h3>
               <ul>
                 <li v-for="color in availableColors" :key="color.colorId">
-                  <label>
+                  <label class="checkbox-label">
                     <input 
                       type="checkbox" 
                       :value="color.colorId"
@@ -69,35 +66,37 @@
                       class="color-dot" 
                       :style="{ backgroundColor: color.hexCode || '#ccc' }"
                     ></span>
-                    {{ color.colorName }}
+                    <span>{{ color.colorName }}</span>
                   </label>
                 </li>
               </ul>
             </div>
 
+            <!-- ✅ BỘ LỌC KÍCH THƯỚC - ĐÃ SỬA -->
             <div class="filter-widget">
-              <h3>Kích thước</h3>
+              <h3>📏 Kích thước</h3>
               <ul>
-                <li v-for="size in availableSizes" :key="size.sizeId">
-                  <label>
+                <li v-for="size in allSizes" :key="size.sizeId">
+                  <label class="checkbox-label">
                     <input 
                       type="checkbox" 
                       :value="size.sizeId"
                       v-model="selectedSizeIds"
                       @change="applyFilters"
                     >
-                    {{ size.sizeName }}
+                    <span>{{ size.sizeName }}</span>
+                    <span class="count" v-if="size.productCount > 0">({{ size.productCount }})</span>
                   </label>
                 </li>
               </ul>
             </div>
 
             <button class="clear-filters" @click="clearFilters">
-              Xóa bộ lọc
+              🗑️ Xóa tất cả bộ lọc
             </button>
           </aside>
 
-          <!-- Main Content -->
+          <!-- Main Content - BÊN PHẢI -->
           <div class="main-content">
             <!-- Active Filters -->
             <div v-if="hasActiveFilters" class="active-filters">
@@ -112,6 +111,7 @@
                   <i class="fas fa-times" @click="removeFilter(filter)"></i>
                 </span>
               </div>
+              <button class="clear-all-btn" @click="clearFilters">Xóa tất cả</button>
             </div>
 
             <!-- Loading State -->
@@ -134,9 +134,10 @@
             <div v-else>
               <div class="product-header">
                 <div class="product-count">
-                  Hiển thị {{ paginatedProducts.length }} / {{ filteredProducts.length }} sản phẩm
+                  Hiển thị {{ filteredProducts.length }} sản phẩm
                 </div>
                 <div class="sort-options">
+                  <label>Sắp xếp:</label>
                   <select v-model="sortBy" @change="applyFilters" class="sort-select">
                     <option value="newest">Mới nhất</option>
                     <option value="price_asc">Giá tăng dần</option>
@@ -148,19 +149,21 @@
                   <button 
                     :class="{ active: gridView }"
                     @click="gridView = true"
+                    title="Lưới"
                   >
                     <i class="fas fa-th"></i>
                   </button>
                   <button 
                     :class="{ active: !gridView }"
                     @click="gridView = false"
+                    title="Danh sách"
                   >
                     <i class="fas fa-list"></i>
                   </button>
                 </div>
               </div>
 
-              <!-- ✅ SỬA: Product Grid giống HomePage -->
+              <!-- Product Grid -->
               <div 
                 class="product-container" 
                 :class="{ 'list-view': !gridView }"
@@ -182,17 +185,21 @@
                     <div v-else class="no-image-placeholder">
                       <i class="fas fa-tshirt"></i>
                     </div>
+                    <div v-if="product.discountPercent > 0" class="discount-flag">
+                      -{{ product.discountPercent }}%
+                    </div>
                   </div>
                   <div class="product-info-direct">
                     <div class="product-category-direct">{{ product.categoryName || 'Sản phẩm' }}</div>
                     <h3 class="product-name-direct">{{ product.productName }}</h3>
                     <div class="product-price-direct">
-                      <span class="current-price-direct">
-                        {{ formatPriceVND(product.displayPrice) }}
-                      </span>
-                      <span v-if="product.maxPrice && product.maxPrice !== product.displayPrice" class="price-range-direct">
-                        - {{ formatPriceVND(product.maxPrice) }}
-                      </span>
+                      <template v-if="product.discountedPrice && product.discountedPrice < product.displayPrice">
+                        <span class="original-price-direct">{{ formatPriceVND(product.displayPrice) }}</span>
+                        <span class="current-price-direct">{{ formatPriceVND(product.discountedPrice) }}</span>
+                      </template>
+                      <template v-else>
+                        <span class="current-price-direct">{{ formatPriceVND(product.displayPrice) }}</span>
+                      </template>
                     </div>
                     <div class="product-colors-direct" v-if="product.colorOptions && product.colorOptions.length > 0">
                       <span 
@@ -261,7 +268,6 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import ClientHeader from '../../components/client/ClientHeader.vue'
 import ClientFooter from '../../components/client/ClientFooter.vue'
-import FilterBar from '../../components/client/FilterBar.vue'
 import CartModal from '../../components/client/CartModal.vue'
 import { useCartStore } from '../../stores/cartStore'
 import { useNotification } from '../../composables/useNotification'
@@ -277,8 +283,7 @@ const API_BASE = "http://localhost:8080/api"
 const loading = ref(false)
 const allProducts = ref([])
 const categories = ref([])
-const colors = ref([])
-const sizes = ref([])
+const allSizes = ref([])
 const gridView = ref(true)
 const currentPage = ref(1)
 const itemsPerPage = 12
@@ -306,6 +311,12 @@ const formatPriceVND = (price) => {
   return numPrice.toLocaleString('vi-VN') + '₫'
 }
 
+const calculateDiscountPercent = (originalPrice, discountedPrice) => {
+  if (!originalPrice || !discountedPrice || originalPrice <= discountedPrice) return 0
+  const discount = ((originalPrice - discountedPrice) / originalPrice) * 100
+  return Math.round(discount)
+}
+
 const getColorHex = (colorName) => {
   const colorMap = {
     'Đỏ': '#FF0000',
@@ -329,7 +340,7 @@ const handleImageError = (event) => {
   if (placeholder) placeholder.style.display = 'flex'
 }
 
-// Lấy danh sách màu sắc thực tế có trong sản phẩm
+// Lấy danh sách màu sắc từ sản phẩm
 const availableColors = computed(() => {
   const colorMap = new Map()
   allProducts.value.forEach(product => {
@@ -348,39 +359,30 @@ const availableColors = computed(() => {
   return Array.from(colorMap.values())
 })
 
-// Lấy danh sách kích thước thực tế có trong sản phẩm
-const availableSizes = computed(() => {
-  const sizeMap = new Map()
-  allProducts.value.forEach(product => {
-    if (product.variants && product.variants.length > 0) {
-      product.variants.forEach(variant => {
-        if (variant.sizeId && variant.sizeName) {
-          if (!sizeMap.has(variant.sizeId)) {
-            sizeMap.set(variant.sizeId, {
-              sizeId: variant.sizeId,
-              sizeName: variant.sizeName
-            })
-          }
-        }
-      })
-    }
-  })
-  return Array.from(sizeMap.values())
-})
-
-// Filter products
+// ✅ FILTER PRODUCTS - ĐÃ SỬA LỌC SIZE
 const filteredProducts = computed(() => {
   let filtered = [...allProducts.value]
+
+  console.log('🔍 Bắt đầu lọc, tổng số sản phẩm:', filtered.length)
+  console.log('  - Category selected:', selectedCategoryIds.value)
+  console.log('  - Color selected:', selectedColorIds.value)
+  console.log('  - Size selected:', selectedSizeIds.value)
+  console.log('  - Price range:', priceRange.value)
 
   // Lọc theo danh mục
   if (selectedCategoryIds.value.length > 0) {
     filtered = filtered.filter(p => 
       selectedCategoryIds.value.includes(p.categoryId)
     )
+    console.log('  - Sau lọc danh mục:', filtered.length)
   }
 
   // Lọc theo giá
-  filtered = filtered.filter(p => (p.displayPrice || 0) <= priceRange.value)
+  filtered = filtered.filter(p => {
+    const priceToCompare = p.discountedPrice && p.discountedPrice < p.displayPrice ? p.discountedPrice : p.displayPrice
+    return (priceToCompare || 0) <= priceRange.value
+  })
+  console.log('  - Sau lọc giá:', filtered.length)
 
   // Lọc theo màu sắc
   if (selectedColorIds.value.length > 0) {
@@ -388,23 +390,37 @@ const filteredProducts = computed(() => {
       if (!p.colorOptions || p.colorOptions.length === 0) return false
       return p.colorOptions.some(color => selectedColorIds.value.includes(color))
     })
+    console.log('  - Sau lọc màu:', filtered.length)
   }
 
-  // Lọc theo kích thước
+  // ✅ Lọc theo kích thước - QUAN TRỌNG
   if (selectedSizeIds.value.length > 0) {
     filtered = filtered.filter(p => {
-      if (!p.variants || p.variants.length === 0) return false
-      return p.variants.some(v => selectedSizeIds.value.includes(v.sizeId))
+      // Kiểm tra sản phẩm có sizeIds không
+      if (!p.sizeIds || p.sizeIds.length === 0) {
+        console.log(`  - Sản phẩm ${p.productName} không có sizeIds`)
+        return false
+      }
+      // Kiểm tra có ít nhất 1 size được chọn nằm trong sizeIds của sản phẩm
+      const hasSize = selectedSizeIds.value.some(sizeId => p.sizeIds.includes(sizeId))
+      if (!hasSize) {
+        console.log(`  - Sản phẩm ${p.productName} không có size được chọn`)
+      }
+      return hasSize
     })
+    console.log('  - Sau lọc size:', filtered.length)
   }
 
   // Sort
   filtered = [...filtered].sort((a, b) => {
+    const priceA = a.discountedPrice && a.discountedPrice < a.displayPrice ? a.discountedPrice : a.displayPrice
+    const priceB = b.discountedPrice && b.discountedPrice < b.displayPrice ? b.discountedPrice : b.displayPrice
+    
     switch (sortBy.value) {
       case 'price_asc':
-        return (a.displayPrice || 0) - (b.displayPrice || 0)
+        return (priceA || 0) - (priceB || 0)
       case 'price_desc':
-        return (b.displayPrice || 0) - (a.displayPrice || 0)
+        return (priceB || 0) - (priceA || 0)
       case 'name_asc':
         return (a.productName || '').localeCompare(b.productName || '')
       case 'newest':
@@ -413,6 +429,7 @@ const filteredProducts = computed(() => {
     }
   })
 
+  console.log('🔍 Kết quả cuối:', filtered.length)
   return filtered
 })
 
@@ -473,7 +490,7 @@ const activeFilters = computed(() => {
   })
 
   selectedSizeIds.value.forEach(sizeId => {
-    const size = availableSizes.value.find(s => s.sizeId === sizeId)
+    const size = allSizes.value.find(s => s.sizeId === sizeId)
     if (size) filters.push({ key: `size_${sizeId}`, name: size.sizeName, type: 'size', value: sizeId })
   })
   
@@ -496,7 +513,10 @@ const addToCartDirect = (product) => {
     return
   }
   
-  const price = product.displayPrice || 0
+  const price = product.discountedPrice && product.discountedPrice < product.displayPrice 
+    ? product.discountedPrice 
+    : product.displayPrice
+    
   cartStore.addToCart({
     productId: product.productId,
     productName: product.productName,
@@ -552,34 +572,94 @@ const changePage = (page) => {
   }
 }
 
-// Fetch data
+// Fetch danh sách kích thước từ API
+const fetchSizes = async () => {
+  try {
+    const response = await axios.get(`${API_BASE}/sizes`, {
+      params: { page: 0, size: 100 }
+    })
+    
+    let sizes = []
+    if (response.data?.data?.content) {
+      sizes = response.data.data.content
+    } else if (response.data?.content) {
+      sizes = response.data.content
+    } else if (Array.isArray(response.data)) {
+      sizes = response.data
+    }
+    
+    // Chỉ lấy size đang ACTIVE và sắp xếp
+    allSizes.value = sizes
+      .filter(s => s.status === 'ACTIVE')
+      .sort((a, b) => {
+        // Sắp xếp size theo thứ tự: S, M, L, XL, XXL
+        const order = { 'S': 1, 'M': 2, 'L': 3, 'XL': 4, 'XXL': 5 }
+        return (order[a.sizeName] || 99) - (order[b.sizeName] || 99)
+      })
+    console.log('✅ Sizes loaded:', allSizes.value)
+  } catch (error) {
+    console.error('Lỗi tải kích thước:', error)
+    allSizes.value = []
+  }
+}
+
+// Fetch products
 const fetchProducts = async () => {
   loading.value = true
   try {
-    // Lấy sản phẩm từ API customer/home/latest-products (giống HomePage)
     const response = await axios.get(`${API_BASE}/customer/home/latest-products`, {
       params: { page: 0, size: 100 }
     })
     
     let products = response.data?.products || []
+    console.log('📦 Products from API:', products.length)
     
-    // Format lại sản phẩm giống HomePage
-    allProducts.value = products.map(p => ({
-      productId: p.productId,
-      productName: p.productName,
-      categoryName: p.categoryName,
-      categoryId: p.categoryId,
-      displayPrice: Number(p.minPrice) || 0,
-      maxPrice: Number(p.maxPrice) || 0,
-      totalStock: Number(p.totalStock) || 0,
-      mainImageUrl: p.mainImageUrl,
-      colorOptions: p.colorOptions || [],
-      variants: p.variants || []
-    }))
+    // Xử lý sản phẩm - tạo sizeIds từ variants
+    allProducts.value = products.map(p => {
+      // Lấy danh sách sizeId từ variants
+      const sizeIds = []
+      const colorOptions = []
+      
+      if (p.variants && p.variants.length > 0) {
+        p.variants.forEach(v => {
+          // Lấy sizeId
+          if (v.sizeId && !sizeIds.includes(v.sizeId)) {
+            sizeIds.push(v.sizeId)
+          }
+          // Lấy màu sắc
+          if (v.colorName && !colorOptions.includes(v.colorName)) {
+            colorOptions.push(v.colorName)
+          }
+        })
+      }
+      
+      const discountPercent = calculateDiscountPercent(p.minPrice, p.discountedPrice)
+      
+      return {
+        productId: p.productId,
+        productName: p.productName,
+        categoryName: p.categoryName,
+        categoryId: p.categoryId,
+        displayPrice: Number(p.minPrice) || 0,
+        discountedPrice: p.discountedPrice ? Number(p.discountedPrice) : null,
+        discountPercent: discountPercent,
+        maxPrice: Number(p.maxPrice) || 0,
+        totalStock: Number(p.totalStock) || 0,
+        mainImageUrl: p.mainImageUrl,
+        colorOptions: colorOptions,
+        sizeIds: sizeIds,
+        variants: p.variants || []
+      }
+    })
     
-    console.log('✅ Shop Products loaded:', allProducts.value.length)
+    console.log('✅ Products processed:', allProducts.value.length)
+    allProducts.value.forEach(p => {
+      console.log(`  - ${p.productName}: sizes = [${p.sizeIds.join(', ')}]`)
+    })
     
-    // Cập nhật categories với số lượng sản phẩm
+    // Cập nhật số lượng sản phẩm cho từng size
+    updateSizeProductCounts()
+    
     await fetchCategories()
     
   } catch (error) {
@@ -588,6 +668,26 @@ const fetchProducts = async () => {
   } finally {
     loading.value = false
   }
+}
+
+// Cập nhật số lượng sản phẩm cho từng size
+const updateSizeProductCounts = () => {
+  const countMap = {}
+  
+  allProducts.value.forEach(product => {
+    if (product.sizeIds && product.sizeIds.length > 0) {
+      product.sizeIds.forEach(sizeId => {
+        countMap[sizeId] = (countMap[sizeId] || 0) + 1
+      })
+    }
+  })
+  
+  allSizes.value = allSizes.value.map(size => ({
+    ...size,
+    productCount: countMap[size.sizeId] || 0
+  }))
+  
+  console.log('📊 Size counts:', countMap)
 }
 
 const fetchCategories = async () => {
@@ -628,6 +728,7 @@ watch(() => route.query.categoryId, (newCategoryId) => {
 
 // Lifecycle
 onMounted(async () => {
+  await fetchSizes()
   await fetchProducts()
 })
 </script>
@@ -660,13 +761,13 @@ main {
 .breadcrumb a {
   color: #999;
   text-decoration: none;
-  transition: color 0.3s;
 }
 
 .breadcrumb a:hover {
   color: #e63946;
 }
 
+/* Layout 2 cột: Sidebar trái, Content phải */
 .shop-layout {
   display: grid;
   grid-template-columns: 280px 1fr;
@@ -674,13 +775,15 @@ main {
   margin-top: 20px;
 }
 
-/* Sidebar */
+/* Sidebar - BÊN TRÁI */
 .sidebar {
   background: white;
   border-radius: 15px;
   padding: 25px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
   height: fit-content;
+  position: sticky;
+  top: 160px;
 }
 
 .filter-widget {
@@ -699,26 +802,36 @@ main {
   color: #2c3e50;
   font-size: 16px;
   margin-bottom: 15px;
+  font-weight: 600;
 }
 
 .filter-widget ul {
   list-style: none;
+  padding-left: 0;
+  margin: 0;
 }
 
 .filter-widget ul li {
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 
-.filter-widget ul li label {
+.checkbox-label {
   display: flex;
   align-items: center;
   gap: 8px;
   cursor: pointer;
-  color: #666;
+  color: #555;
   font-size: 14px;
 }
 
-.category-count {
+.checkbox-label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: #e63946;
+}
+
+.checkbox-label .count {
   color: #999;
   font-size: 12px;
 }
@@ -728,6 +841,7 @@ main {
   height: 16px;
   border-radius: 50%;
   border: 1px solid #ddd;
+  display: inline-block;
 }
 
 .price-range {
@@ -749,12 +863,14 @@ main {
 
 .clear-filters {
   width: 100%;
-  padding: 10px;
+  padding: 12px;
   background: #f8f9fa;
   border: 1px solid #ddd;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.3s;
+  margin-top: 15px;
+  font-weight: 500;
 }
 
 .clear-filters:hover {
@@ -763,165 +879,9 @@ main {
   border-color: #e63946;
 }
 
-/* Product Card - Giống HomePage */
-.product-container {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 30px;
-  margin-bottom: 30px;
-}
-
-.product-container.list-view {
-  grid-template-columns: 1fr;
-}
-
-.product-card-direct {
-  background: white;
-  border-radius: 15px;
-  overflow: hidden;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-  transition: all 0.3s;
-  cursor: pointer;
-}
-
-.product-card-direct:hover {
-  transform: translateY(-10px);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
-}
-
-.product-image-direct {
-  height: 280px;
-  background: #f5f5f5;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  overflow: hidden;
-}
-
-.product-img-direct {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.no-image-placeholder {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
-}
-
-.no-image-placeholder i {
-  font-size: 80px;
-  color: #ccc;
-}
-
-.product-info-direct {
-  padding: 20px;
-}
-
-.product-category-direct {
-  color: #e63946;
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-  margin-bottom: 8px;
-}
-
-.product-name-direct {
-  font-size: 16px;
-  font-weight: 600;
-  color: #2c3e50;
-  margin-bottom: 10px;
-  line-height: 1.4;
-  height: 44px;
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-}
-
-.product-price-direct {
-  margin-bottom: 12px;
-}
-
-.current-price-direct {
-  font-size: 18px;
-  font-weight: 700;
-  color: #e63946;
-}
-
-.price-range-direct {
-  font-size: 14px;
-  color: #999;
-}
-
-.product-colors-direct {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 12px;
-  flex-wrap: wrap;
-}
-
-.color-dot-direct {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  border: 1px solid #ddd;
-  cursor: pointer;
-  transition: transform 0.2s;
-}
-
-.color-dot-direct:hover {
-  transform: scale(1.1);
-}
-
-.more-colors-direct {
-  font-size: 12px;
-  color: #999;
-  line-height: 22px;
-}
-
-.product-stock-direct {
-  font-size: 12px;
-  margin-bottom: 15px;
-  color: #28a745;
-}
-
-.product-stock-direct.out-of-stock {
-  color: #e63946;
-}
-
-.product-stock-direct i {
-  margin-right: 5px;
-}
-
-.add-to-cart-direct {
-  width: 100%;
-  background: linear-gradient(135deg, #e63946, #ff6b6b);
-  color: white;
-  border: none;
-  padding: 12px;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.3s;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-
-.add-to-cart-direct:hover:not(:disabled) {
-  background: linear-gradient(135deg, #c82333, #e63946);
-  transform: translateY(-2px);
-}
-
-.add-to-cart-direct:disabled {
-  background: #ccc;
-  cursor: not-allowed;
+/* Main Content - BÊN PHẢI */
+.main-content {
+  min-width: 0;
 }
 
 /* Product Header */
@@ -939,6 +899,17 @@ main {
 }
 
 .product-count {
+  color: #666;
+  font-size: 14px;
+}
+
+.sort-options {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sort-options label {
   color: #666;
   font-size: 14px;
 }
@@ -1010,6 +981,200 @@ main {
 
 .filter-tag i:hover {
   color: #e63946;
+}
+
+.clear-all-btn {
+  padding: 5px 12px;
+  background: none;
+  border: 1px solid #ddd;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.clear-all-btn:hover {
+  background: #e63946;
+  color: white;
+  border-color: #e63946;
+}
+
+/* Product Container */
+.product-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 30px;
+  margin-bottom: 30px;
+}
+
+.product-container.list-view {
+  grid-template-columns: 1fr;
+}
+
+/* Product Card */
+.product-card-direct {
+  background: white;
+  border-radius: 15px;
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s;
+  cursor: pointer;
+}
+
+.product-card-direct:hover {
+  transform: translateY(-10px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+}
+
+.product-image-direct {
+  height: 280px;
+  background: #f5f5f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.product-img-direct {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.no-image-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.no-image-placeholder i {
+  font-size: 80px;
+  color: #ccc;
+}
+
+.discount-flag {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: #e63946;
+  color: white;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.product-info-direct {
+  padding: 20px;
+}
+
+.product-category-direct {
+  color: #e63946;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.product-name-direct {
+  font-size: 16px;
+  font-weight: 600;
+  color: #2c3e50;
+  margin-bottom: 10px;
+  line-height: 1.4;
+  height: 44px;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.product-price-direct {
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.original-price-direct {
+  font-size: 14px;
+  color: #999;
+  text-decoration: line-through;
+}
+
+.current-price-direct {
+  font-size: 18px;
+  font-weight: 700;
+  color: #e63946;
+}
+
+.product-colors-direct {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.color-dot-direct {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid #ddd;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.color-dot-direct:hover {
+  transform: scale(1.1);
+}
+
+.more-colors-direct {
+  font-size: 12px;
+  color: #999;
+  line-height: 22px;
+}
+
+.product-stock-direct {
+  font-size: 12px;
+  margin-bottom: 15px;
+  color: #28a745;
+}
+
+.product-stock-direct.out-of-stock {
+  color: #e63946;
+}
+
+.product-stock-direct i {
+  margin-right: 5px;
+}
+
+.add-to-cart-direct {
+  width: 100%;
+  background: linear-gradient(135deg, #e63946, #ff6b6b);
+  color: white;
+  border: none;
+  padding: 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.add-to-cart-direct:hover:not(:disabled) {
+  background: linear-gradient(135deg, #c82333, #e63946);
+  transform: translateY(-2px);
+}
+
+.add-to-cart-direct:disabled {
+  background: #ccc;
+  cursor: not-allowed;
 }
 
 /* Pagination */
@@ -1111,6 +1276,10 @@ main {
 @media (max-width: 992px) {
   .shop-layout {
     grid-template-columns: 1fr;
+  }
+  
+  .sidebar {
+    position: static;
   }
 }
 
