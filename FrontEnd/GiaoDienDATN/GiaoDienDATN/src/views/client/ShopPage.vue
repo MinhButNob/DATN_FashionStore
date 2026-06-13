@@ -301,32 +301,88 @@ const handleImageError = (event) => {
   if (placeholder) placeholder.style.display = 'flex'
 }
 
+// Lấy danh sách màu sắc thực tế có trong sản phẩm (để lọc chính xác)
+const availableColors = computed(() => {
+  const colorMap = new Map()
+  allProducts.value.forEach(product => {
+    if (product.variants && product.variants.length > 0) {
+      product.variants.forEach(variant => {
+        if (variant.colorId && variant.colorName) {
+          if (!colorMap.has(variant.colorId)) {
+            colorMap.set(variant.colorId, {
+              colorId: variant.colorId,
+              colorName: variant.colorName,
+              hexCode: variant.hexCode
+            })
+          }
+        }
+      })
+    }
+  })
+  return Array.from(colorMap.values())
+})
+
+// Lấy danh sách kích thước thực tế có trong sản phẩm
+const availableSizes = computed(() => {
+  const sizeMap = new Map()
+  allProducts.value.forEach(product => {
+    if (product.variants && product.variants.length > 0) {
+      product.variants.forEach(variant => {
+        if (variant.sizeId && variant.sizeName) {
+          if (!sizeMap.has(variant.sizeId)) {
+            sizeMap.set(variant.sizeId, {
+              sizeId: variant.sizeId,
+              sizeName: variant.sizeName
+            })
+          }
+        }
+      })
+    }
+  })
+  return Array.from(sizeMap.values())
+})
+
 // Filter products
 const filteredProducts = computed(() => {
   let filtered = [...allProducts.value]
 
-  // Category filter
+  console.log('🟡 Lọc sản phẩm...')
+  console.log('  - Tổng số SP:', filtered.length)
+  console.log('  - Danh mục đã chọn:', selectedCategoryIds.value)
+  console.log('  - Màu đã chọn:', selectedColorIds.value)
+  console.log('  - Size đã chọn:', selectedSizeIds.value)
+  console.log('  - Giá <=:', priceRange.value)
+
+  // Lọc theo danh mục
   if (selectedCategoryIds.value.length > 0) {
     filtered = filtered.filter(p => 
       selectedCategoryIds.value.includes(p.categoryId)
     )
+    console.log('  - Sau lọc danh mục:', filtered.length)
   }
 
-  // Price filter
+  // Lọc theo giá
   filtered = filtered.filter(p => (p.displayPrice || 0) <= priceRange.value)
+  console.log('  - Sau lọc giá:', filtered.length)
 
-  // Color filter
+  // Lọc theo màu sắc
   if (selectedColorIds.value.length > 0) {
-    filtered = filtered.filter(p => 
-      p.variants?.some(v => selectedColorIds.value.includes(v.colorId))
-    )
+    filtered = filtered.filter(p => {
+      if (!p.variants || p.variants.length === 0) return false
+      // Kiểm tra xem sản phẩm có variant nào có màu được chọn không
+      return p.variants.some(v => selectedColorIds.value.includes(v.colorId))
+    })
+    console.log('  - Sau lọc màu:', filtered.length)
   }
 
-  // Size filter
+  // Lọc theo kích thước
   if (selectedSizeIds.value.length > 0) {
-    filtered = filtered.filter(p => 
-      p.variants?.some(v => selectedSizeIds.value.includes(v.sizeId))
-    )
+    filtered = filtered.filter(p => {
+      if (!p.variants || p.variants.length === 0) return false
+      // Kiểm tra xem sản phẩm có variant nào có size được chọn không
+      return p.variants.some(v => selectedSizeIds.value.includes(v.sizeId))
+    })
+    console.log('  - Sau lọc size:', filtered.length)
   }
 
   // Sort
@@ -344,6 +400,7 @@ const filteredProducts = computed(() => {
     }
   })
 
+  console.log('  - Kết quả cuối:', filtered.length)
   return filtered
 })
 
@@ -474,6 +531,7 @@ const clearFilters = () => {
   priceRange.value = 10000000
   sortBy.value = 'newest'
   currentPage.value = 1
+  showNotification('Đã xóa tất cả bộ lọc', 'success')
 }
 
 const changePage = (page) => {
@@ -483,7 +541,7 @@ const changePage = (page) => {
   }
 }
 
-// Fetch data - QUAN TRỌNG: XỬ LÝ ĐÚNG CẤU TRÚC API
+// Fetch data
 const fetchProducts = async () => {
   loading.value = true
   try {
@@ -491,9 +549,6 @@ const fetchProducts = async () => {
       params: { page: 0, size: 100 }
     })
     
-    console.log('🔍 API Response:', response.data)
-    
-    // Lấy mảng products từ response
     let products = []
     if (response.data?.data?.content) {
       products = response.data.data.content
@@ -503,27 +558,19 @@ const fetchProducts = async () => {
       products = response.data
     }
     
-    console.log('📦 Raw products:', products)
-    
-    // Xử lý từng sản phẩm để lấy giá đúng
     allProducts.value = products.map(p => {
-      // Lấy giá từ variants hoặc từ minPrice/maxPrice
       let displayPrice = 0
       let totalStock = 0
       
-      // Nếu có variants, lấy giá từ variant đầu tiên
       if (p.variants && p.variants.length > 0) {
         const firstVariant = p.variants[0]
         displayPrice = Number(firstVariant.price) || 0
-        // Tính tổng stock từ tất cả variants
         totalStock = p.variants.reduce((sum, v) => sum + (Number(v.quantity) || 0), 0)
       } else {
-        // Fallback: dùng minPrice
         displayPrice = Number(p.minPrice) || Number(p.price) || 0
         totalStock = Number(p.totalStock) || 0
       }
       
-      // Lấy ảnh từ images array hoặc mainImageUrl
       let mainImageUrl = null
       if (p.mainImageUrl) {
         mainImageUrl = p.mainImageUrl
@@ -531,7 +578,6 @@ const fetchProducts = async () => {
         mainImageUrl = p.images[0].imageUrl || p.images[0]
       }
       
-      // Lấy tên danh mục
       const categoryName = p.category?.categoryName || p.categoryName || ''
       const categoryId = p.categoryId || p.category?.categoryId || null
       
@@ -548,11 +594,11 @@ const fetchProducts = async () => {
       }
     })
     
-    console.log('✅ Processed products:', allProducts.value)
-    console.log('💰 First product price:', allProducts.value[0]?.displayPrice)
+    // Cập nhật categories với số lượng sản phẩm
+    await fetchCategories()
     
   } catch (error) {
-    console.error('❌ Lỗi tải sản phẩm:', error)
+    console.error('Lỗi tải sản phẩm:', error)
     allProducts.value = []
   } finally {
     loading.value = false
@@ -576,8 +622,6 @@ const fetchCategories = async () => {
       ...cat,
       productCount: productCountByCategory[cat.categoryId] || 0
     }))
-    
-    console.log('✅ Categories loaded:', categories.value.length)
   } catch (error) {
     console.error('Lỗi tải danh mục:', error)
     categories.value = []
@@ -637,7 +681,6 @@ watch(() => route.query.categoryId, (newCategoryId) => {
 onMounted(async () => {
   await fetchProducts()
   await Promise.all([
-    fetchCategories(),
     fetchColors(),
     fetchSizes()
   ])

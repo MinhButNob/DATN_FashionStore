@@ -21,6 +21,9 @@ public class ProductResponse {
     private CategorySummary category;
     private List<VariantSummary> variants;
 
+    // ✅ THÊM promotion summary
+    private PromotionSummary promotion;
+
     @Data
     @Builder
     @NoArgsConstructor
@@ -28,6 +31,17 @@ public class ProductResponse {
     public static class CategorySummary {
         private Integer categoryId;
         private String categoryName;
+    }
+
+    // ✅ THÊM promotion summary class
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class PromotionSummary {
+        private Integer promotionId;
+        private String promotionName;
+        private BigDecimal promotionDiscountPercent;
     }
 
     @Data
@@ -43,5 +57,6 @@ public class ProductResponse {
         private Integer quantity;
         private String status;
         private Boolean isLowStock;
+        private BigDecimal discountedPrice; // ✅ THÊM giá sau khuyến mãi
     }
 }

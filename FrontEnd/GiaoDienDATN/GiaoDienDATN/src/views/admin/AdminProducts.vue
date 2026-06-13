@@ -79,6 +79,7 @@
             <th>ID</th>
             <th>Tên sản phẩm</th>
             <th>Danh mục</th>
+            <th>Khuyến mãi</th>
             <th>Biến thể & Tồn kho</th>
             <th>Trạng thái</th>
             <th>Thao tác</th>
@@ -90,6 +91,14 @@
             <td class="product-name">{{ product.productName }}</td>
             <td class="category-cell">{{ product.category?.categoryName || '-' }}</td>
             
+            <!-- ✅ Cột khuyến mãi của sản phẩm -->
+            <td class="promotion-cell">
+              <span v-if="product.promotion" class="promotion-badge">
+                🎁 {{ product.promotion.promotionName }} (-{{ product.promotion.promotionDiscountPercent }}%)
+              </span>
+              <span v-else class="no-promotion">—</span>
+            </td>
+            
             <!-- Cột gộp: Biến thể + Tồn kho theo từng phiên bản -->
             <td class="variants-cell">
               <div class="variants-list">
@@ -99,7 +108,14 @@
                     <span class="variant-name">{{ v.color || '?' }} - {{ v.size || '?' }}</span>
                   </div>
                   <div class="variant-price-stock">
-                    <span class="variant-price">{{ formatPrice(v.price) }}</span>
+                    <div class="variant-prices">
+                      <span class="variant-original-price" v-if="v.discountedPrice && v.discountedPrice < v.price">
+                        {{ formatPrice(v.price) }}
+                      </span>
+                      <span class="variant-price" :class="{ 'has-discount': v.discountedPrice && v.discountedPrice < v.price }">
+                        {{ formatPrice(v.discountedPrice || v.price) }}
+                      </span>
+                    </div>
                     <span 
                       class="variant-stock" 
                       :class="{ 
@@ -110,7 +126,6 @@
                       📦 {{ v.quantity }}
                     </span>
                   </div>
-                  <span v-if="v.promotionName" class="variant-promotion">🎁 {{ v.promotionName }}</span>
                 </div>
                 <div v-if="!product.variants || product.variants.length === 0" class="no-variant">
                   Không có biến thể
@@ -135,7 +150,7 @@
             </td>
           </tr>
           <tr v-if="allProducts.length === 0 && !loading">
-            <td colspan="6" class="empty-row">
+            <td colspan="7" class="empty-row">
               <div class="empty-state">
                 <div class="empty-icon">📭</div>
                 <p>Không có sản phẩm nào</p>
@@ -188,6 +203,20 @@
                 </select>
               </div>
 
+              <!-- ✅ Ô chọn khuyến mãi cho toàn bộ sản phẩm -->
+              <div class="form-group">
+                <label>🎁 Khuyến mãi áp dụng</label>
+                <select v-model="form.promotionId" class="promotion-select">
+                  <option :value="null">-- Không áp dụng --</option>
+                  <option v-for="promo in promotionList" :key="promo.promotionId" :value="promo.promotionId">
+                    {{ promo.promotionName }} (-{{ promo.promotionDiscountPercent }}%)
+                  </option>
+                </select>
+                <p class="form-hint" v-if="form.promotionId">
+                  ⚡ Khuyến mãi sẽ được áp dụng cho TẤT CẢ các biến thể của sản phẩm này
+                </p>
+              </div>
+
               <div class="form-group">
                 <label class="checkbox-label">
                   <input type="checkbox" v-model="form.isActive" />
@@ -217,7 +246,6 @@
                       <th>Màu sắc</th>
                       <th>Kích thước</th>
                       <th>Giá gốc (VNĐ)</th>
-                      <th>Khuyến mãi</th>
                       <th>Giá sau KM (VNĐ)</th>
                       <th>Số lượng</th>
                       <th>SKU</th>
@@ -227,7 +255,7 @@
                   <tbody>
                     <tr v-for="(variant, index) in form.variants" :key="index">
                       <td>
-                        <select v-model="variant.colorId" required @change="calculateDiscountedPrice(index)">
+                        <select v-model="variant.colorId" required>
                           <option :value="null">Chọn màu</option>
                           <option v-for="color in colorList" :key="color.colorId" :value="color.colorId">
                             {{ color.colorName }}
@@ -235,7 +263,7 @@
                         </select>
                       </td>
                       <td>
-                        <select v-model="variant.sizeId" required @change="calculateDiscountedPrice(index)">
+                        <select v-model="variant.sizeId" required>
                           <option :value="null">Chọn size</option>
                           <option v-for="size in sizeList" :key="size.sizeId" :value="size.sizeId">
                             {{ size.sizeName }}
@@ -243,18 +271,10 @@
                         </select>
                       </td>
                       <td>
-                        <input type="number" v-model="variant.price" placeholder="Giá gốc" required @input="calculateDiscountedPrice(index)" />
+                        <input type="number" v-model="variant.price" placeholder="Giá gốc" required @input="calculateAllDiscountedPrices" />
                       </td>
                       <td>
-                        <select v-model="variant.promotionId" class="promotion-select" @change="calculateDiscountedPrice(index)">
-                          <option :value="null">-- Không áp dụng --</option>
-                          <option v-for="promo in promotionList" :key="promo.promotionId" :value="promo.promotionId">
-                            {{ promo.promotionName }} (-{{ promo.promotionDiscountPercent }}%)
-                          </option>
-                        </select>
-                      </td>
-                      <td>
-                        <input type="text" :value="formatPrice(variant.discountedPrice)" class="discounted-price" readonly disabled />
+                        <input type="text" :value="formatPrice(getDiscountedPrice(variant.price))" class="discounted-price" readonly disabled />
                       </td>
                       <td>
                         <input type="number" v-model="variant.quantity" placeholder="Số lượng" required min="0" />
@@ -359,8 +379,28 @@ const form = ref({
   categoryId: null,
   description: '',
   isActive: true,
+  promotionId: null, // ✅ Khuyến mãi cho toàn bộ sản phẩm
   variants: []
 });
+
+// ✅ Lấy promotion discount percent hiện tại
+const getCurrentPromotionDiscount = () => {
+  if (!form.value.promotionId) return 0;
+  const promotion = promotionList.value.find(p => p.promotionId === form.value.promotionId);
+  return promotion?.promotionDiscountPercent || 0;
+};
+
+// ✅ Tính giá sau khuyến mãi cho 1 mức giá
+const getDiscountedPrice = (originalPrice) => {
+  const discountPercent = getCurrentPromotionDiscount();
+  if (!discountPercent || discountPercent === 0 || !originalPrice) return originalPrice;
+  return originalPrice * (1 - discountPercent / 100);
+};
+
+// ✅ Tính lại tất cả giá sau khuyến mãi
+const calculateAllDiscountedPrices = () => {
+  // Force reactivity - will be recalculated in template
+};
 
 // Computed
 const filteredProducts = computed(() => {
@@ -412,27 +452,6 @@ const getColorHex = (colorName) => {
 const formatPrice = (price) => {
   if (!price) return '0đ';
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
-};
-
-const calculateDiscountedPrice = (index) => {
-  const variant = form.value.variants[index];
-  if (!variant) return;
-  
-  const originalPrice = Number(variant.price) || 0;
-  const promotionId = variant.promotionId;
-  
-  if (promotionId) {
-    // Ép kiểu promotionId về number để so sánh chính xác
-    const promotion = promotionList.value.find(p => Number(p.promotionId) === Number(promotionId));
-    if (promotion && promotion.promotionDiscountPercent) {
-      const discountPercent = Number(promotion.promotionDiscountPercent);
-      variant.discountedPrice = originalPrice * (1 - discountPercent / 100);
-    } else {
-      variant.discountedPrice = originalPrice;
-    }
-  } else {
-    variant.discountedPrice = originalPrice;
-  }
 };
 
 // Fetch data
@@ -579,10 +598,8 @@ const fetchPromotions = async () => {
     if (error.response?.status === 403) {
       console.log('⚠️ Không có quyền, thử API /promotions...');
       try {
-        const res = await axios.get(`${API_BASE}/promotions`, {
-          params: { page: 0, size: 100 }
-        });
-        let promotions = res.data?.content || res.data?.data?.content || [];
+        const res = await axios.get(`${API_BASE}/promotions/active`);
+        let promotions = res.data?.data || res.data || [];
         promotionList.value = promotions.filter(p => 
           p.promotionStatus === 'ACTIVE' && !p.promotionDeletedAt
         );
@@ -617,30 +634,13 @@ const addVariant = () => {
     colorId: null,
     sizeId: null,
     price: 0,
-    discountedPrice: 0,
     quantity: 0,
-    sku: '',
-    promotionId: null
+    sku: ''
   });
 };
 
 const removeVariant = (index) => {
   form.value.variants.splice(index, 1);
-};
-
-const findColorIdByName = (colorName) => {
-  const color = colorList.value.find(c => c.colorName === colorName);
-  return color?.colorId ? Number(color.colorId) : null;
-};
-
-const findSizeIdByName = (sizeName) => {
-  const size = sizeList.value.find(s => s.sizeName === sizeName);
-  return size?.sizeId ? Number(size.sizeId) : null;
-};
-
-const findPromotionIdByName = (promotionName) => {
-  const promo = promotionList.value.find(p => p.promotionName === promotionName);
-  return promo?.promotionId ? Number(promo.promotionId) : null;
 };
 
 // Modal functions
@@ -652,6 +652,7 @@ const openCreateModal = () => {
     categoryId: null,
     description: '',
     isActive: true,
+    promotionId: null,
     variants: []
   };
   showModal.value = true;
@@ -676,23 +677,18 @@ const openEditModal = async (product) => {
   const variants = (product.variants || []).map(v => {
     let colorId = v.colorId;
     if (!colorId && v.color) {
-      colorId = findColorIdByName(v.color);
+      const color = colorList.value.find(c => c.colorName === v.color);
+      colorId = color?.colorId ? Number(color.colorId) : null;
     } else if (colorId) {
       colorId = Number(colorId);
     }
     
     let sizeId = v.sizeId;
     if (!sizeId && v.size) {
-      sizeId = findSizeIdByName(v.size);
+      const size = sizeList.value.find(s => s.sizeName === v.size);
+      sizeId = size?.sizeId ? Number(size.sizeId) : null;
     } else if (sizeId) {
       sizeId = Number(sizeId);
-    }
-    
-    let promotionId = v.promotionId;
-    if (!promotionId && v.promotionName) {
-      promotionId = findPromotionIdByName(v.promotionName);
-    } else if (promotionId) {
-      promotionId = Number(promotionId);
     }
     
     return {
@@ -700,15 +696,8 @@ const openEditModal = async (product) => {
       sizeId: sizeId,
       price: Number(v.price) || 0,
       quantity: Number(v.quantity) || 0,
-      sku: v.sku || '',
-      promotionId: promotionId,
-      discountedPrice: Number(v.price) || 0
+      sku: v.sku || ''
     };
-  });
-  
-  // Tính lại giá sau khuyến mãi cho từng biến thể
-  variants.forEach((_, idx) => {
-    calculateDiscountedPrice(idx);
   });
   
   form.value = {
@@ -717,6 +706,7 @@ const openEditModal = async (product) => {
     categoryId: categoryId,
     description: product.description || '',
     isActive: product.status === 'ACTIVE',
+    promotionId: product.promotion?.promotionId || null,
     variants: variants
   };
   
@@ -724,8 +714,8 @@ const openEditModal = async (product) => {
     productId: form.value.productId,
     productName: form.value.productName,
     categoryId: form.value.categoryId,
-    variantsCount: form.value.variants.length,
-    promotions: form.value.variants.map(v => v.promotionId)
+    promotionId: form.value.promotionId,
+    variantsCount: form.value.variants.length
   });
   
   showModal.value = true;
@@ -740,6 +730,7 @@ const closeModal = () => {
     categoryId: null,
     description: '',
     isActive: true,
+    promotionId: null,
     variants: []
   };
 };
@@ -788,13 +779,13 @@ const handleSubmit = async () => {
       categoryId: Number(form.value.categoryId),
       description: form.value.description || '',
       status: form.value.isActive ? 'ACTIVE' : 'INACTIVE',
+      promotionId: form.value.promotionId ? Number(form.value.promotionId) : null,
       variants: form.value.variants.map((v, index) => ({
         colorId: Number(v.colorId),
         sizeId: Number(v.sizeId),
         price: Number(v.price),
         quantity: Number(v.quantity),
-        sku: v.sku || `SKU-${Date.now()}-${index}`,
-        promotionId: v.promotionId ? Number(v.promotionId) : null
+        sku: v.sku || `SKU-${Date.now()}-${index}`
       }))
     };
     
@@ -1645,6 +1636,82 @@ onMounted(async () => {
   .variant-price-stock {
     justify-content: space-between;
     width: 100%;
+  }
+}
+
+
+.promotion-cell {
+  text-align: center;
+}
+
+.promotion-badge {
+  display: inline-block;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.no-promotion {
+  color: #9ca3af;
+  font-size: 14px;
+}
+
+.variant-prices {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.variant-original-price {
+  font-size: 11px;
+  color: #9ca3af;
+  text-decoration: line-through;
+}
+
+.variant-price.has-discount {
+  color: #e74c3c;
+  font-weight: 700;
+}
+
+.form-hint {
+  font-size: 12px;
+  color: #f59e0b;
+  margin-top: 5px;
+}
+
+.promotion-select {
+  background-color: white;
+}
+
+/* Điều chỉnh cột variants cell */
+.variants-cell {
+  min-width: 280px;
+}
+
+.variant-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .variant-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .variant-price-stock {
+    width: 100%;
+    justify-content: space-between;
   }
 }
 </style>

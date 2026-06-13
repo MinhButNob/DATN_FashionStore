@@ -23,6 +23,9 @@ public class ProductCreateRequest {
 
     private String status;
 
+    // ✅ THÊM promotionId cho toàn bộ sản phẩm
+    private Integer promotionId;
+
     @NotEmpty(message = "Phải có ít nhất một biến thể")
     private List<VariantRequest> variants;
 
@@ -49,7 +52,6 @@ public class ProductCreateRequest {
         @Min(value = 0, message = "Số lượng phải >= 0")
         private Integer quantity;
 
-        // ✅ THÊM FIELD promotionId
-        private Integer promotionId;
+        // ❌ ĐÃ XÓA promotionId
     }
 }

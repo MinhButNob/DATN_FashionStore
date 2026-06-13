@@ -47,4 +47,8 @@ public interface ProductDetailRepository extends JpaRepository<ProductDetail, In
     @Transactional
     @Query("UPDATE ProductDetail pd SET pd.deletedAt = CURRENT_TIMESTAMP, pd.status = 'DELETED' WHERE pd.product.productId = :productId AND pd.deletedAt IS NULL")
     void softDeleteByProductId(@Param("productId") Integer productId);
+
+    // Thêm vào ProductDetailRepository.java
+    @Query("SELECT pd FROM ProductDetail pd WHERE pd.product.productId IN :productIds AND pd.deletedAt IS NULL")
+    List<ProductDetail> findAllByProductIds(@Param("productIds") List<Integer> productIds);
 }
