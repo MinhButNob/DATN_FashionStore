@@ -32,7 +32,8 @@ import AdminImages from "../views/admin/AdminImages.vue";
 import AdminEmployees from "../views/admin/AdminEmployees.vue";
 import AdminRoles from "../views/admin/AdminRoles.vue";
 import AdminColors from "../views/admin/AdminColors.vue";
-import AdminPromotions from "../views/admin/AdminPromotions.vue"; // ← THÊM DÒNG NÀY
+import AdminPromotions from "../views/admin/AdminPromotions.vue";
+import AdminVouchers from "../views/admin/AdminVouchers.vue";
 
 import StaffLayout from "../views/staff/StaffLayout.vue";
 import StaffDashboard from "../views/staff/StaffDashboard.vue";
@@ -126,7 +127,8 @@ const routes = [
         path: "promotions",
         name: "admin-promotions",
         component: AdminPromotions,
-      }, // ← THÊM DÒNG NÀY
+      },
+      { path: "vouchers", name: "admin-vouchers", component: AdminVouchers }, // ← THÊM DÒNG NÀY
       { path: "settings", name: "admin-settings", component: AdminSettings },
     ],
   },
