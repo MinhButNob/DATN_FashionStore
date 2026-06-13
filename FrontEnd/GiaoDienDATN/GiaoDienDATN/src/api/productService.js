@@ -3,6 +3,7 @@ import axios from "axios";
 
 const API_BASE = "http://localhost:8080/api/v1";
 const ADMIN_API_BASE = "http://localhost:8080/api/admin";
+const CUSTOMER_API_BASE = "http://localhost:8080/api/customer/home";
 
 const productService = {
   // ==================== SẢN PHẨM ====================
@@ -299,6 +300,103 @@ const productService = {
       return response;
     } catch (error) {
       console.error(`Lỗi lấy khuyến mãi theo sản phẩm ID ${productId}:`, error);
+      throw error;
+    }
+  },
+
+  // ==================== CUSTOMER / HOME API (THÊM MỚI - KHÔNG ẢNH HƯỞNG CODE CŨ) ====================
+
+  /**
+   * Lấy danh sách sản phẩm trang chủ (có phân trang và lọc)
+   * @param {Object} params - { page, size, keyword, categoryId, colorId, sizeId, minPrice, maxPrice, sortBy }
+   */
+  async getHomeProducts(params = {}) {
+    try {
+      const defaultParams = {
+        page: 0,
+        size: 12,
+      };
+      const queryParams = { ...defaultParams, ...params };
+      const response = await axios.get(`${CUSTOMER_API_BASE}/products`, {
+        params: queryParams,
+      });
+      return response;
+    } catch (error) {
+      console.error("Lỗi lấy sản phẩm trang chủ:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Lấy sản phẩm mới nhất
+   * @param {Number} page - Trang
+   * @param {Number} size - Số lượng
+   */
+  async getLatestProducts(page = 0, size = 12) {
+    try {
+      const response = await axios.get(`${CUSTOMER_API_BASE}/latest-products`, {
+        params: { page, size },
+      });
+      return response;
+    } catch (error) {
+      console.error("Lỗi lấy sản phẩm mới nhất:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Lấy sản phẩm nổi bật
+   * @param {Number} page - Trang
+   * @param {Number} size - Số lượng
+   */
+  async getFeaturedProducts(page = 0, size = 8) {
+    try {
+      const response = await axios.get(
+        `${CUSTOMER_API_BASE}/featured-products`,
+        {
+          params: { page, size },
+        },
+      );
+      return response;
+    } catch (error) {
+      console.error("Lỗi lấy sản phẩm nổi bật:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Lấy sản phẩm theo danh mục
+   * @param {Number} categoryId - ID danh mục
+   * @param {Number} page - Trang
+   * @param {Number} size - Số lượng
+   */
+  async getProductsByCategory(categoryId, page = 0, size = 12) {
+    try {
+      const response = await axios.get(
+        `${CUSTOMER_API_BASE}/categories/${categoryId}/products`,
+        {
+          params: { page, size },
+        },
+      );
+      return response;
+    } catch (error) {
+      console.error(`Lỗi lấy sản phẩm theo danh mục ${categoryId}:`, error);
+      throw error;
+    }
+  },
+
+  /**
+   * Lấy chi tiết sản phẩm cho trang customer
+   * @param {Number} productId - ID sản phẩm
+   */
+  async getCustomerProductDetail(productId) {
+    try {
+      const response = await axios.get(
+        `${CUSTOMER_API_BASE}/products/${productId}`,
+      );
+      return response;
+    } catch (error) {
+      console.error(`Lỗi lấy chi tiết sản phẩm ID ${productId}:`, error);
       throw error;
     }
   },

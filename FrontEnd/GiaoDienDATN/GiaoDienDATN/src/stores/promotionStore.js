@@ -10,8 +10,12 @@ import {
   togglePromotionStatus,
   getPromotionStatistics,
 } from "../services/api";
+import axios from "axios";
+
+const API_BASE = "http://localhost:8080/api";
 
 export const usePromotionStore = defineStore("promotion", () => {
+  // ==================== STATE HIỆN TẠI (GIỮ NGUYÊN) ====================
   const promotions = ref([]);
   const deletedPromotions = ref([]);
   const totalElements = ref(0);
@@ -19,13 +23,18 @@ export const usePromotionStore = defineStore("promotion", () => {
   const currentPage = ref(0);
   const pageSize = ref(10);
   const loading = ref(false);
-  const showDeleted = ref(false); // true: hiển thị danh sách đã xóa, false: hiển thị danh sách chính
+  const showDeleted = ref(false);
   const statistics = ref({
     totalPromotions: 0,
     activePromotions: 0,
     inactivePromotions: 0,
   });
 
+  // ==================== CUSTOMER STATE (THÊM MỚI) ====================
+  const activePromotions = ref([]);
+  const promotionLoading = ref(false);
+
+  // ==================== ADMIN ACTIONS (GIỮ NGUYÊN) ====================
   const fetchPromotions = async (
     page = 0,
     size = 10,
@@ -101,7 +110,6 @@ export const usePromotionStore = defineStore("promotion", () => {
     }
   };
 
-  // Xóa mềm (ẩn)
   const removePromotion = async (id) => {
     try {
       await softDeletePromotion(id);
@@ -117,7 +125,6 @@ export const usePromotionStore = defineStore("promotion", () => {
     }
   };
 
-  // Khôi phục
   const restorePromotionItem = async (id) => {
     try {
       await restorePromotion(id);
@@ -148,7 +155,73 @@ export const usePromotionStore = defineStore("promotion", () => {
     showDeleted.value = value;
   };
 
+  // ==================== CUSTOMER ACTIONS (THÊM MỚI) ====================
+
+  const fetchActivePromotions = async () => {
+    promotionLoading.value = true;
+    try {
+      const response = await axios.get(`${API_BASE}/promotions/active`);
+      let promotionsData = [];
+      if (response.data?.data) {
+        promotionsData = response.data.data;
+      } else if (Array.isArray(response.data)) {
+        promotionsData = response.data;
+      }
+      activePromotions.value = promotionsData.filter(
+        (p) => p.promotionStatus === "ACTIVE" && !p.promotionDeletedAt,
+      );
+      return activePromotions.value;
+    } catch (error) {
+      console.error("Lỗi khi lấy danh sách khuyến mãi đang hoạt động:", error);
+      activePromotions.value = [];
+      return [];
+    } finally {
+      promotionLoading.value = false;
+    }
+  };
+
+  const fetchPromotionsByProduct = async (productId) => {
+    promotionLoading.value = true;
+    try {
+      const response = await axios.get(
+        `${API_BASE}/products/${productId}/promotions`,
+      );
+      let promotionsData = [];
+      if (response.data?.data) {
+        promotionsData = response.data.data;
+      } else if (Array.isArray(response.data)) {
+        promotionsData = response.data;
+      }
+      return promotionsData;
+    } catch (error) {
+      console.error(
+        `Lỗi khi lấy khuyến mãi theo sản phẩm ${productId}:`,
+        error,
+      );
+      return [];
+    } finally {
+      promotionLoading.value = false;
+    }
+  };
+
+  const fetchPromotionByProductDetail = async (productDetailId) => {
+    try {
+      const response = await axios.get(
+        `${API_BASE}/product-details/${productDetailId}/promotion`,
+      );
+      return response.data?.data || response.data || null;
+    } catch (error) {
+      console.error(
+        `Lỗi khi lấy khuyến mãi theo biến thể ${productDetailId}:`,
+        error,
+      );
+      return null;
+    }
+  };
+
+  // ==================== EXPORTS ====================
   return {
+    // Admin (cũ - giữ nguyên)
     promotions,
     deletedPromotions,
     totalElements,
@@ -167,5 +240,11 @@ export const usePromotionStore = defineStore("promotion", () => {
     restorePromotionItem,
     toggleStatus,
     toggleShowDeleted,
+    // Customer (mới)
+    activePromotions,
+    promotionLoading,
+    fetchActivePromotions,
+    fetchPromotionsByProduct,
+    fetchPromotionByProductDetail,
   };
 });

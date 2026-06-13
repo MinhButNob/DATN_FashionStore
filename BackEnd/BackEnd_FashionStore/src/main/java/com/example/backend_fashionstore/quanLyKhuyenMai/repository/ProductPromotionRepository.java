@@ -26,4 +26,8 @@ public interface ProductPromotionRepository extends JpaRepository<ProductPromoti
     // ✅ Kiểm tra tồn tại
     @Query("SELECT COUNT(pp) > 0 FROM ProductPromotion pp WHERE pp.productDetail.productDetailId = :productDetailId AND pp.promotion.promotionId = :promotionId")
     boolean existsByProductDetailIdAndPromotionId(@Param("productDetailId") Integer productDetailId, @Param("promotionId") Integer promotionId);
+
+    // Thêm vào ProductPromotionRepository.java
+    @Query("SELECT pp FROM ProductPromotion pp WHERE pp.productDetail.productDetailId IN :detailIds")
+    List<ProductPromotion> findAllByProductDetailIds(@Param("detailIds") List<Integer> detailIds);
 }

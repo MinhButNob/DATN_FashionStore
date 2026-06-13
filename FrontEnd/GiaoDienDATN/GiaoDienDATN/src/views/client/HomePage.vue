@@ -3,7 +3,6 @@
     <ClientHeader />
 
     <main>
-      <!-- Banner Slider -->
       <BannerSlider />
 
       <!-- Category Section -->
@@ -15,84 +14,85 @@
           <div class="category-grid">
             <div
               v-for="category in categories"
-              :key="category.id"
+              :key="category.categoryId"
               class="category-card"
-              @click="goToCategory(category.slug)"
+              @click="goToCategory(category.categoryId)"
             >
               <div class="category-icon">
-                <i :class="category.icon"></i>
+                <i :class="getCategoryIcon(category.categoryName)"></i>
               </div>
-              <h3>{{ category.name }}</h3>
-              <p>{{ category.count }} sản phẩm</p>
+              <h3>{{ category.categoryName }}</h3>
+              <p>{{ category.productCount || 0 }} sản phẩm</p>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- Filter Section -->
-      <div class="container">
-        <FilterBar />
+      <!-- Loading State -->
+      <div v-if="loading" class="loading-state">
+        <div class="spinner"></div>
+        <p>Đang tải sản phẩm...</p>
       </div>
 
       <!-- Product Grid -->
-      <section class="product-section">
-        <div class="container">
-          <div class="product-container" :class="{ 'list-view': !gridView }">
-            <ProductCard
-              v-for="product in productStore.filteredProducts"
-              :key="product.id"
-              :product="product"
-            />
-          </div>
-        </div>
-      </section>
-
-      <!-- Featured Products -->
-      <section class="featured-section">
-        <div class="container">
-          <div class="featured-title">
-            <h2>SẢN PHẨM NỔI BẬT</h2>
-            <p>Những sản phẩm được yêu thích nhất trong tháng</p>
-          </div>
-          <div class="featured-grid">
-            <ProductCard
-              v-for="product in productStore.featuredProducts"
-              :key="product.id"
-              :product="product"
-            />
-          </div>
-        </div>
-      </section>
-
-      <!-- Blog Section -->
-      <section class="blog-section">
+      <section v-else-if="latestProducts.length > 0" class="product-section">
         <div class="container">
           <div class="section-title">
-            <h2>TIN TỨC THỜI TRANG</h2>
+            <h2>SẢN PHẨM MỚI</h2>
           </div>
-          <div class="blog-grid">
-            <div v-for="post in blogPosts" :key="post.id" class="blog-card">
-              <div class="blog-image">
-                <i :class="post.icon"></i>
-              </div>
-              <div class="blog-content">
-                <div class="blog-date">
-                  <i class="far fa-calendar-alt"></i> {{ post.date }}
+          
+          <div class="product-grid">
+            <div 
+              v-for="product in latestProducts" 
+              :key="product.productId"
+              class="product-card-direct"
+              @click="goToProductDetail(product.productId)"
+            >
+              <div class="product-image-direct">
+                <img 
+                  v-if="product.mainImageUrl" 
+                  :src="product.mainImageUrl" 
+                  :alt="product.productName" 
+                  class="product-img-direct"
+                  @error="handleImageError"
+                />
+                <div v-else class="no-image-placeholder">
+                  <i class="fas fa-tshirt"></i>
                 </div>
-                <div class="blog-title">{{ post.title }}</div>
-                <div class="blog-excerpt">{{ post.excerpt }}</div>
-                <a
-                  href="#"
-                  class="read-more"
-                  @click.prevent="showBlog(post.id)"
-                >
-                  Đọc tiếp <i class="fas fa-arrow-right"></i>
-                </a>
+              </div>
+              <div class="product-info-direct">
+                <div class="product-category-direct">{{ product.categoryName || 'Sản phẩm' }}</div>
+                <h3 class="product-name-direct">{{ product.productName }}</h3>
+                <div class="product-price-direct">
+                  <span class="current-price-direct">
+                    {{ formatPriceVND(product.minPrice) }}
+                  </span>
+                  <span v-if="product.maxPrice && product.maxPrice !== product.minPrice" class="price-range-direct">
+                    - {{ formatPriceVND(product.maxPrice) }}
+                  </span>
+                </div>
+                <div class="product-stock-direct" :class="{ 'out-of-stock': (product.totalStock || 0) === 0 }">
+                  <i class="fas" :class="(product.totalStock || 0) > 0 ? 'fa-check-circle' : 'fa-times-circle'"></i>
+                  {{ (product.totalStock || 0) > 0 ? `Còn ${product.totalStock} sản phẩm` : 'Hết hàng' }}
+                </div>
+                <button class="add-to-cart-direct" @click.stop="addToCartDirect(product)" :disabled="(product.totalStock || 0) === 0">
+                  <i class="fas fa-shopping-cart"></i> Thêm vào giỏ
+                </button>
               </div>
             </div>
           </div>
         </div>
       </section>
+
+      <!-- Empty State -->
+      <div v-else-if="!loading && latestProducts.length === 0" class="empty-state">
+        <div class="empty-icon">📦</div>
+        <h3>Chưa có sản phẩm nào</h3>
+        <p>Hãy thêm sản phẩm đầu tiên trong Admin Panel</p>
+        <router-link to="/admin/products" class="btn-primary">
+          Đến Admin
+        </router-link>
+      </div>
 
       <!-- Newsletter -->
       <section class="newsletter">
@@ -119,80 +119,157 @@
 </template>
 
 <script setup>
-import { ref } from "vue";
+import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
-import { useProductStore } from "../../stores/productStore";
 import { useNotification } from "../../composables/useNotification";
 import ClientHeader from "../../components/client/ClientHeader.vue";
 import ClientFooter from "../../components/client/ClientFooter.vue";
-import ProductCard from "../../components/client/ProductCard.vue";
 import BannerSlider from "../../components/client/BannerSlider.vue";
-import FilterBar from "../../components/client/FilterBar.vue";
 import CartModal from "../../components/client/CartModal.vue";
+import { useCartStore } from "../../stores/cartStore";
+import axios from "axios";
 
 const router = useRouter();
-const productStore = useProductStore();
 const { showNotification } = useNotification();
+const cartStore = useCartStore();
+const API_BASE = "http://localhost:8080/api";
 
-const gridView = ref(true);
+const loading = ref(true);
+const latestProducts = ref([]);
+const categories = ref([]);
 const newsletterEmail = ref("");
 
-const categories = [
-  {
-    id: 1,
-    name: "Thời trang nam",
-    slug: "men",
-    icon: "fas fa-user-tie",
-    count: 234,
-  },
-  {
-    id: 2,
-    name: "Thời trang nữ",
-    slug: "women",
-    icon: "fas fa-female",
-    count: 456,
-  },
-  { id: 3, name: "Trẻ em", slug: "kids", icon: "fas fa-child", count: 123 },
-  {
-    id: 4,
-    name: "Phụ kiện",
-    slug: "accessories",
-    icon: "fas fa-glasses",
-    count: 345,
-  },
-  { id: 5, name: "Khuyến mãi", slug: "sale", icon: "fas fa-tags", count: 89 },
-];
+// Format price
+const formatPriceVND = (price) => {
+  if (price === undefined || price === null) return '0₫'
+  const numPrice = typeof price === 'number' ? price : Number(price)
+  if (isNaN(numPrice) || numPrice === 0) return '0₫'
+  return numPrice.toLocaleString('vi-VN') + '₫'
+}
 
-const blogPosts = [
-  {
-    id: 1,
-    title: "Xu hướng thời trang hè 2024",
-    excerpt: "Những xu hướng thời trang nổi bật nhất trong mùa hè năm nay...",
-    date: "15/03/2024",
-    icon: "fas fa-tshirt",
-  },
-  {
-    id: 2,
-    title: "Cách phối đồ với giày thể thao",
-    excerpt: "Bí quyết phối đồ với giày thể thao cho nam và nữ...",
-    date: "12/03/2024",
-    icon: "fas fa-shoe-prints",
-  },
-  {
-    id: 3,
-    title: "Túi xách công sở cho nữ",
-    excerpt: "Lựa chọn túi xách phù hợp cho môi trường công sở...",
-    date: "10/03/2024",
-    icon: "fas fa-handbag",
-  },
-];
+// Handle image error
+const handleImageError = (event) => {
+  event.target.style.display = 'none'
+  const placeholder = event.target.parentElement.querySelector('.no-image-placeholder')
+  if (placeholder) placeholder.style.display = 'flex'
+}
 
-const goToCategory = (slug) => {
-  router.push(`/shop?category=${slug}`);
+const getCategoryIcon = (categoryName) => {
+  const icons = {
+    "Áo thun": "fas fa-tshirt",
+    "Áo Polo": "fas fa-tshirt",
+    "Quần Jeans": "fas fa-vest",
+    "Áo Sơ Mi": "fas fa-shirt",
+    "Đầm": "fas fa-dress",
+    "Phụ kiện": "fas fa-glasses",
+  };
+  return icons[categoryName] || "fas fa-tag";
 };
 
-const showBlog = (id) => {
-  router.push(`/blog/${id}`);
+const goToCategory = (categoryId) => {
+  router.push(`/shop?categoryId=${categoryId}`);
+};
+
+const goToProductDetail = (productId) => {
+  console.log("Chuyển đến chi tiết sản phẩm:", productId);
+  router.push(`/product/${productId}`);
+};
+
+const addToCartDirect = (product) => {
+  const stock = product.totalStock || 0
+  if (stock === 0) {
+    showNotification('Sản phẩm đã hết hàng!', 'error')
+    return
+  }
+  
+  const price = product.minPrice || 0;
+  cartStore.addToCart({
+    productId: product.productId,
+    productName: product.productName,
+    price: price,
+    quantity: 1,
+    image: product.mainImageUrl
+  });
+  showNotification('Đã thêm sản phẩm vào giỏ hàng!', 'success');
+};
+
+// ✅ SỬA LẠI HÀM NÀY - Thêm số lượng sản phẩm cho từng danh mục
+const loadCategories = async () => {
+  try {
+    // Lấy danh sách danh mục
+    const response = await axios.get(`${API_BASE}/categories/active`);
+    const categoriesData = response.data || [];
+    
+    // Lấy tất cả sản phẩm để đếm số lượng theo danh mục
+    const productsResponse = await axios.get(`${API_BASE}/products`, {
+      params: { page: 0, size: 1000 }
+    });
+    
+    let allProducts = [];
+    if (productsResponse.data?.data?.content) {
+      allProducts = productsResponse.data.data.content;
+    } else if (productsResponse.data?.content) {
+      allProducts = productsResponse.data.content;
+    } else if (Array.isArray(productsResponse.data)) {
+      allProducts = productsResponse.data;
+    }
+    
+    // Đếm số lượng sản phẩm theo từng danh mục
+    const productCountByCategory = {};
+    allProducts.forEach(product => {
+      const catId = product.categoryId || product.category?.categoryId;
+      if (catId) {
+        productCountByCategory[catId] = (productCountByCategory[catId] || 0) + 1;
+      }
+    });
+    
+    // Gán productCount cho từng danh mục
+    categories.value = categoriesData.map(cat => ({
+      ...cat,
+      productCount: productCountByCategory[cat.categoryId] || 0
+    }));
+    
+    console.log("✅ Categories loaded with counts:", categories.value);
+  } catch (error) {
+    console.error("Lỗi tải danh mục:", error);
+    categories.value = [];
+  }
+};
+
+const loadProducts = async () => {
+  loading.value = true;
+  try {
+    console.log("🟡 Đang gọi API:", `${API_BASE}/customer/home/latest-products`);
+    
+    const response = await axios.get(`${API_BASE}/customer/home/latest-products`, {
+      params: {
+        page: 0,
+        size: 12
+      }
+    });
+    
+    console.log("🔍 Response:", response.data);
+    
+    let products = response.data?.products || [];
+    
+    products = products.map(p => ({
+      ...p,
+      minPrice: Number(p.minPrice) || 0,
+      maxPrice: Number(p.maxPrice) || 0,
+      totalStock: Number(p.totalStock) || 0
+    }));
+    
+    console.log(`✅ Đã tải ${products.length} sản phẩm`);
+    console.log("📦 Sản phẩm đầu tiên:", products[0]);
+    
+    latestProducts.value = products;
+    
+  } catch (error) {
+    console.error("❌ Lỗi tải sản phẩm:", error);
+    latestProducts.value = [];
+  } finally {
+    loading.value = false;
+  }
 };
 
 const subscribeNewsletter = () => {
@@ -203,6 +280,11 @@ const subscribeNewsletter = () => {
     showNotification("Vui lòng nhập email!", "warning");
   }
 };
+
+onMounted(() => {
+  loadCategories();
+  loadProducts();
+});
 </script>
 
 <style scoped>
@@ -210,22 +292,160 @@ const subscribeNewsletter = () => {
   min-height: 100vh;
 }
 
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+/* Product Card Styles */
+.product-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 30px;
+}
+
+.product-card-direct {
+  background: white;
+  border-radius: 15px;
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s;
+  cursor: pointer;
+}
+
+.product-card-direct:hover {
+  transform: translateY(-10px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+}
+
+.product-image-direct {
+  height: 280px;
+  background: #f5f5f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.product-img-direct {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.no-image-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.no-image-placeholder i {
+  font-size: 80px;
+  color: #ccc;
+}
+
+.product-info-direct {
+  padding: 20px;
+}
+
+.product-category-direct {
+  color: #e63946;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.product-name-direct {
+  font-size: 16px;
+  font-weight: 600;
+  color: #2c3e50;
+  margin-bottom: 10px;
+  line-height: 1.4;
+  height: 44px;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.product-price-direct {
+  margin-bottom: 12px;
+}
+
+.current-price-direct {
+  font-size: 18px;
+  font-weight: 700;
+  color: #e63946;
+}
+
+.price-range-direct {
+  font-size: 14px;
+  color: #999;
+}
+
+.product-stock-direct {
+  font-size: 12px;
+  margin-bottom: 15px;
+  color: #28a745;
+}
+
+.product-stock-direct.out-of-stock {
+  color: #e63946;
+}
+
+.product-stock-direct i {
+  margin-right: 5px;
+}
+
+.add-to-cart-direct {
+  width: 100%;
+  background: linear-gradient(135deg, #e63946, #ff6b6b);
+  color: white;
+  border: none;
+  padding: 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.add-to-cart-direct:hover:not(:disabled) {
+  background: linear-gradient(135deg, #c82333, #e63946);
+  transform: translateY(-2px);
+}
+
+.add-to-cart-direct:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+/* Category styles */
 .category-section {
-  padding: 40px 0;
+  padding: 60px 0;
+  background: #f8f9fa;
 }
 
 .section-title {
   text-align: center;
-  margin-bottom: 40px;
+  margin-bottom: 50px;
   position: relative;
 }
 
 .section-title h2 {
   font-size: 36px;
-  color: var(--dark-gray);
+  color: #2c3e50;
   display: inline-block;
   padding: 0 20px;
-  background: var(--light-gray);
+  background: #f8f9fa;
   position: relative;
   z-index: 1;
 }
@@ -237,12 +457,7 @@ const subscribeNewsletter = () => {
   left: 0;
   right: 0;
   height: 2px;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    var(--primary-red),
-    transparent
-  );
+  background: linear-gradient(90deg, transparent, #e63946, transparent);
 }
 
 .category-grid {
@@ -257,19 +472,19 @@ const subscribeNewsletter = () => {
   padding: 30px;
   text-align: center;
   cursor: pointer;
-  transition: var(--transition);
-  box-shadow: var(--shadow);
+  transition: all 0.3s;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
 }
 
 .category-card:hover {
   transform: translateY(-10px);
-  box-shadow: var(--shadow-hover);
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
 }
 
 .category-icon {
   width: 80px;
   height: 80px;
-  background: linear-gradient(135deg, var(--primary-red), var(--light-red));
+  background: linear-gradient(135deg, #e63946, #ff6b6b);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -282,150 +497,52 @@ const subscribeNewsletter = () => {
   color: white;
 }
 
-.category-card h3 {
-  color: var(--dark-gray);
-  margin-bottom: 10px;
+.loading-state {
+  text-align: center;
+  padding: 80px;
 }
 
-.category-card p {
-  color: var(--medium-gray);
-  font-size: 14px;
+.spinner {
+  width: 50px;
+  height: 50px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #e63946;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 15px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 .product-section {
-  padding: 40px 0;
-}
-
-.product-container {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 30px;
-}
-
-.product-container.list-view {
-  grid-template-columns: 1fr;
-}
-
-.featured-section {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   padding: 60px 0;
-  margin: 40px 0;
 }
 
-.featured-title {
+.empty-state {
   text-align: center;
-  color: white;
-  margin-bottom: 40px;
-}
-
-.featured-title h2 {
-  font-size: 36px;
-  margin-bottom: 10px;
-}
-
-.featured-title p {
-  font-size: 18px;
-  opacity: 0.9;
-}
-
-.featured-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 25px;
-}
-
-.blog-section {
-  padding: 40px 0;
-}
-
-.blog-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 30px;
-}
-
-.blog-card {
+  padding: 80px;
   background: white;
   border-radius: 15px;
-  overflow: hidden;
-  box-shadow: var(--shadow);
-  transition: var(--transition);
-}
-
-.blog-card:hover {
-  transform: translateY(-10px);
-  box-shadow: var(--shadow-hover);
-}
-
-.blog-image {
-  height: 200px;
-  background: linear-gradient(135deg, var(--primary-red), var(--light-red));
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.blog-image i {
-  font-size: 60px;
-  color: white;
-}
-
-.blog-content {
-  padding: 20px;
-}
-
-.blog-date {
-  color: var(--primary-red);
-  font-size: 13px;
-  margin-bottom: 10px;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.blog-title {
-  font-weight: 700;
-  font-size: 18px;
-  margin-bottom: 10px;
-  color: var(--dark-gray);
-}
-
-.blog-excerpt {
-  color: var(--medium-gray);
-  font-size: 14px;
-  line-height: 1.6;
-  margin-bottom: 15px;
-}
-
-.read-more {
-  color: var(--primary-red);
-  text-decoration: none;
-  font-weight: 600;
-  font-size: 14px;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  transition: var(--transition);
-}
-
-.read-more:hover {
-  gap: 10px;
+  margin: 40px;
 }
 
 .newsletter {
-  background: white;
-  padding: 60px 0;
+  background: linear-gradient(135deg, #2c3e50, #1a252f);
+  padding: 80px 0;
   text-align: center;
+  color: white;
 }
 
 .newsletter h2 {
   font-size: 32px;
-  color: var(--dark-gray);
   margin-bottom: 15px;
 }
 
 .newsletter p {
-  color: var(--medium-gray);
+  opacity: 0.9;
   margin-bottom: 30px;
 }
 
@@ -439,54 +556,46 @@ const subscribeNewsletter = () => {
 .newsletter-form input {
   flex: 1;
   padding: 15px;
-  border: 1px solid var(--border-color);
+  border: none;
   border-radius: 8px;
   outline: none;
   font-size: 16px;
 }
 
-.newsletter-form input:focus {
-  border-color: var(--primary-red);
-  box-shadow: 0 0 0 3px rgba(230, 57, 70, 0.1);
+.btn-primary {
+  background: linear-gradient(135deg, #e63946, #ff6b6b);
+  color: white;
+  border: none;
+  padding: 15px 30px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s;
+  text-decoration: none;
+  display: inline-block;
 }
 
-@media (max-width: 1024px) {
-  .featured-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
+.btn-primary:hover {
+  background: linear-gradient(135deg, #c82333, #e63946);
+  transform: translateY(-2px);
 }
 
 @media (max-width: 768px) {
-  .section-title h2 {
-    font-size: 28px;
-  }
-
-  .category-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .product-container {
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-    gap: 20px;
-  }
-
-  .featured-grid {
+  .product-grid {
     grid-template-columns: 1fr;
   }
-
-  .newsletter-form {
-    flex-direction: column;
-    padding: 0 20px;
+  
+  .product-image-direct {
+    height: 220px;
   }
-}
-
-@media (max-width: 480px) {
-  .category-grid {
-    grid-template-columns: 1fr;
+  
+  .product-name-direct {
+    font-size: 14px;
+    height: 38px;
   }
-
-  .product-container {
-    grid-template-columns: 1fr;
+  
+  .current-price-direct {
+    font-size: 16px;
   }
 }
 </style>

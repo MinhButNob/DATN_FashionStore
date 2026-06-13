@@ -79,8 +79,8 @@
             <th>ID</th>
             <th>Tên sản phẩm</th>
             <th>Danh mục</th>
-            <th>Biến thể</th>
-            <th>Tồn kho</th>
+            <th>Khuyến mãi</th>
+            <th>Biến thể & Tồn kho</th>
             <th>Trạng thái</th>
             <th>Thao tác</th>
           </tr>
@@ -90,18 +90,49 @@
             <td class="id-cell">#{{ product.productId }}</td>
             <td class="product-name">{{ product.productName }}</td>
             <td class="category-cell">{{ product.category?.categoryName || '-' }}</td>
+            
+            <!-- ✅ Cột khuyến mãi của sản phẩm -->
+            <td class="promotion-cell">
+              <span v-if="product.promotion" class="promotion-badge">
+                🎁 {{ product.promotion.promotionName }} (-{{ product.promotion.promotionDiscountPercent }}%)
+              </span>
+              <span v-else class="no-promotion">—</span>
+            </td>
+            
+            <!-- Cột gộp: Biến thể + Tồn kho theo từng phiên bản -->
             <td class="variants-cell">
               <div class="variants-list">
                 <div v-for="(v, idx) in product.variants" :key="idx" class="variant-item">
-                  <span class="variant-color" :style="{ backgroundColor: getColorHex(v.color) }"></span>
-                  <span>{{ v.color || '?' }} - {{ v.size || '?' }}</span>
-                  <span class="variant-price">{{ formatPrice(v.price) }}</span>
-                  <span class="variant-stock">({{ v.quantity }})</span>
-                  <span v-if="v.promotionName" class="variant-promotion">🎁 {{ v.promotionName }}</span>
+                  <div class="variant-info">
+                    <span class="variant-color" :style="{ backgroundColor: getColorHex(v.color) }"></span>
+                    <span class="variant-name">{{ v.color || '?' }} - {{ v.size || '?' }}</span>
+                  </div>
+                  <div class="variant-price-stock">
+                    <div class="variant-prices">
+                      <span class="variant-original-price" v-if="v.discountedPrice && v.discountedPrice < v.price">
+                        {{ formatPrice(v.price) }}
+                      </span>
+                      <span class="variant-price" :class="{ 'has-discount': v.discountedPrice && v.discountedPrice < v.price }">
+                        {{ formatPrice(v.discountedPrice || v.price) }}
+                      </span>
+                    </div>
+                    <span 
+                      class="variant-stock" 
+                      :class="{ 
+                        'stock-low': v.quantity <= 5 && v.quantity > 0,
+                        'stock-out': v.quantity === 0 
+                      }"
+                    >
+                      📦 {{ v.quantity }}
+                    </span>
+                  </div>
+                </div>
+                <div v-if="!product.variants || product.variants.length === 0" class="no-variant">
+                  Không có biến thể
                 </div>
               </div>
             </td>
-            <td class="stock-cell">{{ product.totalStock || 0 }}</td>
+            
             <td class="status-cell">
               <span :class="['status-badge', product.status === 'ACTIVE' ? 'status-active' : 'status-inactive']">
                 {{ product.status === 'ACTIVE' ? 'Đang bán' : 'Ngừng bán' }}
@@ -172,6 +203,20 @@
                 </select>
               </div>
 
+              <!-- ✅ Ô chọn khuyến mãi cho toàn bộ sản phẩm -->
+              <div class="form-group">
+                <label>🎁 Khuyến mãi áp dụng</label>
+                <select v-model="form.promotionId" class="promotion-select">
+                  <option :value="null">-- Không áp dụng --</option>
+                  <option v-for="promo in promotionList" :key="promo.promotionId" :value="promo.promotionId">
+                    {{ promo.promotionName }} (-{{ promo.promotionDiscountPercent }}%)
+                  </option>
+                </select>
+                <p class="form-hint" v-if="form.promotionId">
+                  ⚡ Khuyến mãi sẽ được áp dụng cho TẤT CẢ các biến thể của sản phẩm này
+                </p>
+              </div>
+
               <div class="form-group">
                 <label class="checkbox-label">
                   <input type="checkbox" v-model="form.isActive" />
@@ -201,7 +246,6 @@
                       <th>Màu sắc</th>
                       <th>Kích thước</th>
                       <th>Giá gốc (VNĐ)</th>
-                      <th>Khuyến mãi</th>
                       <th>Giá sau KM (VNĐ)</th>
                       <th>Số lượng</th>
                       <th>SKU</th>
@@ -211,7 +255,7 @@
                   <tbody>
                     <tr v-for="(variant, index) in form.variants" :key="index">
                       <td>
-                        <select v-model="variant.colorId" required @change="calculateDiscountedPrice(index)">
+                        <select v-model="variant.colorId" required>
                           <option :value="null">Chọn màu</option>
                           <option v-for="color in colorList" :key="color.colorId" :value="color.colorId">
                             {{ color.colorName }}
@@ -219,7 +263,7 @@
                         </select>
                       </td>
                       <td>
-                        <select v-model="variant.sizeId" required @change="calculateDiscountedPrice(index)">
+                        <select v-model="variant.sizeId" required>
                           <option :value="null">Chọn size</option>
                           <option v-for="size in sizeList" :key="size.sizeId" :value="size.sizeId">
                             {{ size.sizeName }}
@@ -227,21 +271,13 @@
                         </select>
                       </td>
                       <td>
-                        <input type="number" v-model="variant.price" placeholder="Giá gốc" required @input="calculateDiscountedPrice(index)" />
+                        <input type="number" v-model="variant.price" placeholder="Giá gốc" required @input="calculateAllDiscountedPrices" />
                       </td>
                       <td>
-                        <select v-model="variant.promotionId" class="promotion-select" @change="calculateDiscountedPrice(index)">
-                          <option :value="null">-- Không áp dụng --</option>
-                          <option v-for="promo in promotionList" :key="promo.promotionId" :value="promo.promotionId">
-                            {{ promo.promotionName }} (-{{ promo.promotionDiscountPercent }}%)
-                          </option>
-                        </select>
+                        <input type="text" :value="formatPrice(getDiscountedPrice(variant.price))" class="discounted-price" readonly disabled />
                       </td>
                       <td>
-                        <input type="text" :value="formatPrice(variant.discountedPrice)" class="discounted-price" readonly disabled />
-                      </td>
-                      <td>
-                        <input type="number" v-model="variant.quantity" placeholder="SL" required />
+                        <input type="number" v-model="variant.quantity" placeholder="Số lượng" required min="0" />
                       </td>
                       <td>
                         <input type="text" v-model="variant.sku" placeholder="SKU" />
@@ -281,7 +317,7 @@
         </div>
         <div class="modal-body">
           <p>Bạn có chắc muốn xóa sản phẩm <strong>{{ deleteProductName }}</strong>?</p>
-          <p class="warning-text">Sau khi xóa, sản phẩm sẽ không thể sửa được nữa!</p>
+          <p class="warning-text">Sau khi xóa, sản phẩm sẽ không thể khôi phục!</p>
         </div>
         <div class="modal-footer">
           <button class="btn-cancel" @click="closeDeleteModal">Hủy</button>
@@ -343,8 +379,28 @@ const form = ref({
   categoryId: null,
   description: '',
   isActive: true,
+  promotionId: null, // ✅ Khuyến mãi cho toàn bộ sản phẩm
   variants: []
 });
+
+// ✅ Lấy promotion discount percent hiện tại
+const getCurrentPromotionDiscount = () => {
+  if (!form.value.promotionId) return 0;
+  const promotion = promotionList.value.find(p => p.promotionId === form.value.promotionId);
+  return promotion?.promotionDiscountPercent || 0;
+};
+
+// ✅ Tính giá sau khuyến mãi cho 1 mức giá
+const getDiscountedPrice = (originalPrice) => {
+  const discountPercent = getCurrentPromotionDiscount();
+  if (!discountPercent || discountPercent === 0 || !originalPrice) return originalPrice;
+  return originalPrice * (1 - discountPercent / 100);
+};
+
+// ✅ Tính lại tất cả giá sau khuyến mãi
+const calculateAllDiscountedPrices = () => {
+  // Force reactivity - will be recalculated in template
+};
 
 // Computed
 const filteredProducts = computed(() => {
@@ -398,26 +454,6 @@ const formatPrice = (price) => {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
 };
 
-const calculateDiscountedPrice = (index) => {
-  const variant = form.value.variants[index];
-  if (!variant) return;
-  
-  const originalPrice = variant.price || 0;
-  const promotionId = variant.promotionId;
-  
-  if (promotionId) {
-    const promotion = promotionList.value.find(p => p.promotionId === promotionId);
-    if (promotion && promotion.promotionDiscountPercent) {
-      const discountPercent = promotion.promotionDiscountPercent;
-      variant.discountedPrice = originalPrice * (1 - discountPercent / 100);
-    } else {
-      variant.discountedPrice = originalPrice;
-    }
-  } else {
-    variant.discountedPrice = originalPrice;
-  }
-};
-
 // Fetch data
 const fetchProducts = async () => {
   loading.value = true;
@@ -463,7 +499,6 @@ const fetchStatistics = async () => {
 
 const fetchCategories = async () => {
   try {
-    // ✅ Dùng API getAll thay vì /active
     const response = await axios.get(`${API_BASE}/categories`);
     let categories = [];
     
@@ -475,7 +510,6 @@ const fetchCategories = async () => {
       categories = response.data;
     }
     
-    // Lọc chỉ lấy category ACTIVE và chưa xóa
     categoryList.value = categories.filter(c => 
       c.status === 'ACTIVE' && !c.deletedAt && c.categoryStatus !== 'DELETED'
     );
@@ -485,7 +519,6 @@ const fetchCategories = async () => {
     categoryList.value = [];
   }
 };
-
 
 const fetchColors = async () => {
   try {
@@ -537,10 +570,8 @@ const fetchSizes = async () => {
   }
 };
 
-
 const fetchPromotions = async () => {
   try {
-    // Thử gọi API admin/promotions (có thể cần token)
     const token = localStorage.getItem('token');
     const response = await axios.get(`${API_BASE}/admin/promotions`, {
       params: { page: 0, size: 100 },
@@ -558,21 +589,17 @@ const fetchPromotions = async () => {
       promotions = response.data;
     }
     
-    // Lọc promotion ACTIVE
     promotionList.value = promotions.filter(p => 
       p.promotionStatus === 'ACTIVE' && !p.promotionDeletedAt
     );
     console.log('✅ Promotions loaded:', promotionList.value.length);
   } catch (error) {
     console.error('Lỗi tải khuyến mãi:', error);
-    // Nếu lỗi 403, thử dùng API khác
     if (error.response?.status === 403) {
       console.log('⚠️ Không có quyền, thử API /promotions...');
       try {
-        const res = await axios.get(`${API_BASE}/promotions`, {
-          params: { page: 0, size: 100 }
-        });
-        let promotions = res.data?.content || res.data?.data?.content || [];
+        const res = await axios.get(`${API_BASE}/promotions/active`);
+        let promotions = res.data?.data || res.data || [];
         promotionList.value = promotions.filter(p => 
           p.promotionStatus === 'ACTIVE' && !p.promotionDeletedAt
         );
@@ -586,6 +613,7 @@ const fetchPromotions = async () => {
     }
   }
 };
+
 // Filter actions
 const resetFilters = () => {
   searchKeyword.value = '';
@@ -606,31 +634,13 @@ const addVariant = () => {
     colorId: null,
     sizeId: null,
     price: 0,
-    discountedPrice: 0,
     quantity: 0,
-    sku: '',
-    promotionId: null
+    sku: ''
   });
 };
 
 const removeVariant = (index) => {
   form.value.variants.splice(index, 1);
-};
-
-// ✅ Tìm ID từ tên màu/size/promotion
-const findColorIdByName = (colorName) => {
-  const color = colorList.value.find(c => c.colorName === colorName);
-  return color?.colorId || null;
-};
-
-const findSizeIdByName = (sizeName) => {
-  const size = sizeList.value.find(s => s.sizeName === sizeName);
-  return size?.sizeId || null;
-};
-
-const findPromotionIdByName = (promotionName) => {
-  const promo = promotionList.value.find(p => p.promotionName === promotionName);
-  return promo?.promotionId || null;
 };
 
 // Modal functions
@@ -642,14 +652,13 @@ const openCreateModal = () => {
     categoryId: null,
     description: '',
     isActive: true,
+    promotionId: null,
     variants: []
   };
   showModal.value = true;
 };
 
-// ✅ SỬA: Mở modal sửa - hiển thị đúng dữ liệu cũ
 const openEditModal = async (product) => {
-  // Đảm bảo đã load đủ dữ liệu
   if (categoryList.value.length === 0) await fetchCategories();
   if (colorList.value.length === 0) await fetchColors();
   if (sizeList.value.length === 0) await fetchSizes();
@@ -657,55 +666,47 @@ const openEditModal = async (product) => {
   
   isEdit.value = true;
   
-  // Tìm categoryId từ tên category
   let categoryId = product.categoryId || product.category?.categoryId || null;
   if (!categoryId && product.category?.categoryName) {
     const foundCategory = categoryList.value.find(c => c.categoryName === product.category.categoryName);
-    categoryId = foundCategory?.categoryId || null;
+    categoryId = foundCategory?.categoryId ? Number(foundCategory.categoryId) : null;
+  } else if (categoryId) {
+    categoryId = Number(categoryId);
   }
   
-  // Xử lý variants - map từ tên sang ID
   const variants = (product.variants || []).map(v => {
-    // Tìm colorId từ tên màu
     let colorId = v.colorId;
     if (!colorId && v.color) {
-      colorId = findColorIdByName(v.color);
+      const color = colorList.value.find(c => c.colorName === v.color);
+      colorId = color?.colorId ? Number(color.colorId) : null;
+    } else if (colorId) {
+      colorId = Number(colorId);
     }
     
-    // Tìm sizeId từ tên size
     let sizeId = v.sizeId;
     if (!sizeId && v.size) {
-      sizeId = findSizeIdByName(v.size);
-    }
-    
-    // Tìm promotionId từ tên khuyến mãi
-    let promotionId = v.promotionId;
-    if (!promotionId && v.promotionName) {
-      promotionId = findPromotionIdByName(v.promotionName);
+      const size = sizeList.value.find(s => s.sizeName === v.size);
+      sizeId = size?.sizeId ? Number(size.sizeId) : null;
+    } else if (sizeId) {
+      sizeId = Number(sizeId);
     }
     
     return {
       colorId: colorId,
       sizeId: sizeId,
-      price: v.price || 0,
-      quantity: v.quantity || 0,
-      sku: v.sku || '',
-      promotionId: promotionId,
-      discountedPrice: v.price || 0
+      price: Number(v.price) || 0,
+      quantity: Number(v.quantity) || 0,
+      sku: v.sku || ''
     };
   });
   
-  // Tính lại giá sau khuyến mãi cho từng variant
-  variants.forEach((_, idx) => {
-    calculateDiscountedPrice(idx);
-  });
-  
   form.value = {
-    productId: product.productId,
+    productId: Number(product.productId),
     productName: product.productName,
     categoryId: categoryId,
     description: product.description || '',
     isActive: product.status === 'ACTIVE',
+    promotionId: product.promotion?.promotionId || null,
     variants: variants
   };
   
@@ -713,6 +714,7 @@ const openEditModal = async (product) => {
     productId: form.value.productId,
     productName: form.value.productName,
     categoryId: form.value.categoryId,
+    promotionId: form.value.promotionId,
     variantsCount: form.value.variants.length
   });
   
@@ -728,6 +730,7 @@ const closeModal = () => {
     categoryId: null,
     description: '',
     isActive: true,
+    promotionId: null,
     variants: []
   };
 };
@@ -747,21 +750,42 @@ const handleSubmit = async () => {
     return;
   }
   
+  // Kiểm tra số lượng tồn kho không âm
+  for (let i = 0; i < form.value.variants.length; i++) {
+    const v = form.value.variants[i];
+    if (v.quantity < 0) {
+      showNotification(`Số lượng biến thể ${i + 1} không được nhỏ hơn 0!`, 'error');
+      return;
+    }
+    if (!v.colorId) {
+      showNotification(`Vui lòng chọn màu cho biến thể ${i + 1}!`, 'error');
+      return;
+    }
+    if (!v.sizeId) {
+      showNotification(`Vui lòng chọn kích thước cho biến thể ${i + 1}!`, 'error');
+      return;
+    }
+    if (!v.price || v.price <= 0) {
+      showNotification(`Vui lòng nhập giá hợp lệ cho biến thể ${i + 1}!`, 'error');
+      return;
+    }
+  }
+  
   saving.value = true;
   
   try {
     const submitData = {
       productName: form.value.productName,
-      categoryId: form.value.categoryId,
+      categoryId: Number(form.value.categoryId),
       description: form.value.description || '',
       status: form.value.isActive ? 'ACTIVE' : 'INACTIVE',
+      promotionId: form.value.promotionId ? Number(form.value.promotionId) : null,
       variants: form.value.variants.map((v, index) => ({
-        colorId: v.colorId,
-        sizeId: v.sizeId,
-        price: v.price,
-        quantity: v.quantity,
-        sku: v.sku || `SKU-${Date.now()}-${index}`,
-        promotionId: v.promotionId || null
+        colorId: Number(v.colorId),
+        sizeId: Number(v.sizeId),
+        price: Number(v.price),
+        quantity: Number(v.quantity),
+        sku: v.sku || `SKU-${Date.now()}-${index}`
       }))
     };
     
@@ -822,7 +846,6 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-/* Giữ nguyên style cũ */
 .admin-products {
   padding: 20px;
   background-color: #f8f9fa;
@@ -1002,7 +1025,7 @@ onMounted(async () => {
 .data-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 900px;
+  min-width: 800px;
 }
 
 .data-table th, .data-table td {
@@ -1037,23 +1060,36 @@ onMounted(async () => {
   color: #666;
 }
 
+/* Variants Cell - Quan trọng: Hiển thị số lượng theo từng phiên bản */
 .variants-cell {
-  max-width: 300px;
+  max-width: 450px;
 }
 
 .variants-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 10px;
 }
 
 .variant-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 13px;
-  padding: 4px 0;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
   flex-wrap: wrap;
+}
+
+.variant-item:last-child {
+  border-bottom: none;
+}
+
+.variant-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 110px;
 }
 
 .variant-color {
@@ -1063,29 +1099,60 @@ onMounted(async () => {
   border: 1px solid #ddd;
 }
 
+.variant-name {
+  font-weight: 500;
+  font-size: 13px;
+  color: #374151;
+}
+
+.variant-price-stock {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
 .variant-price {
   color: #e74c3c;
-  font-weight: 500;
+  font-weight: 600;
+  font-size: 13px;
 }
 
 .variant-stock {
-  color: #7f8c8d;
-  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  background-color: #e8f5e9;
+  color: #2e7d32;
+}
+
+.variant-stock.stock-low {
+  background-color: #fff3e0;
+  color: #e65100;
+}
+
+.variant-stock.stock-out {
+  background-color: #ffebee;
+  color: #c62828;
 }
 
 .variant-promotion {
   font-size: 11px;
   color: #e63946;
   background: #fff3cd;
-  padding: 2px 6px;
-  border-radius: 4px;
-  margin-left: 5px;
+  padding: 2px 8px;
+  border-radius: 20px;
   white-space: nowrap;
 }
 
-.stock-cell {
-  font-weight: 600;
-  color: #2c3e50;
+.no-variant {
+  color: #9ca3af;
+  font-style: italic;
+  padding: 8px 0;
+  text-align: center;
 }
 
 /* Status Badges */
@@ -1556,8 +1623,95 @@ onMounted(async () => {
   .search-box { min-width: auto; }
   .btn-search, .btn-reset { justify-content: center; }
   .table-container { overflow-x: auto; }
-  .data-table { min-width: 800px; }
+  .data-table { min-width: 700px; }
   .pagination { flex-direction: column; gap: 12px; }
   .modal-container { width: 95%; }
+  
+  .variant-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+  
+  .variant-price-stock {
+    justify-content: space-between;
+    width: 100%;
+  }
+}
+
+
+.promotion-cell {
+  text-align: center;
+}
+
+.promotion-badge {
+  display: inline-block;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.no-promotion {
+  color: #9ca3af;
+  font-size: 14px;
+}
+
+.variant-prices {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.variant-original-price {
+  font-size: 11px;
+  color: #9ca3af;
+  text-decoration: line-through;
+}
+
+.variant-price.has-discount {
+  color: #e74c3c;
+  font-weight: 700;
+}
+
+.form-hint {
+  font-size: 12px;
+  color: #f59e0b;
+  margin-top: 5px;
+}
+
+.promotion-select {
+  background-color: white;
+}
+
+/* Điều chỉnh cột variants cell */
+.variants-cell {
+  min-width: 280px;
+}
+
+.variant-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .variant-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .variant-price-stock {
+    width: 100%;
+    justify-content: space-between;
+  }
 }
 </style>

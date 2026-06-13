@@ -408,18 +408,20 @@ export default {
         };
         
         if (this.isEdit) {
-          // ✅ CHỈ CẬP NHẬT LOCAL STATE - KHÔNG GỌI API UPDATE
+          // ✅ SỬA: GỌI API UPDATE
+          const response = await categoryService.updateCategory(this.form.categoryId, data);
+          const updatedCategory = response.data?.data || response.data;
+          
+          // Cập nhật local state với dữ liệu từ server
           const index = this.allCategories.findIndex(c => c.categoryId === this.form.categoryId);
           if (index !== -1) {
             this.allCategories[index] = {
-              ...this.allCategories[index],
-              categoryName: data.categoryName,
-              categoryDescription: data.categoryDescription,
-              status: data.status
+              ...updatedCategory,
+              _deletedAt: null
             };
           }
           this.filterCategories();
-          this.showNotification('Cập nhật thành công!');
+          this.showNotification('Cập nhật danh mục thành công!');
         } else {
           // ✅ THÊM MỚI - GỌI API TẠO MỚI
           const response = await categoryService.createCategory(data);
@@ -431,11 +433,11 @@ export default {
             });
             this.filterCategories();
           }
-          this.showNotification('Thêm thành công!');
+          this.showNotification('Thêm danh mục thành công!');
         }
         this.closeModal();
       } catch (error) {
-        const errorMsg = error.response?.data?.message || 'Có lỗi xảy ra!';
+        const errorMsg = error.response?.data?.message || error.message || 'Có lỗi xảy ra!';
         this.showNotification(errorMsg, 'error');
       } finally {
         this.saving = false;
@@ -448,20 +450,37 @@ export default {
         return;
       }
       
-      // ✅ CHỈ CẬP NHẬT LOCAL STATE - KHÔNG GỌI API
-      const newStatus = cat.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
-      const index = this.allCategories.findIndex(c => c.categoryId === cat.categoryId);
-      if (index !== -1) {
-        this.allCategories[index] = {
-          ...this.allCategories[index],
+      this.saving = true;
+      try {
+        const newStatus = cat.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+        
+        // ✅ SỬA: GỌI API UPDATE
+        const response = await categoryService.updateCategory(cat.categoryId, {
+          categoryName: cat.categoryName,
+          categoryDescription: cat.categoryDescription,
           status: newStatus
-        };
+        });
+        
+        const updatedCategory = response.data?.data || response.data;
+        
+        // Cập nhật local state
+        const index = this.allCategories.findIndex(c => c.categoryId === cat.categoryId);
+        if (index !== -1) {
+          this.allCategories[index] = {
+            ...updatedCategory,
+            _deletedAt: null
+          };
+        }
+        this.filterCategories();
+        this.showNotification(`Đã ${newStatus === 'ACTIVE' ? 'kích hoạt' : 'tạm dừng'} danh mục!`);
+      } catch (error) {
+        const errorMsg = error.response?.data?.message || error.message || 'Có lỗi xảy ra!';
+        this.showNotification(errorMsg, 'error');
+      } finally {
+        this.saving = false;
       }
-      this.filterCategories();
-      this.showNotification(`Đã ${newStatus === 'ACTIVE' ? 'kích hoạt' : 'tạm dừng'} danh mục!`);
     },
 
-    // ✅ KIỂM TRA SẢN PHẨM TRƯỚC KHI XÓA (GIỐNG RÀNG BUỘC)
     async confirmDelete(cat) {
       this.checkingProducts = true;
       this.checkingCategoryId = cat.categoryId;
@@ -490,7 +509,6 @@ export default {
         
       } catch (error) {
         console.error('Lỗi kiểm tra sản phẩm:', error);
-        // Nếu API chưa có, cho phép xóa (hoặc thông báo lỗi)
         this.showNotification('Không thể kiểm tra sản phẩm! Vui lòng thử lại sau.', 'error');
         this.checkingProducts = false;
         this.checkingCategoryId = null;
@@ -504,6 +522,7 @@ export default {
     },
 
     async deleteCategory() {
+      this.saving = true;
       try {
         // ✅ KIỂM TRA LẠI LẦN NỮA TRƯỚC KHI XÓA (để an toàn)
         const response = await axios.get(`${API_BASE}/products/category/${this.deleteCategoryId}/count`);
@@ -515,10 +534,14 @@ export default {
             'error'
           );
           this.closeDeleteModal();
+          this.saving = false;
           return;
         }
         
-        // ✅ XÓA MỀM - CHỈ CẬP NHẬT LOCAL STATE
+        // ✅ SỬA: GỌI API XÓA MỀM
+        await categoryService.deleteCategory(this.deleteCategoryId);
+        
+        // Cập nhật local state
         const index = this.allCategories.findIndex(c => c.categoryId === this.deleteCategoryId);
         if (index !== -1) {
           this.allCategories[index] = {
@@ -532,8 +555,10 @@ export default {
         this.showNotification('Xóa danh mục thành công!');
         this.closeDeleteModal();
       } catch (error) {
-        const errorMsg = error.response?.data?.message || 'Không thể xóa danh mục này!';
+        const errorMsg = error.response?.data?.message || error.message || 'Không thể xóa danh mục này!';
         this.showNotification(errorMsg, 'error');
+      } finally {
+        this.saving = false;
       }
     },
 
@@ -550,8 +575,12 @@ export default {
     },
 
     async restoreCategory() {
+      this.saving = true;
       try {
-        // ✅ KHÔI PHỤC - CHỈ CẬP NHẬT LOCAL STATE
+        // ✅ SỬA: GỌI API KHÔI PHỤC
+        await categoryService.restoreCategory(this.restoreCategoryId);
+        
+        // Cập nhật local state
         const index = this.allCategories.findIndex(c => c.categoryId === this.restoreCategoryId);
         if (index !== -1) {
           this.allCategories[index] = {
@@ -566,7 +595,10 @@ export default {
         this.closeRestoreModal();
       } catch (error) {
         console.error('Lỗi khôi phục:', error);
-        this.showNotification('Không thể khôi phục danh mục này!', 'error');
+        const errorMsg = error.response?.data?.message || error.message || 'Không thể khôi phục danh mục này!';
+        this.showNotification(errorMsg, 'error');
+      } finally {
+        this.saving = false;
       }
     }
   },
@@ -1160,4 +1192,4 @@ export default {
   .data-table { min-width: 600px; }
   .pagination { flex-direction: column; gap: 12px; }
 }
-</style>
+</style>``
