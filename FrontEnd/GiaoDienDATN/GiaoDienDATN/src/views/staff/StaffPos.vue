@@ -702,6 +702,12 @@ const checkout = async () => {
       return;
     }
 
+    console.log("=== CHECKOUT DEBUG ===");
+    console.log("Session ID:", sessionId);
+    console.log("Cart items:", currentOrder.value.orderDetails);
+    console.log("Total amount:", total.value);
+
+    // Xây dựng request đúng format theo backend
     const request = {
       posSessionId: sessionId,
       posOrderCustomerId: customerIdInput.value ? parseInt(customerIdInput.value) : null,
@@ -712,73 +718,82 @@ const checkout = async () => {
       posOrderTaxAmount: 0,
       posOrderNotes: "Bán lẻ tại quầy",
       items: currentOrder.value.orderDetails.map(item => ({
-         productDetailId: item.productDetailId,  // ← SỬA: cần productDetailId, không phải skuDetail
-         quantity: item.quantity,
-         unitPrice: item.unitPrice || 0,
-         discount: 0
+        productDetailId: item.productDetailId,  // ← QUAN TRỌNG: phải có productDetailId
+        quantity: item.quantity,
+        unitPrice: item.unitPrice || 0,
+        discount: 0,
+        notes: null
       })),
       payments: [
         {
-           paymentMethodId: paymentMethod.value === "CASH" ? 1 : 2,  // ← SỬA: paymentMethodId
-           amount: total.value || 0  // ← SỬA: amount (không phải posPaymentAmount)
+          paymentMethodId: paymentMethod.value === "CASH" ? 1 : 2,  // 1: Tiền mặt, 2: Chuyển khoản
+          amount: total.value || 0,
+          referenceNumber: null,
+          notes: null
         }
       ]
     };
 
-    console.log("Request thanh toán:", request);  // Debug
+    console.log("Request gửi đi:", JSON.stringify(request, null, 2));
 
     const res = await posService.createPosOrder(request);
     
-    let orderObj = null;
+    console.log("Response từ server:", res);
+
+    let orderId = null;
     if (res && res.posOrderId) {
-      orderObj = res;
-    } else if (res && res.data && res.data.data && res.data.data.posOrderId) {
-      orderObj = res.data.data;
+      orderId = res.posOrderId;
     } else if (res && res.data && res.data.posOrderId) {
-      orderObj = res.data;
-    } else {
-      orderObj = res.data || res;
+      orderId = res.data.posOrderId;
     }
+    
+    if (orderId) {
+      // In hóa đơn
+      try {
+        await posService.printPosReceipt(orderId, 1);
+      } catch(err) {
+        console.error("Lỗi in hóa đơn:", err);
+      }
 
-    showNotification("Thanh toán thành công!", "success");
+      showNotification("Thanh toán thành công!", "success");
+      
+      // In hóa đơn bằng window print
+      const invoiceData = {
+        storeName: "Fashion Store",
+        storeAddress: "Hệ thống thời trang nam",
+        storePhone: "0123.456.789",
+        orderId: orderId,
+        orderDate: new Date().toLocaleString("vi-VN"),
+        customerName: customerIdInput.value || "Khách lẻ",
+        items: currentOrder.value.orderDetails.map(i => ({
+          productDetail: i.productDetail,
+          quantity: i.quantity,
+          finalAmount: i.quantity * i.unitPrice
+        })),
+        subtotalAmount: currentOrder.value.subtotalAmount,
+        discountAmount: currentOrder.value.discountAmount,
+        finalAmount: total.value
+      };
 
-    // Lấy thông tin order code
-    const invoiceNumber = orderObj?.posOrderInvoiceNumber || "HD-" + Date.now();
-    const orderDate = orderObj?.posOrderCreatedAt ? formatTime(orderObj.posOrderCreatedAt) : formatTime(new Date());
+      printInvoiceHandle(invoiceData);
 
-    // In hóa đơn
-    const invoiceData = {
-      orderId: invoiceNumber,
-      orderDate: orderDate,
-      customerName: customerIdInput.value ? ("KH: " + customerIdInput.value) : "Khách lẻ",
-      storeName: "FASHION STORE",
-      storeAddress: "123 Đường Fashion, Quận 1, TP.HCM",
-      storePhone: "1900 1234",
-      items: currentOrder.value.orderDetails.map(item => ({
-        productDetail: {
-          skuDetail: item.productDetail?.skuDetail || "SKU",
-          size: item.productDetail?.size || "N/A",
-          color: item.productDetail?.color || "N/A"
-        },
-        quantity: item.quantity,
-        finalAmount: (item.unitPrice || 0) * item.quantity
-      })),
-      subtotalAmount: subtotal.value,
-      discountAmount: discount.value,
-      finalAmount: total.value
-    };
-
-    printInvoiceHandle(invoiceData);
-
-    // Reset giỏ hàng
-    await clearCurrentCart();
-
+      // Reset giỏ hàng
+      currentOrder.value = null;
+      voucherCodeInput.value = "";
+      customerIdInput.value = "";
+      await initPOSOrder();
+      
+      // Reload lại session để cập nhật doanh số
+      await checkActiveSession();
+      
+    } else {
+      showNotification("Thanh toán thất bại!", "error");
+    }
   } catch (error) {
     console.error("Lỗi thanh toán:", error);
     showNotification("Thanh toán thất bại: " + (error.response?.data?.message || error.message), "error");
   }
 };
-
 
 // In hóa đơn
 const printInvoiceHandle = (invoice) => {

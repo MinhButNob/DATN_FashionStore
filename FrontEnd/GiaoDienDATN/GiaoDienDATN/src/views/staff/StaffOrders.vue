@@ -35,20 +35,20 @@
           <tr v-for="order in filteredOrders" :key="order.id">
             <td><strong>{{ order.id }}</strong></td>
             <td>
-              <div class="main-text">{{ order.customer }}</div>
-              <div class="sub-text">{{ order.phone }}</div>
+              <div class="main-text">{{ order.customer?.name || 'Khách lẻ' }}</div>
+              <div class="sub-text">{{ order.customer?.phone || '-' }}</div>
             </td>
-            <td>{{ order.items }} sản phẩm</td>
-            <td class="price">{{ order.total }}</td>
+            <td>{{ order.items?.length || 0 }} sản phẩm</td>
+            <td class="price">{{ formatPrice(order.total) }}</td>
             <td>
-              <select v-model="order.status" class="status-select" :class="`status-${order.status}`">
+              <select v-model="order.status" class="status-select" :class="`status-${order.status}`" @change="updateOrderStatus(order)">
                 <option value="pending">Chờ xác nhận</option>
                 <option value="processing">Đang xử lý</option>
                 <option value="shipping">Đang giao</option>
                 <option value="done">Hoàn tất</option>
               </select>
             </td>
-            <td><span :class="['badge', order.paymentBadge]">{{ order.payment }}</span></td>
+            <td><span :class="['badge', getPaymentBadge(order.payment?.status)]">{{ order.payment?.method || 'Thanh toán' }}</span></td>
             <td>
               <div class="action-buttons">
                 <button class="action-btn view-btn" title="Xem chi tiết"><i class="fas fa-eye"></i></button>
@@ -64,21 +64,74 @@
 </template>
 
 <script setup>
-import { computed, ref } from "vue";
+import { computed, ref, onMounted } from "vue";
+import axios from 'axios';
+import { useNotification } from '../../composables/useNotification';
+import { formatPrice } from '../../utils/helpers';
+
+const { showNotification } = useNotification();
 
 const search = ref("");
 const status = ref("all");
-const orders = ref([
-  { id: "DH1024", customer: "Nguyễn Minh Anh", phone: "0901122334", items: 3, total: "1.248.000₫", status: "processing", payment: "Đã thanh toán", paymentBadge: "badge-success" },
-  { id: "DH1025", customer: "Trần Quốc Bảo", phone: "0919988776", items: 1, total: "399.000₫", status: "pending", payment: "COD", paymentBadge: "badge-warning" },
-  { id: "POS001", customer: "Khách lẻ", phone: "-", items: 2, total: "698.000₫", status: "done", payment: "Tiền mặt", paymentBadge: "badge-success" },
-  { id: "DH1026", customer: "Lê Hoài Nam", phone: "0987654321", items: 4, total: "2.060.000₫", status: "shipping", payment: "Đã thanh toán", paymentBadge: "badge-info" },
-]);
+const orders = ref([]);
+
+const fetchOrders = async () => {
+  try {
+    const token = localStorage.getItem('token');
+    const response = await axios.get('http://localhost:8080/api/orders', {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+    
+    if (response.data.success) {
+      orders.value = response.data.data;
+    } else {
+      showNotification(response.data.message || 'Lỗi khi tải danh sách đơn hàng', 'error');
+    }
+  } catch (error) {
+    console.error('Error fetching orders:', error);
+    showNotification('Không thể kết nối đến máy chủ', 'error');
+  }
+};
+
+onMounted(() => {
+  fetchOrders();
+});
+
+const getPaymentBadge = (status) => {
+  if (status === 'paid' || status === 'COMPLETED') return 'badge-success';
+  if (status === 'pending') return 'badge-warning';
+  return 'badge-info';
+};
+
+const updateOrderStatus = async (order) => {
+  try {
+    const token = localStorage.getItem('token');
+    const response = await axios.put(`http://localhost:8080/api/orders/${order.originalId}/status`, 
+      { status: order.status },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    if (response.data.success) {
+      showNotification('Cập nhật trạng thái thành công!', 'success');
+      fetchOrders();
+    } else {
+      showNotification(response.data.message || 'Lỗi cập nhật trạng thái', 'error');
+      fetchOrders(); // revert
+    }
+  } catch (error) {
+    console.error('Error updating order status:', error);
+    showNotification('Lỗi máy chủ', 'error');
+    fetchOrders(); // revert
+  }
+};
 
 const filteredOrders = computed(() => {
   const keyword = search.value.toLowerCase();
   return orders.value.filter((order) => {
-    const matchesSearch = [order.id, order.customer, order.phone].some((value) => value.toLowerCase().includes(keyword));
+    const customerName = order.customer?.name || '';
+    const phone = order.customer?.phone || '';
+    const matchesSearch = [order.id, customerName, phone].some((value) => value.toLowerCase().includes(keyword));
     const matchesStatus = status.value === "all" || order.status === status.value;
     return matchesSearch && matchesStatus;
   });

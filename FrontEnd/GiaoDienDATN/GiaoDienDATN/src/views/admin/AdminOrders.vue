@@ -404,171 +404,15 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useNotification } from '../../composables/useNotification'
 import { formatPrice } from '../../utils/helpers'
+import axios from 'axios'
 
 const { showNotification } = useNotification()
 
-// Mock data
-const orders = ref([
-  {
-    id: 'DH001',
-    customer: {
-      name: 'Nguyễn Văn A',
-      phone: '0123456789',
-      email: 'nguyenvana@email.com'
-    },
-    items: [
-      { id: 1, name: 'Áo thun nam', image: 'tshirt', price: 199000, quantity: 2, size: 'M', color: 'Đen' },
-      { id: 3, name: 'Quần jean nam', image: 'jeans', price: 499000, quantity: 1, size: 'L', color: 'Xanh' }
-    ],
-    subtotal: 897000,
-    shipping: {
-      method: 'Giao hàng tiêu chuẩn',
-      fee: 30000
-    },
-    discount: 0,
-    total: 927000,
-    date: '15/03/2024 14:30',
-    status: 'delivered',
-    payment: {
-      method: 'COD',
-      status: 'paid'
-    },
-    shippingAddress: '123 Nguyễn Huệ, Quận 1, Hồ Chí Minh',
-    notes: 'Gọi trước khi giao',
-    timeline: [
-      { date: '15/03/2024 14:30', text: 'Đơn hàng được tạo', icon: 'fas fa-plus-circle' },
-      { date: '15/03/2024 15:45', text: 'Đã xác nhận đơn hàng', icon: 'fas fa-check-circle' },
-      { date: '16/03/2024 08:20', text: 'Đang giao hàng', icon: 'fas fa-truck' },
-      { date: '16/03/2024 14:15', text: 'Giao hàng thành công', icon: 'fas fa-check-circle' }
-    ]
-  },
-  {
-    id: 'DH002',
-    customer: {
-      name: 'Trần Thị B',
-      phone: '0987654321',
-      email: 'tranthib@email.com'
-    },
-    items: [
-      { id: 2, name: 'Đầm nữ công sở', image: 'dress', price: 399000, quantity: 1, size: 'M', color: 'Đỏ' }
-    ],
-    subtotal: 399000,
-    shipping: {
-      method: 'Giao hàng nhanh',
-      fee: 50000
-    },
-    discount: 0,
-    total: 449000,
-    date: '16/03/2024 09:15',
-    status: 'processing',
-    payment: {
-      method: 'Chuyển khoản',
-      status: 'pending'
-    },
-    shippingAddress: '456 Lê Lợi, Quận 1, Hồ Chí Minh',
-    notes: '',
-    timeline: [
-      { date: '16/03/2024 09:15', text: 'Đơn hàng được tạo', icon: 'fas fa-plus-circle' },
-      { date: '16/03/2024 10:30', text: 'Đã xác nhận đơn hàng', icon: 'fas fa-check-circle' }
-    ]
-  },
-  {
-    id: 'DH003',
-    customer: {
-      name: 'Lê Văn C',
-      phone: '0369852147',
-      email: 'levanc@email.com'
-    },
-    items: [
-      { id: 4, name: 'Áo khoác nữ', image: 'jacket', price: 599000, quantity: 1, size: 'L', color: 'Đen' },
-      { id: 6, name: 'Túi xách nữ', image: 'bag', price: 299000, quantity: 1, size: '', color: 'Nâu' }
-    ],
-    subtotal: 898000,
-    shipping: {
-      method: 'Giao hàng tiêu chuẩn',
-      fee: 30000
-    },
-    discount: 50000,
-    total: 878000,
-    date: '16/03/2024 16:20',
-    status: 'pending',
-    payment: {
-      method: 'COD',
-      status: 'pending'
-    },
-    shippingAddress: '789 Điện Biên Phủ, Quận 3, Hồ Chí Minh',
-    notes: 'Giao giờ hành chính',
-    timeline: [
-      { date: '16/03/2024 16:20', text: 'Đơn hàng được tạo', icon: 'fas fa-plus-circle' }
-    ]
-  },
-  {
-    id: 'DH004',
-    customer: {
-      name: 'Phạm Thị D',
-      phone: '0912345678',
-      email: 'phamthid@email.com'
-    },
-    items: [
-      { id: 5, name: 'Quần short trẻ em', image: 'shorts', price: 149000, quantity: 3, size: 'S', color: 'Xanh' }
-    ],
-    subtotal: 447000,
-    shipping: {
-      method: 'Giao hàng tiêu chuẩn',
-      fee: 30000
-    },
-    discount: 0,
-    total: 477000,
-    date: '17/03/2024 10:05',
-    status: 'shipped',
-    payment: {
-      method: 'COD',
-      status: 'pending'
-    },
-    shippingAddress: '321 Hoàng Diệu, Quận 4, Hồ Chí Minh',
-    notes: '',
-    timeline: [
-      { date: '17/03/2024 10:05', text: 'Đơn hàng được tạo', icon: 'fas fa-plus-circle' },
-      { date: '17/03/2024 11:20', text: 'Đã xác nhận đơn hàng', icon: 'fas fa-check-circle' },
-      { date: '18/03/2024 09:00', text: 'Đang giao hàng', icon: 'fas fa-truck' }
-    ]
-  },
-  {
-    id: 'DH005',
-    customer: {
-      name: 'Hoàng Văn E',
-      phone: '0975314682',
-      email: 'hoangvane@email.com'
-    },
-    items: [
-      { id: 7, name: 'Áo sơ mi nam', image: 'shirt', price: 299000, quantity: 2, size: 'L', color: 'Trắng' }
-    ],
-    subtotal: 598000,
-    shipping: {
-      method: 'Giao hàng nhanh',
-      fee: 50000
-    },
-    discount: 0,
-    total: 648000,
-    date: '17/03/2024 14:30',
-    status: 'cancelled',
-    payment: {
-      method: 'Chuyển khoản',
-      status: 'failed'
-    },
-    shippingAddress: '654 Võ Văn Kiệt, Quận 5, Hồ Chí Minh',
-    notes: 'Khách yêu cầu hủy',
-    timeline: [
-      { date: '17/03/2024 14:30', text: 'Đơn hàng được tạo', icon: 'fas fa-plus-circle' },
-      { date: '17/03/2024 15:45', text: 'Đã xác nhận đơn hàng', icon: 'fas fa-check-circle' },
-      { date: '17/03/2024 16:20', text: 'Khách yêu cầu hủy đơn', icon: 'fas fa-times-circle' },
-      { date: '17/03/2024 17:00', text: 'Đơn hàng đã hủy', icon: 'fas fa-ban' }
-    ]
-  }
-])
+// State
+const orders = ref([])
 
 // State
 const filters = ref({
@@ -684,6 +528,30 @@ const applyFilters = () => {
   currentPage.value = 1
 }
 
+const fetchOrders = async () => {
+  try {
+    const token = localStorage.getItem('token')
+    const response = await axios.get('http://localhost:8080/api/orders', {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    })
+    
+    if (response.data.success) {
+      orders.value = response.data.data
+    } else {
+      showNotification(response.data.message || 'Lỗi khi tải danh sách đơn hàng', 'error')
+    }
+  } catch (error) {
+    console.error('Error fetching orders:', error)
+    showNotification('Không thể kết nối đến máy chủ', 'error')
+  }
+}
+
+onMounted(() => {
+  fetchOrders()
+})
+
 const toggleSelectAll = () => {
   if (isAllSelected.value) {
     selectedOrders.value = selectedOrders.value.filter(
@@ -700,24 +568,33 @@ const clearSelection = () => {
   bulkAction.value = ''
 }
 
-const executeBulkAction = () => {
+const executeBulkAction = async () => {
   if (!bulkAction.value) return
 
-  selectedOrders.value.forEach(id => {
-    const order = orders.value.find(o => o.id === id)
-    if (order) {
-      order.status = bulkAction.value
-      
-      // Add to timeline
-      order.timeline.push({
-        date: new Date().toLocaleString('vi-VN'),
-        text: `Cập nhật trạng thái: ${getStatusText(bulkAction.value)}`,
-        icon: 'fas fa-sync-alt'
-      })
-    }
-  })
+  let successCount = 0
+  const token = localStorage.getItem('token')
 
-  showNotification(`Đã cập nhật ${selectedOrders.value.length} đơn hàng`, 'success')
+  for (const id of selectedOrders.value) {
+    try {
+      const order = orders.value.find(o => o.id === id)
+      if (order) {
+        await axios.put(`http://localhost:8080/api/orders/${order.originalId}/status`, 
+          { status: bulkAction.value },
+          { headers: { Authorization: `Bearer ${token}` } }
+        )
+        successCount++
+      }
+    } catch (error) {
+      console.error(`Error updating order ${id}:`, error)
+    }
+  }
+
+  if (successCount > 0) {
+    showNotification(`Đã cập nhật ${successCount} đơn hàng`, 'success')
+    fetchOrders()
+  } else {
+    showNotification('Cập nhật thất bại', 'error')
+  }
   clearSelection()
 }
 
@@ -741,15 +618,25 @@ const getStatusText = (status) => {
   return statuses[status] || status
 }
 
-const updateOrderStatus = (order) => {
-  // Add to timeline
-  order.timeline.push({
-    date: new Date().toLocaleString('vi-VN'),
-    text: `Cập nhật trạng thái: ${getStatusText(order.status)}`,
-    icon: 'fas fa-sync-alt'
-  })
-  
-  showNotification('Cập nhật trạng thái thành công!', 'success')
+const updateOrderStatus = async (order) => {
+  try {
+    const token = localStorage.getItem('token')
+    const response = await axios.put(`http://localhost:8080/api/orders/${order.originalId}/status`, 
+      { status: order.status },
+      { headers: { Authorization: `Bearer ${token}` } }
+    )
+    if (response.data.success) {
+      showNotification('Cập nhật trạng thái thành công!', 'success')
+      fetchOrders()
+    } else {
+      showNotification(response.data.message || 'Lỗi cập nhật trạng thái', 'error')
+      fetchOrders() // revert
+    }
+  } catch (error) {
+    console.error('Error updating order status:', error)
+    showNotification('Lỗi máy chủ', 'error')
+    fetchOrders() // revert
+  }
 }
 
 const viewOrderDetail = (order) => {
