@@ -98,6 +98,8 @@ public class AuthServiceImpl implements AuthService {
                     )
             );
         } catch (AuthenticationException e) {
+            System.out.println(e.getClass().getName());
+            System.out.println(e.getMessage());
             throw new RuntimeException("Email hoặc mật khẩu không đúng");
         }
 
@@ -291,4 +293,4 @@ public class AuthServiceImpl implements AuthService {
                 )
                 .build();
     }
-} 
+}
