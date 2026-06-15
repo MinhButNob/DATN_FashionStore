@@ -32,8 +32,12 @@ export const getActiveSessions = () => {
   return api.get("/pos/sessions/active");
 };
 
-export const getMyActiveSession = () => {
-  return api.get("/pos/sessions/my-active");
+export const getMyActiveSession = async () => {
+  const res = await api.get("/pos/sessions/my-active");
+
+  console.log("SERVICE RESPONSE =", res);
+
+  return res;
 };
 
 export const getActiveSessionByEmployee = (employeeId) => {

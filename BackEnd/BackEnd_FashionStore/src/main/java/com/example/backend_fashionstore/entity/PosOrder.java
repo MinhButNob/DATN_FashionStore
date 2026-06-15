@@ -28,7 +28,7 @@ public class PosOrder {
     @Column(name = "pos_order_customer_id")
     private Integer posOrderCustomerId;
 
-    @Column(name = "pos_order_invoice_number", nullable = false, unique = true, length = 50)
+    @Column(name = "pos_order_invoice_number", nullable = false, unique = true)
     private String posOrderInvoiceNumber;
 
     @Column(name = "pos_order_type", nullable = false, length = 20)
