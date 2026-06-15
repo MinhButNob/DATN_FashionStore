@@ -63,4 +63,15 @@ public interface EmployeeRepository extends JpaRepository<Employee, Integer> {
 
     @Query("SELECT COUNT(e) > 0 FROM Employee e WHERE e.employeeEmail = :email AND e.employeeId != :id")
     boolean existsByEmployeeEmailAndEmployeeIdNot(@Param("email") String email, @Param("id") Integer id);
+
+    // quanLyNhanVien/repo/EmployeeRepository.java
+// THÊM method này vào cuối interface
+
+    // ✅ Lấy Employee theo userId - SỬA employeeUser.userId THÀNH user.userId
+    @Query("SELECT e FROM Employee e WHERE e.user.userId = :userId")
+    Optional<Employee> findByEmployeeUserId(@Param("userId") Integer userId);
+
+    // ✅ Kiểm tra tồn tại Employee theo userId - SỬA employeeUser.userId THÀNH user.userId
+    @Query("SELECT COUNT(e) > 0 FROM Employee e WHERE e.user.userId = :userId")
+    boolean existsByEmployeeUserId(@Param("userId") Integer userId);
 }

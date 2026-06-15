@@ -48,18 +48,23 @@ public class JwtAuthenticationFilter
                 UserDetails userDetails = userDetailsService.loadUserByUsername(email);
 
                 if (jwtService.isTokenValid(jwt, userDetails.getUsername())) {
-                    UsernamePasswordAuthenticationToken authToken =
-                            new UsernamePasswordAuthenticationToken(
-                                    userDetails,
-                                    null,
-                                    userDetails.getAuthorities()
-                            );
+                    // Kiểm tra nếu userDetails là CustomUserDetails
+                    if (userDetails instanceof CustomUserDetails) {
+                        CustomUserDetails customUserDetails = (CustomUserDetails) userDetails;
 
-                    authToken.setDetails(
-                            new WebAuthenticationDetailsSource().buildDetails(request)
-                    );
+                        UsernamePasswordAuthenticationToken authToken =
+                                new UsernamePasswordAuthenticationToken(
+                                        customUserDetails,  // Lưu custom user details
+                                        null,
+                                        customUserDetails.getAuthorities()
+                                );
 
-                    SecurityContextHolder.getContext().setAuthentication(authToken);
+                        authToken.setDetails(
+                                new WebAuthenticationDetailsSource().buildDetails(request)
+                        );
+
+                        SecurityContextHolder.getContext().setAuthentication(authToken);
+                    }
                 }
             }
         } catch (Exception e) {
