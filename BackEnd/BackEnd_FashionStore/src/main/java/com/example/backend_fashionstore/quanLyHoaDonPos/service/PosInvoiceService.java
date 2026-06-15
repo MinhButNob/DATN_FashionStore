@@ -12,6 +12,7 @@ import com.example.backend_fashionstore.quanLyBanhangTaiQuay.repository.PosPayme
 import com.example.backend_fashionstore.quanLyBanhangTaiQuay.repository.PosSessionRepository;
 import com.example.backend_fashionstore.quanLyHoaDonPos.dto.*;
 
+import com.example.backend_fashionstore.quanLyHoaDonPos.repository.PosInvoiceRepository;
 import com.example.backend_fashionstore.quanlyNhanVien.repo.EmployeeRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -39,40 +40,70 @@ public class PosInvoiceService {
     private final PosSessionRepository posSessionRepository;
     private final EmployeeRepository employeeRepository;
     private final ProductDetailRepository productDetailRepository;
-
+    private final PosInvoiceRepository posInvoiceRepository;  
     // =====================================================
     // TÌM KIẾM HÓA ĐƠN
     // =====================================================
+    // quanLyHoaDonPos/service/PosInvoiceService.java
+// Sửa method searchInvoices
     @Transactional(readOnly = true)
     public Page<PosInvoiceDTO> searchInvoices(PosInvoiceFilterDTO filter) {
+
+        // 1. Khởi tạo mốc thời gian bắt đầu (Nếu null mặc định lùi về 30 ngày trước)
         LocalDateTime startDate = filter.getStartDate() != null
                 ? filter.getStartDate().atStartOfDay()
                 : LocalDate.now().minusDays(30).atStartOfDay();
+
+        // 2. Khởi tạo mốc thời gian kết thúc (Ép kịch khung đến cuối ngày hôm nay để tránh lệch múi giờ hệ thống)
         LocalDateTime endDate = filter.getEndDate() != null
                 ? filter.getEndDate().atTime(LocalTime.MAX)
-                : LocalDateTime.now();
+                : LocalDate.now().atTime(LocalTime.MAX);
 
-        String sortDir = filter.getSortDir() != null ? filter.getSortDir() : "DESC";
-        String sortBy = filter.getSortBy() != null ? filter.getSortBy() : "posOrderCreatedAt";
-        Sort sort = Sort.by(Sort.Direction.fromString(sortDir), sortBy);
-        int page = (filter.getPage() != null && filter.getPage() >= 0) ? filter.getPage() : 0;
-        int size = (filter.getSize() != null && filter.getSize() > 0) ? filter.getSize() : 20;
-        Pageable pageable = PageRequest.of(page, size, sort);
+        // 3. Khởi tạo và ánh xạ cột Sort (Đồng bộ với các thuộc tính thực tế của DB)
+        String sortByColumn = "posOrderCreatedAt";
+        if (filter.getSortBy() != null) {
+            switch (filter.getSortBy()) {
+                case "posOrderCreatedAt":
+                case "createdAt":
+                    sortByColumn = "posOrderCreatedAt";
+                    break;
+                case "invoiceNumber":
+                    sortByColumn = "posOrderInvoiceNumber";
+                    break;
+                case "total":
+                    sortByColumn = "posOrderTotalAmount";
+                    break;
+                default:
+                    sortByColumn = filter.getSortBy();
+            }
+        }
 
+        // 4. KHAI BÁO BIẾN PAGEABLE (Để giải quyết triệt để lỗi gạch đỏ của bạn)
+        Sort sort = Sort.by(Sort.Direction.fromString(filter.getSortDir() != null ? filter.getSortDir() : "DESC"), sortByColumn);
+        Pageable pageable = PageRequest.of(filter.getPage(), filter.getSize(), sort);
+
+        // Xử lý chuỗi rỗng thành null để query JPQL không bị sai khi so sánh LIKE với cột có giá trị NULL
+        String invoiceNumber = filter.getInvoiceNumber() != null && !filter.getInvoiceNumber().trim().isEmpty() ? filter.getInvoiceNumber().trim() : null;
+        String customerName = filter.getCustomerName() != null && !filter.getCustomerName().trim().isEmpty() ? filter.getCustomerName().trim() : null;
+        String customerPhone = filter.getCustomerPhone() != null && !filter.getCustomerPhone().trim().isEmpty() ? filter.getCustomerPhone().trim() : null;
+        String orderStatus = filter.getOrderStatus() != null && !filter.getOrderStatus().trim().isEmpty() ? filter.getOrderStatus().trim() : null;
+        String paymentStatus = filter.getPaymentStatus() != null && !filter.getPaymentStatus().trim().isEmpty() ? filter.getPaymentStatus().trim() : null;
+
+        // 5. Thực hiện gọi hàm xử lý từ PosOrderRepository (Sử dụng JPQL chuẩn)
         Page<PosOrder> orders = posOrderRepository.searchInvoices(
-                filter.getInvoiceNumber(),
-                filter.getCustomerName(),
-                filter.getCustomerPhone(),
-                filter.getOrderStatus(),
-                filter.getPaymentStatus(),
+                invoiceNumber,
+                customerName,
+                customerPhone,
+                orderStatus,
+                paymentStatus,
+                filter.getPosSessionId(),
                 startDate,
                 endDate,
-                pageable
+                pageable // 👈 Biến pageable bây giờ đã sáng đèn và hoạt động chuẩn xác!
         );
 
         return orders.map(this::convertToDTO);
     }
-
     // =====================================================
     // LẤY CHI TIẾT HÓA ĐƠN
     // =====================================================
@@ -134,24 +165,16 @@ public class PosInvoiceService {
         LocalDateTime end = endDate != null ? endDate.atTime(LocalTime.MAX) : LocalDateTime.now();
 
         BigDecimal totalRevenue = posOrderRepository.getTotalRevenue(start, end);
-        if (totalRevenue == null) totalRevenue = BigDecimal.ZERO;
-
         Long totalOrders = posOrderRepository.getTotalOrders(start, end);
-        if (totalOrders == null) totalOrders = 0L;
-
         Long totalCustomers = posOrderRepository.getTotalCustomers(start, end);
-        if (totalCustomers == null) totalCustomers = 0L;
 
-        BigDecimal avgOrderValue = (totalOrders != null && totalOrders > 0)
+        BigDecimal avgOrderValue = totalOrders > 0
                 ? totalRevenue.divide(BigDecimal.valueOf(totalOrders), 2, RoundingMode.HALF_UP)
                 : BigDecimal.ZERO;
 
-        // Lấy tổng giảm giá và thuế từ repository (null-safe)
-        BigDecimal totalDiscount = posOrderRepository.getTotalDiscount(start, end);
-        if (totalDiscount == null) totalDiscount = BigDecimal.ZERO;
-
-        BigDecimal totalTax = posOrderRepository.getTotalTax(start, end);
-        if (totalTax == null) totalTax = BigDecimal.ZERO;
+        // Tính tổng giảm giá và thuế (có thể query riêng)
+        BigDecimal totalDiscount = BigDecimal.ZERO;
+        BigDecimal totalTax = BigDecimal.ZERO;
 
         return PosInvoiceStatsDTO.builder()
                 .totalOrders(totalOrders)
@@ -178,20 +201,16 @@ public class PosInvoiceService {
     // =====================================================
 
     private void updateSessionOnCancel(PosOrder order) {
-        Integer sessionId = order.getPosOrderSessionId();
-        if (sessionId == null) return;
-
-        posSessionRepository.findById(sessionId).ifPresent(session -> {
-            // Trừ doanh thu đã hủy khỏi session (null-safe)
-            BigDecimal sessionCash = session.getPosSessionCashSales() != null ? session.getPosSessionCashSales() : BigDecimal.ZERO;
-            BigDecimal orderAmount = order.getPosOrderTotalAmount() != null ? order.getPosOrderTotalAmount() : BigDecimal.ZERO;
-            BigDecimal newCashSales = sessionCash.subtract(orderAmount);
+        PosSession session = posSessionRepository.findById(order.getPosOrderSessionId()).orElse(null);
+        if (session != null) {
+            // Trừ doanh thu đã hủy khỏi session
+            BigDecimal newCashSales = session.getPosSessionCashSales().subtract(order.getPosOrderTotalAmount());
             if (newCashSales.compareTo(BigDecimal.ZERO) < 0) {
                 newCashSales = BigDecimal.ZERO;
             }
             session.setPosSessionCashSales(newCashSales);
             posSessionRepository.save(session);
-        });
+        }
     }
 
     private PosInvoiceDTO convertToDTO(PosOrder order) {
@@ -210,6 +229,8 @@ public class PosInvoiceService {
         dto.setOrderStatus(order.getPosOrderStatus());
         dto.setPaymentStatus(order.getPosOrderPaymentStatus());
         dto.setCreatedAt(order.getPosOrderCreatedAt());
+
+        System.out.println("Converting Invoice: " + order.getPosOrderInvoiceNumber() + " - Session ID: " + order.getPosOrderSessionId());
 
         // Lấy thông tin nhân viên thu ngân
         if (order.getPosOrderSessionId() != null) {
@@ -233,6 +254,7 @@ public class PosInvoiceService {
     }
 
     private PosInvoiceItemDTO convertItemToDTO(PosOrderItem item) {
+        
         PosInvoiceItemDTO dto = new PosInvoiceItemDTO();
         dto.setProductDetailId(item.getPosOrderItemProductDetailId());
         dto.setQuantity(item.getPosOrderItemQuantity());
