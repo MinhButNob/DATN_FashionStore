@@ -1,186 +1,150 @@
 <template>
-  <div class="orders-page">
-    <ClientHeader />
-    
-    <main>
-      <div class="container">
-        <h1 class="page-title">ĐƠN HÀNG CỦA TÔI</h1>
+  <Teleport to="body">
+    <Transition name="modal">
+      <div v-if="visible" class="modal-overlay" @click.self="close">
+        <div class="modal-container modal-lg">
+          <div class="modal-header">
+            <h3>Chi tiết đơn hàng #{{ order?.orderCode || order?.orderId }}</h3>
+            <button class="close-btn" @click="close">✕</button>
+          </div>
 
-        <!-- Tab filters -->
-        <div class="order-tabs">
-          <button 
-            v-for="tab in tabs" 
-            :key="tab.value"
-            :class="['tab-btn', { active: activeTab === tab.value }]"
-            @click="changeTab(tab.value)"
-          >
-            {{ tab.label }}
-          </button>
-        </div>
-
-        <!-- Loading -->
-        <div v-if="loading" class="loading-state">
-          <div class="spinner"></div>
-          <p>Đang tải đơn hàng...</p>
-        </div>
-
-        <!-- Empty orders -->
-        <div v-else-if="orders.length === 0" class="empty-state">
-          <i class="fas fa-box-open"></i>
-          <h3>Chưa có đơn hàng nào</h3>
-          <p>Bạn chưa có đơn hàng nào trong danh sách này</p>
-          <router-link to="/shop" class="btn-primary">
-            <i class="fas fa-shopping-cart"></i> Mua sắm ngay
-          </router-link>
-        </div>
-
-        <!-- Orders list -->
-        <div v-else>
-          <div 
-            v-for="order in orders" 
-            :key="order.orderId"
-            class="order-card"
-          >
-            <div class="order-header">
-              <div class="order-info">
-                <span class="order-id">Mã đơn: {{ order.orderCode || order.orderId }}</span>
-                <span class="order-date">{{ formatDate(order.orderDate) }}</span>
-              </div>
-              <div class="order-status">
-                <span :class="['status-badge', getStatusClass(order.orderStatus)]">
-                  {{ getStatusText(order.orderStatus) }}
-                </span>
-              </div>
-            </div>
-
-            <div class="order-items">
-              <div 
-                v-for="item in order.items" 
-                :key="item.itemId"
-                class="order-item"
-              >
-                <div class="item-image">
-                  <img v-if="item.imageUrl" :src="item.imageUrl" :alt="item.productName" />
-                  <i v-else class="fas fa-tshirt"></i>
+          <div class="modal-body" v-if="order">
+            <!-- Customer Info -->
+            <div class="info-section">
+              <h4>Thông tin khách hàng</h4>
+              <div class="info-grid">
+                <div class="info-item">
+                  <span class="label">Họ tên:</span>
+                  <span class="value">{{ order.customer?.customerName || order.customer?.fullName || '---' }}</span>
                 </div>
-                <div class="item-details">
-                  <h4>{{ item.productName }}</h4>
-                  <p class="item-variant">
-                    {{ item.sizeName || '' }} {{ item.colorName || '' }}
-                  </p>
-                  <p class="item-quantity">x{{ item.quantity }}</p>
+                <div class="info-item">
+                  <span class="label">SĐT:</span>
+                  <span class="value">{{ order.customer?.phone || '---' }}</span>
                 </div>
-                <div class="item-price">
-                  {{ formatPrice(item.finalAmount || (item.unitPrice * item.quantity)) }}
+                <div class="info-item">
+                  <span class="label">Email:</span>
+                  <span class="value">{{ order.customer?.email || '---' }}</span>
                 </div>
               </div>
             </div>
 
-            <div class="order-footer">
-              <div class="order-total">
-                <span>Tổng cộng:</span>
-                <strong>{{ formatPrice(order.totalAmount) }}</strong>
+            <!-- Shipping Address -->
+            <div class="info-section" v-if="order.shippingAddress">
+              <h4>Địa chỉ giao hàng</h4>
+              <div class="info-item">
+                <span class="label">Địa chỉ:</span>
+                <span class="value">{{ getFullAddress(order.shippingAddress) }}</span>
               </div>
-              <div class="order-actions">
-                <button class="btn-outline" @click="viewOrderDetail(order.orderId)">
-                  Xem chi tiết
-                </button>
-                <button 
-                  v-if="order.orderStatus === 'COMPLETED'" 
-                  class="btn-outline" 
-                  @click="reorder(order)"
-                >
-                  Mua lại
-                </button>
+            </div>
+
+            <!-- Order Info -->
+            <div class="info-section">
+              <h4>Thông tin đơn hàng</h4>
+              <div class="info-grid">
+                <div class="info-item">
+                  <span class="label">Ngày đặt:</span>
+                  <span class="value">{{ formatDate(order.orderDate) }}</span>
+                </div>
+                <div class="info-item">
+                  <span class="label">Trạng thái:</span>
+                  <span :class="['status-badge', statusClass]">{{ getStatusText(order.orderStatus) }}</span>
+                </div>
+                <div class="info-item">
+                  <span class="label">Thanh toán:</span>
+                  <span :class="['payment-badge', paymentClass]">{{ getPaymentStatusText(order.paymentStatus) }}</span>
+                </div>
               </div>
+            </div>
+
+            <!-- Order Items -->
+            <div class="items-section">
+              <h4>Sản phẩm đã đặt</h4>
+              <table class="items-table">
+                <thead>
+                  <tr>
+                    <th>Sản phẩm</th>
+                    <th>Phân loại</th>
+                    <th>Đơn giá</th>
+                    <th>Số lượng</th>
+                    <th>Thành tiền</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(item, idx) in order.orderItems" :key="idx">
+                    <td class="product-cell">
+                      <div class="product-info">
+                        <div class="product-image">
+                          <img v-if="item.imageUrl" :src="item.imageUrl" :alt="item.productName" @error="handleImageError" />
+                          <i v-else class="fas fa-tshirt"></i>
+                        </div>
+                        <span class="product-name">{{ item.productName }}</span>
+                      </div>
+                    </td>
+                    <td class="variant-cell">
+                      <div class="variants">
+                        <span v-if="item.colorName" class="color-dot" :style="{ backgroundColor: getColorHex(item.colorName) }"></span>
+                        <span>{{ item.colorName || '' }} {{ item.sizeName || '' }}</span>
+                      </div>
+                    </td>
+                    <td class="price-cell">{{ formatPrice(item.unitPrice) }}</td>
+                    <td class="quantity-cell">{{ item.quantity }}</td>
+                    <td class="total-cell">{{ formatPrice(item.finalAmount || (item.unitPrice * item.quantity)) }}</td>
+                  </tr>
+                </tbody>
+                <tfoot>
+                  <tr class="subtotal-row">
+                    <td colspan="4" class="text-right">Tạm tính:</td>
+                    <td class="subtotal-value">{{ formatPrice(order.subtotalAmount || order.orderSubtotalAmount) }}</td>
+                  </tr>
+                  <tr class="discount-row" v-if="(order.discountAmount || order.orderDiscountAmount) > 0">
+                    <td colspan="4" class="text-right">Giảm giá:</td>
+                    <td class="discount-value">-{{ formatPrice(order.discountAmount || order.orderDiscountAmount) }}</td>
+                  </tr>
+                  <tr class="shipping-row">
+                    <td colspan="4" class="text-right">Phí vận chuyển:</td>
+                    <td class="shipping-value">{{ formatPrice(order.shippingFee || order.orderShippingFee || 0) }}</td>
+                  </tr>
+                  <tr class="total-row">
+                    <td colspan="4" class="text-right">Tổng cộng:</td>
+                    <td class="total-value">{{ formatPrice(order.totalAmount) }}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+
+            <!-- Notes -->
+            <div class="notes-section" v-if="order.notes">
+              <h4>Ghi chú</h4>
+              <p>{{ order.notes }}</p>
             </div>
           </div>
-        </div>
 
-        <!-- Pagination -->
-        <div class="pagination" v-if="totalPages > 1">
-          <button 
-            class="page-btn"
-            :disabled="currentPage === 0"
-            @click="goToPage(currentPage - 1)"
-          >
-            <i class="fas fa-chevron-left"></i>
-          </button>
-          <button 
-            v-for="page in displayedPages" 
-            :key="page"
-            :class="['page-btn', { active: currentPage === page }]"
-            @click="goToPage(page)"
-          >
-            {{ page + 1 }}
-          </button>
-          <button 
-            class="page-btn"
-            :disabled="currentPage === totalPages - 1"
-            @click="goToPage(currentPage + 1)"
-          >
-            <i class="fas fa-chevron-right"></i>
-          </button>
+          <div class="modal-footer">
+            <button class="btn-outline" @click="close">Đóng</button>
+            <button class="btn-primary" @click="printOrder">In đơn hàng</button>
+          </div>
         </div>
       </div>
-    </main>
-
-    <ClientFooter />
-
-    <!-- Order Detail Modal -->
-    <OrderDetailModal 
-      :visible="isDetailModalOpen"
-      :order="selectedOrder"
-      @close="closeDetailModal"
-    />
-
-    <!-- Toast -->
-    <div :class="['toast', { 'toast-error': toastType === 'error', show: showToast }]">
-      {{ toastMessage }}
-    </div>
-  </div>
+    </Transition>
+  </Teleport>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import ClientHeader from '../../components/client/ClientHeader.vue'
-import ClientFooter from '../../components/client/ClientFooter.vue'
-import OrderDetailModal from '../../components/client/OrderDetailModal.vue'
-import { useCartStore } from '../../stores/cartStore'
-import axios from 'axios'
+import { computed } from 'vue'
 
-const router = useRouter()
-const cartStore = useCartStore()
+const props = defineProps({
+  visible: {
+    type: Boolean,
+    default: false
+  },
+  order: {
+    type: Object,
+    default: null
+  }
+})
 
-const API_BASE = "http://localhost:8080/api"
+const emit = defineEmits(['close'])
 
-// State
-const loading = ref(false)
-const orders = ref([])
-const currentPage = ref(0)
-const totalPages = ref(0)
-const totalElements = ref(0)
-const activeTab = ref('all')
-const isDetailModalOpen = ref(false)
-const selectedOrder = ref(null)
-
-// Toast state
-const showToast = ref(false)
-const toastMessage = ref('')
-const toastType = ref('success')
-let toastTimer = null
-
-// Tabs
-const tabs = [
-  { value: 'all', label: 'Tất cả' },
-  { value: 'PENDING_PAYMENT', label: 'Chờ thanh toán' },
-  { value: 'PROCESSING', label: 'Đang xử lý' },
-  { value: 'COMPLETED', label: 'Hoàn thành' },
-  { value: 'CANCELLED', label: 'Đã hủy' }
-]
-
-// Helper functions
 const formatPrice = (price) => {
   if (!price && price !== 0) return '0₫'
   const num = Number(price)
@@ -196,6 +160,15 @@ const formatDate = (dateString) => {
          date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
 }
 
+const getFullAddress = (addr) => {
+  if (!addr) return '---'
+  if (typeof addr === 'object') {
+    const parts = [addr.addressLine, addr.ward, addr.district, addr.city].filter(p => p)
+    return parts.join(', ') || '---'
+  }
+  return addr
+}
+
 const getStatusText = (status) => {
   const map = {
     'PENDING_PAYMENT': 'Chờ thanh toán',
@@ -204,7 +177,7 @@ const getStatusText = (status) => {
     'CANCELLED': 'Đã hủy',
     'RETURNED': 'Trả hàng'
   }
-  return map[status] || status
+  return map[status] || status || 'Chưa xác định'
 }
 
 const getStatusClass = (status) => {
@@ -218,314 +191,172 @@ const getStatusClass = (status) => {
   return map[status] || ''
 }
 
-const showNotification = (message, type = 'success') => {
-  if (toastTimer) clearTimeout(toastTimer)
-  toastMessage.value = message
-  toastType.value = type
-  showToast.value = true
-  toastTimer = setTimeout(() => {
-    showToast.value = false
-  }, 3000)
-}
-
-// ✅ GỌI API TRỰC TIẾP - KHÔNG QUA STORE
-const fetchOrders = async () => {
-  loading.value = true
-  try {
-    const token = localStorage.getItem('token')
-    if (!token) {
-      console.warn('Chưa đăng nhập')
-      loading.value = false
-      return
-    }
-
-    const status = activeTab.value === 'all' ? null : activeTab.value
-    
-    // Gọi API trực tiếp bằng axios
-    const response = await axios.get(`${API_BASE}/orders`, {
-      params: {
-        page: currentPage.value,
-        size: 10,
-        status: status
-      },
-      headers: { 
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    })
-
-    console.log('✅ API Response:', response.data)
-
-    // Xử lý response
-    if (response.data && response.data.content) {
-      orders.value = response.data.content
-      totalPages.value = response.data.totalPages || 0
-      totalElements.value = response.data.totalElements || 0
-      currentPage.value = response.data.number || 0
-    } else if (Array.isArray(response.data)) {
-      orders.value = response.data
-      totalPages.value = 1
-    } else {
-      orders.value = []
-    }
-
-    console.log(`✅ Đã tải ${orders.value.length} đơn hàng`)
-    
-  } catch (error) {
-    console.error('❌ Lỗi tải đơn hàng:', error)
-    const errorMsg = error.response?.data?.message || error.message || 'Không thể tải danh sách đơn hàng'
-    showNotification(errorMsg, 'error')
-    orders.value = []
-  } finally {
-    loading.value = false
+const getPaymentStatusText = (status) => {
+  const map = {
+    'UNPAID': 'Chưa thanh toán',
+    'PAID': 'Đã thanh toán',
+    'PARTIAL': 'Thanh toán một phần',
+    'REFUNDED': 'Đã hoàn tiền'
   }
+  return map[status] || status || 'Chưa thanh toán'
 }
 
-// ✅ GỌI API CHI TIẾT ĐƠN HÀNG TRỰC TIẾP
-const viewOrderDetail = async (orderId) => {
-  try {
-    const token = localStorage.getItem('token')
-    const response = await axios.get(`${API_BASE}/orders/${orderId}`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    })
-    selectedOrder.value = response.data
-    isDetailModalOpen.value = true
-  } catch (error) {
-    console.error('Lỗi tải chi tiết đơn hàng:', error)
-    showNotification('Không thể tải chi tiết đơn hàng', 'error')
-  }
-}
-
-const closeDetailModal = () => {
-  isDetailModalOpen.value = false
-  selectedOrder.value = null
-}
-
-const changeTab = (tab) => {
-  activeTab.value = tab
-  currentPage.value = 0
-  fetchOrders()
-}
-
-const goToPage = (page) => {
-  if (page >= 0 && page < totalPages.value) {
-    currentPage.value = page
-    fetchOrders()
-  }
-}
-
-const reorder = (order) => {
-  order.items.forEach(item => {
-    cartStore.addToCart({
-      productId: item.productDetailId,
-      productName: item.productName,
-      price: item.unitPrice,
-      quantity: item.quantity,
-      image: item.imageUrl,
-      size: item.sizeName,
-      color: item.colorName
-    })
-  })
-  showNotification('Đã thêm sản phẩm vào giỏ hàng!', 'success')
-  router.push('/cart')
-}
-
-// Computed
-const displayedPages = computed(() => {
-  const total = totalPages.value
-  const current = currentPage.value
-  const delta = 2
-  const range = []
-  const rangeWithDots = []
-  let l
-
-  for (let i = 0; i < total; i++) {
-    if (i === 0 || i === total - 1 || (i >= current - delta && i <= current + delta)) {
-      range.push(i)
-    }
-  }
-
-  range.forEach((i) => {
-    if (l) {
-      if (i - l === 2) rangeWithDots.push(l + 1)
-      else if (i - l !== 1) rangeWithDots.push('...')
-    }
-    rangeWithDots.push(i)
-    l = i
-  })
-
-  return rangeWithDots
+const statusClass = computed(() => getStatusClass(props.order?.orderStatus))
+const paymentClass = computed(() => {
+  const status = props.order?.paymentStatus
+  if (status === 'PAID') return 'payment-paid'
+  if (status === 'UNPAID') return 'payment-unpaid'
+  return ''
 })
 
-// Lifecycle
-onMounted(() => {
-  fetchOrders()
-})
+const getColorHex = (colorName) => {
+  if (!colorName) return '#CCCCCC'
+  const colorMap = {
+    'Đỏ': '#FF0000', 'Đen': '#000000', 'Trắng': '#FFFFFF',
+    'Xanh': '#0000FF', 'Navy': '#1B2951', 'Vàng': '#FFFF00',
+    'Hồng': '#FFC0CB', 'Xám': '#808080', 'Nâu': '#8B4513',
+    'Tím': '#800080', 'Cam': '#FFA500'
+  }
+  return colorMap[colorName] || '#CCCCCC'
+}
+
+const handleImageError = (e) => {
+  e.target.style.display = 'none'
+  const parent = e.target.parentElement
+  if (parent && !parent.querySelector('i')) {
+    const icon = document.createElement('i')
+    icon.className = 'fas fa-tshirt'
+    parent.appendChild(icon)
+  }
+}
+
+const close = () => {
+  emit('close')
+}
+
+const printOrder = () => {
+  window.print()
+}
 </script>
 
 <style scoped>
-/* Giữ nguyên style cũ */
-.orders-page {
-  min-height: 100vh;
-}
-
-main {
-  margin-top: 140px;
-  padding: 20px 0 50px;
-}
-
-.container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 20px;
-}
-
-.page-title {
-  font-size: 32px;
-  color: #2c3e50;
-  margin-bottom: 30px;
-}
-
-/* Tabs */
-.order-tabs {
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
   display: flex;
-  gap: 10px;
-  margin-bottom: 25px;
-  flex-wrap: wrap;
-  background: white;
-  padding: 10px;
-  border-radius: 12px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-}
-
-.tab-btn {
-  padding: 10px 20px;
-  background: none;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 500;
-  color: #666;
-  transition: all 0.3s;
-}
-
-.tab-btn:hover {
-  background: #f0f0f0;
-}
-
-.tab-btn.active {
-  background: #e63946;
-  color: white;
-}
-
-/* Loading */
-.loading-state {
-  text-align: center;
-  padding: 60px;
-  background: white;
-  border-radius: 15px;
-}
-
-.spinner {
-  width: 50px;
-  height: 50px;
-  border: 4px solid #f3f3f3;
-  border-top: 4px solid #e63946;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin: 0 auto 15px;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-/* Empty State */
-.empty-state {
-  text-align: center;
-  padding: 80px 20px;
-  background: white;
-  border-radius: 15px;
-}
-
-.empty-state i {
-  font-size: 60px;
-  color: #ccc;
-  margin-bottom: 20px;
-}
-
-.empty-state h3 {
-  color: #2c3e50;
-  margin-bottom: 10px;
-}
-
-.empty-state p {
-  color: #666;
-  margin-bottom: 25px;
-}
-
-.btn-primary {
-  display: inline-flex;
+  justify-content: center;
   align-items: center;
-  gap: 8px;
-  background: linear-gradient(135deg, #e63946, #ff6b6b);
-  color: white;
-  padding: 12px 24px;
-  border-radius: 8px;
-  text-decoration: none;
-  font-weight: 600;
-  transition: all 0.3s;
+  z-index: 1000;
+  backdrop-filter: blur(5px);
 }
 
-.btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 5px 15px rgba(230, 57, 70, 0.3);
-}
-
-/* Order Card */
-.order-card {
+.modal-container {
   background: white;
-  border-radius: 15px;
-  margin-bottom: 20px;
-  overflow: hidden;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  border-radius: 12px;
+  width: 90%;
+  max-width: 900px;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: slideIn 0.3s;
 }
 
-.order-header {
+.modal-container.modal-lg {
+  max-width: 1000px;
+}
+
+@keyframes slideIn {
+  from { transform: translateY(-30px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 15px 20px;
-  background: #f8f9fa;
-  border-bottom: 1px solid #eee;
-  flex-wrap: wrap;
-  gap: 10px;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  border-radius: 12px 12px 0 0;
+  position: sticky;
+  top: 0;
 }
 
-.order-info {
+.modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: white;
+}
+
+.close-btn:hover {
+  opacity: 0.8;
+}
+
+.modal-body {
+  padding: 20px;
+}
+
+.modal-footer {
+  padding: 16px 20px;
+  border-top: 1px solid #eee;
   display: flex;
-  gap: 15px;
-  align-items: baseline;
-  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 12px;
+  position: sticky;
+  bottom: 0;
+  background: white;
 }
 
-.order-id {
-  font-weight: 700;
-  color: #e63946;
+.info-section {
+  margin-bottom: 25px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.info-section h4 {
+  color: #2c3e50;
+  margin-bottom: 12px;
   font-size: 16px;
 }
 
-.order-date {
-  color: #999;
-  font-size: 13px;
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.info-item {
+  display: flex;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.info-item .label {
+  font-weight: 600;
+  color: #666;
+  min-width: 100px;
+}
+
+.info-item .value {
+  color: #2c3e50;
 }
 
 .status-badge {
-  padding: 5px 12px;
+  padding: 4px 12px;
   border-radius: 20px;
   font-size: 12px;
   font-weight: 600;
+  display: inline-block;
 }
 
 .status-badge.pending { background: #fff3cd; color: #856404; }
@@ -534,26 +365,57 @@ main {
 .status-badge.cancelled { background: #f8d7da; color: #721c24; }
 .status-badge.returned { background: #fef3c7; color: #92400e; }
 
-.order-items {
-  padding: 10px 20px;
+.payment-badge {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-block;
 }
 
-.order-item {
+.payment-badge.payment-paid { background: #d4edda; color: #155724; }
+.payment-badge.payment-unpaid { background: #fff3cd; color: #856404; }
+
+.items-section {
+  margin-bottom: 25px;
+}
+
+.items-section h4 {
+  color: #2c3e50;
+  margin-bottom: 12px;
+  font-size: 16px;
+}
+
+.items-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.items-table th {
+  text-align: left;
+  padding: 10px;
+  background: #f8f9fa;
+  border-bottom: 2px solid #eee;
+}
+
+.items-table td {
+  padding: 10px;
+  border-bottom: 1px solid #eee;
+  vertical-align: middle;
+}
+
+.product-info {
   display: flex;
-  gap: 15px;
-  padding: 15px 0;
-  border-bottom: 1px solid #f0f0f0;
+  align-items: center;
+  gap: 10px;
 }
 
-.order-item:last-child {
-  border-bottom: none;
-}
-
-.item-image {
-  width: 80px;
-  height: 80px;
+.product-image {
+  width: 40px;
+  height: 40px;
   background: #f5f5f5;
-  border-radius: 10px;
+  border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -561,82 +423,89 @@ main {
   flex-shrink: 0;
 }
 
-.item-image img {
+.product-image img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.item-image i {
-  font-size: 40px;
+.product-image i {
+  font-size: 20px;
   color: #ccc;
 }
 
-.item-details {
-  flex: 1;
-}
-
-.item-details h4 {
-  font-size: 15px;
-  font-weight: 600;
+.product-name {
+  font-weight: 500;
   color: #2c3e50;
-  margin-bottom: 6px;
 }
 
-.item-variant {
-  font-size: 12px;
-  color: #999;
-  margin-bottom: 4px;
+.variants {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
 }
 
-.item-quantity {
-  font-size: 12px;
-  color: #999;
+.color-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1px solid #ddd;
+  display: inline-block;
 }
 
-.item-price {
-  font-weight: 600;
-  color: #e63946;
-  font-size: 15px;
-  min-width: 100px;
+.price-cell, .quantity-cell, .total-cell {
   text-align: right;
 }
 
-.order-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 15px 20px;
-  background: #fafafa;
-  border-top: 1px solid #eee;
-  flex-wrap: wrap;
-  gap: 15px;
+.text-right {
+  text-align: right;
 }
 
-.order-total {
+.subtotal-row, .discount-row, .shipping-row {
+  font-size: 14px;
+}
+
+.total-row {
+  font-weight: 700;
   font-size: 16px;
+  background: #fafafa;
 }
 
-.order-total strong {
+.total-value {
   color: #e63946;
-  margin-left: 10px;
   font-size: 18px;
 }
 
-.order-actions {
-  display: flex;
-  gap: 10px;
+.notes-section {
+  background: #f8f9fa;
+  padding: 15px;
+  border-radius: 8px;
+}
+
+.notes-section h4 {
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.notes-section p {
+  color: #666;
+  font-size: 14px;
+}
+
+.btn-outline, .btn-primary {
+  padding: 8px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s;
 }
 
 .btn-outline {
-  padding: 8px 16px;
   background: white;
   border: 1px solid #ddd;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 500;
-  transition: all 0.3s;
+  color: #666;
 }
 
 .btn-outline:hover {
@@ -644,108 +513,44 @@ main {
   color: #e63946;
 }
 
-/* Pagination */
-.pagination {
-  display: flex;
-  justify-content: center;
-  gap: 8px;
-  margin-top: 30px;
-}
-
-.page-btn {
-  min-width: 36px;
-  height: 36px;
-  border: 1px solid #ddd;
-  background: white;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.3s;
-}
-
-.page-btn:hover:not(:disabled) {
-  background: #e63946;
+.btn-primary {
+  background: linear-gradient(135deg, #e63946, #ff6b6b);
+  border: none;
   color: white;
-  border-color: #e63946;
 }
 
-.page-btn.active {
-  background: #e63946;
-  color: white;
-  border-color: #e63946;
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(230, 57, 70, 0.3);
 }
 
-.page-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.modal-enter-active, .modal-leave-active {
+  transition: opacity 0.3s;
 }
 
-/* Toast */
-.toast {
-  position: fixed;
-  bottom: 30px;
-  right: 30px;
-  padding: 12px 24px;
-  border-radius: 8px;
-  background: #27ae60;
-  color: white;
-  font-size: 14px;
-  z-index: 9999;
+.modal-enter-from, .modal-leave-to {
   opacity: 0;
-  transform: translateY(20px);
-  transition: all 0.3s;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
-.toast.toast-error {
-  background: #e74c3c;
-}
-
-.toast.show {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-/* Responsive */
 @media (max-width: 768px) {
-  main {
-    margin-top: 200px;
+  .info-grid {
+    grid-template-columns: 1fr;
   }
   
-  .page-title {
-    font-size: 24px;
+  .items-table {
+    font-size: 12px;
   }
   
-  .order-tabs {
-    overflow-x: auto;
-    white-space: nowrap;
-    flex-wrap: nowrap;
+  .product-name {
+    max-width: 120px;
   }
   
-  .order-item {
+  .modal-footer {
     flex-direction: column;
-    align-items: flex-start;
   }
   
-  .item-image {
+  .modal-footer button {
     width: 100%;
-    height: 150px;
-  }
-  
-  .item-price {
-    text-align: left;
-  }
-  
-  .order-footer {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  
-  .order-actions {
-    width: 100%;
-  }
-  
-  .order-actions button {
-    flex: 1;
   }
 }
 </style>

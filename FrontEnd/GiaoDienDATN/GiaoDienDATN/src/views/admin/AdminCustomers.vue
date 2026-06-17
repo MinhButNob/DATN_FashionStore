@@ -133,7 +133,7 @@
                   <button
                     class="action-btn edit-btn"
                     @click="openEditModal(customer)"
-                    title="Sửa trạng thái"
+                    title="Sửa thông tin"
                   >
                     <i class="fas fa-edit"></i>
                   </button>
@@ -316,17 +316,21 @@ const loadData = async () => {
 const onSearch = () => {
   customerStore.fetchCustomers(0, 10, keyword.value, filterStatus.value || null);
 };
+
 const onFilterStatus = () => {
   customerStore.fetchCustomers(0, 10, keyword.value, filterStatus.value || null);
 };
+
 const refreshData = () => {
   keyword.value = "";
   filterStatus.value = "";
   loadData();
 };
+
 const goToPage = (page) => {
   customerStore.fetchCustomers(page, 10, keyword.value, filterStatus.value || null);
 };
+
 const formatDate = (dateString) => {
   if (!dateString) return "---";
   return new Date(dateString).toLocaleDateString("vi-VN");
@@ -336,33 +340,47 @@ const viewCustomerDetail = (customer) => {
   selectedCustomer.value = customer;
   showDetailModal.value = true;
 };
+
 const closeDetailModal = () => {
   showDetailModal.value = false;
   selectedCustomer.value = null;
 };
 
 const openEditModal = (customer) => {
-  editingCustomer.value = { ...customer };
+  editingCustomer.value = { 
+    ...customer,
+    phone: customer.phone || '',
+    address: customer.address || ''
+  };
   showCustomerModal.value = true;
 };
+
 const closeCustomerModal = () => {
   showCustomerModal.value = false;
   editingCustomer.value = null;
 };
 
+// ✅ SỬA: Hàm xử lý submit từ CustomerModal
 const handleCustomerSubmit = async (data) => {
   try {
-    const isCurrentlyLocked = !!editingCustomer.value.isLocked;
-    if (data.isLocked !== isCurrentlyLocked) {
-      await customerStore.toggleLock(editingCustomer.value.customerId);
-      showNotification("Cập nhật trạng thái thành công!", "success");
+    // Nếu đang sửa khách hàng
+    if (editingCustomer.value?.customerId) {
+      // Cập nhật thông tin khách hàng (bao gồm phone và address)
+      await customerStore.updateCustomer(editingCustomer.value.customerId, data);
+      showNotification("Cập nhật thông tin thành công!", "success");
     } else {
-      showNotification("Không có thay đổi nào", "info");
+      // Thêm mới khách hàng
+      await customerStore.addCustomer(data);
+      showNotification("Thêm khách hàng thành công!", "success");
     }
-  } catch (error) {
-    showNotification(error.response?.data?.message || "Có lỗi xảy ra", "error");
-  } finally {
+    
+    // Reload dữ liệu
+    await loadData();
     closeCustomerModal();
+  } catch (error) {
+    console.error("Submit error:", error);
+    const message = error.response?.data?.message || "Có lỗi xảy ra";
+    showNotification(message, "error");
   }
 };
 
@@ -381,14 +399,18 @@ const closeConfirmDialog = () => {
   confirmAction.value = "";
 };
 
+// ✅ SỬA: Hàm xác nhận từ ConfirmDialog
 const handleConfirm = async () => {
   try {
     if (confirmAction.value === "delete") {
       await customerStore.removeCustomer(pendingCustomerId);
       showNotification("Xóa khách hàng thành công!", "success");
+      await loadData();
     }
   } catch (error) {
-    showNotification(error.response?.data?.message || "Có lỗi xảy ra", "error");
+    console.error("Confirm error:", error);
+    const message = error.response?.data?.message || "Có lỗi xảy ra";
+    showNotification(message, "error");
   } finally {
     closeConfirmDialog();
   }

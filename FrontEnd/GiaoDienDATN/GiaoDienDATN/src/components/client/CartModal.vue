@@ -100,7 +100,10 @@ const router = useRouter()
 const cartStore = useCartStore()
 
 const closeCart = () => {
-  cartStore.toggleCart()
+  // Đóng cart (nếu có toggleCart)
+  if (cartStore.toggleCart) {
+    cartStore.toggleCart()
+  }
 }
 
 const continueShopping = () => {
@@ -121,12 +124,12 @@ const goToProduct = (id) => {
 const updateQuantity = (item, change) => {
   const newQuantity = item.quantity + change
   if (newQuantity >= 1 && newQuantity <= 99) {
-    cartStore.updateQuantity(item.id, newQuantity, item.size, item.color)
+    cartStore.updateQuantity(item.cartItemId || item.id, newQuantity, item.id, item.size, item.color)
   }
 }
 
 const removeItem = (item) => {
-  cartStore.removeFromCart(item.id, item.size, item.color)
+  cartStore.removeFromCart(item.cartItemId || item.id, item.id, item.size, item.color)
 }
 </script>
 

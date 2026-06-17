@@ -1,17 +1,17 @@
 package com.example.backend_fashionstore.entity;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 import jakarta.persistence.*;
+import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "orders")
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class Order {
 
     @Id
@@ -19,53 +19,85 @@ public class Order {
     @Column(name = "order_id")
     private Long orderId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "customer_id", nullable = false)
+    @ManyToOne
+    @JoinColumn(name = "order_customer_id", nullable = false)
     private Customer customer;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "shipping_address_id")
+    @ManyToOne
+    @JoinColumn(name = "order_shipping_address_id", nullable = true)  // ✅ Cho phép null
     private ShippingAddress shippingAddress;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "voucher_id")
+    @ManyToOne
+    @JoinColumn(name = "order_voucher_id", nullable = true)  // ✅ Cho phép null
     private Voucher voucher;
 
-    @Column(name = "order_date")
+    @Column(name = "order_cart_id", nullable = true)  // ✅ Cho phép null
+    private Integer cartId;
+
+    @Column(name = "order_date", nullable = false)
     private LocalDateTime orderDate;
 
     @Column(name = "order_status", nullable = false)
     private String orderStatus;
 
-    @Column(name = "subtotal_amount", nullable = false, precision = 15, scale = 2)
-    private BigDecimal subtotalAmount;
+    @Column(name = "order_subtotal_amount", nullable = false)
+    private BigDecimal orderSubtotalAmount;
 
-    @Column(name = "discount_amount", precision = 15, scale = 2)
-    private BigDecimal discountAmount;
+    @Column(name = "order_discount_amount", nullable = false)
+    private BigDecimal orderDiscountAmount;
 
-    @Column(name = "shipping_fee", precision = 15, scale = 2)
-    private BigDecimal shippingFee;
+    @Column(name = "order_shipping_fee", nullable = false)
+    private BigDecimal orderShippingFee;
 
-    @Column(name = "notes")
+    @Column(name = "order_total_amount")
+    private BigDecimal orderTotalAmount;
+
+    @Column(name = "order_payment_status", nullable = false)
+    private String paymentStatus;
+
+    @Column(name = "order_notes")
     private String notes;
 
-    @Column(name = "created_at")
+    @Column(name = "order_created_at", nullable = false)
     private LocalDateTime createdAt;
 
-    @Column(name = "updated_at")
+    @Column(name = "order_updated_at", nullable = false)
     private LocalDateTime updatedAt;
+
+    @Column(name = "order_deleted_at")
+    private LocalDateTime deletedAt;
 
     @PrePersist
     protected void onCreate() {
-        orderDate = LocalDateTime.now();
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
-        if (discountAmount == null) discountAmount = BigDecimal.ZERO;
-        if (shippingFee == null) shippingFee = BigDecimal.ZERO;
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
+        if (updatedAt == null) {
+            updatedAt = LocalDateTime.now();
+        }
+        if (orderStatus == null) {
+            orderStatus = "PENDING_PAYMENT";
+        }
+        if (paymentStatus == null) {
+            paymentStatus = "UNPAID";
+        }
+        if (orderDiscountAmount == null) {
+            orderDiscountAmount = BigDecimal.ZERO;
+        }
+        if (orderShippingFee == null) {
+            orderShippingFee = BigDecimal.ZERO;
+        }
+        // Tính total amount
+        if (orderSubtotalAmount != null && orderDiscountAmount != null && orderShippingFee != null) {
+            orderTotalAmount = orderSubtotalAmount.subtract(orderDiscountAmount).add(orderShippingFee);
+        }
     }
 
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
+        if (orderSubtotalAmount != null && orderDiscountAmount != null && orderShippingFee != null) {
+            orderTotalAmount = orderSubtotalAmount.subtract(orderDiscountAmount).add(orderShippingFee);
+        }
     }
 }

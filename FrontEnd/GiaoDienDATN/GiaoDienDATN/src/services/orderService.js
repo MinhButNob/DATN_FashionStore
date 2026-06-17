@@ -20,7 +20,7 @@ export const orderService = {
   // Lấy danh sách đơn hàng của tôi
   getMyOrders(status = null, page = 0, size = 10) {
     const params = { page, size };
-    if (status) params.status = status;
+    if (status && status !== "all") params.status = status;
     return axios.get(`${API_BASE}/orders`, {
       params,
       headers: getAuthHeader(),
@@ -74,9 +74,20 @@ export const adminOrderService = {
 
   // Cập nhật trạng thái đơn hàng
   updateOrderStatus(orderId, data) {
-    return axios.put(`${API_BASE}/admin/orders/${orderId}/status`, data, {
-      headers: getAuthHeader(),
-    });
+    const requestData = {
+      orderStatus: data.orderStatus || data,
+      notes: data.notes || "",
+    };
+    return axios.put(
+      `${API_BASE}/admin/orders/${orderId}/status`,
+      requestData,
+      {
+        headers: {
+          ...getAuthHeader(),
+          "Content-Type": "application/json",
+        },
+      },
+    );
   },
 
   // Cập nhật trạng thái thanh toán

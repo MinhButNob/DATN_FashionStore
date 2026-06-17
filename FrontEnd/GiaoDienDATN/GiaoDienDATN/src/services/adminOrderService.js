@@ -1,4 +1,3 @@
-// src/services/adminOrderService.js
 import axios from "axios";
 
 const API_BASE = "http://localhost:8080/api";
@@ -11,9 +10,25 @@ const getAuthHeader = () => {
 export const adminOrderService = {
   // Lấy tất cả đơn hàng (Admin)
   getAllOrders(params = {}) {
+    const queryParams = {};
+
+    if (params.status && params.status !== "all") {
+      queryParams.status = params.status;
+    }
+    if (params.keyword) {
+      queryParams.keyword = params.keyword;
+    }
+    queryParams.page = params.page || 0;
+    queryParams.size = params.size || 10;
+
+    console.log("📤 Calling API with params:", queryParams);
+
     return axios.get(`${API_BASE}/admin/orders`, {
-      params,
-      headers: getAuthHeader(),
+      params: queryParams,
+      headers: {
+        ...getAuthHeader(),
+        "Content-Type": "application/json",
+      },
     });
   },
 
@@ -24,16 +39,12 @@ export const adminOrderService = {
     });
   },
 
-  // ✅ SỬA: Cập nhật trạng thái đơn hàng (Admin)
+  // Cập nhật trạng thái đơn hàng (Admin)
   updateOrderStatus(orderId, data) {
-    // Đảm bảo dữ liệu gửi lên đúng format backend yêu cầu
     const requestData = {
       orderStatus: data.orderStatus || data,
       notes: data.notes || "",
     };
-
-    console.log("📤 Updating order status:", orderId, requestData);
-
     return axios.put(
       `${API_BASE}/admin/orders/${orderId}/status`,
       requestData,
@@ -56,6 +67,20 @@ export const adminOrderService = {
         headers: getAuthHeader(),
       },
     );
+  },
+
+  // Lấy thống kê đơn hàng
+  getStatistics() {
+    return axios.get(`${API_BASE}/admin/orders/statistics`, {
+      headers: getAuthHeader(),
+    });
+  },
+
+  // Lấy số lượng theo trạng thái
+  getStatusCounts() {
+    return axios.get(`${API_BASE}/admin/orders/status/counts`, {
+      headers: getAuthHeader(),
+    });
   },
 
   // Xóa đơn hàng (soft delete)

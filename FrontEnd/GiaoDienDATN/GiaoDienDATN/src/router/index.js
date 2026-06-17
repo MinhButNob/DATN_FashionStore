@@ -8,6 +8,7 @@ import ProductDetailPage from "../views/client/ProductDetailPage.vue";
 import CartPage from "../views/client/CartPage.vue";
 import CheckoutPage from "../views/client/CheckoutPage.vue";
 import ProfilePage from "../views/client/ProfilePage.vue";
+import OrdersPage from "../views/client/OrdersPage.vue"; 
 import WishlistPage from "../views/client/WishlistPage.vue";
 import LoginPage from "../views/client/LoginPage.vue";
 import SignupPage from "../views/client/SignupPage.vue";
@@ -57,6 +58,12 @@ const routes = [
     path: "/checkout",
     name: "checkout",
     component: CheckoutPage,
+    meta: { requiresAuth: true },
+  },
+  {
+    path: "/orders", // ✅ THÊM ROUTE CHO ORDERS
+    name: "orders",
+    component: OrdersPage,
     meta: { requiresAuth: true },
   },
   {

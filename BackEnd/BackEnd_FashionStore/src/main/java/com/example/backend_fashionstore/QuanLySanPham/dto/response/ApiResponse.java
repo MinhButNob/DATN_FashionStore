@@ -1,9 +1,10 @@
 package com.example.backend_fashionstore.QuanLySanPham.dto.response;
 
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Data
-@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class ApiResponse<T> {
@@ -11,11 +12,29 @@ public class ApiResponse<T> {
     private String message;
     private T data;
 
+    // ✅ THÊM CÁC METHOD NÀY
+
+    public static <T> ApiResponse<T> success(T data) {
+        return new ApiResponse<>(true, "Thành công", data);
+    }
+
+    public static <T> ApiResponse<T> success(String message, T data) {
+        return new ApiResponse<>(true, message, data);
+    }
+
+    public static <T> ApiResponse<T> success() {
+        return new ApiResponse<>(true, "Thành công", null);
+    }
+
     public static <T> ApiResponse<T> ok(T data) {
-        return ApiResponse.<T>builder().success(true).message("OK").data(data).build();
+        return new ApiResponse<>(true, "Thành công", data);
     }
 
     public static <T> ApiResponse<T> error(String message) {
-        return ApiResponse.<T>builder().success(false).message(message).build();
+        return new ApiResponse<>(false, message, null);
+    }
+
+    public static <T> ApiResponse<T> error(String message, T data) {
+        return new ApiResponse<>(false, message, data);
     }
 }

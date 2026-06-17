@@ -1,16 +1,16 @@
 package com.example.backend_fashionstore.entity;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 import jakarta.persistence.*;
+import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "shipping_addresses")
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class ShippingAddress {
 
     @Id
@@ -19,43 +19,50 @@ public class ShippingAddress {
     private Long shippingAddressId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "customer_id", nullable = false)
+    @JoinColumn(name = "shipping_address_customer_id")
     private Customer customer;
 
-    @Column(name = "full_name", nullable = false)
-    private String fullName;
+    @Column(name = "shipping_address_full_name")
+    private String shippingAddressFullName;
 
-    @Column(name = "phone")
-    private String phone;
+    @Column(name = "shipping_address_phone")
+    private String shippingAddressPhone;
 
-    @Column(name = "address_line", nullable = false)
-    private String addressLine;
+    @Column(name = "shipping_address_address_line")
+    private String shippingAddressAddressLine;
 
-    @Column(name = "city")
-    private String city;
+    @Column(name = "shipping_address_city")
+    private String shippingAddressCity;
 
-    @Column(name = "district")
-    private String district;
+    @Column(name = "shipping_address_district")
+    private String shippingAddressDistrict;
 
-    @Column(name = "ward")
-    private String ward;
+    @Column(name = "shipping_address_ward")
+    private String shippingAddressWard;
 
-    @Column(name = "postal_code")
-    private String postalCode;
+    @Column(name = "shipping_address_postal_code")
+    private String shippingAddressPostalCode;
 
-    @Column(name = "is_default")
+    @Column(name = "shipping_address_is_default")
     private Boolean isDefault;
 
-    @Column(name = "created_at")
+    @Column(name = "shipping_address_status")
+    private String status;
+
+    @Column(name = "shipping_address_created_at")
     private LocalDateTime createdAt;
 
-    @Column(name = "updated_at")
+    @Column(name = "shipping_address_updated_at")
     private LocalDateTime updatedAt;
+
+    @Column(name = "shipping_address_deleted_at")
+    private LocalDateTime deletedAt;
 
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
+        if (status == null) status = "ACTIVE";
         if (isDefault == null) isDefault = false;
     }
 
