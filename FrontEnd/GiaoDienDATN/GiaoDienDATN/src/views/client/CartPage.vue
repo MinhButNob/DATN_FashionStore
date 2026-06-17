@@ -397,19 +397,51 @@ const fetchAvailableVouchers = async () => {
       headers: { Authorization: `Bearer ${token}` }
     })
 
+    console.log('📦 Voucher API response:', response.data)
+
+    // ✅ Lấy data từ ApiResponse
+    let vouchersData = []
     if (response.data && response.data.data) {
-      const now = new Date()
-      availableVouchers.value = response.data.data.filter(v => {
-        const endDate = new Date(v.voucherEndDate)
-        const startDate = new Date(v.voucherStartDate)
-        return v.voucherStatus === 'ACTIVE' && 
-               now >= startDate && 
-               now <= endDate &&
-               v.voucherUsedCount < v.voucherMaxUsage
-      })
+      vouchersData = response.data.data
+    } else if (Array.isArray(response.data)) {
+      vouchersData = response.data
     }
+
+    // ✅ Lọc voucher hợp lệ
+    const now = new Date()
+    availableVouchers.value = vouchersData.filter(v => {
+      // Kiểm tra status
+      if (v.voucherStatus !== 'ACTIVE') return false
+      
+      // Kiểm tra thời gian
+      const startDate = new Date(v.voucherStartDate)
+      const endDate = new Date(v.voucherEndDate)
+      if (now < startDate || now > endDate) return false
+      
+      // Kiểm tra số lần sử dụng
+      if (v.voucherMaxUsage !== null && v.voucherUsedCount >= v.voucherMaxUsage) return false
+      
+      return true
+    })
+
+    console.log('✅ Available vouchers after filter:', availableVouchers.value.length)
+    console.log('📋 Voucher list:', availableVouchers.value)
+
+    // Nếu đang có voucher áp dụng, kiểm tra xem còn hợp lệ không
+    if (cartStore.voucherCode) {
+      const currentVoucher = availableVouchers.value.find(
+        v => v.voucherCode === cartStore.voucherCode
+      )
+      if (!currentVoucher) {
+        // Voucher không còn hợp lệ, xóa khỏi giỏ
+        await removeCurrentVoucher()
+      } else {
+        selectedVoucher.value = currentVoucher
+      }
+    }
+
   } catch (error) {
-    console.error('Lỗi tải voucher:', error)
+    console.error('❌ Lỗi tải voucher:', error)
     voucherError.value = 'Không thể tải danh sách mã giảm giá'
   } finally {
     loadingVouchers.value = false

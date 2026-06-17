@@ -35,6 +35,12 @@
                 <span class="label">Địa chỉ:</span>
                 <span class="value">{{ profile.address || 'Chưa cập nhật' }}</span>
               </div>
+              <!-- ✅ Hiển thị voucher đang áp dụng -->
+              <div v-if="cartStore.voucherCode" class="info-row voucher-info">
+                <span class="label">Mã giảm giá:</span>
+                <span class="value voucher-code">{{ cartStore.voucherCode }}</span>
+                <span class="voucher-discount-amount">-{{ formatPrice(cartStore.voucherDiscount || 0) }}</span>
+              </div>
             </div>
 
             <!-- Form chỉnh sửa thông tin -->
@@ -110,18 +116,29 @@
               </div>
             </div>
 
+            <!-- ✅ Summary với voucher -->
             <div class="summary-totals">
               <div class="summary-row">
                 <span>Tạm tính:</span>
-                <span>{{ formatPrice(cartStore.subtotal) }}</span>
+                <span>{{ formatPrice(cartStore.subtotal || 0) }}</span>
               </div>
+              
+              <!-- ✅ Hiển thị giảm giá từ voucher -->
+              <div v-if="cartStore.voucherDiscount && cartStore.voucherDiscount > 0" class="summary-row discount">
+                <span>Giảm giá ({{ cartStore.voucherCode || 'Voucher' }}):</span>
+                <span>-{{ formatPrice(cartStore.voucherDiscount) }}</span>
+              </div>
+              
               <div class="summary-row">
                 <span>Phí vận chuyển:</span>
-                <span>{{ formatPrice(30000) }}</span>
+                <span>{{ formatPrice(shippingFee) }}</span>
               </div>
+              
+              <div class="summary-divider"></div>
+              
               <div class="summary-row total">
                 <span>Tổng cộng:</span>
-                <span class="total-amount">{{ formatPrice(cartStore.subtotal + 30000) }}</span>
+                <span class="total-amount">{{ formatPrice(totalAmount) }}</span>
               </div>
             </div>
           </div>
@@ -139,7 +156,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCartStore } from '../../stores/cartStore'
 import { useAuthStore } from '../../stores/authStore'
@@ -153,6 +170,7 @@ const cartStore = useCartStore()
 const authStore = useAuthStore()
 
 const API_BASE = "http://localhost:8080/api"
+const SHIPPING_FEE = 30000
 
 const placingOrder = ref(false)
 const saving = ref(false)
@@ -186,6 +204,20 @@ const orderData = ref({
   notes: ''
 })
 
+// ✅ Computed: Tính tổng tiền với voucher
+const shippingFee = computed(() => {
+  // Miễn phí ship nếu đơn hàng >= 500,000
+  const subtotal = cartStore.subtotal || 0
+  return subtotal >= 500000 ? 0 : SHIPPING_FEE
+})
+
+const totalAmount = computed(() => {
+  const subtotal = cartStore.subtotal || 0
+  const discount = cartStore.voucherDiscount || 0
+  const shipping = shippingFee.value
+  return subtotal - discount + shipping
+})
+
 const formatPrice = (price) => {
   if (!price && price !== 0) return '0₫'
   const numPrice = typeof price === 'string' ? parseFloat(price) : price
@@ -216,7 +248,6 @@ const fetchProfile = async () => {
     const data = response.data
     console.log('✅ Profile loaded:', data)
     
-    // Cập nhật profile
     profile.fullName = data.fullName || data.customerName || ''
     profile.customerName = data.customerName || ''
     profile.phone = data.phone || ''
@@ -226,7 +257,6 @@ const fetchProfile = async () => {
     profile.ward = data.ward || ''
     profile.email = data.email || ''
 
-    // Cập nhật edit form
     editForm.fullName = profile.fullName
     editForm.phone = profile.phone
     editForm.address = profile.address
@@ -239,10 +269,8 @@ const fetchProfile = async () => {
   }
 }
 
-// Toggle edit mode
 const toggleEdit = () => {
   if (isEditing.value) {
-    // Reset form về dữ liệu hiện tại
     editForm.fullName = profile.fullName
     editForm.phone = profile.phone
     editForm.address = profile.address
@@ -253,9 +281,7 @@ const toggleEdit = () => {
   isEditing.value = !isEditing.value
 }
 
-// Lưu thông tin profile
 const saveProfileInfo = async () => {
-  // Validate
   if (!editForm.fullName || editForm.fullName.trim() === '') {
     showNotification('Vui lòng nhập họ và tên', 'error')
     return
@@ -287,8 +313,6 @@ const saveProfileInfo = async () => {
       ward: editForm.ward?.trim() || ''
     }
 
-    console.log('📤 Saving profile:', payload)
-
     const response = await axios.put(`${API_BASE}/customers/profile`, payload, {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -296,9 +320,6 @@ const saveProfileInfo = async () => {
       }
     })
 
-    console.log('✅ Profile saved:', response.data)
-
-    // Cập nhật profile
     const data = response.data
     profile.fullName = data.fullName || data.customerName || editForm.fullName
     profile.customerName = data.customerName || ''
@@ -308,7 +329,6 @@ const saveProfileInfo = async () => {
     profile.district = data.district || editForm.district
     profile.ward = data.ward || editForm.ward
 
-    // Cập nhật authStore
     if (authStore.user) {
       authStore.user.username = profile.fullName
       localStorage.setItem('user', JSON.stringify(authStore.user))
@@ -325,15 +345,20 @@ const saveProfileInfo = async () => {
   }
 }
 
-// Đặt hàng
+// ✅ Đặt hàng - có voucher
 const placeOrder = async () => {
-  // Kiểm tra địa chỉ trong profile
   if (!profile.address || profile.address.trim() === '') {
     showNotification('Vui lòng cập nhật địa chỉ trước khi đặt hàng!', 'error')
     return
   }
 
-  // Chuẩn bị dữ liệu đơn hàng
+  // ✅ Lấy voucherId từ cartStore
+  const voucherId = cartStore.voucherId || null
+  
+  console.log('📋 Place order with voucherId:', voucherId)
+  console.log('📋 Voucher code:', cartStore.voucherCode)
+  console.log('📋 Voucher discount:', cartStore.voucherDiscount)
+
   const orderItems = cartStore.items.map(item => ({
     productDetailId: item.productDetailId || item.id,
     quantity: item.quantity
@@ -348,7 +373,8 @@ const placeOrder = async () => {
     shippingWard: profile.ward || '',
     notes: orderData.value.notes || '',
     items: orderItems,
-    paymentMethod: 'COD'
+    paymentMethod: 'COD',
+    voucherId: voucherId  // ✅ TRUYỀN VOUCHER ID
   }
 
   console.log('📦 Order payload:', orderPayload)
@@ -359,12 +385,11 @@ const placeOrder = async () => {
     const response = await orderService.createOrder(orderPayload)
     console.log('✅ Order created:', response.data)
 
-    // Xóa giỏ hàng
+    // ✅ Clear cart (cả voucher)
     await cartStore.clearCart()
     
     showNotification('Đặt hàng thành công!', 'success')
     
-    // Chuyển đến trang đơn hàng
     setTimeout(() => {
       router.push('/orders')
     }, 1500)
@@ -385,8 +410,8 @@ onMounted(async () => {
   }
   
   await fetchProfile()
+  await cartStore.fetchCart()
   
-  // Nếu chưa có địa chỉ, tự động mở form edit
   if (!profile.address) {
     isEditing.value = true
     showNotification('Vui lòng cập nhật thông tin giao hàng!', 'warning')
@@ -478,6 +503,27 @@ main {
 .info-row .value {
   color: #666;
   flex: 1;
+}
+
+/* ✅ Style cho voucher */
+.info-row.voucher-info {
+  background: #e8f5e9;
+  padding: 8px 12px;
+  border-radius: 8px;
+  margin-top: 5px;
+}
+
+.info-row.voucher-info .voucher-code {
+  font-weight: 700;
+  color: #2e7d32;
+  background: white;
+  padding: 2px 10px;
+  border-radius: 4px;
+}
+
+.info-row.voucher-info .voucher-discount-amount {
+  color: #e63946;
+  font-weight: 700;
 }
 
 .edit-btn {
@@ -609,6 +655,7 @@ main {
   cursor: not-allowed;
 }
 
+/* Order Summary */
 .order-summary {
   background: white;
   padding: 30px;
@@ -684,6 +731,7 @@ main {
   color: #e63946;
 }
 
+/* ✅ Summary totals với voucher */
 .summary-totals {
   border-top: 2px solid #eee;
   padding-top: 15px;
@@ -694,6 +742,17 @@ main {
   justify-content: space-between;
   padding: 8px 0;
   color: #666;
+}
+
+.summary-row.discount {
+  color: #28a745;
+  font-weight: 600;
+}
+
+.summary-divider {
+  height: 1px;
+  background: #e0e0e0;
+  margin: 8px 0;
 }
 
 .summary-row.total {

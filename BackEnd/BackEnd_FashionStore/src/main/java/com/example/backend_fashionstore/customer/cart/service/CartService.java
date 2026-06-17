@@ -290,6 +290,7 @@ public class CartService {
                 .shippingFee(DEFAULT_SHIPPING_FEE)
                 .total(total)
                 .voucherCode(cart.getVoucher() != null ? cart.getVoucher().getVoucherCode() : null)
+                .voucherId(cart.getVoucher() != null ? cart.getVoucher().getVoucherId() : null)  // ✅ THÊM
                 .build();
     }
 

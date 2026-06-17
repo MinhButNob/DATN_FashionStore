@@ -24,4 +24,5 @@ public class CartResponseDTO {
     private BigDecimal shippingFee;
     private BigDecimal total;
     private String voucherCode;
+    private Integer voucherId;  // ✅ THÊM voucherId
 }

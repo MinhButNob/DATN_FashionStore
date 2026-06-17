@@ -16,6 +16,7 @@ export const useCartStore = defineStore("cart", {
     discount: 0,
     voucherDiscount: 0,
     voucherCode: null,
+    voucherId: null, // ✅ THÊM voucherId
   }),
 
   getters: {
@@ -31,6 +32,20 @@ export const useCartStore = defineStore("cart", {
       }, 0);
     },
     total: (state) => {
+      const subtotal = state.items.reduce((sum, item) => {
+        const price = item.discountedPrice || item.price || 0;
+        return sum + price * (item.quantity || 0);
+      }, 0);
+      return (
+        subtotal - (state.voucherDiscount || 0) + (state.shippingFee || 30000)
+      );
+    },
+    // ✅ Thêm getter để kiểm tra có voucher không
+    hasVoucher: (state) => {
+      return !!state.voucherCode && !!state.voucherId;
+    },
+    // ✅ Thêm getter để lấy finalTotal
+    finalTotal: (state) => {
       const subtotal = state.items.reduce((sum, item) => {
         const price = item.discountedPrice || item.price || 0;
         return sum + price * (item.quantity || 0);
@@ -195,6 +210,128 @@ export const useCartStore = defineStore("cart", {
       }
     },
 
+    // ✅ THÊM ACTION ÁP DỤNG VOUCHER
+    async applyVoucher(voucherCode) {
+      try {
+        const token =
+          localStorage.getItem("token") || localStorage.getItem("accessToken");
+        if (!token) {
+          throw new Error("Vui lòng đăng nhập để áp dụng voucher");
+        }
+
+        const response = await axios.post(
+          `${API_BASE}/cart/apply-voucher?voucherCode=${voucherCode}`,
+          {},
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          },
+        );
+
+        console.log("✅ Apply voucher response:", response.data);
+
+        if (response.data && response.data.data) {
+          const cartData = response.data.data;
+
+          // ✅ Cập nhật voucherId
+          this.voucherId = cartData.voucherId || null;
+          this.voucherCode = cartData.voucherCode || null;
+          this.voucherDiscount = cartData.voucherDiscount || 0;
+
+          // ✅ Cập nhật lại giỏ hàng
+          this.items = (cartData.items || []).map((item) => ({
+            ...item,
+            stock: item.stock || 99,
+            id: item.productId || item.id,
+            productId: item.productId || item.id,
+            name: item.productName || item.name,
+            image: item.imageUrl || null,
+            imageUrl: item.imageUrl || null,
+            price: item.price || 0,
+            discountedPrice: item.discountedPrice || item.price || 0,
+          }));
+
+          this.subtotal = this.items.reduce((sum, item) => {
+            const price = item.discountedPrice || item.price || 0;
+            return sum + price * (item.quantity || 0);
+          }, 0);
+
+          this.totalItems = cartData.totalQuantity || 0;
+          this.shippingFee = cartData.shippingFee || 30000;
+          this.total = this.subtotal - this.voucherDiscount + this.shippingFee;
+
+          // ✅ Lưu vào localStorage
+          this.saveToLocalStorage();
+        }
+
+        return response.data;
+      } catch (error) {
+        console.error("❌ Apply voucher error:", error);
+        throw error;
+      }
+    },
+
+    // ✅ THÊM ACTION XÓA VOUCHER
+    async removeVoucher() {
+      try {
+        const token =
+          localStorage.getItem("token") || localStorage.getItem("accessToken");
+        if (!token) {
+          throw new Error("Vui lòng đăng nhập");
+        }
+
+        const response = await axios.delete(`${API_BASE}/cart/remove-voucher`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+
+        console.log("✅ Remove voucher response:", response.data);
+
+        if (response.data && response.data.data) {
+          const cartData = response.data.data;
+
+          // ✅ Xóa voucher
+          this.voucherId = null;
+          this.voucherCode = null;
+          this.voucherDiscount = 0;
+
+          // ✅ Cập nhật lại giỏ hàng
+          this.items = (cartData.items || []).map((item) => ({
+            ...item,
+            stock: item.stock || 99,
+            id: item.productId || item.id,
+            productId: item.productId || item.id,
+            name: item.productName || item.name,
+            image: item.imageUrl || null,
+            imageUrl: item.imageUrl || null,
+            price: item.price || 0,
+            discountedPrice: item.discountedPrice || item.price || 0,
+          }));
+
+          this.subtotal = this.items.reduce((sum, item) => {
+            const price = item.discountedPrice || item.price || 0;
+            return sum + price * (item.quantity || 0);
+          }, 0);
+
+          this.totalItems = cartData.totalQuantity || 0;
+          this.shippingFee = cartData.shippingFee || 30000;
+          this.total = this.subtotal - this.voucherDiscount + this.shippingFee;
+
+          // ✅ Lưu vào localStorage
+          this.saveToLocalStorage();
+        }
+
+        return response.data;
+      } catch (error) {
+        console.error("❌ Remove voucher error:", error);
+        throw error;
+      }
+    },
+
     async clearCart() {
       try {
         const token =
@@ -212,6 +349,7 @@ export const useCartStore = defineStore("cart", {
         this.total = 0;
         this.voucherDiscount = 0;
         this.voucherCode = null;
+        this.voucherId = null; // ✅ Xóa voucherId
         this.saveToLocalStorage();
       } catch (error) {
         console.error("❌ Clear cart error:", error);
@@ -255,7 +393,7 @@ export const useCartStore = defineStore("cart", {
             image: item.imageUrl || null,
             imageUrl: item.imageUrl || null,
             price: item.price || 0,
-            discountedPrice: item.discountedPrice || item.price || 0, // ✅ LẤY discountedPrice
+            discountedPrice: item.discountedPrice || item.price || 0,
           }));
 
           // ✅ Tính subtotal dựa trên discountedPrice
@@ -266,8 +404,10 @@ export const useCartStore = defineStore("cart", {
 
           this.totalItems = cartData.totalQuantity || 0;
 
+          // ✅ Lấy thông tin voucher - QUAN TRỌNG: Lấy voucherId
           this.voucherDiscount = cartData.voucherDiscount || 0;
           this.voucherCode = cartData.voucherCode || null;
+          this.voucherId = cartData.voucherId || null; // ✅ THÊM
           this.shippingFee = cartData.shippingFee || 30000;
 
           this.total = this.subtotal - this.voucherDiscount + this.shippingFee;
@@ -276,6 +416,8 @@ export const useCartStore = defineStore("cart", {
             items: this.items.length,
             subtotal: this.subtotal,
             voucherDiscount: this.voucherDiscount,
+            voucherCode: this.voucherCode,
+            voucherId: this.voucherId,
             shippingFee: this.shippingFee,
             total: this.total,
           });
@@ -300,6 +442,7 @@ export const useCartStore = defineStore("cart", {
           shippingFee: this.shippingFee,
           voucherDiscount: this.voucherDiscount,
           voucherCode: this.voucherCode,
+          voucherId: this.voucherId, // ✅ THÊM voucherId
         };
         localStorage.setItem("cart", JSON.stringify(data));
         console.log("💾 Cart saved to localStorage");
@@ -320,10 +463,13 @@ export const useCartStore = defineStore("cart", {
           this.shippingFee = parsed.shippingFee || 30000;
           this.voucherDiscount = parsed.voucherDiscount || 0;
           this.voucherCode = parsed.voucherCode || null;
+          this.voucherId = parsed.voucherId || null; // ✅ THÊM voucherId
           console.log(
             "📂 Cart loaded from localStorage:",
             this.items.length,
             "items",
+            "voucherId:",
+            this.voucherId,
           );
         }
       } catch (e) {

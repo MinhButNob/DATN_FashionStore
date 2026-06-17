@@ -46,7 +46,7 @@ const menuSections = [
     items: [
       { name: "Dashboard", path: "/admin", icon: "fas fa-tachometer-alt" },
       { name: "Quản lý sản phẩm", path: "/admin/products", icon: "fas fa-tshirt" },
-      { name: "Đơn hàng", path: "/admin/orders", icon: "fas fa-shopping-cart" },
+      { name: "Quản lý dơn hàng online", path: "/admin/orders", icon: "fas fa-shopping-cart" },
       { name: "Quản lý khách hàng", path: "/admin/customers", icon: "fas fa-users" },
     ],
   },

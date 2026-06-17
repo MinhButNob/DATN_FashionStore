@@ -31,7 +31,10 @@ public class CustomerOrderController {
             @RequestBody OrderRequestDTO request
     ) {
         Integer customerId = getCustomerIdFromUserDetails(userDetails);
+        log.info("📝 Creating order for customer: {}, voucherId: {}", customerId, request.getVoucherId());
         OrderResponseDTO order = orderService.createOrder(customerId, request);
+        log.info("✅ Order created: {}, discount: {}, total: {}",
+                order.getOrderId(), order.getDiscountAmount(), order.getTotalAmount());
         return ResponseEntity.ok(order);
     }
 
@@ -45,6 +48,17 @@ public class CustomerOrderController {
         Integer customerId = getCustomerIdFromUserDetails(userDetails);
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
         Page<OrderResponseDTO> orders = orderService.getMyOrders(customerId, status, pageable);
+
+        // ✅ LOG KIỂM TRA
+        orders.getContent().forEach(order -> {
+            log.info("📋 Order #{}: subtotal={}, discount={}, total={}, voucher={}",
+                    order.getOrderId(),
+                    order.getSubtotalAmount(),
+                    order.getDiscountAmount(),
+                    order.getTotalAmount(),
+                    order.getVoucher() != null ? order.getVoucher().getVoucherCode() : "null");
+        });
+
         return ResponseEntity.ok(orders);
     }
 

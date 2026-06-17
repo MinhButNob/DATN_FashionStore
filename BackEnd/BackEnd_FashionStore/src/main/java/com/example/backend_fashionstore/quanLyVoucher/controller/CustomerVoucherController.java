@@ -1,5 +1,6 @@
 package com.example.backend_fashionstore.quanLyVoucher.controller;
 
+import com.example.backend_fashionstore.QuanLySanPham.dto.response.ApiResponse;
 import com.example.backend_fashionstore.quanLyVoucher.dto.VoucherDTO;
 import com.example.backend_fashionstore.quanLyVoucher.service.CustomerVoucherService;
 import lombok.RequiredArgsConstructor;
@@ -7,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Slf4j
@@ -22,15 +24,16 @@ public class CustomerVoucherController {
      * Lấy danh sách voucher có thể áp dụng cho khách hàng
      */
     @GetMapping("/available")
-    public ResponseEntity<?> getAvailableVouchers() {
+    public ResponseEntity<ApiResponse<List<VoucherDTO>>> getAvailableVouchers() {
         log.info("📋 Getting available vouchers for customer");
 
         try {
             List<VoucherDTO> vouchers = customerVoucherService.getAvailableVouchers();
-            return ResponseEntity.ok(vouchers);
+            log.info("✅ Found {} available vouchers", vouchers.size());
+            return ResponseEntity.ok(ApiResponse.success(vouchers));
         } catch (Exception e) {
             log.error("❌ Error getting available vouchers: {}", e.getMessage());
-            return ResponseEntity.status(500).body("Không thể tải danh sách mã giảm giá");
+            return ResponseEntity.status(500).body(ApiResponse.error("Không thể tải danh sách mã giảm giá"));
         }
     }
 
@@ -38,19 +41,19 @@ public class CustomerVoucherController {
      * Lấy danh sách voucher có thể áp dụng với giá trị đơn hàng
      */
     @GetMapping("/available/by-order-value")
-    public ResponseEntity<?> getAvailableVouchersByOrderValue(
+    public ResponseEntity<ApiResponse<List<VoucherDTO>>> getAvailableVouchersByOrderValue(
             @RequestParam(defaultValue = "0") Long orderValue
     ) {
         log.info("📋 Getting available vouchers for order value: {}", orderValue);
 
         try {
             List<VoucherDTO> vouchers = customerVoucherService.getAvailableVouchersByOrderValue(
-                    java.math.BigDecimal.valueOf(orderValue)
+                    BigDecimal.valueOf(orderValue)
             );
-            return ResponseEntity.ok(vouchers);
+            return ResponseEntity.ok(ApiResponse.success(vouchers));
         } catch (Exception e) {
             log.error("❌ Error getting available vouchers: {}", e.getMessage());
-            return ResponseEntity.status(500).body("Không thể tải danh sách mã giảm giá");
+            return ResponseEntity.status(500).body(ApiResponse.error("Không thể tải danh sách mã giảm giá"));
         }
     }
 
@@ -58,7 +61,7 @@ public class CustomerVoucherController {
      * Kiểm tra voucher có áp dụng được không
      */
     @GetMapping("/check/{voucherCode}")
-    public ResponseEntity<?> checkVoucher(
+    public ResponseEntity<ApiResponse<Boolean>> checkVoucher(
             @PathVariable String voucherCode,
             @RequestParam(defaultValue = "0") Long orderValue
     ) {
@@ -67,12 +70,12 @@ public class CustomerVoucherController {
         try {
             boolean isValid = customerVoucherService.isVoucherValid(
                     voucherCode,
-                    java.math.BigDecimal.valueOf(orderValue)
+                    BigDecimal.valueOf(orderValue)
             );
-            return ResponseEntity.ok(isValid);
+            return ResponseEntity.ok(ApiResponse.success(isValid));
         } catch (Exception e) {
             log.error("❌ Error checking voucher: {}", e.getMessage());
-            return ResponseEntity.status(500).body("Không thể kiểm tra mã giảm giá");
+            return ResponseEntity.status(500).body(ApiResponse.error("Không thể kiểm tra mã giảm giá"));
         }
     }
 }

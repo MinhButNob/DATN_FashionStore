@@ -1,7 +1,7 @@
 package com.example.backend_fashionstore.customer.order.dto.response;
 
-import lombok.Data;
 import lombok.Builder;
+import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import java.math.BigDecimal;
@@ -19,7 +19,7 @@ public class OrderResponseDTO {
     private String orderStatus;
     private String paymentStatus;
     private BigDecimal subtotalAmount;
-    private BigDecimal discountAmount;
+    private BigDecimal discountAmount;  // ✅ THÊM
     private BigDecimal shippingFee;
     private BigDecimal totalAmount;
     private String notes;
@@ -27,6 +27,6 @@ public class OrderResponseDTO {
 
     private CustomerInfoDTO customer;
     private ShippingAddressDTO shippingAddress;
-    private VoucherInfoDTO voucher;
+    private VoucherInfoDTO voucher;  // ✅ THÊM - đã có
     private List<OrderItemResponseDTO> items;
 }

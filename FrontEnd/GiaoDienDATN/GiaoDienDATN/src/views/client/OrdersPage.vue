@@ -66,6 +66,13 @@
               </div>
             </div>
 
+            <!-- ✅ HIỂN THỊ VOUCHER TRONG ĐƠN HÀNG -->
+            <div v-if="order.voucher" class="order-voucher">
+              <i class="fas fa-ticket-alt"></i>
+              <span class="voucher-code">{{ order.voucher.voucherCode }}</span>
+              <span class="voucher-discount">-{{ formatPrice(order.voucher.discountAmount || order.discountAmount || 0) }}</span>
+            </div>
+
             <div class="order-footer">
               <div class="order-total">
                 <span>Tổng cộng:</span>
@@ -182,6 +189,16 @@
                   <td colspan="3" class="text-right">Tạm tính:</td>
                   <td>{{ formatPrice(selectedOrder?.subtotalAmount) }}</td>
                 </tr>
+                <!-- ✅ HIỂN THỊ GIẢM GIÁ TỪ VOUCHER -->
+                <tr v-if="selectedOrder?.discountAmount && selectedOrder?.discountAmount > 0" class="discount-row">
+                  <td colspan="3" class="text-right">
+                    <span class="voucher-label">
+                      <i class="fas fa-ticket-alt"></i> Giảm giá 
+                      ({{ selectedOrder?.voucher?.voucherCode || 'Voucher' }})
+                    </span>
+                  </td>
+                  <td class="discount-amount">-{{ formatPrice(selectedOrder?.discountAmount) }}</td>
+                </tr>
                 <tr>
                   <td colspan="3" class="text-right">Phí vận chuyển:</td>
                   <td>{{ formatPrice(selectedOrder?.shippingFee || 0) }}</td>
@@ -192,6 +209,15 @@
                 </tr>
               </tfoot>
             </table>
+          </div>
+
+          <!-- ✅ HIỂN THỊ THÔNG TIN VOUCHER RIÊNG -->
+          <div v-if="selectedOrder?.voucher" class="voucher-info-section">
+            <h4><i class="fas fa-ticket-alt"></i> Mã giảm giá đã áp dụng</h4>
+            <div class="voucher-detail">
+              <span class="voucher-code">{{ selectedOrder.voucher.voucherCode }}</span>
+              <span class="voucher-savings">Tiết kiệm: {{ formatPrice(selectedOrder.discountAmount || 0) }}</span>
+            </div>
           </div>
         </div>
         <div class="modal-footer">
@@ -686,6 +712,38 @@ main {
   font-size: 15px;
 }
 
+/* ✅ VOUCHER STYLES */
+.order-voucher {
+  background: #e8f5e9;
+  padding: 10px 15px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 5px 0 15px;
+  border-left: 4px solid #2e7d32;
+}
+
+.order-voucher i {
+  color: #2e7d32;
+  font-size: 18px;
+}
+
+.order-voucher .voucher-code {
+  font-weight: 700;
+  color: #2e7d32;
+  background: white;
+  padding: 2px 10px;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.order-voucher .voucher-discount {
+  color: #e63946;
+  font-weight: 700;
+  margin-left: auto;
+}
+
 .order-footer {
   display: flex;
   justify-content: space-between;
@@ -936,6 +994,63 @@ main {
   color: #e63946;
 }
 
+/* ✅ Discount row */
+.discount-row td {
+  color: #28a745;
+  font-weight: 600;
+}
+
+.discount-row .voucher-label {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.discount-row .discount-amount {
+  color: #28a745;
+  font-weight: 700;
+}
+
+/* ✅ Voucher info section */
+.voucher-info-section {
+  background: #e8f5e9;
+  padding: 15px 20px;
+  border-radius: 8px;
+  margin-top: 20px;
+  border-left: 4px solid #2e7d32;
+}
+
+.voucher-info-section h4 {
+  color: #2e7d32;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.voucher-info-section .voucher-detail {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
+.voucher-info-section .voucher-code {
+  font-weight: 700;
+  color: #2e7d32;
+  background: white;
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 16px;
+}
+
+.voucher-info-section .voucher-savings {
+  color: #e63946;
+  font-weight: 700;
+  font-size: 15px;
+}
+
 .item-info {
   display: flex;
   align-items: center;
@@ -1045,6 +1160,14 @@ main {
   .modal-container.modal-lg {
     max-width: 100%;
     margin: 10px;
+  }
+
+  .order-voucher {
+    flex-wrap: wrap;
+  }
+  
+  .order-voucher .voucher-discount {
+    margin-left: 0;
   }
 }
 </style>
