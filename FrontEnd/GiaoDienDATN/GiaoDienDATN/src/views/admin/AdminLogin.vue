@@ -151,10 +151,10 @@ const handleLogin = async () => {
   try {
     await authStore.login(form.value.email, form.value.password);
 
-    // Check if user is admin
-    if (!authStore.isAdmin) {
+    // Check if user is admin or staff
+    if (!authStore.isAdmin && !authStore.isStaff) {
       authStore.logout();
-      throw new Error("Tài khoản không có quyền truy cập admin");
+      throw new Error("Tài khoản không có quyền truy cập hệ thống");
     }
 
     // Save remember me preference
@@ -164,9 +164,14 @@ const handleLogin = async () => {
 
     showNotification("Đăng nhập thành công!", "success");
 
-    // Redirect to admin dashboard
-    const redirect = router.currentRoute.value.query.redirect || "/admin";
-    router.push(redirect);
+    // Redirect to admin or staff dashboard
+    if (authStore.isAdmin) {
+      const redirect = router.currentRoute.value.query.redirect || "/admin";
+      router.push(redirect);
+    } else {
+      const redirect = router.currentRoute.value.query.redirect || "/staff/pos";
+      router.push(redirect);
+    }
   } catch (err) {
     error.value = err.message || "Đăng nhập thất bại";
     showNotification(error.value, "error");

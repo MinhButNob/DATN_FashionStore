@@ -19,8 +19,13 @@ public class Order {
     @Column(name = "order_id")
     private Long orderId;
 
+
     @ManyToOne
     @JoinColumn(name = "order_customer_id", nullable = false)
+
+//    @ManyToOne(fetch = FetchType.LAZY)
+//    @JoinColumn(name = "customer_id")
+//>>>>>>> 5092b2ddd0a487f1ab9655fb4b92b065d8cb0a2a
     private Customer customer;
 
     @ManyToOne

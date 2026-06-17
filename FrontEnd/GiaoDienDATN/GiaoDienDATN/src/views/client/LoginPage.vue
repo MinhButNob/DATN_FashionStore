@@ -192,6 +192,8 @@ const handleLogin = async () => {
 
     if (authStore.isAdmin) {
       window.location.href = "/admin"; // Redirect to admin dashboard
+    } else if (authStore.isStaff) {
+      window.location.href = "/staff/pos"; // Redirect to staff POS
     } else {
       // Redirect to previous page or home
       const redirect = router.currentRoute.value.query.redirect || "/home";
@@ -223,6 +225,8 @@ const handleGoogleCallback = async (response) => {
     showNotification("Đăng nhập Google thành công!", "success");
     if (authStore.isAdmin) {
       window.location.href = "/admin";
+    } else if (authStore.isStaff) {
+      window.location.href = "/staff/pos";
     } else {
       const redirect = router.currentRoute.value.query.redirect || "/home";
       router.push(redirect);

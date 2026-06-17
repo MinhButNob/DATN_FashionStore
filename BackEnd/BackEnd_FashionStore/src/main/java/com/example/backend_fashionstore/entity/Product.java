@@ -23,17 +23,17 @@ public class Product {
     @Column(name = "product_id")
     private Integer productId;
 
-    @Column(name = "product_name", nullable = false, length = 20)
+    @Column(name = "product_name", nullable = false)
     private String productName;
 
-    @Column(name = "product_description", length = 20)
+    @Column(name = "product_description")
     private String description;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "product_category_id")
     private Category category;
 
-    @Column(name = "product_status", nullable = false, length = 20)
+    @Column(name = "product_status", nullable = false)
     private String status;  // ACTIVE, INACTIVE, DELETED
 
     @CreationTimestamp

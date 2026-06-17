@@ -93,8 +93,6 @@
             <th>Khách hàng</th>
             <th>SĐT</th>
             <th>Sản phẩm</th>
-            <th>Tạm tính</th>
-            <th>Giảm giá</th>
             <th>Tổng tiền</th>
             <th>Ngày đặt</th>
             <th>Trạng thái</th>
@@ -118,17 +116,6 @@
               <button class="view-items-btn" @click="viewOrderItems(order)" title="Xem chi tiết">
                 <i class="fas fa-eye"></i>
               </button>
-            </td>
-            <td class="price-cell">{{ formatPrice(order.subtotalAmount) }}</td>
-            <td class="discount-cell">
-              <span v-if="order.discountAmount && order.discountAmount > 0" class="discount-amount">
-                -{{ formatPrice(order.discountAmount) }}
-              </span>
-              <span v-else class="no-discount">0₫</span>
-              <div v-if="order.voucher" class="order-voucher-tag">
-                <i class="fas fa-ticket-alt"></i>
-                <span>{{ order.voucher.voucherCode }}</span>
-              </div>
             </td>
             <td>
               <span class="order-total">{{ formatPrice(order.totalAmount) }}</span>
@@ -161,7 +148,7 @@
             </td>
           </tr>
           <tr v-if="orders.length === 0 && !loading">
-            <td colspan="11" class="no-data">
+            <td colspan="9" class="no-data">
               <i class="fas fa-box-open"></i>
               <p>Không tìm thấy đơn hàng nào</p>
             </td>
@@ -210,11 +197,6 @@
               <p><strong>Ngày đặt:</strong> {{ formatDate(selectedOrder.orderDate) }}</p>
               <p><strong>Trạng thái:</strong> {{ getStatusText(selectedOrder.orderStatus) }}</p>
               <p><strong>Thanh toán:</strong> {{ getPaymentStatusText(selectedOrder.paymentStatus) }}</p>
-              <p v-if="selectedOrder.voucher">
-                <strong>Voucher:</strong> 
-                <span class="voucher-code-admin">{{ selectedOrder.voucher.voucherCode }}</span>
-                <span class="voucher-discount-admin">(-{{ formatPrice(selectedOrder.discountAmount || 0) }})</span>
-              </p>
             </div>
           </div>
 
@@ -254,15 +236,6 @@
                 <tr>
                   <td colspan="3" class="text-right">Tạm tính:</td>
                   <td class="total-price">{{ formatPrice(selectedOrder.subtotalAmount) }}</td>
-                </tr>
-                <tr v-if="selectedOrder.discountAmount && selectedOrder.discountAmount > 0" class="discount-row-admin">
-                  <td colspan="3" class="text-right">
-                    <span class="voucher-label-admin">
-                      <i class="fas fa-ticket-alt"></i> Giảm giá 
-                      ({{ selectedOrder.voucher?.voucherCode || 'Voucher' }})
-                    </span>
-                  </td>
-                  <td class="discount-amount-admin">-{{ formatPrice(selectedOrder.discountAmount) }}</td>
                 </tr>
                 <tr>
                   <td colspan="3" class="text-right">Phí vận chuyển:</td>
@@ -476,16 +449,6 @@ const fetchOrders = async () => {
     
     if (response.data && response.data.content) {
       orders.value = response.data.content
-      
-      orders.value.forEach(order => {
-        console.log(`📋 Order #${order.orderId}:`, {
-          subtotal: order.subtotalAmount,
-          discount: order.discountAmount,
-          total: order.totalAmount,
-          voucher: order.voucher?.voucherCode || 'Không có'
-        })
-      })
-      
       totalPages.value = response.data.totalPages || 0
       totalElements.value = response.data.totalElements || 0
       currentPage.value = response.data.number || 0
@@ -785,24 +748,22 @@ onMounted(() => {
 .data-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 1100px;
+  min-width: 900px;
 }
 
 .data-table th {
   background: #f8f9fa;
-  padding: 12px 15px;
+  padding: 15px;
   text-align: left;
   font-weight: 600;
   color: #2c3e50;
   border-bottom: 2px solid #eee;
-  font-size: 13px;
 }
 
 .data-table td {
-  padding: 12px 15px;
+  padding: 15px;
   border-bottom: 1px solid #eee;
   color: #666;
-  font-size: 13px;
 }
 
 .data-table tr:hover {
@@ -839,46 +800,10 @@ onMounted(() => {
   color: #e63946;
 }
 
-.price-cell {
-  font-weight: 500;
-  color: #2c3e50;
-}
-
-.discount-cell {
-  text-align: center;
-}
-
-.discount-amount {
-  color: #28a745;
-  font-weight: 700;
-}
-
-.no-discount {
-  color: #999;
-  font-size: 12px;
-}
-
-.order-voucher-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  background: #e8f5e9;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 11px;
-  color: #2e7d32;
-  margin-top: 4px;
-  font-weight: 600;
-}
-
-.order-voucher-tag i {
-  font-size: 10px;
-}
-
 /* Status Badge */
 .status-badge {
   display: inline-block;
-  padding: 4px 12px;
+  padding: 5px 12px;
   border-radius: 20px;
   font-size: 12px;
   font-weight: 600;
@@ -907,7 +832,7 @@ onMounted(() => {
 
 .payment-status {
   display: inline-block;
-  padding: 4px 10px;
+  padding: 5px 10px;
   border-radius: 20px;
   font-size: 11px;
   font-weight: 600;
@@ -1111,38 +1036,6 @@ onMounted(() => {
   margin-bottom: 5px;
   font-size: 14px;
   color: #666;
-}
-
-.voucher-code-admin {
-  background: #e8f5e9;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-weight: 600;
-  color: #2e7d32;
-}
-
-.voucher-discount-admin {
-  color: #e63946;
-  font-weight: 600;
-  margin-left: 4px;
-}
-
-/* Discount row admin */
-.discount-row-admin td {
-  color: #28a745;
-  font-weight: 600;
-}
-
-.discount-row-admin .voucher-label-admin {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 6px;
-}
-
-.discount-row-admin .discount-amount-admin {
-  color: #28a745;
-  font-weight: 700;
 }
 
 .order-items-section {
@@ -1384,15 +1277,6 @@ onMounted(() => {
   .action-buttons {
     flex-direction: column;
     align-items: center;
-  }
-  
-  .data-table {
-    font-size: 12px;
-  }
-  
-  .data-table th,
-  .data-table td {
-    padding: 8px 10px;
   }
 }
 </style>
