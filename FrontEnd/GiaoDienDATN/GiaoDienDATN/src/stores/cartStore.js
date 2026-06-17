@@ -1,116 +1,485 @@
+// stores/cartStore.js
 import { defineStore } from "pinia";
-import { ref, computed } from "vue";
+import axios from "axios";
 
-export const useCartStore = defineStore("cart", () => {
-  // State
-  const items = ref([]);
-  const isCartOpen = ref(false);
+const API_BASE = "http://localhost:8080/api";
 
-  // Load from localStorage
-  const loadCart = () => {
-    const savedCart = localStorage.getItem("cart");
-    if (savedCart) {
-      items.value = JSON.parse(savedCart);
-    }
-  };
+export const useCartStore = defineStore("cart", {
+  state: () => ({
+    items: [],
+    loading: false,
+    subtotal: 0,
+    total: 0,
+    totalItems: 0,
+    shippingFee: 30000,
+    coupon: null,
+    discount: 0,
+    voucherDiscount: 0,
+    voucherCode: null,
+    voucherId: null, // ✅ THÊM voucherId
+  }),
 
-  // Save to localStorage
-  const saveCart = () => {
-    localStorage.setItem("cart", JSON.stringify(items.value));
-  };
+  getters: {
+    totalItems: (state) => {
+      return state.items.reduce((sum, item) => sum + (item.quantity || 0), 0);
+    },
+    subtotal: (state) => {
+      // ✅ QUAN TRỌNG: Tính subtotal dựa trên discountedPrice
+      return state.items.reduce((sum, item) => {
+        // Ưu tiên dùng discountedPrice, nếu không có thì dùng price
+        const price = item.discountedPrice || item.price || 0;
+        return sum + price * (item.quantity || 0);
+      }, 0);
+    },
+    total: (state) => {
+      const subtotal = state.items.reduce((sum, item) => {
+        const price = item.discountedPrice || item.price || 0;
+        return sum + price * (item.quantity || 0);
+      }, 0);
+      return (
+        subtotal - (state.voucherDiscount || 0) + (state.shippingFee || 30000)
+      );
+    },
+    // ✅ Thêm getter để kiểm tra có voucher không
+    hasVoucher: (state) => {
+      return !!state.voucherCode && !!state.voucherId;
+    },
+    // ✅ Thêm getter để lấy finalTotal
+    finalTotal: (state) => {
+      const subtotal = state.items.reduce((sum, item) => {
+        const price = item.discountedPrice || item.price || 0;
+        return sum + price * (item.quantity || 0);
+      }, 0);
+      return (
+        subtotal - (state.voucherDiscount || 0) + (state.shippingFee || 30000)
+      );
+    },
+  },
 
-  // Initialize
-  loadCart();
+  actions: {
+    async addToCart(productOrId, quantity = 1, size, color) {
+      try {
+        let productDetailId;
+        let productName = "";
+        let price = 0;
+        let discountedPrice = null;
+        let image = null;
+        let stock = 99;
 
-  // Getters
-  const totalItems = computed(() => {
-    return items.value.reduce((total, item) => total + item.quantity, 0);
-  });
+        if (typeof productOrId === "object" && productOrId !== null) {
+          productDetailId =
+            productOrId.productDetailId ||
+            productOrId.id ||
+            productOrId.productId;
+          productName =
+            productOrId.productName || productOrId.name || "Sản phẩm";
+          price = productOrId.price || 0;
+          discountedPrice =
+            productOrId.discountedPrice || productOrId.discountedPrice || null;
+          image = productOrId.image || productOrId.imageUrl || null;
+          stock = productOrId.stock || 99;
 
-  const subtotal = computed(() => {
-    return items.value.reduce(
-      (total, item) => total + item.price * item.quantity,
-      0,
-    );
-  });
+          if (!size && productOrId.size) size = productOrId.size;
+          if (!color && productOrId.color) color = productOrId.color;
+          if (productOrId.quantity) quantity = productOrId.quantity;
+        } else {
+          productDetailId = productOrId;
+        }
 
-  const shippingFee = computed(() => {
-    return subtotal.value > 500000 ? 0 : 30000;
-  });
+        if (!productDetailId) {
+          console.error("❌ Missing productDetailId");
+          throw new Error("Không tìm thấy thông tin sản phẩm");
+        }
 
-  const total = computed(() => {
-    return subtotal.value + shippingFee.value;
-  });
+        const token =
+          localStorage.getItem("token") || localStorage.getItem("accessToken");
 
-  // Actions
-  function addToCart(product, quantity = 1, size = null, color = null) {
-    const existingItem = items.value.find(
-      (item) =>
-        item.id === product.id && item.size === size && item.color === color,
-    );
+        if (!token) {
+          console.log("ℹ️ Chưa đăng nhập, lưu vào localStorage");
+          const cartItem = {
+            id: productDetailId,
+            productDetailId: productDetailId,
+            productId: productDetailId,
+            name: productName,
+            price: price,
+            discountedPrice: discountedPrice,
+            quantity: quantity,
+            size: size || null,
+            color: color || null,
+            image: image,
+            imageUrl: image,
+            stock: stock,
+          };
 
-    if (existingItem) {
-      existingItem.quantity += quantity;
-    } else {
-      items.value.push({
-        ...product,
-        quantity,
-        size,
-        color,
-      });
-    }
+          let localCart = JSON.parse(localStorage.getItem("cart") || "[]");
+          const existingIndex = localCart.findIndex(
+            (item) =>
+              item.id === productDetailId &&
+              item.size === size &&
+              item.color === color,
+          );
 
-    saveCart();
-    isCartOpen.value = true;
-  }
+          if (existingIndex !== -1) {
+            localCart[existingIndex].quantity += quantity;
+          } else {
+            localCart.push(cartItem);
+          }
 
-  function removeFromCart(productId, size = null, color = null) {
-    const index = items.value.findIndex(
-      (item) =>
-        item.id === productId && item.size === size && item.color === color,
-    );
-    if (index !== -1) {
-      items.value.splice(index, 1);
-      saveCart();
-    }
-  }
+          localStorage.setItem("cart", JSON.stringify(localCart));
+          await this.loadFromLocalStorage();
+          return { success: true, local: true };
+        }
 
-  function updateQuantity(productId, quantity, size = null, color = null) {
-    const item = items.value.find(
-      (item) =>
-        item.id === productId && item.size === size && item.color === color,
-    );
-    if (item) {
-      item.quantity = quantity;
-      saveCart();
-    }
-  }
+        const response = await axios.post(
+          `${API_BASE}/cart/add`,
+          {
+            productDetailId: productDetailId,
+            quantity: quantity,
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          },
+        );
 
-  function clearCart() {
-    items.value = [];
-    saveCart();
-  }
+        console.log("✅ Add to cart response:", response.data);
+        await this.fetchCart();
+        return response.data;
+      } catch (error) {
+        console.error("❌ Add to cart error:", error);
+        throw error;
+      }
+    },
 
-  function toggleCart() {
-    isCartOpen.value = !isCartOpen.value;
-  }
+    async updateQuantity(cartItemId, quantity, productDetailId, size, color) {
+      if (!cartItemId) {
+        console.error("❌ Missing cartItemId");
+        throw new Error("Không tìm thấy ID sản phẩm");
+      }
 
-  return {
-    // State
-    items,
-    isCartOpen,
+      try {
+        const token =
+          localStorage.getItem("token") || localStorage.getItem("accessToken");
 
-    // Getters
-    totalItems,
-    subtotal,
-    shippingFee,
-    total,
+        const response = await axios({
+          method: "put",
+          url: `${API_BASE}/cart/items/${cartItemId}`,
+          params: { quantity: quantity },
+          headers: token
+            ? {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              }
+            : {},
+        });
 
-    // Actions
-    addToCart,
-    removeFromCart,
-    updateQuantity,
-    clearCart,
-    toggleCart,
-  };
+        console.log("✅ Update response:", response.data);
+        await this.fetchCart();
+        return response.data;
+      } catch (error) {
+        console.error("❌ Update quantity error:", error);
+        throw error;
+      }
+    },
+
+    async removeFromCart(cartItemId, productId, size, color) {
+      if (!cartItemId) {
+        console.error("❌ Missing cartItemId");
+        throw new Error("Không tìm thấy ID sản phẩm");
+      }
+
+      try {
+        const token =
+          localStorage.getItem("token") || localStorage.getItem("accessToken");
+
+        const response = await axios.delete(
+          `${API_BASE}/cart/items/${cartItemId}`,
+          {
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          },
+        );
+
+        console.log("✅ Remove response:", response.data);
+        await this.fetchCart();
+        return response.data;
+      } catch (error) {
+        console.error("❌ Remove from cart error:", error);
+        throw error;
+      }
+    },
+
+    // ✅ THÊM ACTION ÁP DỤNG VOUCHER
+    async applyVoucher(voucherCode) {
+      try {
+        const token =
+          localStorage.getItem("token") || localStorage.getItem("accessToken");
+        if (!token) {
+          throw new Error("Vui lòng đăng nhập để áp dụng voucher");
+        }
+
+        const response = await axios.post(
+          `${API_BASE}/cart/apply-voucher?voucherCode=${voucherCode}`,
+          {},
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          },
+        );
+
+        console.log("✅ Apply voucher response:", response.data);
+
+        if (response.data && response.data.data) {
+          const cartData = response.data.data;
+
+          // ✅ Cập nhật voucherId
+          this.voucherId = cartData.voucherId || null;
+          this.voucherCode = cartData.voucherCode || null;
+          this.voucherDiscount = cartData.voucherDiscount || 0;
+
+          // ✅ Cập nhật lại giỏ hàng
+          this.items = (cartData.items || []).map((item) => ({
+            ...item,
+            stock: item.stock || 99,
+            id: item.productId || item.id,
+            productId: item.productId || item.id,
+            name: item.productName || item.name,
+            image: item.imageUrl || null,
+            imageUrl: item.imageUrl || null,
+            price: item.price || 0,
+            discountedPrice: item.discountedPrice || item.price || 0,
+          }));
+
+          this.subtotal = this.items.reduce((sum, item) => {
+            const price = item.discountedPrice || item.price || 0;
+            return sum + price * (item.quantity || 0);
+          }, 0);
+
+          this.totalItems = cartData.totalQuantity || 0;
+          this.shippingFee = cartData.shippingFee || 30000;
+          this.total = this.subtotal - this.voucherDiscount + this.shippingFee;
+
+          // ✅ Lưu vào localStorage
+          this.saveToLocalStorage();
+        }
+
+        return response.data;
+      } catch (error) {
+        console.error("❌ Apply voucher error:", error);
+        throw error;
+      }
+    },
+
+    // ✅ THÊM ACTION XÓA VOUCHER
+    async removeVoucher() {
+      try {
+        const token =
+          localStorage.getItem("token") || localStorage.getItem("accessToken");
+        if (!token) {
+          throw new Error("Vui lòng đăng nhập");
+        }
+
+        const response = await axios.delete(`${API_BASE}/cart/remove-voucher`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+
+        console.log("✅ Remove voucher response:", response.data);
+
+        if (response.data && response.data.data) {
+          const cartData = response.data.data;
+
+          // ✅ Xóa voucher
+          this.voucherId = null;
+          this.voucherCode = null;
+          this.voucherDiscount = 0;
+
+          // ✅ Cập nhật lại giỏ hàng
+          this.items = (cartData.items || []).map((item) => ({
+            ...item,
+            stock: item.stock || 99,
+            id: item.productId || item.id,
+            productId: item.productId || item.id,
+            name: item.productName || item.name,
+            image: item.imageUrl || null,
+            imageUrl: item.imageUrl || null,
+            price: item.price || 0,
+            discountedPrice: item.discountedPrice || item.price || 0,
+          }));
+
+          this.subtotal = this.items.reduce((sum, item) => {
+            const price = item.discountedPrice || item.price || 0;
+            return sum + price * (item.quantity || 0);
+          }, 0);
+
+          this.totalItems = cartData.totalQuantity || 0;
+          this.shippingFee = cartData.shippingFee || 30000;
+          this.total = this.subtotal - this.voucherDiscount + this.shippingFee;
+
+          // ✅ Lưu vào localStorage
+          this.saveToLocalStorage();
+        }
+
+        return response.data;
+      } catch (error) {
+        console.error("❌ Remove voucher error:", error);
+        throw error;
+      }
+    },
+
+    async clearCart() {
+      try {
+        const token =
+          localStorage.getItem("token") || localStorage.getItem("accessToken");
+
+        if (token) {
+          await axios.delete(`${API_BASE}/cart/clear`, {
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          });
+        }
+
+        this.items = [];
+        this.subtotal = 0;
+        this.totalItems = 0;
+        this.total = 0;
+        this.voucherDiscount = 0;
+        this.voucherCode = null;
+        this.voucherId = null; // ✅ Xóa voucherId
+        this.saveToLocalStorage();
+      } catch (error) {
+        console.error("❌ Clear cart error:", error);
+        throw error;
+      }
+    },
+
+    async fetchCart() {
+      this.loading = true;
+      try {
+        const token =
+          localStorage.getItem("token") || localStorage.getItem("accessToken");
+
+        if (!token) {
+          console.log("ℹ️ No token, loading from localStorage");
+          this.loadFromLocalStorage();
+          this.loading = false;
+          return;
+        }
+
+        console.log("🔄 Fetching cart...");
+        const response = await axios.get(`${API_BASE}/cart`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+
+        console.log("✅ Cart response:", response.data);
+
+        if (response.data && response.data.data) {
+          const cartData = response.data.data;
+
+          // ✅ Map items - QUAN TRỌNG: Lấy discountedPrice từ response
+          this.items = (cartData.items || []).map((item) => ({
+            ...item,
+            stock: item.stock || 99,
+            id: item.productId || item.id,
+            productId: item.productId || item.id,
+            name: item.productName || item.name,
+            image: item.imageUrl || null,
+            imageUrl: item.imageUrl || null,
+            price: item.price || 0,
+            discountedPrice: item.discountedPrice || item.price || 0,
+          }));
+
+          // ✅ Tính subtotal dựa trên discountedPrice
+          this.subtotal = this.items.reduce((sum, item) => {
+            const price = item.discountedPrice || item.price || 0;
+            return sum + price * (item.quantity || 0);
+          }, 0);
+
+          this.totalItems = cartData.totalQuantity || 0;
+
+          // ✅ Lấy thông tin voucher - QUAN TRỌNG: Lấy voucherId
+          this.voucherDiscount = cartData.voucherDiscount || 0;
+          this.voucherCode = cartData.voucherCode || null;
+          this.voucherId = cartData.voucherId || null; // ✅ THÊM
+          this.shippingFee = cartData.shippingFee || 30000;
+
+          this.total = this.subtotal - this.voucherDiscount + this.shippingFee;
+
+          console.log("📊 Cart summary:", {
+            items: this.items.length,
+            subtotal: this.subtotal,
+            voucherDiscount: this.voucherDiscount,
+            voucherCode: this.voucherCode,
+            voucherId: this.voucherId,
+            shippingFee: this.shippingFee,
+            total: this.total,
+          });
+
+          this.saveToLocalStorage();
+        }
+      } catch (error) {
+        console.error("❌ Fetch cart error:", error);
+        this.loadFromLocalStorage();
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    saveToLocalStorage() {
+      try {
+        const data = {
+          items: this.items,
+          subtotal: this.subtotal,
+          total: this.total,
+          totalItems: this.totalItems,
+          shippingFee: this.shippingFee,
+          voucherDiscount: this.voucherDiscount,
+          voucherCode: this.voucherCode,
+          voucherId: this.voucherId, // ✅ THÊM voucherId
+        };
+        localStorage.setItem("cart", JSON.stringify(data));
+        console.log("💾 Cart saved to localStorage");
+      } catch (e) {
+        console.error("❌ Save cart error:", e);
+      }
+    },
+
+    loadFromLocalStorage() {
+      try {
+        const data = localStorage.getItem("cart");
+        if (data) {
+          const parsed = JSON.parse(data);
+          this.items = parsed.items || [];
+          this.subtotal = parsed.subtotal || 0;
+          this.total = parsed.total || 0;
+          this.totalItems = parsed.totalItems || 0;
+          this.shippingFee = parsed.shippingFee || 30000;
+          this.voucherDiscount = parsed.voucherDiscount || 0;
+          this.voucherCode = parsed.voucherCode || null;
+          this.voucherId = parsed.voucherId || null; // ✅ THÊM voucherId
+          console.log(
+            "📂 Cart loaded from localStorage:",
+            this.items.length,
+            "items",
+            "voucherId:",
+            this.voucherId,
+          );
+        }
+      } catch (e) {
+        console.error("❌ Load cart error:", e);
+      }
+    },
+
+    syncCartAfterLogin() {
+      console.log("🔄 Syncing cart after login");
+      this.fetchCart();
+    },
+  },
 });

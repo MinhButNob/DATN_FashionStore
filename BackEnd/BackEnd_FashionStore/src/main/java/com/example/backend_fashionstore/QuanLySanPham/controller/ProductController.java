@@ -57,4 +57,11 @@ public class ProductController {
         productService.deleteProduct(id);
         return ResponseEntity.ok(ApiResponse.ok(null));
     }
+
+    // ✅ THÊM API RESTORE
+    @PatchMapping("/{id}/restore")
+    public ResponseEntity<ApiResponse<ProductResponse>> restoreProduct(@PathVariable Integer id) {
+        ProductResponse product = productService.restoreProduct(id);
+        return ResponseEntity.ok(ApiResponse.ok(product));
+    }
 }

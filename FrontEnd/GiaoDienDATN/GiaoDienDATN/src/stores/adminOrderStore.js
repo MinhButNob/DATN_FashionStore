@@ -1,177 +1,103 @@
-import { defineStore } from "pinia";
-import { ref } from "vue";
-import { adminOrderService } from "../services/orderService";
+// src/services/adminOrderService.js
+import axios from "axios";
 
-export const useAdminOrderStore = defineStore("adminOrder", () => {
-  // State
-  const orders = ref([]);
-  const currentOrder = ref(null);
-  const loading = ref(false);
-  const totalElements = ref(0);
-  const totalPages = ref(0);
-  const currentPage = ref(0);
-  const pageSize = ref(10);
-  const statistics = ref({
-    totalOrders: 0,
-    completedOrders: 0,
-    pendingOrders: 0,
-    cancelledOrders: 0,
-    todayRevenue: 0,
-    monthlyRevenue: 0,
-  });
-  const statusCounts = ref({
-    PENDING_PAYMENT: 0,
-    PROCESSING: 0,
-    COMPLETED: 0,
-    CANCELLED: 0,
-    RETURNED: 0,
-  });
+const API_BASE = "http://localhost:8080/api";
 
-  // Actions
-  const fetchOrders = async (
-    status = null,
-    fromDate = null,
-    toDate = null,
-    keyword = null,
-    page = 0,
-    size = 10,
-  ) => {
-    loading.value = true;
-    try {
-      const response = await adminOrderService.getAllOrders(
-        status,
-        fromDate,
-        toDate,
-        keyword,
-        page,
-        size,
-      );
-      const data = response.data;
+const getAuthHeader = () => {
+  const token = localStorage.getItem("token");
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
 
-      orders.value = data.content || [];
-      totalElements.value = data.totalElements || 0;
-      totalPages.value = data.totalPages || 0;
-      currentPage.value = data.number || 0;
-      pageSize.value = data.size || 10;
+export const adminOrderService = {
+  // Lấy tất cả đơn hàng (Admin)
+  getAllOrders(params = {}) {
+    const queryParams = {};
 
-      return data;
-    } catch (error) {
-      console.error("Lỗi tải đơn hàng:", error);
-      throw error;
-    } finally {
-      loading.value = false;
+    if (params.status && params.status !== "all") {
+      queryParams.status = params.status;
     }
-  };
-
-  const fetchOrderDetail = async (orderId) => {
-    loading.value = true;
-    try {
-      const response = await adminOrderService.getOrderDetail(orderId);
-      currentOrder.value = response.data;
-      return response.data;
-    } catch (error) {
-      console.error("Lỗi tải chi tiết đơn hàng:", error);
-      throw error;
-    } finally {
-      loading.value = false;
+    if (params.keyword) {
+      queryParams.keyword = params.keyword;
     }
-  };
+    queryParams.page = params.page || 0;
+    queryParams.size = params.size || 10;
 
-  const updateOrderStatus = async (orderId, data) => {
-    loading.value = true;
-    try {
-      const response = await adminOrderService.updateOrderStatus(orderId, data);
+    console.log("📤 Calling API with params:", queryParams);
 
-      // Cập nhật trong danh sách
-      const index = orders.value.findIndex((o) => o.orderId === orderId);
-      if (index !== -1) {
-        orders.value[index] = response.data;
-      }
-      if (currentOrder.value?.orderId === orderId) {
-        currentOrder.value = response.data;
-      }
+    return axios.get(`${API_BASE}/admin/orders`, {
+      params: queryParams,
+      headers: {
+        ...getAuthHeader(),
+        "Content-Type": "application/json",
+      },
+    });
+  },
 
-      await fetchStatistics();
-      await fetchStatusCounts();
+  // Lấy chi tiết đơn hàng (Admin)
+  getOrderDetail(orderId) {
+    return axios.get(`${API_BASE}/admin/orders/${orderId}`, {
+      headers: getAuthHeader(),
+    });
+  },
 
-      return response.data;
-    } catch (error) {
-      console.error("Lỗi cập nhật trạng thái:", error);
-      throw error;
-    } finally {
-      loading.value = false;
-    }
-  };
+  // Cập nhật trạng thái đơn hàng (Admin)
+  updateOrderStatus(orderId, data) {
+    const requestData = {
+      orderStatus: data.orderStatus || data,
+      notes: data.notes || "",
+    };
+    return axios.put(
+      `${API_BASE}/admin/orders/${orderId}/status`,
+      requestData,
+      {
+        headers: {
+          ...getAuthHeader(),
+          "Content-Type": "application/json",
+        },
+      },
+    );
+  },
 
-  const updatePaymentStatus = async (orderId, paymentStatus) => {
-    loading.value = true;
-    try {
-      const response = await adminOrderService.updatePaymentStatus(
-        orderId,
-        paymentStatus,
-      );
+  // Cập nhật trạng thái thanh toán (Admin)
+  updatePaymentStatus(orderId, paymentStatus) {
+    return axios.put(
+      `${API_BASE}/admin/orders/${orderId}/payment-status`,
+      null,
+      {
+        params: { paymentStatus },
+        headers: getAuthHeader(),
+      },
+    );
+  },
 
-      const index = orders.value.findIndex((o) => o.orderId === orderId);
-      if (index !== -1) {
-        orders.value[index] = response.data;
-      }
-      if (currentOrder.value?.orderId === orderId) {
-        currentOrder.value = response.data;
-      }
+  // Lấy thống kê đơn hàng
+  getStatistics() {
+    return axios.get(`${API_BASE}/admin/orders/statistics`, {
+      headers: getAuthHeader(),
+    });
+  },
 
-      return response.data;
-    } catch (error) {
-      console.error("Lỗi cập nhật trạng thái thanh toán:", error);
-      throw error;
-    } finally {
-      loading.value = false;
-    }
-  };
+  // Lấy số lượng theo trạng thái
+  getStatusCounts() {
+    return axios.get(`${API_BASE}/admin/orders/status/counts`, {
+      headers: getAuthHeader(),
+    });
+  },
 
-  const fetchStatistics = async () => {
-    try {
-      const response = await adminOrderService.getStatistics();
-      statistics.value = response.data;
-      return response.data;
-    } catch (error) {
-      console.error("Lỗi tải thống kê:", error);
-      throw error;
-    }
-  };
+  // Xóa đơn hàng (soft delete)
+  deleteOrder(orderId) {
+    return axios.delete(`${API_BASE}/admin/orders/${orderId}`, {
+      headers: getAuthHeader(),
+    });
+  },
 
-  const fetchStatusCounts = async () => {
-    try {
-      const response = await adminOrderService.getStatusCounts();
-      statusCounts.value = response.data;
-      return response.data;
-    } catch (error) {
-      console.error("Lỗi tải thống kê trạng thái:", error);
-      throw error;
-    }
-  };
-
-  const clearCurrentOrder = () => {
-    currentOrder.value = null;
-  };
-
-  return {
-    // State
-    orders,
-    currentOrder,
-    loading,
-    totalElements,
-    totalPages,
-    currentPage,
-    pageSize,
-    statistics,
-    statusCounts,
-    // Actions
-    fetchOrders,
-    fetchOrderDetail,
-    updateOrderStatus,
-    updatePaymentStatus,
-    fetchStatistics,
-    fetchStatusCounts,
-    clearCurrentOrder,
-  };
-});
+  // Gửi thông báo cho khách hàng
+  notifyCustomer(orderId, data) {
+    return axios.post(`${API_BASE}/admin/orders/${orderId}/notify`, data, {
+      headers: {
+        ...getAuthHeader(),
+        "Content-Type": "application/json",
+      },
+    });
+  },
+};

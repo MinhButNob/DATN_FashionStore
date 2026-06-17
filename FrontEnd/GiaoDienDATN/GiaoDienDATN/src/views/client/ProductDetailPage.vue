@@ -87,7 +87,7 @@
               </div>
             </div>
 
-            <!-- ✅ SỬA: Màu sắc - lấy từ variants -->
+            <!-- Màu sắc -->
             <div class="variant-group" v-if="availableColors.length > 0">
               <h4>Màu sắc:</h4>
               <div class="color-options">
@@ -105,7 +105,7 @@
               </div>
             </div>
 
-            <!-- ✅ SỬA: Kích thước - lấy từ variants -->
+            <!-- Kích thước -->
             <div class="variant-group" v-if="availableSizes.length > 0">
               <h4>Kích thước:</h4>
               <div class="size-options">
@@ -212,6 +212,13 @@
 
     <ClientFooter />
     <CartModal />
+    
+    <!-- ✅ POPUP CART -->
+    <CartPopup 
+      :visible="showCartPopup" 
+      :product="lastAddedProduct"
+      @close="showCartPopup = false"
+    />
   </div>
 </template>
 
@@ -223,6 +230,7 @@ import { useNotification } from '../../composables/useNotification'
 import ClientHeader from '../../components/client/ClientHeader.vue'
 import ClientFooter from '../../components/client/ClientFooter.vue'
 import CartModal from '../../components/client/CartModal.vue'
+import CartPopup from '../../components/client/CartPopup.vue'
 import axios from 'axios'
 
 const route = useRoute()
@@ -237,6 +245,10 @@ const currentImage = ref(0)
 const quantity = ref(1)
 const selectedColorId = ref(null)
 const selectedSizeId = ref(null)
+
+// State cho popup
+const showCartPopup = ref(false)
+const lastAddedProduct = ref({})
 
 // Format price
 const formatPrice = (price) => {
@@ -264,7 +276,7 @@ const mainImage = computed(() => {
   return productImages.value[currentImage.value] || productImages.value[0]
 })
 
-// ✅ Lấy danh sách màu sắc từ variants (unique theo colorId)
+// Lấy danh sách màu sắc từ variants
 const availableColors = computed(() => {
   if (!product.value?.variants) return []
   const colorMap = new Map()
@@ -280,7 +292,7 @@ const availableColors = computed(() => {
   return Array.from(colorMap.values())
 })
 
-// ✅ Lấy danh sách kích thước từ variants (unique theo sizeId)
+// Lấy danh sách kích thước từ variants
 const availableSizes = computed(() => {
   if (!product.value?.variants) return []
   const sizeMap = new Map()
@@ -295,11 +307,9 @@ const availableSizes = computed(() => {
   return Array.from(sizeMap.values())
 })
 
-// ✅ Kiểm tra size có khả dụng với màu đã chọn không
+// Kiểm tra size có khả dụng với màu đã chọn không
 const isSizeAvailable = (sizeId) => {
   if (!product.value?.variants) return false
-  
-  // Nếu đã chọn màu, chỉ kiểm tra variants có màu đó
   if (selectedColorId.value) {
     return product.value.variants.some(v => 
       v.sizeId === sizeId && 
@@ -307,31 +317,13 @@ const isSizeAvailable = (sizeId) => {
       v.quantity > 0
     )
   }
-  // Nếu chưa chọn màu, kiểm tra bất kỳ variant nào có size đó còn hàng
   return product.value.variants.some(v => v.sizeId === sizeId && v.quantity > 0)
 }
 
-// ✅ Kiểm tra màu có khả dụng với size đã chọn không
-const isColorAvailable = (colorId) => {
-  if (!product.value?.variants) return false
-  
-  // Nếu đã chọn size, chỉ kiểm tra variants có size đó
-  if (selectedSizeId.value) {
-    return product.value.variants.some(v => 
-      v.colorId === colorId && 
-      v.sizeId === selectedSizeId.value && 
-      v.quantity > 0
-    )
-  }
-  // Nếu chưa chọn size, kiểm tra bất kỳ variant nào có màu đó còn hàng
-  return product.value.variants.some(v => v.colorId === colorId && v.quantity > 0)
-}
-
-// ✅ Tính toán biến thể được chọn
+// Tính toán biến thể được chọn
 const selectedVariant = computed(() => {
   if (!product.value?.variants || product.value.variants.length === 0) return null
   
-  // Tìm variant khớp với cả màu và size
   if (selectedColorId.value && selectedSizeId.value) {
     const found = product.value.variants.find(v => 
       v.colorId === selectedColorId.value && 
@@ -340,39 +332,31 @@ const selectedVariant = computed(() => {
     if (found) return found
   }
   
-  // Nếu chỉ có màu được chọn
   if (selectedColorId.value) {
     const found = product.value.variants.find(v => v.colorId === selectedColorId.value)
     if (found) return found
   }
   
-  // Nếu chỉ có size được chọn
   if (selectedSizeId.value) {
     const found = product.value.variants.find(v => v.sizeId === selectedSizeId.value)
     if (found) return found
   }
   
-  // Trả về variant đầu tiên còn hàng
   const inStockVariant = product.value.variants.find(v => v.quantity > 0)
   if (inStockVariant) return inStockVariant
   
-  // Hoặc variant đầu tiên
   return product.value.variants[0]
 })
 
-// Theo dõi selectedVariant để cập nhật màu và size
+// Theo dõi selectedVariant
 watch(selectedVariant, (newVariant) => {
   if (newVariant) {
-    // Cập nhật selectedColorId nếu chưa có
     if (!selectedColorId.value && newVariant.colorId) {
       selectedColorId.value = newVariant.colorId
     }
-    // Cập nhật selectedSizeId nếu chưa có
     if (!selectedSizeId.value && newVariant.sizeId) {
       selectedSizeId.value = newVariant.sizeId
     }
-    
-    // Reset quantity
     const maxQty = newVariant.quantity || 0
     if (quantity.value > maxQty && maxQty > 0) {
       quantity.value = maxQty
@@ -385,8 +369,6 @@ watch(selectedVariant, (newVariant) => {
 // Chọn màu
 const selectColor = (colorId) => {
   selectedColorId.value = colorId
-  
-  // Kiểm tra size hiện tại có còn phù hợp với màu mới không
   if (selectedSizeId.value) {
     const variantExists = product.value.variants.some(v => 
       v.colorId === colorId && 
@@ -394,7 +376,6 @@ const selectColor = (colorId) => {
       v.quantity > 0
     )
     if (!variantExists) {
-      // Nếu không còn variant phù hợp, tìm size mới
       const newVariant = product.value.variants.find(v => v.colorId === colorId && v.quantity > 0)
       if (newVariant) {
         selectedSizeId.value = newVariant.sizeId
@@ -403,7 +384,6 @@ const selectColor = (colorId) => {
       }
     }
   } else {
-    // Nếu chưa chọn size, chọn size đầu tiên của màu này còn hàng
     const firstVariant = product.value.variants.find(v => v.colorId === colorId && v.quantity > 0)
     if (firstVariant) {
       selectedSizeId.value = firstVariant.sizeId
@@ -414,8 +394,6 @@ const selectColor = (colorId) => {
 // Chọn size
 const selectSize = (sizeId) => {
   selectedSizeId.value = sizeId
-  
-  // Kiểm tra màu hiện tại có còn phù hợp với size mới không
   if (selectedColorId.value) {
     const variantExists = product.value.variants.some(v => 
       v.colorId === selectedColorId.value && 
@@ -423,7 +401,6 @@ const selectSize = (sizeId) => {
       v.quantity > 0
     )
     if (!variantExists) {
-      // Nếu không còn variant phù hợp, tìm màu mới
       const newVariant = product.value.variants.find(v => v.sizeId === sizeId && v.quantity > 0)
       if (newVariant) {
         selectedColorId.value = newVariant.colorId
@@ -432,7 +409,6 @@ const selectSize = (sizeId) => {
       }
     }
   } else {
-    // Nếu chưa chọn màu, chọn màu đầu tiên của size này còn hàng
     const firstVariant = product.value.variants.find(v => v.sizeId === sizeId && v.quantity > 0)
     if (firstVariant) {
       selectedColorId.value = firstVariant.colorId
@@ -444,67 +420,38 @@ const selectSize = (sizeId) => {
 const loadProductDetail = async () => {
   loading.value = true
   try {
-    let productId = route.params.id
-    
+    const productId = route.params.id
     if (!productId || productId === 'undefined') {
-      console.error("❌ Không có product ID hợp lệ")
       product.value = null
       loading.value = false
       showNotification('Không tìm thấy sản phẩm!', 'error')
       return
     }
     
-    console.log("🟡 Đang gọi API:", `${API_BASE}/customer/home/products/${productId}`)
-    
     const response = await axios.get(`${API_BASE}/customer/home/products/${productId}`)
-    console.log("🟢 Response:", response.data)
-    
     product.value = response.data
     
-    // Log variants để debug
-    if (product.value?.variants) {
-      console.log("📦 Số lượng variants:", product.value.variants.length)
-      product.value.variants.forEach((v, i) => {
-        console.log(`Variant ${i}: ${v.colorName} - ${v.sizeName}, Price: ${v.price}, Stock: ${v.quantity}`)
-      })
-    }
-    
-    // Log available colors và sizes
-    console.log("🎨 Available colors:", availableColors.value)
-    console.log("📏 Available sizes:", availableSizes.value)
-    
-    // Set default selections - chọn variant đầu tiên còn hàng
     const firstInStockVariant = product.value.variants?.find(v => v.quantity > 0)
     if (firstInStockVariant) {
       selectedColorId.value = firstInStockVariant.colorId
       selectedSizeId.value = firstInStockVariant.sizeId
-      console.log("✅ Default selection:", {
-        color: firstInStockVariant.colorName,
-        size: firstInStockVariant.sizeName,
-        colorId: selectedColorId.value,
-        sizeId: selectedSizeId.value
-      })
     } else if (product.value.variants?.length > 0) {
-      // Nếu hết hàng thì vẫn hiển thị variant đầu tiên
       selectedColorId.value = product.value.variants[0].colorId
       selectedSizeId.value = product.value.variants[0].sizeId
     }
     
   } catch (error) {
-    console.error("❌ Lỗi chi tiết:", error)
+    console.error("❌ Lỗi:", error)
     product.value = null
-    if (error.response?.status === 404) {
-      showNotification('Không tìm thấy sản phẩm!', 'error')
-    } else {
-      showNotification('Không thể tải thông tin sản phẩm!', 'error')
-    }
+    showNotification('Không thể tải thông tin sản phẩm!', 'error')
   } finally {
     loading.value = false
   }
 }
 
-// Add to cart
-const addToCart = () => {
+// ✅ Add to cart với popup - SỬA LỖI STOCK
+// ProductDetailPage.vue
+const addToCart = async () => {
   if (!selectedVariant.value) {
     showNotification('Vui lòng chọn màu sắc và kích thước!', 'error')
     return
@@ -520,33 +467,58 @@ const addToCart = () => {
     return
   }
   
-  // Sử dụng giá sau khuyến mãi nếu có
   const finalPrice = selectedVariant.value.discountedPrice && selectedVariant.value.discountedPrice < selectedVariant.value.price
     ? selectedVariant.value.discountedPrice
     : selectedVariant.value.price
   
-  cartStore.addToCart({
+  const stockQuantity = selectedVariant.value.quantity || 0
+  
+  const productData = {
+    productDetailId: selectedVariant.value.productDetailId, // ✅ QUAN TRỌNG: dùng đúng key này
     productId: product.value.productId,
     productName: product.value.productName,
-    productDetailId: selectedVariant.value.productDetailId,
+    name: product.value.productName,
     price: finalPrice,
-    originalPrice: selectedVariant.value.price,
     quantity: quantity.value,
-    color: selectedVariant.value.colorName,
-    size: selectedVariant.value.sizeName,
     image: mainImage.value,
+    imageUrl: mainImage.value,
+    size: selectedVariant.value.sizeName,
+    color: selectedVariant.value.colorName,
     sku: selectedVariant.value.sku,
     discountPercent: selectedVariant.value.discountedPrice ? 
-      calculateDiscountPercent(selectedVariant.value.price, selectedVariant.value.discountedPrice) : 0
-  })
-  showNotification('Đã thêm vào giỏ hàng!', 'success')
+      calculateDiscountPercent(selectedVariant.value.price, selectedVariant.value.discountedPrice) : 0,
+    stock: stockQuantity
+  }
+  
+  try {
+    // ✅ AWAIT để đợi API trả về
+    await cartStore.addToCart(productData)
+    
+    // ✅ Lưu thông tin để hiển thị popup
+    lastAddedProduct.value = {
+      name: product.value.productName,
+      price: finalPrice,
+      quantity: quantity.value,
+      image: mainImage.value,
+      size: selectedVariant.value.sizeName,
+      color: selectedVariant.value.colorName,
+      stock: stockQuantity
+    }
+    
+    // ✅ Hiển thị popup
+    showCartPopup.value = true
+    
+    // ✅ Reset quantity về 1 sau khi thêm thành công
+    quantity.value = 1
+    
+  } catch (error) {
+    console.error('❌ Add to cart error:', error)
+    showNotification(error.response?.data?.message || 'Thêm vào giỏ hàng thất bại!', 'error')
+  }
 }
 
 const buyNow = () => {
   addToCart()
-  setTimeout(() => {
-    router.push('/cart')
-  }, 500)
 }
 
 onMounted(() => {

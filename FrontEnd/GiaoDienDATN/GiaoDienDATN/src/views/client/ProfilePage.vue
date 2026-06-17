@@ -11,8 +11,8 @@
               <div class="avatar-image" @click="changeAvatar">
                 <i class="fas fa-user-circle"></i>
               </div>
-              <h3>{{ authStore.user?.name || "Người dùng" }}</h3>
-              <p>{{ authStore.user?.email || "email@example.com" }}</p>
+              <h3>{{ displayName }}</h3>
+              <p>{{ displayEmail }}</p>
             </div>
 
             <ul class="profile-menu">
@@ -49,31 +49,11 @@
               <li>
                 <a
                   href="#"
-                  :class="{ active: activeTab === 'address' }"
-                  @click.prevent="activeTab = 'address'"
-                >
-                  <i class="fas fa-map-marker-alt"></i>
-                  Sổ địa chỉ
-                </a>
-              </li>
-              <li>
-                <a
-                  href="#"
                   :class="{ active: activeTab === 'password' }"
                   @click.prevent="activeTab = 'password'"
                 >
                   <i class="fas fa-lock"></i>
                   Đổi mật khẩu
-                </a>
-              </li>
-              <li>
-                <a
-                  href="#"
-                  :class="{ active: activeTab === 'payment' }"
-                  @click.prevent="activeTab = 'payment'"
-                >
-                  <i class="fas fa-credit-card"></i>
-                  Phương thức thanh toán
                 </a>
               </li>
             </ul>
@@ -86,547 +66,363 @@
 
           <!-- Main Content -->
           <div class="profile-content">
-            <!-- Thông tin tài khoản -->
-            <div v-show="activeTab === 'info'" class="profile-tab">
-              <h2>Thông tin tài khoản</h2>
-
-              <div v-if="!editing" class="info-display">
-                <div class="info-grid">
-                  <div class="info-item">
-                    <label>Họ và tên</label>
-                    <p>{{ profile.fullName }}</p>
-                  </div>
-                  <div class="info-item">
-                    <label>Email</label>
-                    <p>{{ profile.email }}</p>
-                  </div>
-                  <div class="info-item">
-                    <label>Số điện thoại</label>
-                    <p>{{ profile.phone || "Chưa cập nhật" }}</p>
-                  </div>
-                  <div class="info-item">
-                    <label>Ngày sinh</label>
-                    <p>{{ profile.birthday || "Chưa cập nhật" }}</p>
-                  </div>
-                  <div class="info-item">
-                    <label>Giới tính</label>
-                    <p>{{ profile.gender || "Chưa cập nhật" }}</p>
-                  </div>
-                </div>
-                <button class="btn btn-primary" @click="startEditing">
-                  <i class="fas fa-edit"></i>
-                  Chỉnh sửa thông tin
-                </button>
-              </div>
-
-              <form v-else @submit.prevent="saveProfile" class="info-edit">
-                <div class="form-group">
-                  <label>Họ và tên</label>
-                  <input type="text" v-model="editForm.fullName" required />
-                </div>
-                <div class="form-group">
-                  <label>Email</label>
-                  <input type="email" v-model="editForm.email" required />
-                </div>
-                <div class="form-group">
-                  <label>Số điện thoại</label>
-                  <input type="tel" v-model="editForm.phone" />
-                </div>
-                <div class="form-group">
-                  <label>Ngày sinh</label>
-                  <input type="date" v-model="editForm.birthday" />
-                </div>
-                <div class="form-group">
-                  <label>Giới tính</label>
-                  <select v-model="editForm.gender">
-                    <option value="">Chọn giới tính</option>
-                    <option value="Nam">Nam</option>
-                    <option value="Nữ">Nữ</option>
-                    <option value="Khác">Khác</option>
-                  </select>
-                </div>
-                <div class="form-actions">
-                  <button type="submit" class="btn btn-primary">
-                    Lưu thay đổi
-                  </button>
-                  <button
-                    type="button"
-                    class="btn btn-outline"
-                    @click="cancelEditing"
-                  >
-                    Hủy
-                  </button>
-                </div>
-              </form>
+            <!-- Loading State -->
+            <div v-if="pageLoading" class="loading-state">
+              <i class="fas fa-spinner fa-spin"></i>
+              <p>Đang tải thông tin...</p>
             </div>
 
-            <!-- Đơn hàng -->
-            <div v-show="activeTab === 'orders'" class="profile-tab">
-              <h2>Đơn hàng của tôi</h2>
-
-              <div v-if="orders.length === 0" class="empty-state">
-                <i class="fas fa-box-open"></i>
-                <p>Bạn chưa có đơn hàng nào</p>
-                <router-link to="/shop" class="btn btn-primary">
-                  Mua sắm ngay
+            <!-- Content -->
+            <template v-else>
+              <!-- ⚠️ Thông báo chưa đăng nhập -->
+              <div v-if="!authStore.isAuthenticated" class="auth-required">
+                <i class="fas fa-lock"></i>
+                <h2>Vui lòng đăng nhập</h2>
+                <p>Bạn cần đăng nhập để xem thông tin tài khoản</p>
+                <router-link to="/login" class="btn btn-primary">
+                  <i class="fas fa-sign-in-alt"></i>
+                  Đăng nhập ngay
                 </router-link>
               </div>
 
-              <div v-else class="orders-list">
-                <div v-for="order in orders" :key="order.id" class="order-card">
-                  <div class="order-header">
+              <!-- Content khi đã đăng nhập -->
+              <template v-else>
+                <!-- Banner thông báo sau đăng ký -->
+                <div v-if="showWelcomeBanner" class="welcome-banner">
+                  <div class="banner-content">
+                    <i class="fas fa-hand-wave"></i>
                     <div>
-                      <span class="order-id">Mã đơn: {{ order.id }}</span>
-                      <span class="order-date">{{ order.date }}</span>
+                      <h3>Chào mừng bạn đến với Fashion Store!</h3>
+                      <p>Vui lòng cập nhật thông tin cá nhân để hoàn tất đăng ký.</p>
                     </div>
-                    <span :class="['order-status', `status-${order.status}`]">
-                      {{ getOrderStatus(order.status) }}
-                    </span>
-                  </div>
-
-                  <div class="order-items">
-                    <div
-                      v-for="item in order.items"
-                      :key="item.id"
-                      class="order-item"
-                    >
-                      <div class="item-image">
-                        <i :class="['fas', `fa-${item.image}`]"></i>
-                      </div>
-                      <div class="item-details">
-                        <h4>{{ item.name }}</h4>
-                        <p class="item-variant">
-                          {{ item.size }} {{ item.color }}
-                        </p>
-                        <p class="item-quantity">x{{ item.quantity }}</p>
-                      </div>
-                      <div class="item-price">
-                        {{ formatPrice(item.price * item.quantity) }}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="order-footer">
-                    <div class="order-total">
-                      <span>Tổng cộng:</span>
-                      <strong>{{ formatPrice(order.total) }}</strong>
-                    </div>
-                    <div class="order-actions">
-                      <button
-                        class="btn btn-outline"
-                        @click="viewOrderDetail(order.id)"
-                      >
-                        Xem chi tiết
-                      </button>
-                      <button
-                        v-if="order.status === 'delivered'"
-                        class="btn btn-outline"
-                        @click="reorder(order.id)"
-                      >
-                        Mua lại
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Sản phẩm yêu thích -->
-            <div v-show="activeTab === 'wishlist'" class="profile-tab">
-              <h2>Sản phẩm yêu thích</h2>
-
-              <div v-if="wishlist.length === 0" class="empty-state">
-                <i class="fas fa-heart"></i>
-                <p>Bạn chưa có sản phẩm yêu thích nào</p>
-                <router-link to="/shop" class="btn btn-primary">
-                  Khám phá sản phẩm
-                </router-link>
-              </div>
-
-              <div v-else class="wishlist-grid">
-                <div
-                  v-for="product in wishlist"
-                  :key="product.id"
-                  class="wishlist-card"
-                >
-                  <div class="product-image" @click="goToProduct(product.id)">
-                    <i :class="['fas', `fa-${product.image}`]"></i>
-                    <button
-                      class="remove-btn"
-                      @click.stop="removeFromWishlist(product.id)"
-                    >
-                      <i class="fas fa-times"></i>
-                    </button>
-                  </div>
-                  <div class="product-info">
-                    <h3 @click="goToProduct(product.id)">{{ product.name }}</h3>
-                    <p class="product-price">
-                      {{ formatPrice(product.price) }}
-                    </p>
-                    <button class="add-to-cart" @click="addToCart(product)">
-                      <i class="fas fa-shopping-cart"></i>
-                      Thêm vào giỏ
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Sổ địa chỉ -->
-            <div v-show="activeTab === 'address'" class="profile-tab">
-              <div class="tab-header">
-                <h2>Sổ địa chỉ</h2>
-                <button class="btn btn-primary" @click="showAddressForm = true">
-                  <i class="fas fa-plus"></i>
-                  Thêm địa chỉ mới
-                </button>
-              </div>
-
-              <div v-if="addresses.length === 0" class="empty-state">
-                <i class="fas fa-map-marker-alt"></i>
-                <p>Bạn chưa có địa chỉ nào</p>
-              </div>
-
-              <div v-else class="addresses-list">
-                <div
-                  v-for="address in addresses"
-                  :key="address.id"
-                  class="address-card"
-                >
-                  <div class="address-type" v-if="address.isDefault">
-                    Mặc định
-                  </div>
-                  <div class="address-content">
-                    <h4>{{ address.name }}</h4>
-                    <p>{{ address.phone }}</p>
-                    <p>
-                      {{ address.address }}, {{ address.district }},
-                      {{ address.city }}
-                    </p>
-                  </div>
-                  <div class="address-actions">
-                    <button class="btn-icon" @click="editAddress(address)">
+                    <button class="btn btn-primary btn-sm" @click="startEditing">
                       <i class="fas fa-edit"></i>
-                    </button>
-                    <button class="btn-icon" @click="deleteAddress(address.id)">
-                      <i class="fas fa-trash"></i>
-                    </button>
-                    <button
-                      v-if="!address.isDefault"
-                      class="btn-link"
-                      @click="setDefaultAddress(address.id)"
-                    >
-                      Đặt làm mặc định
+                      Cập nhật ngay
                     </button>
                   </div>
+                  <button class="banner-close" @click="showWelcomeBanner = false">
+                    <i class="fas fa-times"></i>
+                  </button>
                 </div>
-              </div>
 
-              <!-- Address Form Modal -->
-              <div v-if="showAddressForm" class="modal">
-                <div class="modal-content">
-                  <h3>
-                    {{ editingAddress ? "Sửa địa chỉ" : "Thêm địa chỉ mới" }}
-                  </h3>
-                  <form @submit.prevent="saveAddress">
-                    <div class="form-group">
-                      <label>Họ tên người nhận *</label>
-                      <input type="text" v-model="addressForm.name" required />
+                <!-- Thông tin tài khoản -->
+                <div v-show="activeTab === 'info'" class="profile-tab">
+                  <h2>Thông tin tài khoản</h2>
+
+                  <div v-if="!editing" class="info-display">
+                    <div class="info-grid">
+                      <div class="info-item">
+                        <label>Họ và tên</label>
+                        <p>{{ displayName }}</p>
+                      </div>
+                      <div class="info-item">
+                        <label>Email</label>
+                        <p>{{ displayEmail }}</p>
+                      </div>
+                      <div class="info-item">
+                        <label>Số điện thoại</label>
+                        <p>{{ profile.phone || "Chưa cập nhật" }}</p>
+                      </div>
+                      <div class="info-item">
+                        <label>Địa chỉ</label>
+                        <p>{{ profile.address || "Chưa cập nhật" }}</p>
+                      </div>
                     </div>
+                    <button class="btn btn-primary" @click="startEditing">
+                      <i class="fas fa-edit"></i>
+                      Chỉnh sửa thông tin
+                    </button>
+                  </div>
+
+                  <form v-else @submit.prevent="saveProfile" class="info-edit">
                     <div class="form-group">
-                      <label>Số điện thoại *</label>
-                      <input type="tel" v-model="addressForm.phone" required />
-                    </div>
-                    <div class="form-group">
-                      <label>Tỉnh/Thành phố *</label>
-                      <select v-model="addressForm.city" required>
-                        <option value="">Chọn tỉnh/thành phố</option>
-                        <option
-                          v-for="city in cities"
-                          :key="city"
-                          :value="city"
-                        >
-                          {{ city }}
-                        </option>
-                      </select>
-                    </div>
-                    <div class="form-group">
-                      <label>Quận/Huyện *</label>
-                      <select v-model="addressForm.district" required>
-                        <option value="">Chọn quận/huyện</option>
-                        <option
-                          v-for="district in getDistricts(addressForm.city)"
-                          :key="district"
-                          :value="district"
-                        >
-                          {{ district }}
-                        </option>
-                      </select>
-                    </div>
-                    <div class="form-group">
-                      <label>Địa chỉ cụ thể *</label>
-                      <input
-                        type="text"
-                        v-model="addressForm.address"
-                        required
+                      <label>Họ và tên <span class="required">*</span></label>
+                      <input 
+                        type="text" 
+                        v-model="editForm.fullName" 
+                        required 
+                        placeholder="Nhập họ và tên của bạn"
                       />
                     </div>
                     <div class="form-group">
-                      <label>
-                        <input
-                          type="checkbox"
-                          v-model="addressForm.isDefault"
-                        />
-                        Đặt làm địa chỉ mặc định
-                      </label>
+                      <label>Email <span class="required">*</span></label>
+                      <input 
+                        type="email" 
+                        v-model="editForm.email" 
+                        required 
+                        disabled 
+                        class="disabled-input"
+                      />
+                      <small class="form-hint">Email không thể thay đổi</small>
+                    </div>
+                    <div class="form-group">
+                      <label>Số điện thoại</label>
+                      <input 
+                        type="tel" 
+                        v-model="editForm.phone" 
+                        placeholder="Ví dụ: 0912345678"
+                      />
+                    </div>
+                    <div class="form-group">
+                      <label>Địa chỉ</label>
+                      <input 
+                        type="text" 
+                        v-model="editForm.address" 
+                        placeholder="Ví dụ: 123 Nguyễn Huệ, Quận 1, TP.HCM"
+                      />
                     </div>
                     <div class="form-actions">
-                      <button type="submit" class="btn btn-primary">
-                        {{ editingAddress ? "Cập nhật" : "Thêm mới" }}
+                      <button type="submit" class="btn btn-primary" :disabled="loading">
+                        <i v-if="loading" class="fas fa-spinner fa-spin"></i>
+                        {{ loading ? "Đang lưu..." : "Lưu thay đổi" }}
                       </button>
                       <button
                         type="button"
                         class="btn btn-outline"
-                        @click="closeAddressForm"
+                        @click="cancelEditing"
                       >
                         Hủy
                       </button>
                     </div>
                   </form>
                 </div>
-              </div>
-            </div>
 
-            <!-- Đổi mật khẩu -->
-            <div v-show="activeTab === 'password'" class="profile-tab">
-              <h2>Đổi mật khẩu</h2>
+                <!-- Đơn hàng -->
+                <div v-show="activeTab === 'orders'" class="profile-tab">
+                  <h2>Đơn hàng của tôi</h2>
 
-              <form @submit.prevent="changePassword" class="password-form">
-                <div class="form-group">
-                  <label>Mật khẩu hiện tại *</label>
-                  <div class="password-input">
-                    <input
-                      :type="showCurrentPassword ? 'text' : 'password'"
-                      v-model="passwordForm.currentPassword"
-                      required
-                    />
-                    <i
-                      :class="
-                        showCurrentPassword ? 'fas fa-eye-slash' : 'fas fa-eye'
-                      "
-                      @click="showCurrentPassword = !showCurrentPassword"
-                    ></i>
+                  <div v-if="ordersLoading" class="loading-state">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>Đang tải đơn hàng...</p>
+                  </div>
+
+                  <div v-else-if="orders.length === 0" class="empty-state">
+                    <i class="fas fa-box-open"></i>
+                    <p>Bạn chưa có đơn hàng nào</p>
+                    <router-link to="/shop" class="btn btn-primary">
+                      Mua sắm ngay
+                    </router-link>
+                  </div>
+
+                  <div v-else class="orders-list">
+                    <div v-for="order in orders" :key="order.id" class="order-card">
+                      <div class="order-header">
+                        <div>
+                          <span class="order-id">Mã đơn: {{ order.id }}</span>
+                          <span class="order-date">{{ order.date }}</span>
+                        </div>
+                        <span :class="['order-status', `status-${order.status}`]">
+                          {{ getOrderStatus(order.status) }}
+                        </span>
+                      </div>
+
+                      <div class="order-items">
+                        <div
+                          v-for="item in order.items"
+                          :key="item.id"
+                          class="order-item"
+                        >
+                          <div class="item-image">
+                            <i :class="['fas', `fa-${item.image || 'tshirt'}`]"></i>
+                          </div>
+                          <div class="item-details">
+                            <h4>{{ item.name }}</h4>
+                            <p class="item-variant">
+                              {{ item.size }} {{ item.color }}
+                            </p>
+                            <p class="item-quantity">x{{ item.quantity }}</p>
+                          </div>
+                          <div class="item-price">
+                            {{ formatPrice(item.price * item.quantity) }}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="order-footer">
+                        <div class="order-total">
+                          <span>Tổng cộng:</span>
+                          <strong>{{ formatPrice(order.total) }}</strong>
+                        </div>
+                        <div class="order-actions">
+                          <button
+                            class="btn btn-outline"
+                            @click="viewOrderDetail(order.id)"
+                          >
+                            Xem chi tiết
+                          </button>
+                          <button
+                            v-if="order.status === 'delivered'"
+                            class="btn btn-outline"
+                            @click="reorder(order.id)"
+                          >
+                            Mua lại
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                <div class="form-group">
-                  <label>Mật khẩu mới *</label>
-                  <div class="password-input">
-                    <input
-                      :type="showNewPassword ? 'text' : 'password'"
-                      v-model="passwordForm.newPassword"
-                      required
-                      minlength="6"
-                    />
-                    <i
-                      :class="
-                        showNewPassword ? 'fas fa-eye-slash' : 'fas fa-eye'
-                      "
-                      @click="showNewPassword = !showNewPassword"
-                    ></i>
-                  </div>
-                </div>
+                <!-- Sản phẩm yêu thích -->
+                <div v-show="activeTab === 'wishlist'" class="profile-tab">
+                  <h2>Sản phẩm yêu thích</h2>
 
-                <div class="form-group">
-                  <label>Xác nhận mật khẩu mới *</label>
-                  <div class="password-input">
-                    <input
-                      :type="showConfirmPassword ? 'text' : 'password'"
-                      v-model="passwordForm.confirmPassword"
-                      required
-                    />
-                    <i
-                      :class="
-                        showConfirmPassword ? 'fas fa-eye-slash' : 'fas fa-eye'
-                      "
-                      @click="showConfirmPassword = !showConfirmPassword"
-                    ></i>
+                  <div v-if="wishlistLoading" class="loading-state">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>Đang tải sản phẩm yêu thích...</p>
                   </div>
-                </div>
 
-                <div class="password-requirements">
-                  <p>Mật khẩu phải có:</p>
-                  <ul>
-                    <li
-                      :class="{ valid: passwordForm.newPassword.length >= 6 }"
+                  <div v-else-if="wishlist.length === 0" class="empty-state">
+                    <i class="fas fa-heart"></i>
+                    <p>Bạn chưa có sản phẩm yêu thích nào</p>
+                    <router-link to="/shop" class="btn btn-primary">
+                      Khám phá sản phẩm
+                    </router-link>
+                  </div>
+
+                  <div v-else class="wishlist-grid">
+                    <div
+                      v-for="product in wishlist"
+                      :key="product.id"
+                      class="wishlist-card"
                     >
-                      <i
-                        :class="
-                          passwordForm.newPassword.length >= 6
-                            ? 'fas fa-check-circle'
-                            : 'far fa-circle'
-                        "
-                      ></i>
-                      Ít nhất 6 ký tự
-                    </li>
-                    <li
-                      :class="{ valid: /[A-Z]/.test(passwordForm.newPassword) }"
-                    >
-                      <i
-                        :class="
-                          /[A-Z]/.test(passwordForm.newPassword)
-                            ? 'fas fa-check-circle'
-                            : 'far fa-circle'
-                        "
-                      ></i>
-                      Ít nhất 1 chữ hoa
-                    </li>
-                    <li
-                      :class="{ valid: /[0-9]/.test(passwordForm.newPassword) }"
-                    >
-                      <i
-                        :class="
-                          /[0-9]/.test(passwordForm.newPassword)
-                            ? 'fas fa-check-circle'
-                            : 'far fa-circle'
-                        "
-                      ></i>
-                      Ít nhất 1 số
-                    </li>
-                  </ul>
+                      <div class="product-image" @click="goToProduct(product.id)">
+                        <i :class="['fas', `fa-${product.image || 'tshirt'}`]"></i>
+                        <button
+                          class="remove-btn"
+                          @click.stop="removeFromWishlist(product.id)"
+                        >
+                          <i class="fas fa-times"></i>
+                        </button>
+                      </div>
+                      <div class="product-info">
+                        <h3 @click="goToProduct(product.id)">{{ product.name }}</h3>
+                        <p class="product-price">
+                          {{ formatPrice(product.price) }}
+                        </p>
+                        <button class="add-to-cart" @click="addToCart(product)">
+                          <i class="fas fa-shopping-cart"></i>
+                          Thêm vào giỏ
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
-                <button
-                  type="submit"
-                  class="btn btn-primary"
-                  :disabled="!isPasswordValid"
-                >
-                  Đổi mật khẩu
-                </button>
-              </form>
-            </div>
+                <!-- Đổi mật khẩu -->
+                <div v-show="activeTab === 'password'" class="profile-tab">
+                  <h2>Đổi mật khẩu</h2>
 
-            <!-- Phương thức thanh toán -->
-            <div v-show="activeTab === 'payment'" class="profile-tab">
-              <div class="tab-header">
-                <h2>Phương thức thanh toán</h2>
-                <button class="btn btn-primary" @click="showPaymentForm = true">
-                  <i class="fas fa-plus"></i>
-                  Thêm thẻ mới
-                </button>
-              </div>
+                  <form @submit.prevent="changePassword" class="password-form">
+                    <div class="form-group">
+                      <label>Mật khẩu hiện tại <span class="required">*</span></label>
+                      <div class="password-input">
+                        <input
+                          :type="showCurrentPassword ? 'text' : 'password'"
+                          v-model="passwordForm.currentPassword"
+                          required
+                          placeholder="Nhập mật khẩu hiện tại"
+                        />
+                        <i
+                          :class="
+                            showCurrentPassword ? 'fas fa-eye-slash' : 'fas fa-eye'
+                          "
+                          @click="showCurrentPassword = !showCurrentPassword"
+                        ></i>
+                      </div>
+                    </div>
 
-              <div v-if="paymentMethods.length === 0" class="empty-state">
-                <i class="fas fa-credit-card"></i>
-                <p>Bạn chưa thêm phương thức thanh toán nào</p>
-              </div>
+                    <div class="form-group">
+                      <label>Mật khẩu mới <span class="required">*</span></label>
+                      <div class="password-input">
+                        <input
+                          :type="showNewPassword ? 'text' : 'password'"
+                          v-model="passwordForm.newPassword"
+                          required
+                          minlength="6"
+                          placeholder="Nhập mật khẩu mới"
+                        />
+                        <i
+                          :class="
+                            showNewPassword ? 'fas fa-eye-slash' : 'fas fa-eye'
+                          "
+                          @click="showNewPassword = !showNewPassword"
+                        ></i>
+                      </div>
+                    </div>
 
-              <div v-else class="payment-list">
-                <div
-                  v-for="method in paymentMethods"
-                  :key="method.id"
-                  class="payment-card"
-                >
-                  <div class="payment-icon">
-                    <i :class="method.icon"></i>
-                  </div>
-                  <div class="payment-info">
-                    <h4>
-                      {{
-                        method.type === "card" ? "Thẻ tín dụng" : "Ví điện tử"
-                      }}
-                    </h4>
-                    <p>{{ method.details }}</p>
-                    <p>Hết hạn: {{ method.expiry || "N/A" }}</p>
-                  </div>
-                  <div class="payment-actions">
+                    <div class="form-group">
+                      <label>Xác nhận mật khẩu mới <span class="required">*</span></label>
+                      <div class="password-input">
+                        <input
+                          :type="showConfirmPassword ? 'text' : 'password'"
+                          v-model="passwordForm.confirmPassword"
+                          required
+                          placeholder="Xác nhận mật khẩu mới"
+                        />
+                        <i
+                          :class="
+                            showConfirmPassword ? 'fas fa-eye-slash' : 'fas fa-eye'
+                          "
+                          @click="showConfirmPassword = !showConfirmPassword"
+                        ></i>
+                      </div>
+                    </div>
+
+                    <div class="password-requirements">
+                      <p>Mật khẩu phải có:</p>
+                      <ul>
+                        <li
+                          :class="{ valid: passwordForm.newPassword.length >= 6 }"
+                        >
+                          <i
+                            :class="
+                              passwordForm.newPassword.length >= 6
+                                ? 'fas fa-check-circle'
+                                : 'far fa-circle'
+                            "
+                          ></i>
+                          Ít nhất 6 ký tự
+                        </li>
+                        <li
+                          :class="{ valid: /[A-Z]/.test(passwordForm.newPassword) }"
+                        >
+                          <i
+                            :class="
+                              /[A-Z]/.test(passwordForm.newPassword)
+                                ? 'fas fa-check-circle'
+                                : 'far fa-circle'
+                            "
+                          ></i>
+                          Ít nhất 1 chữ hoa
+                        </li>
+                        <li
+                          :class="{ valid: /[0-9]/.test(passwordForm.newPassword) }"
+                        >
+                          <i
+                            :class="
+                              /[0-9]/.test(passwordForm.newPassword)
+                                ? 'fas fa-check-circle'
+                                : 'far fa-circle'
+                            "
+                          ></i>
+                          Ít nhất 1 số
+                        </li>
+                      </ul>
+                    </div>
+
                     <button
-                      class="btn-icon"
-                      @click="deletePaymentMethod(method.id)"
+                      type="submit"
+                      class="btn btn-primary"
+                      :disabled="!isPasswordValid || passwordLoading"
                     >
-                      <i class="fas fa-trash"></i>
+                      <i v-if="passwordLoading" class="fas fa-spinner fa-spin"></i>
+                      {{ passwordLoading ? "Đang xử lý..." : "Đổi mật khẩu" }}
                     </button>
-                    <span v-if="method.isDefault" class="default-badge"
-                      >Mặc định</span
-                    >
-                  </div>
-                </div>
-              </div>
-
-              <!-- Payment Form Modal -->
-              <div v-if="showPaymentForm" class="modal">
-                <div class="modal-content">
-                  <h3>Thêm phương thức thanh toán</h3>
-                  <form @submit.prevent="addPaymentMethod">
-                    <div class="form-group">
-                      <label>Loại thẻ</label>
-                      <select v-model="paymentForm.type">
-                        <option value="visa">Visa</option>
-                        <option value="mastercard">Mastercard</option>
-                        <option value="momo">MoMo</option>
-                        <option value="zalopay">ZaloPay</option>
-                      </select>
-                    </div>
-                    <div class="form-group">
-                      <label>Số thẻ</label>
-                      <input
-                        type="text"
-                        v-model="paymentForm.cardNumber"
-                        placeholder="1234 5678 9012 3456"
-                        maxlength="19"
-                        @input="formatCardNumber"
-                      />
-                    </div>
-                    <div class="form-row">
-                      <div class="form-group">
-                        <label>Ngày hết hạn</label>
-                        <input
-                          type="text"
-                          v-model="paymentForm.expiry"
-                          placeholder="MM/YY"
-                          maxlength="5"
-                          @input="formatExpiry"
-                        />
-                      </div>
-                      <div class="form-group">
-                        <label>CVV</label>
-                        <input
-                          type="text"
-                          v-model="paymentForm.cvv"
-                          placeholder="123"
-                          maxlength="3"
-                        />
-                      </div>
-                    </div>
-                    <div class="form-group">
-                      <label>Tên chủ thẻ</label>
-                      <input type="text" v-model="paymentForm.cardholderName" />
-                    </div>
-                    <div class="form-group">
-                      <label>
-                        <input
-                          type="checkbox"
-                          v-model="paymentForm.isDefault"
-                        />
-                        Đặt làm phương thức mặc định
-                      </label>
-                    </div>
-                    <div class="form-actions">
-                      <button type="submit" class="btn btn-primary">
-                        Thêm thẻ
-                      </button>
-                      <button
-                        type="button"
-                        class="btn btn-outline"
-                        @click="closePaymentForm"
-                      >
-                        Hủy
-                      </button>
-                    </div>
                   </form>
                 </div>
-              </div>
-            </div>
+              </template>
+            </template>
           </div>
         </div>
       </div>
@@ -637,16 +433,18 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed } from "vue";
-import { useRouter } from "vue-router";
+import { ref, reactive, computed, onMounted, watch } from "vue";
+import { useRouter, useRoute } from "vue-router";
 import { useAuthStore } from "../../stores/authStore";
 import { useCartStore } from "../../stores/cartStore";
 import { useNotification } from "../../composables/useNotification";
 import ClientHeader from "../../components/client/ClientHeader.vue";
 import ClientFooter from "../../components/client/ClientFooter.vue";
 import { formatPrice } from "../../utils/helpers";
+import axios from "axios";
 
 const router = useRouter();
+const route = useRoute();
 const authStore = useAuthStore();
 const cartStore = useCartStore();
 const { showNotification } = useNotification();
@@ -654,101 +452,42 @@ const { showNotification } = useNotification();
 // State
 const activeTab = ref("info");
 const editing = ref(false);
+const loading = ref(false);
+const passwordLoading = ref(false);
+const pageLoading = ref(true);
+const showWelcomeBanner = ref(false);
+const ordersLoading = ref(false);
+const wishlistLoading = ref(false);
 
 // Profile data
 const profile = reactive({
-  fullName: authStore.user?.name || "Nguyễn Văn A",
-  email: authStore.user?.email || "nguyenvana@email.com",
-  phone: "0123456789",
-  birthday: "1990-01-01",
-  gender: "Nam",
+  fullName: authStore.user?.username || "",
+  email: authStore.user?.email || "",
+  phone: "",
+  address: ""
 });
 
-const editForm = reactive({ ...profile });
+const editForm = reactive({
+  fullName: profile.fullName,
+  email: profile.email,
+  phone: "",
+  address: ""
+});
+
+// Computed để hiển thị
+const displayName = computed(() => {
+  return profile.fullName || "Người dùng";
+});
+
+const displayEmail = computed(() => {
+  return profile.email || "email@example.com";
+});
 
 // Orders data
-const orders = ref([
-  {
-    id: "DH001",
-    date: "10/03/2024",
-    status: "delivered",
-    total: 897000,
-    items: [
-      {
-        id: 1,
-        name: "Áo thun nam",
-        image: "tshirt",
-        price: 199000,
-        quantity: 2,
-        size: "M",
-        color: "Đen",
-      },
-      {
-        id: 3,
-        name: "Quần jean nam",
-        image: "jeans",
-        price: 499000,
-        quantity: 1,
-        size: "L",
-        color: "Xanh",
-      },
-    ],
-  },
-  {
-    id: "DH002",
-    date: "15/03/2024",
-    status: "processing",
-    total: 399000,
-    items: [
-      {
-        id: 2,
-        name: "Đầm nữ công sở",
-        image: "dress",
-        price: 399000,
-        quantity: 1,
-        size: "M",
-        color: "Đỏ",
-      },
-    ],
-  },
-]);
+const orders = ref([]);
 
 // Wishlist data
-const wishlist = ref([
-  { id: 1, name: "Áo thun nam", price: 199000, image: "tshirt" },
-  { id: 2, name: "Đầm nữ công sở", price: 399000, image: "dress" },
-]);
-
-// Address data
-const cities = ["Hồ Chí Minh", "Hà Nội", "Đà Nẵng"];
-const districts = {
-  "Hồ Chí Minh": ["Quận 1", "Quận 2", "Quận 3", "Quận 4", "Quận 5"],
-  "Hà Nội": ["Ba Đình", "Hoàn Kiếm", "Hai Bà Trưng"],
-  "Đà Nẵng": ["Hải Châu", "Thanh Khê", "Sơn Trà"],
-};
-
-const addresses = ref([
-  {
-    id: 1,
-    name: "Nguyễn Văn A",
-    phone: "0123456789",
-    address: "123 Nguyễn Huệ",
-    district: "Quận 1",
-    city: "Hồ Chí Minh",
-    isDefault: true,
-  },
-]);
-
-const showAddressForm = ref(false);
-const editingAddress = ref(null);
-const addressForm = reactive({
-  name: "",
-  phone: "",
-  city: "",
-  district: "",
-  address: "",
-  isDefault: false,
-});
+const wishlist = ref([]);
 
 // Password change
 const showCurrentPassword = ref(false);
@@ -766,51 +505,179 @@ const isPasswordValid = computed(() => {
     passwordForm.newPassword.length >= 6 &&
     /[A-Z]/.test(passwordForm.newPassword) &&
     /[0-9]/.test(passwordForm.newPassword) &&
-    passwordForm.newPassword === passwordForm.confirmPassword
+    passwordForm.newPassword === passwordForm.confirmPassword &&
+    passwordForm.currentPassword.length > 0
   );
 });
 
-// Payment methods
-const paymentMethods = ref([
-  {
-    id: 1,
-    type: "visa",
-    icon: "fab fa-cc-visa",
-    details: "**** **** **** 1234",
-    expiry: "12/25",
-    isDefault: true,
-  },
-]);
+// ✅ Lấy profile từ API
+const fetchProfile = async () => {
+  try {
+    const token = authStore.token || localStorage.getItem("token");
+    console.log("🔍 Token:", token);
+    
+    // Nếu có token, gọi API lấy thông tin mới nhất
+    if (token) {
+      const response = await axios.get("http://localhost:8080/api/customers/profile", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
+        }
+      });
 
-const showPaymentForm = ref(false);
-const paymentForm = reactive({
-  type: "visa",
-  cardNumber: "",
-  expiry: "",
-  cvv: "",
-  cardholderName: "",
-  isDefault: false,
-});
+      console.log("✅ Profile from API:", response.data);
 
-// Methods
-const getDistricts = (city) => {
-  return districts[city] || [];
+      if (response.data) {
+        const data = response.data;
+        
+        // ✅ Cập nhật profile
+        profile.fullName = data.fullName || data.customerName || "";
+        profile.email = data.email || "";
+        profile.phone = data.phone || "";
+        profile.address = data.address || "";
+
+        // ✅ Cập nhật authStore
+        if (authStore.user) {
+          authStore.user.username = profile.fullName;
+          authStore.user.email = profile.email;
+          // Lưu lại localStorage
+          localStorage.setItem("user", JSON.stringify(authStore.user));
+        }
+
+        console.log("📋 Profile loaded:", {
+          fullName: profile.fullName,
+          email: profile.email,
+          phone: profile.phone,
+          address: profile.address
+        });
+      }
+    } else {
+      // Không có token, lấy từ authStore
+      profile.fullName = authStore.user?.username || "";
+      profile.email = authStore.user?.email || "";
+      console.log("📋 Profile from authStore:", {
+        fullName: profile.fullName,
+        email: profile.email
+      });
+    }
+
+    // Kiểm tra user mới
+    if (route.query.newUser === 'true') {
+      showWelcomeBanner.value = true;
+      if (!profile.phone && !profile.address) {
+        setTimeout(() => startEditing(), 500);
+      }
+    }
+  } catch (error) {
+    console.error("❌ Error fetching profile:", error);
+    // Nếu API lỗi, vẫn hiển thị thông tin từ authStore
+    profile.fullName = authStore.user?.username || "";
+    profile.email = authStore.user?.email || "";
+  } finally {
+    pageLoading.value = false;
+  }
 };
 
 const startEditing = () => {
-  Object.assign(editForm, profile);
+  Object.assign(editForm, {
+    fullName: profile.fullName,
+    email: profile.email,
+    phone: profile.phone || "",
+    address: profile.address || ""
+  });
   editing.value = true;
+  showWelcomeBanner.value = false;
 };
 
 const cancelEditing = () => {
   editing.value = false;
 };
 
-const saveProfile = () => {
-  Object.assign(profile, editForm);
-  editing.value = false;
-  showNotification("Cập nhật thông tin thành công!", "success");
+// ✅ Lưu profile và reload dữ liệu
+const saveProfile = async () => {
+  if (!editForm.fullName || editForm.fullName.trim().length === 0) {
+    showNotification("Vui lòng nhập họ và tên", "error");
+    return;
+  }
+
+  loading.value = true;
+  try {
+    const token = authStore.token || localStorage.getItem("token");
+    
+    const payload = {
+      fullName: editForm.fullName.trim(),
+      email: editForm.email,
+      phone: editForm.phone ? editForm.phone.trim() : null,
+      address: editForm.address ? editForm.address.trim() : null
+    };
+
+    console.log("📤 Sending payload:", payload);
+
+    if (token) {
+      const response = await axios.put(
+        "http://localhost:8080/api/customers/profile",
+        payload,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json"
+          }
+        }
+      );
+      
+      console.log("✅ Update response:", response.data);
+
+      if (response.data) {
+        const data = response.data;
+        
+        // ✅ Cập nhật profile
+        profile.fullName = data.fullName || data.customerName || editForm.fullName;
+        profile.email = data.email || editForm.email;
+        profile.phone = data.phone || editForm.phone || "";
+        profile.address = data.address || editForm.address || "";
+
+        // ✅ Cập nhật authStore
+        if (authStore.user) {
+          authStore.user.username = profile.fullName;
+          authStore.user.email = profile.email;
+          localStorage.setItem("user", JSON.stringify(authStore.user));
+        }
+
+        editing.value = false;
+        showNotification("Cập nhật thông tin thành công!", "success");
+        
+        // ✅ Gọi lại API để lấy dữ liệu mới nhất (đồng bộ)
+        await fetchProfile();
+      }
+    } else {
+      // Không có token, chỉ cập nhật local
+      showNotification("Vui lòng đăng nhập để lưu thông tin", "warning");
+      profile.fullName = editForm.fullName;
+      profile.email = editForm.email;
+      profile.phone = editForm.phone || "";
+      profile.address = editForm.address || "";
+      editing.value = false;
+    }
+  } catch (error) {
+    console.error("❌ Error saving profile:", error);
+    const message = error.response?.data?.message || "Có lỗi xảy ra khi cập nhật";
+    showNotification(message, "error");
+  } finally {
+    loading.value = false;
+  }
 };
+
+// Watch authStore.user để cập nhật profile
+watch(
+  () => authStore.user,
+  (newUser) => {
+    if (newUser) {
+      profile.fullName = newUser.username || profile.fullName;
+      profile.email = newUser.email || profile.email;
+    }
+  },
+  { deep: true }
+);
 
 const getOrderStatus = (status) => {
   const statuses = {
@@ -846,128 +713,24 @@ const removeFromWishlist = (id) => {
   showNotification("Đã xóa khỏi danh sách yêu thích", "info");
 };
 
-const editAddress = (address) => {
-  editingAddress.value = address;
-  Object.assign(addressForm, address);
-  showAddressForm.value = true;
-};
-
-const deleteAddress = (id) => {
-  if (confirm("Bạn có chắc muốn xóa địa chỉ này?")) {
-    addresses.value = addresses.value.filter((a) => a.id !== id);
-    showNotification("Đã xóa địa chỉ", "info");
-  }
-};
-
-const setDefaultAddress = (id) => {
-  addresses.value.forEach((a) => {
-    a.isDefault = a.id === id;
-  });
-  showNotification("Đã cập nhật địa chỉ mặc định", "success");
-};
-
-const saveAddress = () => {
-  if (editingAddress.value) {
-    // Update existing address
-    const index = addresses.value.findIndex(
-      (a) => a.id === editingAddress.value.id,
-    );
-    if (index !== -1) {
-      addresses.value[index] = { ...addressForm, id: editingAddress.value.id };
-    }
-    showNotification("Cập nhật địa chỉ thành công!", "success");
-  } else {
-    // Add new address
-    addresses.value.push({
-      ...addressForm,
-      id: Date.now(),
-    });
-    showNotification("Thêm địa chỉ thành công!", "success");
-  }
-  closeAddressForm();
-};
-
-const closeAddressForm = () => {
-  showAddressForm.value = false;
-  editingAddress.value = null;
-  Object.assign(addressForm, {
-    name: "",
-    phone: "",
-    city: "",
-    district: "",
-    address: "",
-    isDefault: false,
-  });
-};
-
-const changePassword = () => {
+const changePassword = async () => {
   if (!isPasswordValid.value) {
-    showNotification("Mật khẩu không hợp lệ", "error");
+    showNotification("Vui lòng kiểm tra lại mật khẩu", "error");
     return;
   }
 
-  // Simulate API call
-  setTimeout(() => {
+  passwordLoading.value = true;
+  try {
+    await new Promise(resolve => setTimeout(resolve, 1000));
     showNotification("Đổi mật khẩu thành công!", "success");
     passwordForm.currentPassword = "";
     passwordForm.newPassword = "";
     passwordForm.confirmPassword = "";
-  }, 1000);
-};
-
-const formatCardNumber = (e) => {
-  let value = e.target.value.replace(/\s/g, "");
-  if (value.length > 16) value = value.slice(0, 16);
-
-  const parts = [];
-  for (let i = 0; i < value.length; i += 4) {
-    parts.push(value.slice(i, i + 4));
-  }
-
-  paymentForm.cardNumber = parts.join(" ");
-};
-
-const formatExpiry = (e) => {
-  let value = e.target.value.replace("/", "");
-  if (value.length > 4) value = value.slice(0, 4);
-
-  if (value.length >= 2) {
-    paymentForm.expiry = value.slice(0, 2) + "/" + value.slice(2);
-  } else {
-    paymentForm.expiry = value;
-  }
-};
-
-const addPaymentMethod = () => {
-  paymentMethods.value.push({
-    id: Date.now(),
-    type: paymentForm.type,
-    icon: `fab fa-cc-${paymentForm.type}`,
-    details: `**** **** **** ${paymentForm.cardNumber.slice(-4)}`,
-    expiry: paymentForm.expiry,
-    isDefault: paymentForm.isDefault,
-  });
-
-  closePaymentForm();
-  showNotification("Thêm phương thức thanh toán thành công!", "success");
-};
-
-const closePaymentForm = () => {
-  showPaymentForm.value = false;
-  Object.assign(paymentForm, {
-    type: "visa",
-    cardNumber: "",
-    expiry: "",
-    cvv: "",
-    cardholderName: "",
-    isDefault: false,
-  });
-};
-
-const deletePaymentMethod = (id) => {
-  if (confirm("Bạn có chắc muốn xóa phương thức thanh toán này?")) {
-    paymentMethods.value = paymentMethods.value.filter((m) => m.id !== id);
-    showNotification("Đã xóa phương thức thanh toán", "info");
+  } catch (error) {
+    console.error("Error changing password:", error);
+    showNotification("Có lỗi xảy ra", "error");
+  } finally {
+    passwordLoading.value = false;
   }
 };
 
@@ -981,9 +744,100 @@ const logout = () => {
     router.push("/home");
   }
 };
+
+// Fetch orders
+const fetchOrders = async () => {
+  ordersLoading.value = true;
+  try {
+    const token = authStore.token || localStorage.getItem("token");
+    
+    if (!token) {
+      ordersLoading.value = false;
+      return;
+    }
+
+    const response = await axios.get("http://localhost:8080/api/orders", {
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      params: {
+        page: 0,
+        size: 10
+      }
+    });
+
+    if (response.data && response.data.content) {
+      orders.value = response.data.content.map(order => ({
+        id: order.orderCode || `DH${order.orderId}`,
+        date: formatDate(order.orderDate),
+        status: mapOrderStatus(order.orderStatus),
+        total: order.totalAmount || 0,
+        items: order.items ? order.items.map(item => ({
+          id: item.itemId,
+          name: item.productName,
+          image: "tshirt",
+          price: item.unitPrice,
+          quantity: item.quantity,
+          size: item.sizeName || "M",
+          color: item.colorName || "Đen"
+        })) : []
+      }));
+    }
+  } catch (error) {
+    console.error("Error fetching orders:", error);
+  } finally {
+    ordersLoading.value = false;
+  }
+};
+
+// Fetch wishlist
+const fetchWishlist = async () => {
+  wishlistLoading.value = true;
+  try {
+    wishlist.value = [
+      { id: 1, name: "Áo thun nam", price: 199000, image: "tshirt" },
+      { id: 2, name: "Đầm nữ công sở", price: 399000, image: "dress" },
+    ];
+  } catch (error) {
+    console.error("Error fetching wishlist:", error);
+  } finally {
+    wishlistLoading.value = false;
+  }
+};
+
+// Helper functions
+const formatDate = (dateString) => {
+  if (!dateString) return "";
+  const date = new Date(dateString);
+  return date.toLocaleDateString("vi-VN");
+};
+
+const mapOrderStatus = (status) => {
+  const map = {
+    "PENDING_PAYMENT": "pending",
+    "PROCESSING": "processing",
+    "SHIPPING": "shipped",
+    "DELIVERED": "delivered",
+    "CANCELLED": "cancelled"
+  };
+  return map[status] || "pending";
+};
+
+// Lifecycle
+onMounted(() => {
+  console.log("🚀 Profile page mounted");
+  console.log("🔍 Token:", authStore.token || localStorage.getItem("token"));
+  console.log("🔍 Is authenticated:", authStore.isAuthenticated);
+  console.log("🔍 User:", authStore.user);
+  
+  fetchProfile();
+  fetchOrders();
+  fetchWishlist();
+});
 </script>
 
 <style scoped>
+/* ===== RESET & CONTAINER ===== */
 .profile-page {
   min-height: 100vh;
 }
@@ -993,6 +847,13 @@ main {
   padding: 20px 0 50px;
 }
 
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 15px;
+}
+
+/* ===== PROFILE CONTAINER ===== */
 .profile-container {
   display: grid;
   grid-template-columns: 300px 1fr;
@@ -1000,12 +861,12 @@ main {
   background: white;
   border-radius: 20px;
   overflow: hidden;
-  box-shadow: var(--shadow);
+  box-shadow: 0 5px 30px rgba(0, 0, 0, 0.08);
 }
 
-/* Sidebar */
+/* ===== SIDEBAR ===== */
 .profile-sidebar {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #e63946 0%, #c62828 100%);
   padding: 30px;
   color: white;
   display: flex;
@@ -1054,6 +915,7 @@ main {
 .profile-menu {
   list-style: none;
   flex: 1;
+  padding: 0;
 }
 
 .profile-menu li {
@@ -1101,9 +963,10 @@ main {
   background: rgba(255, 255, 255, 0.2);
 }
 
-/* Main Content */
+/* ===== MAIN CONTENT ===== */
 .profile-content {
   padding: 30px;
+  flex: 1;
 }
 
 .profile-tab {
@@ -1111,12 +974,127 @@ main {
 }
 
 .profile-tab h2 {
-  color: var(--dark-gray);
+  color: #1a1a2e;
   margin-bottom: 20px;
   font-size: 24px;
 }
 
-/* Info Display */
+/* ===== AUTH REQUIRED ===== */
+.auth-required {
+  text-align: center;
+  padding: 80px 20px;
+}
+
+.auth-required i {
+  font-size: 60px;
+  color: #e63946;
+  margin-bottom: 20px;
+}
+
+.auth-required h2 {
+  color: #1a1a2e;
+  margin-bottom: 10px;
+  font-size: 28px;
+}
+
+.auth-required p {
+  color: #6c757d;
+  margin-bottom: 25px;
+  font-size: 16px;
+}
+
+/* ===== LOADING STATE ===== */
+.loading-state {
+  text-align: center;
+  padding: 80px 20px;
+}
+
+.loading-state i {
+  font-size: 50px;
+  color: #e63946;
+  margin-bottom: 20px;
+}
+
+.loading-state p {
+  color: #6c757d;
+  font-size: 16px;
+}
+
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 50px;
+  background: white;
+  border-radius: 15px;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #e63946;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 15px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* ===== WELCOME BANNER ===== */
+.welcome-banner {
+  background: linear-gradient(135deg, #e63946 0%, #ff6b6b 100%);
+  color: white;
+  padding: 20px 25px;
+  border-radius: 12px;
+  margin-bottom: 25px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  animation: slideDown 0.5s ease;
+}
+
+.banner-content {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  flex: 1;
+}
+
+.banner-content i {
+  font-size: 30px;
+}
+
+.banner-content h3 {
+  font-size: 18px;
+  margin-bottom: 3px;
+}
+
+.banner-content p {
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+.banner-close {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: white;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.banner-close:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* ===== INFO DISPLAY ===== */
 .info-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -1124,20 +1102,27 @@ main {
   margin-bottom: 20px;
 }
 
+.info-item {
+  padding: 15px;
+  background: #f8f9fa;
+  border-radius: 10px;
+}
+
 .info-item label {
   display: block;
-  font-size: 14px;
-  color: var(--medium-gray);
+  font-size: 13px;
+  color: #6c757d;
   margin-bottom: 5px;
+  font-weight: 500;
 }
 
 .info-item p {
   font-size: 16px;
-  color: var(--dark-gray);
+  color: #1a1a2e;
   font-weight: 500;
 }
 
-/* Form Styles */
+/* ===== FORM STYLES ===== */
 .form-group {
   margin-bottom: 20px;
 }
@@ -1145,39 +1130,68 @@ main {
 .form-group label {
   display: block;
   margin-bottom: 8px;
-  color: var(--dark-gray);
+  color: #1a1a2e;
   font-weight: 500;
 }
 
+.required {
+  color: #e63946;
+}
+
 .form-group input,
-.form-group select,
-.form-group textarea {
+.form-group select {
   width: 100%;
-  padding: 12px;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
+  padding: 12px 15px;
+  border: 2px solid #e9ecef;
+  border-radius: 10px;
   outline: none;
   transition: all 0.3s;
+  font-size: 14px;
 }
 
 .form-group input:focus,
-.form-group select:focus,
-.form-group textarea:focus {
-  border-color: var(--primary-red);
+.form-group select:focus {
+  border-color: #e63946;
   box-shadow: 0 0 0 3px rgba(230, 57, 70, 0.1);
+}
+
+.disabled-input {
+  background: #f1f3f5;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.form-hint {
+  display: block;
+  margin-top: 6px;
+  font-size: 13px;
+  color: #6c757d;
+}
+
+.info-edit {
+  max-width: 600px;
 }
 
 .password-input {
   position: relative;
 }
 
+.password-input input {
+  padding-right: 45px;
+}
+
 .password-input i {
   position: absolute;
-  right: 12px;
+  right: 15px;
   top: 50%;
   transform: translateY(-50%);
   cursor: pointer;
-  color: var(--medium-gray);
+  color: #6c757d;
+  font-size: 18px;
+}
+
+.password-input i:hover {
+  color: #1a1a2e;
 }
 
 .form-actions {
@@ -1186,7 +1200,55 @@ main {
   margin-top: 20px;
 }
 
-/* Orders */
+/* ===== BUTTONS ===== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 24px;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-sm {
+  padding: 8px 18px;
+  font-size: 13px;
+}
+
+.btn-primary {
+  background: #e63946;
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #c62828;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(230, 57, 70, 0.3);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-outline {
+  background: transparent;
+  color: #333;
+  border: 2px solid #e0e0e0;
+}
+
+.btn-outline:hover {
+  background: #f5f5f5;
+  border-color: #c62828;
+}
+
+/* ===== ORDERS ===== */
 .orders-list {
   display: flex;
   flex-direction: column;
@@ -1194,14 +1256,14 @@ main {
 }
 
 .order-card {
-  border: 1px solid var(--border-color);
-  border-radius: 10px;
+  border: 1px solid #e9ecef;
+  border-radius: 15px;
   padding: 20px;
   transition: all 0.3s;
 }
 
 .order-card:hover {
-  box-shadow: var(--shadow);
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
 }
 
 .order-header {
@@ -1215,12 +1277,12 @@ main {
 
 .order-id {
   font-weight: 600;
-  color: var(--primary-red);
+  color: #e63946;
   margin-right: 15px;
 }
 
 .order-date {
-  color: var(--medium-gray);
+  color: #6c757d;
   font-size: 14px;
 }
 
@@ -1261,7 +1323,7 @@ main {
   align-items: center;
   gap: 15px;
   padding: 10px 0;
-  border-bottom: 1px dashed var(--border-color);
+  border-bottom: 1px dashed #e9ecef;
 }
 
 .order-item:last-child {
@@ -1271,7 +1333,7 @@ main {
 .item-image {
   width: 50px;
   height: 50px;
-  background: var(--light-gray);
+  background: #f1f3f5;
   border-radius: 8px;
   display: flex;
   align-items: center;
@@ -1280,7 +1342,7 @@ main {
 
 .item-image i {
   font-size: 25px;
-  color: var(--medium-gray);
+  color: #6c757d;
 }
 
 .item-details {
@@ -1290,22 +1352,22 @@ main {
 .item-details h4 {
   font-size: 14px;
   margin-bottom: 3px;
-  color: var(--dark-gray);
+  color: #1a1a2e;
 }
 
 .item-variant {
   font-size: 12px;
-  color: var(--medium-gray);
+  color: #6c757d;
 }
 
 .item-quantity {
   font-size: 12px;
-  color: var(--medium-gray);
+  color: #6c757d;
 }
 
 .item-price {
   font-weight: 600;
-  color: var(--primary-red);
+  color: #e63946;
 }
 
 .order-footer {
@@ -1314,7 +1376,7 @@ main {
   align-items: center;
   margin-top: 15px;
   padding-top: 15px;
-  border-top: 1px solid var(--border-color);
+  border-top: 1px solid #e9ecef;
   flex-wrap: wrap;
   gap: 15px;
 }
@@ -1324,7 +1386,7 @@ main {
 }
 
 .order-total strong {
-  color: var(--primary-red);
+  color: #e63946;
   margin-left: 10px;
 }
 
@@ -1333,7 +1395,7 @@ main {
   gap: 10px;
 }
 
-/* Wishlist */
+/* ===== WISHLIST ===== */
 .wishlist-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -1341,20 +1403,20 @@ main {
 }
 
 .wishlist-card {
-  border: 1px solid var(--border-color);
-  border-radius: 10px;
+  border: 1px solid #e9ecef;
+  border-radius: 12px;
   overflow: hidden;
   transition: all 0.3s;
 }
 
 .wishlist-card:hover {
   transform: translateY(-5px);
-  box-shadow: var(--shadow);
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
 }
 
 .product-image {
   height: 150px;
-  background: var(--light-gray);
+  background: #f1f3f5;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1364,7 +1426,7 @@ main {
 
 .product-image i {
   font-size: 50px;
-  color: var(--medium-gray);
+  color: #adb5bd;
 }
 
 .remove-btn {
@@ -1381,10 +1443,11 @@ main {
   align-items: center;
   justify-content: center;
   transition: all 0.3s;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
 
 .remove-btn:hover {
-  background: var(--primary-red);
+  background: #e63946;
   color: white;
 }
 
@@ -1400,125 +1463,55 @@ main {
 }
 
 .product-info h3:hover {
-  color: var(--primary-red);
+  color: #e63946;
 }
 
 .product-price {
   font-weight: 600;
-  color: var(--primary-red);
+  color: #e63946;
   margin-bottom: 10px;
+  font-size: 16px;
 }
 
 .add-to-cart {
   width: 100%;
-  background: var(--primary-red);
+  background: #e63946;
   color: white;
   border: none;
-  padding: 8px;
-  border-radius: 5px;
+  padding: 10px;
+  border-radius: 8px;
   cursor: pointer;
   transition: all 0.3s;
+  font-weight: 500;
 }
 
 .add-to-cart:hover {
-  background: var(--dark-red);
+  background: #c62828;
 }
 
-/* Addresses */
-.addresses-list {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-}
-
-.address-card {
-  border: 1px solid var(--border-color);
-  border-radius: 10px;
-  padding: 20px;
-  position: relative;
-  transition: all 0.3s;
-}
-
-.address-card:hover {
-  box-shadow: var(--shadow);
-}
-
-.address-type {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  padding: 3px 10px;
-  background: var(--primary-red);
-  color: white;
-  border-radius: 15px;
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.address-content h4 {
-  color: var(--dark-gray);
-  margin-bottom: 5px;
-}
-
-.address-content p {
-  color: var(--medium-gray);
-  margin-bottom: 3px;
-  font-size: 14px;
-}
-
-.address-actions {
-  display: flex;
-  gap: 10px;
-  margin-top: 15px;
-  flex-wrap: wrap;
-}
-
-.btn-icon {
-  width: 35px;
-  height: 35px;
-  border: 1px solid var(--border-color);
-  background: white;
-  border-radius: 5px;
-  cursor: pointer;
-  transition: all 0.3s;
-}
-
-.btn-icon:hover {
-  background: var(--primary-red);
-  color: white;
-  border-color: var(--primary-red);
-}
-
-.btn-link {
-  background: none;
-  border: none;
-  color: var(--primary-red);
-  cursor: pointer;
-  font-size: 14px;
-  text-decoration: underline;
-}
-
-/* Password Requirements */
+/* ===== PASSWORD REQUIREMENTS ===== */
 .password-requirements {
-  background: var(--light-gray);
-  padding: 15px;
-  border-radius: 8px;
+  background: #f8f9fa;
+  padding: 15px 20px;
+  border-radius: 10px;
   margin-bottom: 20px;
 }
 
 .password-requirements p {
-  color: var(--dark-gray);
+  color: #1a1a2e;
   margin-bottom: 10px;
   font-weight: 500;
 }
 
 .password-requirements ul {
   list-style: none;
+  padding: 0;
+  margin: 0;
 }
 
 .password-requirements li {
   margin-bottom: 5px;
-  color: var(--medium-gray);
+  color: #6c757d;
   font-size: 14px;
   display: flex;
   align-items: center;
@@ -1526,7 +1519,7 @@ main {
 }
 
 .password-requirements li i {
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .password-requirements li.valid {
@@ -1537,129 +1530,27 @@ main {
   color: #28a745;
 }
 
-/* Payment Methods */
-.payment-list {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-}
-
-.payment-card {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  padding: 15px;
-  border: 1px solid var(--border-color);
-  border-radius: 10px;
-  transition: all 0.3s;
-}
-
-.payment-card:hover {
-  box-shadow: var(--shadow);
-}
-
-.payment-icon i {
-  font-size: 40px;
-  color: var(--primary-red);
-}
-
-.payment-info {
-  flex: 1;
-}
-
-.payment-info h4 {
-  color: var(--dark-gray);
-  margin-bottom: 5px;
-}
-
-.payment-info p {
-  color: var(--medium-gray);
-  font-size: 14px;
-  margin-bottom: 2px;
-}
-
-.payment-actions {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
-
-.default-badge {
-  padding: 3px 10px;
-  background: var(--light-gray);
-  border-radius: 15px;
-  font-size: 11px;
-  color: var(--medium-gray);
-}
-
-/* Modal */
-.modal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-  backdrop-filter: blur(5px);
-}
-
-.modal-content {
-  background: white;
-  padding: 30px;
-  border-radius: 15px;
-  width: 90%;
-  max-width: 500px;
-  max-height: 90vh;
-  overflow-y: auto;
-}
-
-.modal-content h3 {
-  color: var(--dark-gray);
-  margin-bottom: 20px;
-  font-size: 20px;
-}
-
-/* Tab Header */
-.tab-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-  flex-wrap: wrap;
-  gap: 15px;
-}
-
-/* Empty State */
+/* ===== EMPTY STATE ===== */
 .empty-state {
   text-align: center;
-  padding: 50px;
-  background: var(--light-gray);
-  border-radius: 10px;
+  padding: 50px 20px;
+  background: #f8f9fa;
+  border-radius: 15px;
 }
 
 .empty-state i {
   font-size: 60px;
-  color: var(--medium-gray);
+  color: #adb5bd;
   margin-bottom: 15px;
 }
 
 .empty-state p {
-  color: var(--medium-gray);
+  color: #6c757d;
   margin-bottom: 20px;
+  font-size: 16px;
 }
 
-/* Form Row */
-.form-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 15px;
-}
-
-/* Animations */
+/* ===== ANIMATIONS ===== */
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -1671,7 +1562,18 @@ main {
   }
 }
 
-/* Responsive */
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ===== RESPONSIVE ===== */
 @media (max-width: 1024px) {
   .info-grid {
     grid-template-columns: 1fr;
@@ -1685,6 +1587,7 @@ main {
 
   .profile-container {
     grid-template-columns: 1fr;
+    border-radius: 12px;
   }
 
   .profile-sidebar {
@@ -1693,17 +1596,31 @@ main {
 
   .profile-menu {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
     gap: 5px;
   }
 
   .profile-menu a {
-    padding: 10px;
+    padding: 10px 12px;
     font-size: 13px;
   }
 
   .profile-menu a i {
     width: 16px;
+  }
+
+  .profile-content {
+    padding: 20px;
+  }
+
+  .banner-content {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .welcome-banner {
+    flex-direction: column;
+    gap: 15px;
   }
 
   .order-footer {
@@ -1713,21 +1630,34 @@ main {
 
   .order-actions {
     width: 100%;
-    justify-content: space-between;
+  }
+
+  .order-actions .btn {
+    flex: 1;
   }
 
   .wishlist-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 
-  .payment-card {
+  .filters-bar {
     flex-direction: column;
-    text-align: center;
   }
 
-  .payment-actions {
+  .search-box {
     width: 100%;
-    justify-content: center;
+  }
+
+  .filter-select {
+    width: 100%;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .modal-content {
+    padding: 20px;
   }
 }
 
@@ -1740,22 +1670,21 @@ main {
     grid-template-columns: 1fr;
   }
 
-  .form-row {
-    grid-template-columns: 1fr;
-  }
-
   .order-header {
     flex-direction: column;
     align-items: flex-start;
   }
 
-  .tab-header {
+  .form-actions {
     flex-direction: column;
-    align-items: flex-start;
   }
 
-  .modal-content {
-    padding: 20px;
+  .form-actions .btn {
+    width: 100%;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

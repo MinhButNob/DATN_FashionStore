@@ -47,4 +47,7 @@ public interface ProductRepository extends JpaRepository<Product, Integer>, JpaS
             "LEFT JOIN FETCH pd.size " +
             "WHERE p.productId IN :ids AND p.deletedAt IS NULL")
     List<Product> findAllWithDetailsByIds(@Param("ids") List<Integer> ids);
+
+    @Query("SELECT p FROM Product p WHERE p.productId = :id")
+    Optional<Product> findById(@Param("id") Integer id);
 }

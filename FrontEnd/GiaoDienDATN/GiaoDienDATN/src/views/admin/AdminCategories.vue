@@ -97,17 +97,24 @@
               {{ item.categoryDescription || '—' }}
             </td>
             <td>
-              <span v-if="!item._deletedAt" :class="['status-badge', item.status === 'ACTIVE' ? 'status-active' : 'status-inactive']">
-                {{ item.status === 'ACTIVE' ? 'Hoạt động' : 'Tạm dừng' }}
-              </span>
-              <span v-else class="status-badge status-deleted">
+              <span v-if="item._deletedAt" class="status-badge status-deleted">
                 Đã xóa
+              </span>
+              <span v-else :class="['status-badge', item.status === 'ACTIVE' ? 'status-active' : 'status-inactive']">
+                {{ item.status === 'ACTIVE' ? 'Hoạt động' : 'Tạm dừng' }}
               </span>
             </td>
             <td class="actions">
               <div class="action-buttons">
-                <!-- Nếu chưa xóa: hiển thị đầy đủ các nút -->
-                <template v-if="!item._deletedAt">
+                <!-- Nếu đã xóa: chỉ hiển thị nút khôi phục -->
+                <template v-if="item._deletedAt">
+                  <span class="readonly-label">Đã xóa</span>
+                  <button class="action-btn restore-btn" @click="confirmRestore(item)" title="Khôi phục">
+                    ↩️
+                  </button>
+                </template>
+                <!-- Nếu chưa xóa: hiển thị đầy đủ -->
+                <template v-else>
                   <button class="action-btn edit-btn" @click="openEditModal(item)" title="Sửa">
                     ✏️
                   </button>
@@ -117,13 +124,6 @@
                   <button class="action-btn delete-btn" @click="confirmDelete(item)" title="Xóa" :disabled="checkingProducts">
                     <span v-if="checkingProducts && checkingCategoryId === item.categoryId" class="loading-spinner-small"></span>
                     <span v-else>🗑️</span>
-                  </button>
-                </template>
-                <!-- Nếu đã xóa: chỉ hiển thị nút khôi phục -->
-                <template v-else>
-                  <span class="readonly-label">Đã xóa</span>
-                  <button class="action-btn restore-btn" @click="confirmRestore(item)" title="Khôi phục">
-                    ↩️
                   </button>
                 </template>
               </div>
@@ -200,7 +200,7 @@
         </div>
         <div class="modal-body">
           <p>Bạn có chắc muốn xóa danh mục <strong>{{ deleteCategoryName }}</strong>?</p>
-          <p class="warning-text">Sau khi xóa, danh mục sẽ không thể sửa được nữa, chỉ có thể khôi phục!</p>
+          <p class="warning-text">Sau khi xóa, danh mục sẽ chuyển sang trạng thái đã xóa và có thể khôi phục lại!</p>
         </div>
         <div class="modal-footer">
           <button class="btn-cancel" @click="closeDeleteModal">Hủy</button>
@@ -314,6 +314,7 @@ export default {
         const response = await categoryService.getCategories();
         let categories = response?.data || [];
         
+        // ✅ GIỮ TẤT CẢ DANH MỤC, KHÔNG LỌC BỎ
         this.allCategories = categories.map(c => ({
           ...c,
           _deletedAt: c.status === 'DELETED' ? new Date().toISOString() : null
@@ -408,11 +409,9 @@ export default {
         };
         
         if (this.isEdit) {
-          // ✅ SỬA: GỌI API UPDATE
           const response = await categoryService.updateCategory(this.form.categoryId, data);
           const updatedCategory = response.data?.data || response.data;
           
-          // Cập nhật local state với dữ liệu từ server
           const index = this.allCategories.findIndex(c => c.categoryId === this.form.categoryId);
           if (index !== -1) {
             this.allCategories[index] = {
@@ -423,7 +422,6 @@ export default {
           this.filterCategories();
           this.showNotification('Cập nhật danh mục thành công!');
         } else {
-          // ✅ THÊM MỚI - GỌI API TẠO MỚI
           const response = await categoryService.createCategory(data);
           const newCategory = response.data?.data || response.data;
           if (newCategory && newCategory.categoryId) {
@@ -454,7 +452,6 @@ export default {
       try {
         const newStatus = cat.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
         
-        // ✅ SỬA: GỌI API UPDATE
         const response = await categoryService.updateCategory(cat.categoryId, {
           categoryName: cat.categoryName,
           categoryDescription: cat.categoryDescription,
@@ -463,7 +460,6 @@ export default {
         
         const updatedCategory = response.data?.data || response.data;
         
-        // Cập nhật local state
         const index = this.allCategories.findIndex(c => c.categoryId === cat.categoryId);
         if (index !== -1) {
           this.allCategories[index] = {
@@ -481,39 +477,49 @@ export default {
       }
     },
 
-    async confirmDelete(cat) {
-      this.checkingProducts = true;
-      this.checkingCategoryId = cat.categoryId;
-      this.deleteCategoryId = cat.categoryId;
-      this.deleteCategoryName = cat.categoryName;
-      
-      try {
-        // Gọi API đếm số sản phẩm thuộc danh mục này
-        const response = await axios.get(`${API_BASE}/products/category/${cat.categoryId}/count`);
-        const productCount = response.data?.data || response.data || 0;
-        
-        if (productCount > 0) {
-          this.showNotification(
-            `❌ Không thể xóa danh mục "${cat.categoryName}" vì đang có ${productCount} sản phẩm! Vui lòng chuyển hoặc xóa sản phẩm trước.`,
-            'error'
-          );
-          this.checkingProducts = false;
-          this.checkingCategoryId = null;
-          return;
-        }
-        
-        // Nếu không có sản phẩm, hiển thị modal xác nhận xóa
-        this.showDeleteModal = true;
-        this.checkingProducts = false;
-        this.checkingCategoryId = null;
-        
-      } catch (error) {
-        console.error('Lỗi kiểm tra sản phẩm:', error);
-        this.showNotification('Không thể kiểm tra sản phẩm! Vui lòng thử lại sau.', 'error');
-        this.checkingProducts = false;
-        this.checkingCategoryId = null;
-      }
-    },
+    // ✅ XÓA MỀM - KHÔNG XÓA KHỎI DANH SÁCH
+   async confirmDelete(cat) {
+  this.checkingProducts = true;
+  this.checkingCategoryId = cat.categoryId;
+  this.deleteCategoryId = cat.categoryId;
+  this.deleteCategoryName = cat.categoryName;
+  
+  try {
+    // ✅ Gọi API kiểm tra sản phẩm trong danh mục
+    const response = await axios.get(`${API_BASE}/products/category/${cat.categoryId}/count`);
+    const productCount = response.data?.data || response.data || 0;
+    
+    if (productCount > 0) {
+      this.showNotification(
+        `❌ Không thể xóa danh mục "${cat.categoryName}" vì đang có ${productCount} sản phẩm! Vui lòng chuyển hoặc xóa sản phẩm trước.`,
+        'error'
+      );
+      this.checkingProducts = false;
+      this.checkingCategoryId = null;
+      return;
+    }
+    
+    this.showDeleteModal = true;
+    this.checkingProducts = false;
+    this.checkingCategoryId = null;
+    
+  } catch (error) {
+    console.error('Lỗi kiểm tra sản phẩm:', error);
+    
+    // ✅ Nếu API bị lỗi (500, 404) thì vẫn cho xóa (bỏ qua kiểm tra)
+    if (error.response?.status === 404 || error.response?.status === 500) {
+      // API chưa có hoặc lỗi, vẫn cho xóa
+      console.log('⚠️ API kiểm tra sản phẩm chưa có hoặc lỗi, vẫn cho xóa danh mục');
+      this.showDeleteModal = true;
+      this.checkingProducts = false;
+      this.checkingCategoryId = null;
+    } else {
+      this.showNotification('Không thể kiểm tra sản phẩm! Vui lòng thử lại sau.', 'error');
+      this.checkingProducts = false;
+      this.checkingCategoryId = null;
+    }
+  }
+},
 
     closeDeleteModal() {
       this.showDeleteModal = false;
@@ -524,24 +530,10 @@ export default {
     async deleteCategory() {
       this.saving = true;
       try {
-        // ✅ KIỂM TRA LẠI LẦN NỮA TRƯỚC KHI XÓA (để an toàn)
-        const response = await axios.get(`${API_BASE}/products/category/${this.deleteCategoryId}/count`);
-        const productCount = response.data?.data || response.data || 0;
-        
-        if (productCount > 0) {
-          this.showNotification(
-            `❌ Không thể xóa danh mục vì đang có ${productCount} sản phẩm!`,
-            'error'
-          );
-          this.closeDeleteModal();
-          this.saving = false;
-          return;
-        }
-        
-        // ✅ SỬA: GỌI API XÓA MỀM
+        // ✅ GỌI API XÓA MỀM
         await categoryService.deleteCategory(this.deleteCategoryId);
         
-        // Cập nhật local state
+        // ✅ CẬP NHẬT TRẠNG THÁI (KHÔNG XÓA KHỎI DANH SÁCH)
         const index = this.allCategories.findIndex(c => c.categoryId === this.deleteCategoryId);
         if (index !== -1) {
           this.allCategories[index] = {
@@ -552,7 +544,7 @@ export default {
         }
         
         this.filterCategories();
-        this.showNotification('Xóa danh mục thành công!');
+        this.showNotification('Xóa danh mục thành công! Danh mục đã chuyển sang trạng thái đã xóa.', 'success');
         this.closeDeleteModal();
       } catch (error) {
         const errorMsg = error.response?.data?.message || error.message || 'Không thể xóa danh mục này!';
@@ -577,10 +569,8 @@ export default {
     async restoreCategory() {
       this.saving = true;
       try {
-        // ✅ SỬA: GỌI API KHÔI PHỤC
         await categoryService.restoreCategory(this.restoreCategoryId);
         
-        // Cập nhật local state
         const index = this.allCategories.findIndex(c => c.categoryId === this.restoreCategoryId);
         if (index !== -1) {
           this.allCategories[index] = {
@@ -591,7 +581,7 @@ export default {
         }
         
         this.filterCategories();
-        this.showNotification('Khôi phục danh mục thành công!');
+        this.showNotification('Khôi phục danh mục thành công!', 'success');
         this.closeRestoreModal();
       } catch (error) {
         console.error('Lỗi khôi phục:', error);
@@ -814,6 +804,15 @@ export default {
   color: #9ca3af;
 }
 
+.row-deleted .category-name strong {
+  color: #9ca3af;
+}
+
+.deleted-text {
+  text-decoration: line-through;
+  color: #9ca3af;
+}
+
 .stt-cell {
   font-weight: 600;
   color: #3498db;
@@ -822,11 +821,6 @@ export default {
 
 .category-name strong {
   color: #2c3e50;
-}
-
-.deleted-text {
-  text-decoration: line-through;
-  color: #9ca3af;
 }
 
 .description-cell {
@@ -844,9 +838,10 @@ export default {
   font-weight: 500;
   display: inline-block;
 }
+
 .status-active { background-color: #e8f8f5; color: #27ae60; }
 .status-inactive { background-color: #fdf2e9; color: #f39c12; }
-.status-deleted { background-color: #f3f4f6; color: #9ca3af; }
+.status-deleted { background-color: #f3f4f6; color: #6b7280; }
 
 .action-buttons {
   display: flex;
@@ -870,8 +865,25 @@ export default {
 .edit-btn:hover { background-color: #fef3c7; }
 .toggle-btn:hover { background-color: #e8f4f8; }
 .delete-btn:hover { background-color: #fde8e8; }
-.restore-btn:hover { background-color: #e8f4f8; }
 .delete-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.restore-btn {
+  background: #10b981;
+  color: white;
+  border-radius: 6px;
+  padding: 6px 10px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.restore-btn:hover {
+  background: #059669;
+  transform: scale(1.05);
+}
 
 .readonly-label {
   font-size: 12px;
@@ -1192,4 +1204,4 @@ export default {
   .data-table { min-width: 600px; }
   .pagination { flex-direction: column; gap: 12px; }
 }
-</style>``
+</style>

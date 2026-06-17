@@ -1,50 +1,70 @@
 <template>
   <div class="product-card" @click="goToDetail">
     <div class="product-image">
-      <img v-if="isUrl(product.image)" :src="product.image" :alt="product.name" class="card-img" />
-      <i v-else :class="['fas', `fa-${product.image}`]"></i>
-      <div v-if="product.tag" class="product-tag">{{ product.tag }}</div>
+      <img 
+        v-if="product.mainImageUrl" 
+        :src="product.mainImageUrl" 
+        :alt="product.productName" 
+        class="card-img" 
+        @error="handleImageError"
+      />
+      <div v-else class="no-image">
+        <i class="fas fa-tshirt"></i>
+      </div>
       <div class="product-wishlist" @click.stop="toggleWishlist">
         <i :class="[isInWishlist ? 'fas' : 'far', 'fa-heart']"></i>
       </div>
     </div>
 
     <div class="product-info">
-      <div class="product-category">{{ getCategoryName(product.category) }}</div>
-      <h3 class="product-name">{{ product.name }}</h3>
+      <div class="product-category">{{ product.categoryName || 'Sản phẩm' }}</div>
+      <h3 class="product-name">{{ product.productName }}</h3>
 
       <div class="product-price">
-        <span class="current-price">{{ formatPrice(product.price) }}</span>
-        <span v-if="product.oldPrice" class="old-price">
-          {{ formatPrice(product.oldPrice) }}
+        <span class="current-price">{{ formatPriceVND(product.minPrice) }}</span>
+        <span v-if="product.maxPrice && product.maxPrice !== product.minPrice" class="price-range">
+          - {{ formatPriceVND(product.maxPrice) }}
         </span>
       </div>
 
-      <div class="product-rating">
-        <div class="stars">
-          <i
-            v-for="(starClass, index) in starRating"
-            :key="index"
-            :class="starClass"
-          ></i>
-        </div>
-        <span>({{ product.sold }} đã bán)</span>
+      <div class="product-colors" v-if="product.colorOptions && product.colorOptions.length > 0">
+        <span 
+          v-for="color in product.colorOptions.slice(0, 4)" 
+          :key="color"
+          class="color-dot"
+          :style="{ backgroundColor: getColorHex(color) }"
+          :title="color"
+        ></span>
+        <span v-if="product.colorOptions.length > 4" class="more-colors">
+          +{{ product.colorOptions.length - 4 }}
+        </span>
       </div>
 
-      <button class="add-to-cart" @click.stop="addToCart">
+      <div class="product-stock" :class="{ 'out-of-stock': (product.totalStock || 0) === 0 }">
+        <i class="fas" :class="(product.totalStock || 0) > 0 ? 'fa-check-circle' : 'fa-times-circle'"></i>
+        {{ (product.totalStock || 0) > 0 ? `Còn ${product.totalStock} sản phẩm` : 'Hết hàng' }}
+      </div>
+
+      <button class="add-to-cart" @click.stop="addToCart" :disabled="(product.totalStock || 0) === 0">
         <i class="fas fa-shopping-cart"></i> Thêm vào giỏ
       </button>
     </div>
   </div>
+
+  <CartPopup 
+    :visible="showCartPopup" 
+    :product="lastAddedProduct"
+    @close="showCartPopup = false"
+  />
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCartStore } from '../../stores/cartStore'
 import { useAuthStore } from '../../stores/authStore'
 import { useNotification } from '../../composables/useNotification'
-import { formatPrice, getCategoryName, getStarRating } from '../../utils/helpers'
+import CartPopup from './CartPopup.vue'
 
 const props = defineProps({
   product: {
@@ -58,44 +78,122 @@ const cartStore = useCartStore()
 const authStore = useAuthStore()
 const { showNotification } = useNotification()
 
-const starRating = computed(() => {
-  return getStarRating(props.product.rating)
-})
+const showCartPopup = ref(false)
+const lastAddedProduct = ref({})
 
-const isInWishlist = computed(() => {
-  // Check if product is in wishlist
-  return false
-})
-
-const goToDetail = () => {
-  router.push(`/product/${props.product.id}`)
+const formatPriceVND = (price) => {
+  if (price === undefined || price === null) return '0₫'
+  let numPrice = 0
+  if (typeof price === 'number') {
+    numPrice = price
+  } else if (typeof price === 'string') {
+    numPrice = parseFloat(price.replace(/[^0-9.-]/g, ''))
+  } else {
+    numPrice = Number(price)
+  }
+  if (isNaN(numPrice) || numPrice === 0) return '0₫'
+  return numPrice.toLocaleString('vi-VN') + '₫'
 }
 
-const addToCart = (event) => {
+const getColorHex = (colorName) => {
+  const colorMap = {
+    'Đỏ': '#FF0000',
+    'Đen': '#000000',
+    'Trắng': '#FFFFFF',
+    'Xanh': '#0000FF',
+    'Navy': '#1B2951',
+    'Vàng': '#FFFF00',
+    'Hồng': '#FFC0CB',
+    'Xám': '#808080',
+    'Nâu': '#8B4513',
+    'Tím': '#800080',
+    'Cam': '#FFA500'
+  }
+  return colorMap[colorName] || '#CCCCCC'
+}
+
+const handleImageError = (event) => {
+  event.target.style.display = 'none'
+  const noImageDiv = event.target.parentElement.querySelector('.no-image')
+  if (noImageDiv) noImageDiv.style.display = 'flex'
+}
+
+const isInWishlist = computed(() => false)
+
+const goToDetail = () => {
+  const productId = props.product.productId
+  if (productId && productId !== 'undefined') {
+    router.push(`/product/${productId}`)
+  } else {
+    showNotification('Không thể xem chi tiết sản phẩm!', 'error')
+  }
+}
+
+const addToCart = async (event) => {
   event.stopPropagation()
-  cartStore.addToCart(props.product)
-  showNotification('Đã thêm sản phẩm vào giỏ hàng!', 'success')
+  
+  const stock = props.product.totalStock || 0
+  if (stock === 0) {
+    showNotification('Sản phẩm đã hết hàng!', 'error')
+    return
+  }
+  
+  const price = props.product.minPrice || 0
+  const numericPrice = typeof price === 'number' ? price : Number(price)
+  
+  let productDetailId = props.product.productDetailId || props.product.id
+  let size = null
+  let color = null
+  
+  if (props.product.variants && props.product.variants.length > 0) {
+    const firstVariant = props.product.variants[0]
+    size = firstVariant.sizeName || null
+    color = firstVariant.colorName || null
+    productDetailId = firstVariant.productDetailId || productDetailId
+  }
+  
+  const productData = {
+    id: productDetailId,
+    productId: props.product.productId,
+    productName: props.product.productName,
+    name: props.product.productName,
+    price: numericPrice,
+    quantity: 1,
+    image: props.product.mainImageUrl,
+    imageUrl: props.product.mainImageUrl,
+    size: size,
+    color: color,
+    stock: stock
+  }
+  
+  try {
+    await cartStore.addToCart(productData)
+    
+    lastAddedProduct.value = {
+      name: props.product.productName,
+      price: numericPrice,
+      quantity: 1,
+      image: props.product.mainImageUrl,
+      size: size,
+      color: color,
+      stock: stock
+    }
+    
+    showCartPopup.value = true
+    
+  } catch (error) {
+    console.error('Add to cart error:', error)
+    showNotification('Thêm vào giỏ thất bại!', 'error')
+  }
 }
 
 const toggleWishlist = (event) => {
   event.stopPropagation()
-  
   if (!authStore.isAuthenticated) {
     window.dispatchEvent(new CustomEvent('open-auth-modal', { detail: 'login' }))
     return
   }
-  
-  // Toggle wishlist logic here
-  if (isInWishlist.value) {
-    showNotification('Đã xóa khỏi danh sách yêu thích!', 'info')
-  } else {
-    showNotification('Đã thêm vào danh sách yêu thích!', 'success')
-  }
-}
-
-const isUrl = (str) => {
-  if (!str) return false
-  return str.startsWith('http') || str.startsWith('data:image')
+  showNotification('Chức năng đang phát triển', 'info')
 }
 </script>
 
@@ -104,20 +202,19 @@ const isUrl = (str) => {
   background: white;
   border-radius: 15px;
   overflow: hidden;
-  box-shadow: var(--shadow);
-  transition: var(--transition);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s;
   cursor: pointer;
-  position: relative;
 }
 
 .product-card:hover {
   transform: translateY(-10px);
-  box-shadow: var(--shadow-hover);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
 }
 
 .product-image {
-  height: 300px;
-  background: linear-gradient(135deg, var(--light-gray), #e9ecef);
+  height: 280px;
+  background: #f5f5f5;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -125,39 +222,29 @@ const isUrl = (str) => {
   overflow: hidden;
 }
 
-.product-image i {
-  font-size: 100px;
-  color: var(--medium-gray);
-  transition: var(--transition);
+.no-image {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f5f5f5;
 }
 
-.product-card:hover .product-image i {
-  transform: scale(1.1) rotate(5deg);
-  color: var(--primary-red);
+.no-image i {
+  font-size: 80px;
+  color: #ccc;
 }
 
 .card-img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: var(--transition);
+  transition: transform 0.3s;
 }
 
 .product-card:hover .card-img {
   transform: scale(1.05);
-}
-
-.product-tag {
-  position: absolute;
-  top: 15px;
-  left: 15px;
-  background: linear-gradient(135deg, var(--primary-red), var(--light-red));
-  color: white;
-  padding: 5px 15px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: bold;
-  z-index: 1;
 }
 
 .product-wishlist {
@@ -172,14 +259,13 @@ const isUrl = (str) => {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: var(--transition);
-  z-index: 1;
+  transition: all 0.3s;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
 }
 
 .product-wishlist:hover {
-  background: var(--primary-red);
+  background: #e63946;
   color: white;
-  transform: scale(1.1);
 }
 
 .product-info {
@@ -187,19 +273,18 @@ const isUrl = (str) => {
 }
 
 .product-category {
-  color: var(--primary-red);
-  font-size: 13px;
+  color: #e63946;
+  font-size: 12px;
   font-weight: 600;
-  margin-bottom: 8px;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  margin-bottom: 8px;
 }
 
 .product-name {
-  font-weight: 700;
   font-size: 16px;
+  font-weight: 600;
+  color: #2c3e50;
   margin-bottom: 10px;
-  color: var(--dark-gray);
   line-height: 1.4;
   height: 44px;
   overflow: hidden;
@@ -209,63 +294,98 @@ const isUrl = (str) => {
 }
 
 .product-price {
+  margin-bottom: 12px;
+}
+
+.current-price {
+  font-size: 18px;
+  font-weight: 700;
+  color: #e63946;
+}
+
+.price-range {
+  font-size: 14px;
+  color: #999;
+}
+
+.product-colors {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  gap: 8px;
   margin-bottom: 12px;
   flex-wrap: wrap;
 }
 
-.current-price {
-  color: var(--primary-red);
-  font-weight: 800;
-  font-size: 20px;
+.color-dot {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid #ddd;
+  cursor: pointer;
+  transition: transform 0.2s;
 }
 
-.old-price {
-  color: var(--medium-gray);
-  font-size: 14px;
-  text-decoration: line-through;
+.color-dot:hover {
+  transform: scale(1.1);
 }
 
-.product-rating {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.more-colors {
+  font-size: 12px;
+  color: #999;
+  line-height: 22px;
+}
+
+.product-stock {
+  font-size: 12px;
   margin-bottom: 15px;
-  flex-wrap: wrap;
+  color: #28a745;
 }
 
-.stars {
-  color: #ffc107;
-  font-size: 13px;
+.product-stock.out-of-stock {
+  color: #e63946;
 }
 
-.product-rating span {
-  color: var(--medium-gray);
-  font-size: 13px;
+.product-stock i {
+  margin-right: 5px;
 }
 
 .add-to-cart {
   width: 100%;
-  background: linear-gradient(135deg, var(--primary-red), var(--light-red));
+  background: linear-gradient(135deg, #e63946, #ff6b6b);
   color: white;
   border: none;
   padding: 12px;
   border-radius: 8px;
   cursor: pointer;
-  transition: var(--transition);
+  transition: all 0.3s;
   font-weight: 600;
-  font-size: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
 }
 
-.add-to-cart:hover {
-  background: linear-gradient(135deg, var(--dark-red), var(--primary-red));
+.add-to-cart:hover:not(:disabled) {
+  background: linear-gradient(135deg, #c82333, #e63946);
   transform: translateY(-2px);
-  box-shadow: 0 5px 15px rgba(230, 57, 70, 0.3);
+}
+
+.add-to-cart:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+  .product-image {
+    height: 220px;
+  }
+  
+  .product-name {
+    font-size: 14px;
+    height: 38px;
+  }
+  
+  .current-price {
+    font-size: 16px;
+  }
 }
 </style>

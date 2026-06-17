@@ -1,133 +1,270 @@
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
-import { orderService } from "../services/orderService";
+import axios from "axios";
 
-export const useOrderStore = defineStore("order", () => {
-  // State
-  const orders = ref([]);
-  const currentOrder = ref(null);
+const API_BASE = "http://localhost:8080/api";
+
+export const useCartStore = defineStore("cart", () => {
+  const items = ref([]);
+  const isCartOpen = ref(false);
   const loading = ref(false);
-  const totalElements = ref(0);
-  const totalPages = ref(0);
-  const currentPage = ref(0);
-  const pageSize = ref(10);
+
+  const saveCart = () => {
+    localStorage.setItem("cart", JSON.stringify(items.value));
+  };
+
+  // ✅ fetchCart - gọi API thật
+  const fetchCart = async () => {
+    loading.value = true;
+    try {
+      const token = localStorage.getItem("token");
+
+      if (!token) {
+        console.log("❌ No token found");
+        loading.value = false;
+        return;
+      }
+
+      console.log("🟡 Fetching cart from API...");
+      const response = await axios.get(`${API_BASE}/cart`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      console.log("✅ API Response:", response.data);
+
+      // Backend trả về ApiResponse { code, message, data }
+      if (response.data && response.data.code === 200 && response.data.data) {
+        const cartData = response.data.data;
+
+        if (cartData.cartItems && Array.isArray(cartData.cartItems)) {
+          items.value = cartData.cartItems.map((item) => ({
+            cartItemId: item.cartItemId,
+            id: item.productDetailId,
+            productId: item.productId,
+            name: item.productName,
+            price: item.unitPrice,
+            quantity: item.quantity,
+            size: item.sizeName,
+            color: item.colorName,
+            imageUrl: item.imageUrl,
+            image: item.imageUrl,
+          }));
+        } else if (cartData.items && Array.isArray(cartData.items)) {
+          items.value = cartData.items.map((item) => ({
+            cartItemId: item.cartItemId,
+            id: item.productDetailId,
+            name: item.productName,
+            price: item.unitPrice,
+            quantity: item.quantity,
+            size: item.sizeName,
+            color: item.colorName,
+            image: item.imageUrl,
+          }));
+        } else {
+          items.value = [];
+        }
+
+        saveCart();
+        console.log("✅ Cart loaded:", items.value.length, "items");
+      } else {
+        console.log("⚠️ Invalid response format:", response.data);
+        items.value = [];
+      }
+    } catch (error) {
+      console.error(
+        "❌ Error fetching cart:",
+        error.response?.data || error.message,
+      );
+      items.value = [];
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  // ✅ Add to cart - gọi API thật
+  const addToCart = async (
+    product,
+    quantity = 1,
+    size = null,
+    color = null,
+  ) => {
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+      console.log("❌ Need login to add to cart");
+      return;
+    }
+
+    loading.value = true;
+    try {
+      console.log("🟡 Adding to cart:", {
+        productDetailId: product.id,
+        quantity,
+        size,
+        color,
+      });
+
+      const response = await axios.post(
+        `${API_BASE}/cart/add`,
+        {
+          productDetailId: product.id,
+          quantity: quantity,
+          size: size,
+          color: color,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      );
+
+      console.log("✅ Add to cart response:", response.data);
+
+      if (response.data && response.data.code === 200) {
+        await fetchCart(); // Refresh cart
+        isCartOpen.value = true;
+      }
+    } catch (error) {
+      console.error(
+        "❌ Error adding to cart:",
+        error.response?.data || error.message,
+      );
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  // ✅ Update quantity
+  const updateQuantity = async (
+    cartItemId,
+    quantity,
+    productId,
+    size,
+    color,
+  ) => {
+    const token = localStorage.getItem("token");
+
+    if (!token || !cartItemId) return;
+
+    try {
+      console.log("🟡 Updating quantity:", { cartItemId, quantity });
+
+      await axios.put(`${API_BASE}/cart/items/${cartItemId}`, null, {
+        params: { quantity: quantity },
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      await fetchCart(); // Refresh cart
+    } catch (error) {
+      console.error(
+        "❌ Error updating quantity:",
+        error.response?.data || error.message,
+      );
+    }
+  };
+
+  // ✅ Remove from cart
+  const removeFromCart = async (cartItemId, productId, size, color) => {
+    const token = localStorage.getItem("token");
+
+    if (!token || !cartItemId) return;
+
+    try {
+      console.log("🟡 Removing from cart:", { cartItemId });
+
+      await axios.delete(`${API_BASE}/cart/items/${cartItemId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      await fetchCart(); // Refresh cart
+    } catch (error) {
+      console.error(
+        "❌ Error removing from cart:",
+        error.response?.data || error.message,
+      );
+    }
+  };
+
+  // ✅ Clear cart
+  const clearCart = async () => {
+    const token = localStorage.getItem("token");
+
+    if (!token) return;
+
+    try {
+      console.log("🟡 Clearing cart...");
+
+      await axios.delete(`${API_BASE}/cart/clear`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      items.value = [];
+      saveCart();
+    } catch (error) {
+      console.error(
+        "❌ Error clearing cart:",
+        error.response?.data || error.message,
+      );
+    }
+  };
+
+  // Helper functions
+  const updateQuantityItem = (item, change) => {
+    const newQuantity = item.quantity + change;
+    if (newQuantity >= 1 && newQuantity <= 99) {
+      updateQuantity(
+        item.cartItemId,
+        newQuantity,
+        item.id,
+        item.size,
+        item.color,
+      );
+    }
+  };
+
+  const toggleCart = () => {
+    isCartOpen.value = !isCartOpen.value;
+  };
 
   // Getters
-  const hasOrders = computed(() => orders.value.length > 0);
-  const getOrderStatusText = (status) => {
-    const statusMap = {
-      PENDING_PAYMENT: "Chờ thanh toán",
-      PROCESSING: "Đang xử lý",
-      COMPLETED: "Hoàn thành",
-      CANCELLED: "Đã hủy",
-      RETURNED: "Trả hàng",
-    };
-    return statusMap[status] || status;
-  };
+  const totalItems = computed(() => {
+    return items.value.reduce((total, item) => total + (item.quantity || 0), 0);
+  });
 
-  const getOrderStatusClass = (status) => {
-    const classMap = {
-      PENDING_PAYMENT: "status-pending",
-      PROCESSING: "status-processing",
-      COMPLETED: "status-completed",
-      CANCELLED: "status-cancelled",
-      RETURNED: "status-returned",
-    };
-    return classMap[status] || "";
-  };
+  const subtotal = computed(() => {
+    return items.value.reduce(
+      (total, item) => total + (item.price || 0) * (item.quantity || 0),
+      0,
+    );
+  });
 
-  // Actions
-  const fetchMyOrders = async (status = null, page = 0, size = 10) => {
-    loading.value = true;
-    try {
-      const response = await orderService.getMyOrders(status, page, size);
-      const data = response.data;
+  const shippingFee = computed(() => {
+    return subtotal.value > 500000 ? 0 : 30000;
+  });
 
-      orders.value = data.content || [];
-      totalElements.value = data.totalElements || 0;
-      totalPages.value = data.totalPages || 0;
-      currentPage.value = data.number || 0;
-      pageSize.value = data.size || 10;
-
-      return data;
-    } catch (error) {
-      console.error("Lỗi tải đơn hàng:", error);
-      throw error;
-    } finally {
-      loading.value = false;
-    }
-  };
-
-  const fetchOrderDetail = async (orderId) => {
-    loading.value = true;
-    try {
-      const response = await orderService.getOrderDetail(orderId);
-      currentOrder.value = response.data;
-      return response.data;
-    } catch (error) {
-      console.error("Lỗi tải chi tiết đơn hàng:", error);
-      throw error;
-    } finally {
-      loading.value = false;
-    }
-  };
-
-  const createOrder = async (orderData) => {
-    loading.value = true;
-    try {
-      const response = await orderService.createOrder(orderData);
-      return response.data;
-    } catch (error) {
-      console.error("Lỗi tạo đơn hàng:", error);
-      throw error;
-    } finally {
-      loading.value = false;
-    }
-  };
-
-  const cancelOrder = async (orderId, reason) => {
-    loading.value = true;
-    try {
-      const response = await orderService.cancelOrder(orderId, reason);
-      // Cập nhật đơn hàng trong danh sách
-      const index = orders.value.findIndex((o) => o.orderId === orderId);
-      if (index !== -1) {
-        orders.value[index] = response.data;
-      }
-      if (currentOrder.value?.orderId === orderId) {
-        currentOrder.value = response.data;
-      }
-      return response.data;
-    } catch (error) {
-      console.error("Lỗi hủy đơn hàng:", error);
-      throw error;
-    } finally {
-      loading.value = false;
-    }
-  };
-
-  const clearCurrentOrder = () => {
-    currentOrder.value = null;
-  };
+  const total = computed(() => {
+    return subtotal.value + shippingFee.value;
+  });
 
   return {
-    // State
-    orders,
-    currentOrder,
+    items,
+    isCartOpen,
     loading,
-    totalElements,
-    totalPages,
-    currentPage,
-    pageSize,
-    // Getters
-    hasOrders,
-    getOrderStatusText,
-    getOrderStatusClass,
-    // Actions
-    fetchMyOrders,
-    fetchOrderDetail,
-    createOrder,
-    cancelOrder,
-    clearCurrentOrder,
+    totalItems,
+    subtotal,
+    shippingFee,
+    total,
+    fetchCart,
+    addToCart,
+    removeFromCart,
+    updateQuantity,
+    updateQuantityItem,
+    clearCart,
+    toggleCart,
   };
 });

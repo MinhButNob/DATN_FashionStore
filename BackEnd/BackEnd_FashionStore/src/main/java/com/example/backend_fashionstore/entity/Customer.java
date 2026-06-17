@@ -25,10 +25,10 @@ public class Customer {
     @Column(name = "customer_name", nullable = false)
     private String customerName;
 
-    @Column(name = "customer_phone")
+    @Column(name = "phone")
     private String phone;
 
-    @Column(name = "customer_address")
+    @Column(name = "address")
     private String address;
 
     // ❌ NÊN XÓA - dùng user.status thay thế

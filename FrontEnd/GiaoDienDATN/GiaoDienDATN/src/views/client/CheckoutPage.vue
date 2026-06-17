@@ -6,204 +6,140 @@
       <div class="container">
         <h1 class="page-title">THANH TOÁN</h1>
 
-        <!-- Empty Cart -->
         <div v-if="cartStore.items.length === 0" class="empty-cart">
           <i class="fas fa-shopping-cart"></i>
           <h2>Giỏ hàng trống</h2>
           <p>Vui lòng thêm sản phẩm vào giỏ hàng trước khi thanh toán</p>
-          <router-link to="/shop" class="btn btn-primary">
-            Tiếp tục mua sắm
+          <router-link to="/shop" class="btn-primary">
+            <i class="fas fa-arrow-left"></i> Tiếp tục mua sắm
           </router-link>
         </div>
 
-        <!-- Checkout Content -->
         <div v-else class="checkout-content">
-          <form @submit.prevent="placeOrder" class="checkout-form">
-            <!-- Thông tin giao hàng -->
-            <div class="form-section">
-              <h2>Thông tin giao hàng</h2>
-              
-              <div class="form-row">
-                <div class="form-group">
-                  <label>Họ và tên *</label>
-                  <input 
-                    type="text" 
-                    v-model="form.fullName" 
-                    required
-                    placeholder="Nhập họ và tên"
-                  >
-                </div>
+          <!-- Form thông tin giao hàng -->
+          <div class="checkout-form">
+            <h2>Thông tin giao hàng</h2>
+            
+            <!-- Hiển thị thông tin từ profile -->
+            <div class="profile-info">
+              <div class="info-row">
+                <span class="label">Họ tên:</span>
+                <span class="value">{{ profile.fullName || profile.customerName || 'Chưa cập nhật' }}</span>
+                <button class="edit-btn" @click="toggleEdit">✏️</button>
               </div>
-
-              <div class="form-row">
-                <div class="form-group">
-                  <label>Số điện thoại *</label>
-                  <input 
-                    type="tel" 
-                    v-model="form.phone" 
-                    required
-                    placeholder="Nhập số điện thoại"
-                  >
-                </div>
-                <div class="form-group">
-                  <label>Email</label>
-                  <input 
-                    type="email" 
-                    v-model="form.email" 
-                    placeholder="Nhập email"
-                  >
-                </div>
+              <div class="info-row">
+                <span class="label">Số điện thoại:</span>
+                <span class="value">{{ profile.phone || 'Chưa cập nhật' }}</span>
               </div>
-
-              <div class="form-row">
-                <div class="form-group">
-                  <label>Tỉnh/Thành phố *</label>
-                  <select v-model="form.city" required>
-                    <option value="">Chọn tỉnh/thành phố</option>
-                    <option v-for="city in cities" :key="city" :value="city">
-                      {{ city }}
-                    </option>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label>Quận/Huyện *</label>
-                  <select v-model="form.district" required>
-                    <option value="">Chọn quận/huyện</option>
-                    <option v-for="district in districts" :key="district" :value="district">
-                      {{ district }}
-                    </option>
-                  </select>
-                </div>
+              <div class="info-row">
+                <span class="label">Địa chỉ:</span>
+                <span class="value">{{ profile.address || 'Chưa cập nhật' }}</span>
               </div>
-
-              <div class="form-row">
-                <div class="form-group">
-                  <label>Địa chỉ cụ thể *</label>
-                  <input 
-                    type="text" 
-                    v-model="form.address" 
-                    required
-                    placeholder="Số nhà, tên đường"
-                  >
-                </div>
+              <!-- ✅ Hiển thị voucher đang áp dụng -->
+              <div v-if="cartStore.voucherCode" class="info-row voucher-info">
+                <span class="label">Mã giảm giá:</span>
+                <span class="value voucher-code">{{ cartStore.voucherCode }}</span>
+                <span class="voucher-discount-amount">-{{ formatPrice(cartStore.voucherDiscount || 0) }}</span>
               </div>
             </div>
 
-            <!-- Phương thức vận chuyển -->
-            <div class="form-section">
-              <h2>Phương thức vận chuyển</h2>
-              
-              <div class="shipping-methods">
-                <label 
-                  v-for="method in shippingMethods" 
-                  :key="method.id"
-                  class="shipping-method"
-                  :class="{ active: form.shippingMethod === method.id }"
-                >
-                  <input 
-                    type="radio" 
-                    :value="method.id" 
-                    v-model="form.shippingMethod"
-                  >
-                  <div class="method-content">
-                    <i :class="method.icon"></i>
-                    <div>
-                      <h3>{{ method.name }}</h3>
-                      <p>{{ method.time }}</p>
-                    </div>
-                    <span class="method-price">{{ formatPrice(method.price) }}</span>
-                  </div>
-                </label>
+            <!-- Form chỉnh sửa thông tin -->
+            <div v-if="isEditing" class="edit-form">
+              <h3>Chỉnh sửa thông tin giao hàng</h3>
+              <div class="form-group">
+                <label>Họ và tên <span class="required">*</span></label>
+                <input type="text" v-model="editForm.fullName" required placeholder="Nhập họ và tên" />
+              </div>
+              <div class="form-group">
+                <label>Số điện thoại <span class="required">*</span></label>
+                <input type="tel" v-model="editForm.phone" required placeholder="Nhập số điện thoại" />
+              </div>
+              <div class="form-group">
+                <label>Địa chỉ <span class="required">*</span></label>
+                <input type="text" v-model="editForm.address" required placeholder="Số nhà, tên đường" />
+              </div>
+              <div class="form-group">
+                <label>Thành phố/Tỉnh</label>
+                <input type="text" v-model="editForm.city" placeholder="Thành phố" />
+              </div>
+              <div class="form-group">
+                <label>Quận/Huyện</label>
+                <input type="text" v-model="editForm.district" placeholder="Quận/Huyện" />
+              </div>
+              <div class="form-actions">
+                <button type="button" class="btn-save-info" @click="saveProfileInfo" :disabled="saving">
+                  <i v-if="saving" class="fas fa-spinner fa-spin"></i>
+                  {{ saving ? 'Đang lưu...' : 'Lưu thông tin' }}
+                </button>
+                <button type="button" class="btn-cancel" @click="toggleEdit">
+                  Hủy
+                </button>
               </div>
             </div>
 
-            <!-- Phương thức thanh toán -->
-            <div class="form-section">
-              <h2>Phương thức thanh toán</h2>
-              
-              <div class="payment-methods">
-                <label 
-                  v-for="method in paymentMethods" 
-                  :key="method.id"
-                  class="payment-method"
-                  :class="{ active: form.paymentMethod === method.id }"
-                >
-                  <input 
-                    type="radio" 
-                    :value="method.id" 
-                    v-model="form.paymentMethod"
-                  >
-                  <div class="method-content">
-                    <i :class="method.icon"></i>
-                    <div>
-                      <h3>{{ method.name }}</h3>
-                      <p>{{ method.description }}</p>
-                    </div>
-                  </div>
-                </label>
+            <!-- Form đặt hàng -->
+            <form @submit.prevent="placeOrder">
+              <div class="form-group">
+                <label>Ghi chú cho đơn hàng</label>
+                <textarea v-model="orderData.notes" rows="3" placeholder="Ghi chú (không bắt buộc)..."></textarea>
               </div>
-            </div>
 
-            <!-- Ghi chú đơn hàng -->
-            <div class="form-section">
-              <h2>Ghi chú đơn hàng</h2>
-              <textarea 
-                v-model="form.note" 
-                placeholder="Ghi chú về đơn hàng, ví dụ: thời gian giao hàng..."
-                rows="4"
-              ></textarea>
-            </div>
+              <button type="submit" class="btn-place-order" :disabled="placingOrder">
+                <i class="fas fa-credit-card"></i>
+                {{ placingOrder ? 'Đang xử lý...' : 'ĐẶT HÀNG' }}
+              </button>
+            </form>
+          </div>
 
-            <button type="submit" class="btn btn-primary place-order-btn">
-              ĐẶT HÀNG
-            </button>
-          </form>
-
-          <!-- Tóm tắt đơn hàng -->
+          <!-- Order Summary -->
           <div class="order-summary">
             <h2>Đơn hàng của bạn</h2>
             
-            <div class="order-items">
-              <div v-for="item in cartStore.items" :key="item.id" class="order-item">
-                <div class="item-info">
-                  <div class="item-image">
-                    <i :class="['fas', `fa-${item.image}`]"></i>
+            <div class="summary-items">
+              <div v-for="item in cartStore.items" :key="item.id" class="summary-item">
+                <div class="item-image">
+                  <img v-if="item.image && item.image !== 'tshirt'" :src="item.image" :alt="item.name" />
+                  <i v-else class="fas fa-tshirt"></i>
+                </div>
+                <div class="item-details">
+                  <div class="item-name">{{ item.name }}</div>
+                  <div class="item-variant" v-if="item.size || item.color">
+                    {{ item.size || '' }} {{ item.color || '' }}
                   </div>
-                  <div class="item-details">
-                    <h4>{{ item.name }}</h4>
-                    <p v-if="item.size || item.color" class="item-variants">
-                      {{ item.size }} {{ item.color }}
-                    </p>
-                    <p class="item-quantity">Số lượng: {{ item.quantity }}</p>
+                  <div class="item-price">
+                    {{ formatPrice(item.price) }} x {{ item.quantity }}
                   </div>
                 </div>
-                <div class="item-price">
+                <div class="item-total">
                   {{ formatPrice(item.price * item.quantity) }}
                 </div>
               </div>
             </div>
 
+            <!-- ✅ Summary với voucher -->
             <div class="summary-totals">
               <div class="summary-row">
                 <span>Tạm tính:</span>
-                <span>{{ formatPrice(cartStore.subtotal) }}</span>
+                <span>{{ formatPrice(cartStore.subtotal || 0) }}</span>
               </div>
+              
+              <!-- ✅ Hiển thị giảm giá từ voucher -->
+              <div v-if="cartStore.voucherDiscount && cartStore.voucherDiscount > 0" class="summary-row discount">
+                <span>Giảm giá ({{ cartStore.voucherCode || 'Voucher' }}):</span>
+                <span>-{{ formatPrice(cartStore.voucherDiscount) }}</span>
+              </div>
+              
               <div class="summary-row">
                 <span>Phí vận chuyển:</span>
-                <span>{{ formatPrice(shippingCost) }}</span>
+                <span>{{ formatPrice(shippingFee) }}</span>
               </div>
+              
+              <div class="summary-divider"></div>
+              
               <div class="summary-row total">
                 <span>Tổng cộng:</span>
-                <span>{{ formatPrice(cartStore.subtotal + shippingCost) }}</span>
+                <span class="total-amount">{{ formatPrice(totalAmount) }}</span>
               </div>
-            </div>
-
-            <div class="payment-instructions" v-if="form.paymentMethod === 'bank'">
-              <h3>Thông tin chuyển khoản</h3>
-              <p>Ngân hàng: Vietcombank</p>
-              <p>Số tài khoản: 1234567890</p>
-              <p>Chủ tài khoản: FASHION STORE</p>
-              <p>Nội dung: Mã đơn hàng + Số điện thoại</p>
             </div>
           </div>
         </div>
@@ -211,146 +147,288 @@
     </main>
 
     <ClientFooter />
+
+    <!-- Toast Notification -->
+    <div :class="['toast', { show: showToast, 'toast-error': toastType === 'error' }]">
+      {{ toastMessage }}
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCartStore } from '../../stores/cartStore'
 import { useAuthStore } from '../../stores/authStore'
-import { useNotification } from '../../composables/useNotification'
 import ClientHeader from '../../components/client/ClientHeader.vue'
 import ClientFooter from '../../components/client/ClientFooter.vue'
-import { formatPrice } from '../../utils/helpers'
+import { orderService } from '../../services/orderService'
+import axios from 'axios'
 
 const router = useRouter()
 const cartStore = useCartStore()
 const authStore = useAuthStore()
-const { showNotification } = useNotification()
 
-// Form state
-const form = ref({
-  fullName: authStore.user?.name || '',
+const API_BASE = "http://localhost:8080/api"
+const SHIPPING_FEE = 30000
+
+const placingOrder = ref(false)
+const saving = ref(false)
+const isEditing = ref(false)
+const showToast = ref(false)
+const toastMessage = ref('')
+const toastType = ref('success')
+let toastTimer = null
+
+const profile = reactive({
+  fullName: '',
+  customerName: '',
   phone: '',
-  email: authStore.user?.email || '',
+  address: '',
   city: '',
   district: '',
-  address: '',
-  shippingMethod: 'standard',
-  paymentMethod: 'cod',
-  note: ''
+  ward: '',
+  email: ''
 })
 
-const cities = ['Hồ Chí Minh', 'Hà Nội', 'Đà Nẵng', 'Hải Phòng', 'Cần Thơ']
-const districts = {
-  'Hồ Chí Minh': ['Quận 1', 'Quận 2', 'Quận 3', 'Quận 4', 'Quận 5', 'Quận 6', 'Quận 7', 'Quận 8', 'Quận 9', 'Quận 10', 'Quận 11', 'Quận 12', 'Bình Thạnh', 'Gò Vấp', 'Phú Nhuận', 'Tân Bình', 'Tân Phú', 'Thủ Đức'],
-  'Hà Nội': ['Ba Đình', 'Hoàn Kiếm', 'Hai Bà Trưng', 'Đống Đa', 'Tây Hồ', 'Cầu Giấy', 'Thanh Xuân', 'Hoàng Mai', 'Long Biên', 'Bắc Từ Liêm', 'Nam Từ Liêm'],
-  'Đà Nẵng': ['Hải Châu', 'Thanh Khê', 'Sơn Trà', 'Ngũ Hành Sơn', 'Liên Chiểu', 'Cẩm Lệ'],
-  'Hải Phòng': ['Hồng Bàng', 'Lê Chân', 'Ngô Quyền', 'Kiến An', 'Hải An', 'Đồ Sơn', 'Dương Kinh'],
-  'Cần Thơ': ['Ninh Kiều', 'Bình Thủy', 'Cái Răng', 'Ô Môn', 'Thốt Nốt']
+const editForm = reactive({
+  fullName: '',
+  phone: '',
+  address: '',
+  city: '',
+  district: '',
+  ward: ''
+})
+
+const orderData = ref({
+  notes: ''
+})
+
+// ✅ Computed: Tính tổng tiền với voucher
+const shippingFee = computed(() => {
+  // Miễn phí ship nếu đơn hàng >= 500,000
+  const subtotal = cartStore.subtotal || 0
+  return subtotal >= 500000 ? 0 : SHIPPING_FEE
+})
+
+const totalAmount = computed(() => {
+  const subtotal = cartStore.subtotal || 0
+  const discount = cartStore.voucherDiscount || 0
+  const shipping = shippingFee.value
+  return subtotal - discount + shipping
+})
+
+const formatPrice = (price) => {
+  if (!price && price !== 0) return '0₫'
+  const numPrice = typeof price === 'string' ? parseFloat(price) : price
+  if (isNaN(numPrice) || numPrice === 0) return '0₫'
+  return numPrice.toLocaleString('vi-VN') + '₫'
 }
 
-const shippingMethods = [
-  { 
-    id: 'standard', 
-    name: 'Giao hàng tiêu chuẩn', 
-    time: '3-5 ngày làm việc', 
-    price: 30000,
-    icon: 'fas fa-truck'
-  },
-  { 
-    id: 'express', 
-    name: 'Giao hàng nhanh', 
-    time: '1-2 ngày làm việc', 
-    price: 50000,
-    icon: 'fas fa-rocket'
-  },
-  { 
-    id: 'pickup', 
-    name: 'Nhận tại cửa hàng', 
-    time: 'Miễn phí', 
-    price: 0,
-    icon: 'fas fa-store'
+const showNotification = (message, type = 'success') => {
+  if (toastTimer) clearTimeout(toastTimer)
+  toastMessage.value = message
+  toastType.value = type
+  showToast.value = true
+  toastTimer = setTimeout(() => {
+    showToast.value = false
+  }, 3000)
+}
+
+// Lấy thông tin profile
+const fetchProfile = async () => {
+  try {
+    const token = localStorage.getItem('token')
+    if (!token) return
+
+    const response = await axios.get(`${API_BASE}/customers/profile`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+
+    const data = response.data
+    console.log('✅ Profile loaded:', data)
+    
+    profile.fullName = data.fullName || data.customerName || ''
+    profile.customerName = data.customerName || ''
+    profile.phone = data.phone || ''
+    profile.address = data.address || ''
+    profile.city = data.city || ''
+    profile.district = data.district || ''
+    profile.ward = data.ward || ''
+    profile.email = data.email || ''
+
+    editForm.fullName = profile.fullName
+    editForm.phone = profile.phone
+    editForm.address = profile.address
+    editForm.city = profile.city
+    editForm.district = profile.district
+    editForm.ward = profile.ward
+
+  } catch (error) {
+    console.error('Error fetching profile:', error)
   }
-]
+}
 
-const paymentMethods = [
-  { 
-    id: 'cod', 
-    name: 'Thanh toán khi nhận hàng (COD)', 
-    description: 'Thanh toán bằng tiền mặt khi nhận hàng',
-    icon: 'fas fa-money-bill-wave'
-  },
-  { 
-    id: 'bank', 
-    name: 'Chuyển khoản ngân hàng', 
-    description: 'Chuyển khoản qua tài khoản ngân hàng',
-    icon: 'fas fa-university'
-  },
-  { 
-    id: 'momo', 
-    name: 'Ví MoMo', 
-    description: 'Thanh toán qua ví điện tử MoMo',
-    icon: 'fas fa-mobile-alt'
-  },
-  { 
-    id: 'vnpay', 
-    name: 'VNPay', 
-    description: 'Thanh toán qua cổng VNPay',
-    icon: 'fas fa-credit-card'
+const toggleEdit = () => {
+  if (isEditing.value) {
+    editForm.fullName = profile.fullName
+    editForm.phone = profile.phone
+    editForm.address = profile.address
+    editForm.city = profile.city
+    editForm.district = profile.district
+    editForm.ward = profile.ward
   }
-]
+  isEditing.value = !isEditing.value
+}
 
-// Computed
-const shippingCost = computed(() => {
-  const method = shippingMethods.find(m => m.id === form.value.shippingMethod)
-  return method ? method.price : 0
-})
-
-// Methods
-const placeOrder = () => {
-  // Validate form
-  if (!form.value.fullName || !form.value.phone || !form.value.city || !form.value.district || !form.value.address) {
-    showNotification('Vui lòng điền đầy đủ thông tin giao hàng', 'error')
+const saveProfileInfo = async () => {
+  if (!editForm.fullName || editForm.fullName.trim() === '') {
+    showNotification('Vui lòng nhập họ và tên', 'error')
+    return
+  }
+  if (!editForm.phone || editForm.phone.trim() === '') {
+    showNotification('Vui lòng nhập số điện thoại', 'error')
+    return
+  }
+  if (!editForm.address || editForm.address.trim() === '') {
+    showNotification('Vui lòng nhập địa chỉ', 'error')
     return
   }
 
-  // Create order object
-  const order = {
-    id: 'DH' + Date.now(),
-    customer: form.value.fullName,
-    items: cartStore.items,
-    subtotal: cartStore.subtotal,
-    shipping: shippingCost.value,
-    total: cartStore.subtotal + shippingCost.value,
-    paymentMethod: form.value.paymentMethod,
-    shippingMethod: form.value.shippingMethod,
-    address: `${form.value.address}, ${form.value.district}, ${form.value.city}`,
-    phone: form.value.phone,
-    email: form.value.email,
-    note: form.value.note,
-    status: 'pending',
-    date: new Date().toLocaleDateString('vi-VN')
+  saving.value = true
+
+  try {
+    const token = localStorage.getItem('token')
+    if (!token) {
+      showNotification('Vui lòng đăng nhập để lưu thông tin', 'error')
+      return
+    }
+
+    const payload = {
+      fullName: editForm.fullName.trim(),
+      phone: editForm.phone.trim(),
+      address: editForm.address.trim(),
+      city: editForm.city?.trim() || '',
+      district: editForm.district?.trim() || '',
+      ward: editForm.ward?.trim() || ''
+    }
+
+    const response = await axios.put(`${API_BASE}/customers/profile`, payload, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    })
+
+    const data = response.data
+    profile.fullName = data.fullName || data.customerName || editForm.fullName
+    profile.customerName = data.customerName || ''
+    profile.phone = data.phone || editForm.phone
+    profile.address = data.address || editForm.address
+    profile.city = data.city || editForm.city
+    profile.district = data.district || editForm.district
+    profile.ward = data.ward || editForm.ward
+
+    if (authStore.user) {
+      authStore.user.username = profile.fullName
+      localStorage.setItem('user', JSON.stringify(authStore.user))
+    }
+
+    isEditing.value = false
+    showNotification('Cập nhật thông tin thành công!', 'success')
+
+  } catch (error) {
+    console.error('Error saving profile:', error)
+    showNotification(error.response?.data?.message || 'Cập nhật thất bại!', 'error')
+  } finally {
+    saving.value = false
+  }
+}
+
+// ✅ Đặt hàng - có voucher
+const placeOrder = async () => {
+  if (!profile.address || profile.address.trim() === '') {
+    showNotification('Vui lòng cập nhật địa chỉ trước khi đặt hàng!', 'error')
+    return
   }
 
-  // Simulate API call
-  setTimeout(() => {
-    // Clear cart
-    cartStore.clearCart()
+  // ✅ Lấy voucherId từ cartStore
+  const voucherId = cartStore.voucherId || null
+  
+  console.log('📋 Place order with voucherId:', voucherId)
+  console.log('📋 Voucher code:', cartStore.voucherCode)
+  console.log('📋 Voucher discount:', cartStore.voucherDiscount)
+
+  const orderItems = cartStore.items.map(item => ({
+    productDetailId: item.productDetailId || item.id,
+    quantity: item.quantity
+  }))
+
+  const orderPayload = {
+    shippingFullName: profile.fullName || 'Khách hàng',
+    shippingPhone: profile.phone || '',
+    shippingAddress: profile.address || '',
+    shippingCity: profile.city || 'Hà Nội',
+    shippingDistrict: profile.district || '',
+    shippingWard: profile.ward || '',
+    notes: orderData.value.notes || '',
+    items: orderItems,
+    paymentMethod: 'COD',
+    voucherId: voucherId  // ✅ TRUYỀN VOUCHER ID
+  }
+
+  console.log('📦 Order payload:', orderPayload)
+
+  placingOrder.value = true
+
+  try {
+    const response = await orderService.createOrder(orderPayload)
+    console.log('✅ Order created:', response.data)
+
+    // ✅ Clear cart (cả voucher)
+    await cartStore.clearCart()
     
-    // Show success message
-    showNotification('Đặt hàng thành công! Cảm ơn bạn đã mua hàng.', 'success')
+    showNotification('Đặt hàng thành công!', 'success')
     
-    // Redirect to success page or home
-    router.push('/')
-  }, 1500)
+    setTimeout(() => {
+      router.push('/orders')
+    }, 1500)
+
+  } catch (error) {
+    console.error('❌ Order error:', error)
+    showNotification(error.response?.data?.message || 'Đặt hàng thất bại!', 'error')
+  } finally {
+    placingOrder.value = false
+  }
 }
+
+onMounted(async () => {
+  if (!authStore.isAuthenticated) {
+    showNotification('Vui lòng đăng nhập để thanh toán!', 'error')
+    router.push('/login')
+    return
+  }
+  
+  await fetchProfile()
+  await cartStore.fetchCart()
+  
+  if (!profile.address) {
+    isEditing.value = true
+    showNotification('Vui lòng cập nhật thông tin giao hàng!', 'warning')
+  }
+})
 </script>
 
 <style scoped>
 .checkout-page {
   min-height: 100vh;
+  background: #f8f9fa;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
 }
 
 main {
@@ -360,292 +438,379 @@ main {
 
 .page-title {
   font-size: 32px;
-  color: var(--dark-gray);
+  color: #2c3e50;
   margin-bottom: 30px;
 }
 
 .empty-cart {
   text-align: center;
-  padding: 80px 20px;
+  padding: 80px;
   background: white;
   border-radius: 15px;
-  box-shadow: var(--shadow);
 }
 
 .empty-cart i {
-  font-size: 80px;
-  color: var(--medium-gray);
+  font-size: 60px;
+  color: #ccc;
   margin-bottom: 20px;
-}
-
-.empty-cart h2 {
-  color: var(--dark-gray);
-  margin-bottom: 10px;
-}
-
-.empty-cart p {
-  color: var(--medium-gray);
-  margin-bottom: 30px;
 }
 
 .checkout-content {
   display: grid;
-  grid-template-columns: 1fr 350px;
+  grid-template-columns: 1fr 400px;
   gap: 30px;
+  align-items: start;
 }
 
-/* Form */
 .checkout-form {
   background: white;
-  border-radius: 15px;
   padding: 30px;
-  box-shadow: var(--shadow);
+  border-radius: 15px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
 }
 
-.form-section {
-  margin-bottom: 30px;
-  padding-bottom: 30px;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.form-section:last-child {
-  margin-bottom: 0;
-  padding-bottom: 0;
-  border-bottom: none;
-}
-
-.form-section h2 {
-  color: var(--dark-gray);
-  margin-bottom: 20px;
+.checkout-form h2,
+.order-summary h2 {
   font-size: 20px;
+  color: #2c3e50;
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #e63946;
 }
 
-.form-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
+.profile-info {
+  background: #f8f9fa;
+  padding: 15px 20px;
+  border-radius: 10px;
   margin-bottom: 20px;
 }
 
-.form-group {
+.info-row {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  padding: 5px 0;
+  font-size: 15px;
+  gap: 10px;
 }
 
-.form-group label {
-  margin-bottom: 8px;
-  color: var(--dark-gray);
-  font-weight: 500;
-  font-size: 14px;
+.info-row .label {
+  font-weight: 600;
+  color: #2c3e50;
+  width: 120px;
+  flex-shrink: 0;
 }
 
-.form-group input,
-.form-group select,
-.form-group textarea {
-  padding: 12px;
-  border: 1px solid var(--border-color);
+.info-row .value {
+  color: #666;
+  flex: 1;
+}
+
+/* ✅ Style cho voucher */
+.info-row.voucher-info {
+  background: #e8f5e9;
+  padding: 8px 12px;
   border-radius: 8px;
-  outline: none;
-  font-size: 14px;
+  margin-top: 5px;
+}
+
+.info-row.voucher-info .voucher-code {
+  font-weight: 700;
+  color: #2e7d32;
+  background: white;
+  padding: 2px 10px;
+  border-radius: 4px;
+}
+
+.info-row.voucher-info .voucher-discount-amount {
+  color: #e63946;
+  font-weight: 700;
+}
+
+.edit-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 4px 8px;
+  border-radius: 4px;
   transition: all 0.3s;
 }
 
-.form-group input:focus,
-.form-group select:focus,
-.form-group textarea:focus {
-  border-color: var(--primary-red);
-  box-shadow: 0 0 0 3px rgba(230, 57, 70, 0.1);
+.edit-btn:hover {
+  background: #e9ecef;
 }
 
-/* Shipping Methods */
-.shipping-methods,
-.payment-methods {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
+.edit-form {
+  background: #f8f9fa;
+  padding: 20px;
+  border-radius: 10px;
+  margin-bottom: 20px;
+  border: 2px solid #e63946;
 }
 
-.shipping-method,
-.payment-method {
-  display: flex;
-  align-items: center;
-  padding: 15px;
-  border: 1px solid var(--border-color);
+.edit-form h3 {
+  color: #2c3e50;
+  margin-bottom: 15px;
+  font-size: 16px;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+.form-group label {
+  display: block;
+  font-weight: 600;
+  color: #2c3e50;
+  margin-bottom: 5px;
+  font-size: 14px;
+}
+
+.required {
+  color: #e63946;
+}
+
+.form-group input,
+.form-group textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ddd;
   border-radius: 8px;
+  font-size: 14px;
+  transition: border-color 0.3s;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: #e63946;
+}
+
+.form-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 15px;
+}
+
+.btn-save-info {
+  padding: 10px 24px;
+  background: #28a745;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.3s;
 }
 
-.shipping-method:hover,
-.payment-method:hover,
-.shipping-method.active,
-.payment-method.active {
-  border-color: var(--primary-red);
-  background: rgba(230, 57, 70, 0.05);
+.btn-save-info:hover:not(:disabled) {
+  background: #218838;
 }
 
-.shipping-method input[type="radio"],
-.payment-method input[type="radio"] {
-  margin-right: 15px;
-  accent-color: var(--primary-red);
-  width: 18px;
-  height: 18px;
+.btn-save-info:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
-.method-content {
+.btn-cancel {
+  padding: 10px 24px;
+  background: #f8f9fa;
+  color: #666;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.btn-cancel:hover {
+  background: #e9ecef;
+}
+
+.btn-place-order {
+  width: 100%;
+  padding: 15px;
+  background: linear-gradient(135deg, #e63946, #ff6b6b);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 18px;
+  cursor: pointer;
+  transition: all 0.3s;
   display: flex;
   align-items: center;
-  gap: 15px;
-  flex: 1;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 15px;
 }
 
-.method-content i {
-  font-size: 24px;
-  color: var(--primary-red);
-  width: 40px;
+.btn-place-order:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 20px rgba(230, 57, 70, 0.3);
 }
 
-.method-content h3 {
-  color: var(--dark-gray);
-  margin-bottom: 3px;
-  font-size: 16px;
-}
-
-.method-content p {
-  color: var(--medium-gray);
-  font-size: 13px;
-}
-
-.method-price {
-  font-weight: 600;
-  color: var(--primary-red);
-  margin-left: auto;
+.btn-place-order:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 /* Order Summary */
 .order-summary {
   background: white;
+  padding: 30px;
   border-radius: 15px;
-  padding: 25px;
-  box-shadow: var(--shadow);
-  height: fit-content;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  position: sticky;
+  top: 160px;
 }
 
-.order-summary h2 {
-  color: var(--dark-gray);
-  margin-bottom: 20px;
-  font-size: 20px;
-}
-
-.order-items {
+.summary-items {
   max-height: 400px;
   overflow-y: auto;
   margin-bottom: 20px;
 }
 
-.order-item {
+.summary-item {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 15px 0;
-  border-bottom: 1px solid var(--border-color);
+  gap: 15px;
+  padding: 10px 0;
+  border-bottom: 1px solid #eee;
 }
 
-.order-item:last-child {
+.summary-item:last-child {
   border-bottom: none;
 }
 
-.item-info {
-  display: flex;
-  gap: 15px;
-  align-items: center;
-}
-
 .item-image {
-  width: 60px;
-  height: 60px;
-  background: var(--light-gray);
+  width: 50px;
+  height: 50px;
+  background: #f5f5f5;
   border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.item-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .item-image i {
-  font-size: 30px;
-  color: var(--medium-gray);
+  font-size: 24px;
+  color: #ccc;
 }
 
-.item-details h4 {
-  color: var(--dark-gray);
-  margin-bottom: 3px;
+.item-details {
+  flex: 1;
+}
+
+.item-name {
+  font-weight: 600;
+  color: #2c3e50;
   font-size: 14px;
 }
 
-.item-variants {
-  color: var(--medium-gray);
+.item-variant {
   font-size: 12px;
-  margin-bottom: 3px;
-}
-
-.item-quantity {
-  color: var(--medium-gray);
-  font-size: 12px;
+  color: #999;
 }
 
 .item-price {
-  font-weight: 600;
-  color: var(--primary-red);
+  font-size: 13px;
+  color: #666;
 }
 
+.item-total {
+  font-weight: 700;
+  color: #e63946;
+}
+
+/* ✅ Summary totals với voucher */
 .summary-totals {
-  margin-top: 20px;
-  padding-top: 20px;
-  border-top: 2px solid var(--border-color);
+  border-top: 2px solid #eee;
+  padding-top: 15px;
 }
 
 .summary-row {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 12px;
-  color: var(--medium-gray);
+  padding: 8px 0;
+  color: #666;
+}
+
+.summary-row.discount {
+  color: #28a745;
+  font-weight: 600;
+}
+
+.summary-divider {
+  height: 1px;
+  background: #e0e0e0;
+  margin: 8px 0;
 }
 
 .summary-row.total {
   font-size: 18px;
   font-weight: 700;
-  color: var(--dark-gray);
-  margin-top: 15px;
-  padding-top: 15px;
-  border-top: 1px solid var(--border-color);
+  color: #2c3e50;
+  padding-top: 10px;
+  border-top: 1px solid #eee;
+  margin-top: 5px;
 }
 
-.payment-instructions {
-  margin-top: 20px;
-  padding: 15px;
-  background: var(--light-gray);
+.total-amount {
+  color: #e63946;
+}
+
+.toast {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  padding: 12px 24px;
   border-radius: 8px;
-}
-
-.payment-instructions h3 {
-  color: var(--dark-gray);
-  margin-bottom: 10px;
-  font-size: 16px;
-}
-
-.payment-instructions p {
-  color: var(--medium-gray);
-  margin-bottom: 5px;
+  background: #27ae60;
+  color: white;
   font-size: 14px;
+  z-index: 9999;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all 0.3s;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
-.place-order-btn {
-  width: 100%;
-  padding: 15px;
-  font-size: 16px;
+.toast.toast-error {
+  background: #e74c3c;
 }
 
-/* Responsive */
+.toast.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, #e63946, #ff6b6b);
+  color: white;
+  padding: 12px 24px;
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: 600;
+  transition: all 0.3s;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(230, 57, 70, 0.3);
+}
+
 @media (max-width: 768px) {
   main {
     margin-top: 200px;
@@ -655,56 +820,28 @@ main {
     grid-template-columns: 1fr;
   }
 
-  .form-row {
-    grid-template-columns: 1fr;
-    gap: 15px;
-  }
-
-  .method-content {
-    flex-wrap: wrap;
-  }
-
-  .method-price {
-    margin-left: 0;
-    width: 100%;
-    text-align: right;
+  .order-summary {
+    position: static;
   }
 
   .page-title {
     font-size: 24px;
   }
-}
 
-@media (max-width: 480px) {
-  .checkout-form,
-  .order-summary {
-    padding: 20px;
+  .info-row {
+    flex-wrap: wrap;
   }
 
-  .shipping-method,
-  .payment-method {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 10px;
-  }
-
-  .shipping-method input[type="radio"],
-  .payment-method input[type="radio"] {
-    margin-bottom: 10px;
-  }
-
-  .method-content {
+  .info-row .label {
     width: 100%;
   }
 
-  .order-item {
+  .form-actions {
     flex-direction: column;
-    align-items: flex-start;
-    gap: 10px;
   }
 
-  .item-price {
-    align-self: flex-end;
+  .form-actions button {
+    width: 100%;
   }
 }
 </style>

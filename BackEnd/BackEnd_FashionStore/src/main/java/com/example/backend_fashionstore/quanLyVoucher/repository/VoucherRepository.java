@@ -8,8 +8,15 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+
 @Repository
 public interface VoucherRepository extends JpaRepository<Voucher, Integer> {
+
+    // ===== ADMIN QUERIES =====
 
     // Lấy tất cả (chưa xóa)
     @Query("SELECT v FROM Voucher v WHERE v.voucherDeletedAt IS NULL")
@@ -40,6 +47,8 @@ public interface VoucherRepository extends JpaRepository<Voucher, Integer> {
             @Param("keyword") String keyword,
             Pageable pageable);
 
+    // ===== STATISTICS =====
+
     // Thống kê tổng số (chưa xóa)
     @Query("SELECT COUNT(v) FROM Voucher v WHERE v.voucherDeletedAt IS NULL")
     long countAllActive();
@@ -56,6 +65,8 @@ public interface VoucherRepository extends JpaRepository<Voucher, Integer> {
     @Query("SELECT COALESCE(SUM(v.voucherUsedCount), 0) FROM Voucher v WHERE v.voucherDeletedAt IS NULL")
     long sumUsedCount();
 
+    // ===== VALIDATION =====
+
     // Kiểm tra mã trùng (chưa xóa)
     @Query("SELECT COUNT(v) > 0 FROM Voucher v WHERE " +
             "LOWER(v.voucherCode) = LOWER(:code) AND v.voucherDeletedAt IS NULL")
@@ -66,4 +77,73 @@ public interface VoucherRepository extends JpaRepository<Voucher, Integer> {
             "LOWER(v.voucherCode) = LOWER(:code) AND " +
             "v.voucherId != :id AND v.voucherDeletedAt IS NULL")
     boolean existsByVoucherCodeAndIdNot(@Param("code") String code, @Param("id") Integer id);
+
+    // ===== CUSTOMER QUERIES (BỔ SUNG) =====
+
+    // Tìm voucher theo code (chưa xóa) - đã có
+    @Query("SELECT v FROM Voucher v WHERE v.voucherCode = :code AND v.voucherDeletedAt IS NULL")
+    Optional<Voucher> findByVoucherCode(@Param("code") String code);
+
+    // ✅ Tìm voucher theo code và status ACTIVE (chưa xóa)
+    @Query("SELECT v FROM Voucher v WHERE v.voucherCode = :code AND v.voucherStatus = 'ACTIVE' AND v.voucherDeletedAt IS NULL")
+    Optional<Voucher> findActiveByVoucherCode(@Param("code") String code);
+
+    // ✅ Lấy danh sách voucher đang hoạt động, còn hạn, chưa dùng hết
+    @Query("SELECT v FROM Voucher v WHERE " +
+            "v.voucherStatus = 'ACTIVE' " +
+            "AND v.voucherDeletedAt IS NULL " +
+            "AND v.voucherStartDate <= :now " +
+            "AND v.voucherEndDate >= :now " +
+            "AND (v.voucherMaxUsage IS NULL OR v.voucherUsedCount < v.voucherMaxUsage)")
+    List<Voucher> findAvailableVouchers(@Param("now") LocalDateTime now);
+
+    // ✅ Lấy danh sách voucher có thể áp dụng với giá trị đơn hàng
+    @Query("SELECT v FROM Voucher v WHERE " +
+            "v.voucherStatus = 'ACTIVE' " +
+            "AND v.voucherDeletedAt IS NULL " +
+            "AND v.voucherStartDate <= :now " +
+            "AND v.voucherEndDate >= :now " +
+            "AND (v.voucherMaxUsage IS NULL OR v.voucherUsedCount < v.voucherMaxUsage) " +
+            "AND (v.voucherMinOrderValue IS NULL OR v.voucherMinOrderValue <= :orderValue)")
+    List<Voucher> findAvailableVouchersByOrderValue(
+            @Param("orderValue") BigDecimal orderValue,
+            @Param("now") LocalDateTime now);
+
+    // ✅ Đếm số voucher đang hoạt động (customer)
+    @Query("SELECT COUNT(v) FROM Voucher v WHERE " +
+            "v.voucherStatus = 'ACTIVE' " +
+            "AND v.voucherDeletedAt IS NULL " +
+            "AND v.voucherStartDate <= :now " +
+            "AND v.voucherEndDate >= :now " +
+            "AND (v.voucherMaxUsage IS NULL OR v.voucherUsedCount < v.voucherMaxUsage)")
+    long countAvailableVouchers(@Param("now") LocalDateTime now);
+
+    // ✅ Kiểm tra voucher có tồn tại và active không
+    @Query("SELECT COUNT(v) > 0 FROM Voucher v WHERE " +
+            "v.voucherCode = :code " +
+            "AND v.voucherStatus = 'ACTIVE' " +
+            "AND v.voucherDeletedAt IS NULL " +
+            "AND v.voucherStartDate <= :now " +
+            "AND v.voucherEndDate >= :now " +
+            "AND (v.voucherMaxUsage IS NULL OR v.voucherUsedCount < v.voucherMaxUsage)")
+    boolean existsActiveVoucherByCode(@Param("code") String code, @Param("now") LocalDateTime now);
+
+    // ✅ Lấy voucher sắp hết hạn (còn 7 ngày)
+    @Query("SELECT v FROM Voucher v WHERE " +
+            "v.voucherStatus = 'ACTIVE' " +
+            "AND v.voucherDeletedAt IS NULL " +
+            "AND v.voucherEndDate BETWEEN :now AND :expiryDate " +
+            "AND (v.voucherMaxUsage IS NULL OR v.voucherUsedCount < v.voucherMaxUsage)")
+    List<Voucher> findExpiringSoonVouchers(
+            @Param("now") LocalDateTime now,
+            @Param("expiryDate") LocalDateTime expiryDate);
+
+    // ✅ Lấy voucher mới nhất
+    @Query("SELECT v FROM Voucher v WHERE " +
+            "v.voucherStatus = 'ACTIVE' " +
+            "AND v.voucherDeletedAt IS NULL " +
+            "AND v.voucherStartDate <= :now " +
+            "AND v.voucherEndDate >= :now " +
+            "ORDER BY v.voucherCreatedAt DESC")
+    List<Voucher> findLatestVouchers(@Param("now") LocalDateTime now, Pageable pageable);
 }
