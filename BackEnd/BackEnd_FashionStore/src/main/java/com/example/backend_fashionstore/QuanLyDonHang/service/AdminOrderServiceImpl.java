@@ -50,16 +50,12 @@ public class AdminOrderServiceImpl implements AdminOrderService {
 
         // Xử lý theo từng trường hợp
         if (keyword != null && !keyword.isEmpty() && status != null && !status.isEmpty()) {
-            // Có cả keyword và status
             orders = orderRepository.filterOrdersWithKeywordNative(status, keyword, pageable);
         } else if (keyword != null && !keyword.isEmpty()) {
-            // Chỉ có keyword
             orders = orderRepository.searchOrdersNative(keyword, pageable);
         } else if (status != null && !status.isEmpty()) {
-            // Chỉ có status
             orders = orderRepository.filterOrdersNative(status, pageable);
         } else {
-            // Không có gì, lấy tất cả
             orders = orderRepository.findAllActiveOrders(pageable);
         }
 
@@ -69,44 +65,152 @@ public class AdminOrderServiceImpl implements AdminOrderService {
     @Override
     public AdminOrderResponseDTO getOrderDetail(Long orderId) {
         Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng"));
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng với ID: " + orderId));
         return convertToAdminResponse(order);
     }
 
     @Override
     public AdminOrderResponseDTO updateOrderStatus(Long orderId, UpdateOrderStatusRequest request) {
         Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng"));
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng với ID: " + orderId));
 
         String oldStatus = order.getOrderStatus();
-        order.setOrderStatus(request.getOrderStatus());
+        String newStatus = request.getOrderStatus();
+
+        // ✅ Kiểm tra chuyển đổi trạng thái hợp lệ
+        if (!isValidStatusTransition(oldStatus, newStatus)) {
+            throw new RuntimeException("Không thể chuyển trạng thái từ '" + oldStatus + "' sang '" + newStatus + "'");
+        }
+
+        // ✅ Cập nhật trạng thái
+        order.setOrderStatus(newStatus);
         order.setUpdatedAt(LocalDateTime.now());
+
+        // ✅ Nếu đơn hàng hoàn thành, cập nhật payment status
+        if ("COMPLETED".equals(newStatus)) {
+            order.setPaymentStatus("PAID");
+        }
+
+        // ✅ Nếu đơn hàng bị hủy, hoàn lại số lượng sản phẩm
+        if ("CANCELLED".equals(newStatus)) {
+            List<OrderDetail> details = orderDetailRepository.findByOrder_OrderId(orderId);
+            for (OrderDetail detail : details) {
+                ProductDetail pd = detail.getProductDetail();
+                pd.setQuantity(pd.getQuantity() + detail.getQuantity());
+                log.info("✅ Restored {} units for product detail: {}", detail.getQuantity(), pd.getProductDetailId());
+            }
+        }
+
+        // ✅ Nếu đơn hàng đang giao hoặc đã hoàn thành, cập nhật tồn kho
+        if ("SHIPPING".equals(newStatus) || "COMPLETED".equals(newStatus)) {
+            // Tồn kho đã được trừ khi tạo đơn, không cần xử lý thêm
+            log.info("📦 Order {} status updated to {}, stock already deducted", orderId, newStatus);
+        }
 
         orderRepository.save(order);
 
-        // Ghi lịch sử
+        // ✅ Ghi lịch sử
         OrderHistory history = new OrderHistory();
         history.setOrder(order);
-        history.setNote("Cập nhật trạng thái từ '" + oldStatus + "' thành '" + request.getOrderStatus() + "'. " + (request.getNotes() != null ? request.getNotes() : ""));
+        history.setOrderStatus(newStatus);
+        history.setNote("Cập nhật trạng thái từ '" + getStatusText(oldStatus) + "' thành '" + getStatusText(newStatus) + "'. " +
+                (request.getNotes() != null ? request.getNotes() : ""));
         history.setTimestamp(LocalDateTime.now());
         orderHistoryRepository.save(history);
 
+        log.info("✅ Updated order {} status from {} to {}", orderId, oldStatus, newStatus);
+
+        // ✅ GỬI THÔNG BÁO CHO KHÁCH HÀNG
+        try {
+            sendOrderStatusNotification(order, oldStatus, newStatus, request.getNotes());
+        } catch (Exception e) {
+            log.warn("⚠️ Không thể gửi thông báo cho khách hàng: {}", e.getMessage());
+            // Vẫn tiếp tục cập nhật trạng thái dù không gửi được thông báo
+        }
+
         return convertToAdminResponse(order);
+    }
+
+    /**
+     * ✅ Gửi thông báo cho khách hàng khi đơn hàng thay đổi trạng thái
+     */
+    private void sendOrderStatusNotification(Order order, String oldStatus, String newStatus, String notes) {
+        String customerName = order.getCustomer() != null ? order.getCustomer().getCustomerName() : "Khách hàng";
+        String orderCode = "ORD" + String.format("%08d", order.getOrderId());
+
+        String title = "Cập nhật đơn hàng #" + orderCode;
+        String message = String.format(
+                "Đơn hàng #%s của bạn đã được cập nhật trạng thái từ '%s' thành '%s'.",
+                orderCode,
+                getStatusText(oldStatus),
+                getStatusText(newStatus)
+        );
+
+        if (notes != null && !notes.isEmpty()) {
+            message += " Ghi chú: " + notes;
+        }
+
+        log.info("📧 SENDING NOTIFICATION:");
+        log.info("   To: {} (ID: {})", customerName, order.getCustomer() != null ? order.getCustomer().getCustomerId() : "N/A");
+        log.info("   Title: {}", title);
+        log.info("   Message: {}", message);
+        log.info("   Order: {} ({})", orderCode, order.getOrderId());
+        log.info("   Status: {} -> {}", oldStatus, newStatus);
+
+        // ✅ Có thể gửi notification qua WebSocket ở đây
+        // webSocketService.sendNotificationToUser(customerId, notification);
+
+        // ✅ Hoặc lưu vào database
+        // notificationRepository.save(notification);
+
+        // ✅ Hoặc gửi email
+        // emailService.sendOrderStatusEmail(order, oldStatus, newStatus);
+    }
+
+    /**
+     * ✅ Kiểm tra chuyển đổi trạng thái hợp lệ
+     */
+    private boolean isValidStatusTransition(String oldStatus, String newStatus) {
+        // Không cho phép chuyển từ CANCELLED hoặc COMPLETED sang trạng thái khác
+        if (("CANCELLED".equals(oldStatus) || "COMPLETED".equals(oldStatus)) && !oldStatus.equals(newStatus)) {
+            log.warn("⚠️ Invalid status transition: {} -> {}", oldStatus, newStatus);
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * ✅ Lấy text hiển thị của trạng thái
+     */
+    private String getStatusText(String status) {
+        Map<String, String> statusMap = new HashMap<>();
+        statusMap.put("PENDING_PAYMENT", "Chờ thanh toán");
+        statusMap.put("PROCESSING", "Đang xử lý");
+        statusMap.put("SHIPPING", "Đang giao hàng");
+        statusMap.put("COMPLETED", "Hoàn thành");
+        statusMap.put("CANCELLED", "Đã hủy");
+        statusMap.put("RETURNED", "Trả hàng");
+        return statusMap.getOrDefault(status, status);
     }
 
     @Override
     public AdminOrderResponseDTO updatePaymentStatus(Long orderId, String paymentStatus) {
         Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng"));
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng với ID: " + orderId));
 
-        log.info("Cập nhật paymentStatus cho order {} thành: {} (Tính năng đang phát triển)", orderId, paymentStatus);
+        String oldPaymentStatus = order.getPaymentStatus();
+        order.setPaymentStatus(paymentStatus);
+        order.setUpdatedAt(LocalDateTime.now());
+        orderRepository.save(order);
 
         // Ghi lịch sử
         OrderHistory history = new OrderHistory();
         history.setOrder(order);
-        history.setNote("Yêu cầu cập nhật trạng thái thanh toán thành: " + paymentStatus);
+        history.setNote("Cập nhật trạng thái thanh toán từ '" + oldPaymentStatus + "' thành '" + paymentStatus + "'");
         history.setTimestamp(LocalDateTime.now());
         orderHistoryRepository.save(history);
+
+        log.info("✅ Updated order {} payment status from {} to {}", orderId, oldPaymentStatus, paymentStatus);
 
         return convertToAdminResponse(order);
     }
@@ -117,6 +221,8 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         long completedOrders = orderRepository.countByOrderStatus("COMPLETED");
         long pendingOrders = orderRepository.countByOrderStatus("PENDING_PAYMENT");
         long cancelledOrders = orderRepository.countByOrderStatus("CANCELLED");
+        long processingOrders = orderRepository.countByOrderStatus("PROCESSING");
+        long shippingOrders = orderRepository.countByOrderStatus("SHIPPING");
 
         BigDecimal todayRevenue = orderRepository.getTodayRevenue();
         BigDecimal monthlyRevenue = orderRepository.getMonthlyRevenue(
@@ -129,6 +235,8 @@ public class AdminOrderServiceImpl implements AdminOrderService {
                 .completedOrders(completedOrders)
                 .pendingOrders(pendingOrders)
                 .cancelledOrders(cancelledOrders)
+                .processingOrders(processingOrders)
+                .shippingOrders(shippingOrders)
                 .todayRevenue(todayRevenue != null ? todayRevenue : BigDecimal.ZERO)
                 .monthlyRevenue(monthlyRevenue != null ? monthlyRevenue : BigDecimal.ZERO)
                 .build();
@@ -139,12 +247,16 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         Map<String, Long> counts = new HashMap<>();
         counts.put("PENDING_PAYMENT", orderRepository.countByOrderStatus("PENDING_PAYMENT"));
         counts.put("PROCESSING", orderRepository.countByOrderStatus("PROCESSING"));
+        counts.put("SHIPPING", orderRepository.countByOrderStatus("SHIPPING"));
         counts.put("COMPLETED", orderRepository.countByOrderStatus("COMPLETED"));
         counts.put("CANCELLED", orderRepository.countByOrderStatus("CANCELLED"));
         counts.put("RETURNED", orderRepository.countByOrderStatus("RETURNED"));
         return counts;
     }
 
+    /**
+     * ✅ Chuyển đổi Order entity sang AdminOrderResponseDTO
+     */
     private AdminOrderResponseDTO convertToAdminResponse(Order order) {
         List<OrderDetail> details = orderDetailRepository.findByOrder_OrderId(order.getOrderId());
 
@@ -173,6 +285,7 @@ public class AdminOrderServiceImpl implements AdminOrderService {
                 })
                 .collect(Collectors.toList());
 
+        // Xử lý Shipping Address
         ShippingAddress addr = order.getShippingAddress();
         AdminShippingAddressDTO shippingDTO = null;
         if (addr != null) {
@@ -187,10 +300,13 @@ public class AdminOrderServiceImpl implements AdminOrderService {
                     .build();
         }
 
-        BigDecimal totalAmount = order.getOrderSubtotalAmount()
-                .subtract(order.getOrderDiscountAmount() != null ? order.getOrderDiscountAmount() : BigDecimal.ZERO)
-                .add(order.getOrderShippingFee() != null ? order.getOrderShippingFee() : BigDecimal.ZERO);
+        // Tính total amount
+        BigDecimal subtotal = order.getOrderSubtotalAmount() != null ? order.getOrderSubtotalAmount() : BigDecimal.ZERO;
+        BigDecimal discount = order.getOrderDiscountAmount() != null ? order.getOrderDiscountAmount() : BigDecimal.ZERO;
+        BigDecimal shippingFee = order.getOrderShippingFee() != null ? order.getOrderShippingFee() : BigDecimal.ZERO;
+        BigDecimal totalAmount = subtotal.subtract(discount).add(shippingFee);
 
+        // Xử lý Voucher
         Voucher voucher = order.getVoucher();
         AdminVoucherInfoDTO voucherDTO = null;
         if (voucher != null) {
@@ -208,9 +324,9 @@ public class AdminOrderServiceImpl implements AdminOrderService {
                 .orderDate(order.getOrderDate())
                 .orderStatus(order.getOrderStatus())
                 .paymentStatus(order.getPaymentStatus() != null ? order.getPaymentStatus() : "UNPAID")
-                .subtotalAmount(order.getOrderSubtotalAmount())
-                .discountAmount(order.getOrderDiscountAmount())
-                .shippingFee(order.getOrderShippingFee())
+                .subtotalAmount(subtotal)
+                .discountAmount(discount)
+                .shippingFee(shippingFee)
                 .totalAmount(totalAmount)
                 .notes(order.getNotes())
                 .createdAt(order.getCreatedAt())
@@ -219,7 +335,7 @@ public class AdminOrderServiceImpl implements AdminOrderService {
                         .customerId(order.getCustomer().getCustomerId())
                         .customerName(order.getCustomer().getCustomerName())
                         .phone(order.getCustomer().getPhone())
-                        .email(order.getCustomer().getUser().getEmail())
+                        .email(order.getCustomer().getUser() != null ? order.getCustomer().getUser().getEmail() : null)
                         .build())
                 .shippingAddress(shippingDTO)
                 .voucher(voucherDTO)

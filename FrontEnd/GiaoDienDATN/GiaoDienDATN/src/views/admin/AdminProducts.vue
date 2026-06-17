@@ -34,6 +34,13 @@
           <div class="stat-label">Sắp hết hàng</div>
         </div>
       </div>
+      <div class="stat-card stat-deleted">
+        <div class="stat-icon">🗑️</div>
+        <div class="stat-info">
+          <div class="stat-value">{{ statistics.deletedProducts || 0 }}</div>
+          <div class="stat-label">Đã xóa</div>
+        </div>
+      </div>
     </div>
 
     <!-- Filter Bar -->
@@ -58,6 +65,7 @@
         <option :value="null">Tất cả trạng thái</option>
         <option value="ACTIVE">Đang bán</option>
         <option value="INACTIVE">Ngừng bán</option>
+        <option value="DELETED">Đã xóa</option>
       </select>
       <button class="btn-search" @click="fetchProducts">Tìm kiếm</button>
       <button v-if="searchKeyword || selectedCategoryId || selectedStatus" class="btn-reset" @click="resetFilters">
@@ -86,20 +94,19 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="product in paginatedProducts" :key="product.productId" class="table-row">
+          <tr v-for="product in paginatedProducts" :key="product.productId" class="table-row" :class="{ 'row-deleted': product._deletedAt }">
             <td class="id-cell">#{{ product.productId }}</td>
-            <td class="product-name">{{ product.productName }}</td>
+            <td class="product-name" :class="{ 'deleted-text': product._deletedAt }">{{ product.productName }}</td>
             <td class="category-cell">{{ product.category?.categoryName || '-' }}</td>
             
-            <!-- ✅ Cột khuyến mãi của sản phẩm -->
             <td class="promotion-cell">
-              <span v-if="product.promotion" class="promotion-badge">
+              <span v-if="product.promotion && !product._deletedAt" class="promotion-badge">
                 🎁 {{ product.promotion.promotionName }} (-{{ product.promotion.promotionDiscountPercent }}%)
               </span>
+              <span v-else-if="product._deletedAt" class="deleted-label">Đã xóa</span>
               <span v-else class="no-promotion">—</span>
             </td>
             
-            <!-- Cột gộp: Biến thể + Tồn kho theo từng phiên bản -->
             <td class="variants-cell">
               <div class="variants-list">
                 <div v-for="(v, idx) in product.variants" :key="idx" class="variant-item">
@@ -134,18 +141,31 @@
             </td>
             
             <td class="status-cell">
-              <span :class="['status-badge', product.status === 'ACTIVE' ? 'status-active' : 'status-inactive']">
+              <span v-if="product._deletedAt" class="status-badge status-deleted">
+                Đã xóa
+              </span>
+              <span v-else :class="['status-badge', product.status === 'ACTIVE' ? 'status-active' : 'status-inactive']">
                 {{ product.status === 'ACTIVE' ? 'Đang bán' : 'Ngừng bán' }}
               </span>
             </td>
             <td class="actions">
               <div class="action-buttons">
-                <button class="action-btn edit-btn" @click="openEditModal(product)" title="Sửa">
-                  ✏️
-                </button>
-                <button class="action-btn delete-btn" @click="confirmDelete(product)" title="Xóa">
-                  🗑️
-                </button>
+                <template v-if="product._deletedAt">
+                  <button class="action-btn restore-btn" @click="confirmRestore(product)" title="Khôi phục">
+                    ↩️
+                  </button>
+                  <button class="action-btn view-btn" @click="viewProductDetail(product)" title="Xem chi tiết">
+                    👁️
+                  </button>
+                </template>
+                <template v-else>
+                  <button class="action-btn edit-btn" @click="openEditModal(product)" title="Sửa">
+                    ✏️
+                  </button>
+                  <button class="action-btn delete-btn" @click="confirmDelete(product)" title="Xóa">
+                    🗑️
+                  </button>
+                </template>
               </div>
             </td>
           </tr>
@@ -184,7 +204,6 @@
 
         <form @submit.prevent="handleSubmit">
           <div class="modal-body">
-            <!-- Thông tin cơ bản -->
             <div class="form-section">
               <h4>📝 Thông tin cơ bản</h4>
               
@@ -203,7 +222,6 @@
                 </select>
               </div>
 
-              <!-- ✅ Ô chọn khuyến mãi cho toàn bộ sản phẩm -->
               <div class="form-group">
                 <label>🎁 Khuyến mãi áp dụng</label>
                 <select v-model="form.promotionId" class="promotion-select">
@@ -230,7 +248,6 @@
               </div>
             </div>
 
-            <!-- Biến thể -->
             <div class="form-section">
               <div class="variants-header">
                 <h4>🎨 Biến thể (Màu sắc - Kích thước)</h4>
@@ -317,11 +334,29 @@
         </div>
         <div class="modal-body">
           <p>Bạn có chắc muốn xóa sản phẩm <strong>{{ deleteProductName }}</strong>?</p>
-          <p class="warning-text">Sau khi xóa, sản phẩm sẽ không thể khôi phục!</p>
+          <p class="warning-text">Sau khi xóa, sản phẩm sẽ chuyển sang trạng thái đã xóa và có thể khôi phục lại!</p>
         </div>
         <div class="modal-footer">
           <button class="btn-cancel" @click="closeDeleteModal">Hủy</button>
           <button class="btn-danger" @click="deleteProduct">Xóa</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Restore Modal -->
+    <div v-if="showRestoreModal" class="modal-overlay" @click.self="closeRestoreModal">
+      <div class="modal-container modal-sm">
+        <div class="modal-header">
+          <h3>Xác nhận khôi phục</h3>
+          <button class="close-btn" @click="closeRestoreModal">✕</button>
+        </div>
+        <div class="modal-body">
+          <p>Bạn có chắc muốn khôi phục sản phẩm <strong>{{ restoreProductName }}</strong>?</p>
+          <p>Sau khi khôi phục, sản phẩm sẽ trở lại trạng thái ban đầu và có thể chỉnh sửa.</p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-cancel" @click="closeRestoreModal">Hủy</button>
+          <button class="btn-save" @click="restoreProduct">Khôi phục</button>
         </div>
       </div>
     </div>
@@ -348,18 +383,22 @@ const promotionList = ref([]);
 const statistics = ref({
   totalProducts: 0,
   inStockVariants: 0,
-  lowStockVariants: 0
+  lowStockVariants: 0,
+  deletedProducts: 0
 });
 const loading = ref(false);
 const saving = ref(false);
 const showModal = ref(false);
 const showDeleteModal = ref(false);
+const showRestoreModal = ref(false);
 const isEdit = ref(false);
 const currentPage = ref(0);
 const pageSize = ref(5);
 const totalPages = ref(0);
 const deleteProductId = ref(null);
 const deleteProductName = ref('');
+const restoreProductId = ref(null);
+const restoreProductName = ref('');
 
 // Filters
 const searchKeyword = ref('');
@@ -379,28 +418,9 @@ const form = ref({
   categoryId: null,
   description: '',
   isActive: true,
-  promotionId: null, // ✅ Khuyến mãi cho toàn bộ sản phẩm
+  promotionId: null,
   variants: []
 });
-
-// ✅ Lấy promotion discount percent hiện tại
-const getCurrentPromotionDiscount = () => {
-  if (!form.value.promotionId) return 0;
-  const promotion = promotionList.value.find(p => p.promotionId === form.value.promotionId);
-  return promotion?.promotionDiscountPercent || 0;
-};
-
-// ✅ Tính giá sau khuyến mãi cho 1 mức giá
-const getDiscountedPrice = (originalPrice) => {
-  const discountPercent = getCurrentPromotionDiscount();
-  if (!discountPercent || discountPercent === 0 || !originalPrice) return originalPrice;
-  return originalPrice * (1 - discountPercent / 100);
-};
-
-// ✅ Tính lại tất cả giá sau khuyến mãi
-const calculateAllDiscountedPrices = () => {
-  // Force reactivity - will be recalculated in template
-};
 
 // Computed
 const filteredProducts = computed(() => {
@@ -454,6 +474,20 @@ const formatPrice = (price) => {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
 };
 
+const getCurrentPromotionDiscount = () => {
+  if (!form.value.promotionId) return 0;
+  const promotion = promotionList.value.find(p => p.promotionId === form.value.promotionId);
+  return promotion?.promotionDiscountPercent || 0;
+};
+
+const getDiscountedPrice = (originalPrice) => {
+  const discountPercent = getCurrentPromotionDiscount();
+  if (!discountPercent || discountPercent === 0 || !originalPrice) return originalPrice;
+  return originalPrice * (1 - discountPercent / 100);
+};
+
+const calculateAllDiscountedPrices = () => {};
+
 // Fetch data
 const fetchProducts = async () => {
   loading.value = true;
@@ -471,7 +505,11 @@ const fetchProducts = async () => {
       products = response.data;
     }
     
-    allProducts.value = products;
+    // ✅ GIỮ TẤT CẢ SẢN PHẨM (bao gồm cả đã xóa)
+    allProducts.value = products.map(p => ({
+      ...p,
+      _deletedAt: p.status === 'DELETED' ? new Date().toISOString() : null
+    }));
     totalPages.value = Math.ceil(filteredProducts.value.length / pageSize.value);
     currentPage.value = 0;
     
@@ -513,7 +551,6 @@ const fetchCategories = async () => {
     categoryList.value = categories.filter(c => 
       c.status === 'ACTIVE' && !c.deletedAt && c.categoryStatus !== 'DELETED'
     );
-    console.log('✅ Categories loaded:', categoryList.value.length);
   } catch (error) {
     console.error('Lỗi tải danh mục:', error);
     categoryList.value = [];
@@ -538,7 +575,6 @@ const fetchColors = async () => {
     colorList.value = colors.filter(c => 
       c.status === 'ACTIVE' && !c.deletedAt && c.colorStatus !== 'DELETED'
     );
-    console.log('✅ Colors loaded:', colorList.value.length);
   } catch (error) {
     console.error('Lỗi tải màu:', error);
     colorList.value = [];
@@ -563,7 +599,6 @@ const fetchSizes = async () => {
     sizeList.value = sizes.filter(s => 
       s.status === 'ACTIVE' && !s.deletedAt && s.sizeStatus !== 'DELETED'
     );
-    console.log('✅ Sizes loaded:', sizeList.value.length);
   } catch (error) {
     console.error('Lỗi tải size:', error);
     sizeList.value = [];
@@ -575,9 +610,7 @@ const fetchPromotions = async () => {
     const token = localStorage.getItem('token');
     const response = await axios.get(`${API_BASE}/admin/promotions`, {
       params: { page: 0, size: 100 },
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
+      headers: { 'Authorization': `Bearer ${token}` }
     });
     
     let promotions = [];
@@ -592,25 +625,9 @@ const fetchPromotions = async () => {
     promotionList.value = promotions.filter(p => 
       p.promotionStatus === 'ACTIVE' && !p.promotionDeletedAt
     );
-    console.log('✅ Promotions loaded:', promotionList.value.length);
   } catch (error) {
     console.error('Lỗi tải khuyến mãi:', error);
-    if (error.response?.status === 403) {
-      console.log('⚠️ Không có quyền, thử API /promotions...');
-      try {
-        const res = await axios.get(`${API_BASE}/promotions/active`);
-        let promotions = res.data?.data || res.data || [];
-        promotionList.value = promotions.filter(p => 
-          p.promotionStatus === 'ACTIVE' && !p.promotionDeletedAt
-        );
-        console.log('✅ Promotions loaded (fallback):', promotionList.value.length);
-      } catch (e) {
-        console.error('Vẫn lỗi:', e);
-        promotionList.value = [];
-      }
-    } else {
-      promotionList.value = [];
-    }
+    promotionList.value = [];
   }
 };
 
@@ -659,6 +676,11 @@ const openCreateModal = () => {
 };
 
 const openEditModal = async (product) => {
+  if (product._deletedAt) {
+    showNotification('Không thể sửa sản phẩm đã xóa! Vui lòng khôi phục trước.', 'error');
+    return;
+  }
+  
   if (categoryList.value.length === 0) await fetchCategories();
   if (colorList.value.length === 0) await fetchColors();
   if (sizeList.value.length === 0) await fetchSizes();
@@ -710,14 +732,6 @@ const openEditModal = async (product) => {
     variants: variants
   };
   
-  console.log('📝 Mở form sửa với dữ liệu:', {
-    productId: form.value.productId,
-    productName: form.value.productName,
-    categoryId: form.value.categoryId,
-    promotionId: form.value.promotionId,
-    variantsCount: form.value.variants.length
-  });
-  
   showModal.value = true;
 };
 
@@ -750,7 +764,6 @@ const handleSubmit = async () => {
     return;
   }
   
-  // Kiểm tra số lượng tồn kho không âm
   for (let i = 0; i < form.value.variants.length; i++) {
     const v = form.value.variants[i];
     if (v.quantity < 0) {
@@ -808,7 +821,7 @@ const handleSubmit = async () => {
   }
 };
 
-// Delete product
+// ✅ SOFT DELETE - Xóa mềm (giữ lại trong danh sách)
 const confirmDelete = (product) => {
   deleteProductId.value = product.productId;
   deleteProductName.value = product.productName;
@@ -823,15 +836,68 @@ const closeDeleteModal = () => {
 
 const deleteProduct = async () => {
   try {
+    // ✅ GỌI API SOFT DELETE
     await axios.delete(`${API_BASE}/products/${deleteProductId.value}`);
-    showNotification('Xóa sản phẩm thành công!');
+    
+    // ✅ CẬP NHẬT TRẠNG THÁI (KHÔNG XÓA KHỎI DANH SÁCH)
+    const index = allProducts.value.findIndex(p => p.productId === deleteProductId.value);
+    if (index !== -1) {
+      allProducts.value[index] = {
+        ...allProducts.value[index],
+        _deletedAt: new Date().toISOString(),
+        status: 'DELETED'
+      };
+    }
+    
+    showNotification('Xóa sản phẩm thành công! Sản phẩm đã chuyển sang trạng thái đã xóa.', 'success');
     closeDeleteModal();
-    await fetchProducts();
     await fetchStatistics();
   } catch (error) {
     console.error('Lỗi xóa sản phẩm:', error);
     showNotification(error.response?.data?.message || 'Không thể xóa sản phẩm!', 'error');
   }
+};
+
+// ✅ RESTORE - Khôi phục
+const confirmRestore = (product) => {
+  restoreProductId.value = product.productId;
+  restoreProductName.value = product.productName;
+  showRestoreModal.value = true;
+};
+
+const closeRestoreModal = () => {
+  showRestoreModal.value = false;
+  restoreProductId.value = null;
+  restoreProductName.value = '';
+};
+
+const restoreProduct = async () => {
+  try {
+    // ✅ GỌI API RESTORE
+    await axios.patch(`${API_BASE}/products/${restoreProductId.value}/restore`);
+    
+    // ✅ CẬP NHẬT TRẠNG THÁI
+    const index = allProducts.value.findIndex(p => p.productId === restoreProductId.value);
+    if (index !== -1) {
+      allProducts.value[index] = {
+        ...allProducts.value[index],
+        _deletedAt: null,
+        status: 'ACTIVE'
+      };
+    }
+    
+    showNotification('Khôi phục sản phẩm thành công!', 'success');
+    closeRestoreModal();
+    await fetchProducts();
+    await fetchStatistics();
+  } catch (error) {
+    console.error('Lỗi khôi phục sản phẩm:', error);
+    showNotification(error.response?.data?.message || 'Không thể khôi phục sản phẩm!', 'error');
+  }
+};
+
+const viewProductDetail = (product) => {
+  showNotification(`Xem chi tiết sản phẩm: ${product.productName}`, 'info');
 };
 
 // Lifecycle
@@ -858,7 +924,6 @@ onMounted(async () => {
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* Header */
 .page-header {
   display: flex;
   justify-content: space-between;
@@ -898,10 +963,9 @@ onMounted(async () => {
   transform: translateY(-2px);
 }
 
-/* Stats Row */
 .stats-row {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 16px;
   margin-bottom: 24px;
 }
@@ -920,12 +984,12 @@ onMounted(async () => {
 .stat-total { border-left-color: #3b82f6; }
 .stat-active { border-left-color: #10b981; }
 .stat-warning { border-left-color: #f59e0b; }
+.stat-deleted { border-left-color: #ef4444; }
 
 .stat-icon { font-size: 32px; }
 .stat-value { font-size: 28px; font-weight: 700; color: #1a1a2e; }
 .stat-label { font-size: 12px; color: #6b7280; margin-top: 4px; }
 
-/* Filter Bar */
 .filter-bar {
   display: flex;
   gap: 15px;
@@ -1014,7 +1078,6 @@ onMounted(async () => {
   background-color: #e0e0e0;
 }
 
-/* Table */
 .table-container {
   background: white;
   border-radius: 12px;
@@ -1046,6 +1109,34 @@ onMounted(async () => {
   background: #f9fafb;
 }
 
+.row-deleted {
+  opacity: 0.6;
+  background-color: #fafafa;
+}
+
+.row-deleted td {
+  color: #9ca3af;
+}
+
+.row-deleted .product-name {
+  color: #9ca3af;
+}
+
+.row-deleted .variant-item {
+  opacity: 0.5;
+}
+
+.deleted-text {
+  text-decoration: line-through;
+  color: #9ca3af;
+}
+
+.deleted-label {
+  color: #9ca3af;
+  font-style: italic;
+  font-size: 13px;
+}
+
 .id-cell {
   font-weight: 600;
   color: #3498db;
@@ -1060,7 +1151,6 @@ onMounted(async () => {
   color: #666;
 }
 
-/* Variants Cell - Quan trọng: Hiển thị số lượng theo từng phiên bản */
 .variants-cell {
   max-width: 450px;
 }
@@ -1111,10 +1201,28 @@ onMounted(async () => {
   gap: 15px;
 }
 
+.variant-prices {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.variant-original-price {
+  font-size: 11px;
+  color: #9ca3af;
+  text-decoration: line-through;
+}
+
 .variant-price {
   color: #e74c3c;
   font-weight: 600;
   font-size: 13px;
+}
+
+.variant-price.has-discount {
+  color: #e74c3c;
+  font-weight: 700;
 }
 
 .variant-stock {
@@ -1139,15 +1247,6 @@ onMounted(async () => {
   color: #c62828;
 }
 
-.variant-promotion {
-  font-size: 11px;
-  color: #e63946;
-  background: #fff3cd;
-  padding: 2px 8px;
-  border-radius: 20px;
-  white-space: nowrap;
-}
-
 .no-variant {
   color: #9ca3af;
   font-style: italic;
@@ -1155,7 +1254,6 @@ onMounted(async () => {
   text-align: center;
 }
 
-/* Status Badges */
 .status-badge {
   padding: 5px 12px;
   border-radius: 20px;
@@ -1163,10 +1261,11 @@ onMounted(async () => {
   font-weight: 500;
   display: inline-block;
 }
+
 .status-active { background-color: #e8f8f5; color: #27ae60; }
 .status-inactive { background-color: #fdf2e9; color: #f39c12; }
+.status-deleted { background-color: #f3f4f6; color: #6b7280; }
 
-/* Action Buttons */
 .action-buttons {
   display: flex;
   gap: 6px;
@@ -1188,8 +1287,59 @@ onMounted(async () => {
 
 .edit-btn:hover { background-color: #fef3c7; }
 .delete-btn:hover { background-color: #fde8e8; }
+.restore-btn:hover { background-color: #d1fae5; }
+.view-btn:hover { background-color: #e5e7eb; }
 
-/* Loading State */
+.restore-btn {
+  background: #10b981;
+  color: white;
+  border-radius: 6px;
+  padding: 6px 10px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.restore-btn:hover {
+  background: #059669;
+  transform: scale(1.05);
+}
+
+.view-btn {
+  background: #6b7280;
+  color: white;
+  border-radius: 6px;
+  padding: 6px 10px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.view-btn:hover {
+  background: #4b5563;
+  transform: scale(1.05);
+}
+
+.promotion-cell {
+  text-align: center;
+}
+
+.promotion-badge {
+  display: inline-block;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.no-promotion {
+  color: #9ca3af;
+  font-size: 14px;
+}
+
 .loading-state {
   text-align: center;
   padding: 60px 20px;
@@ -1226,7 +1376,6 @@ onMounted(async () => {
   margin-right: 6px;
 }
 
-/* Empty State */
 .empty-row {
   text-align: center;
   padding: 40px;
@@ -1258,7 +1407,6 @@ onMounted(async () => {
   background: #2980b9;
 }
 
-/* Pagination */
 .pagination {
   display: flex;
   justify-content: space-between;
@@ -1310,7 +1458,6 @@ onMounted(async () => {
   text-align: center;
 }
 
-/* Modal */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -1389,7 +1536,6 @@ onMounted(async () => {
   gap: 12px;
 }
 
-/* Form */
 .form-section {
   margin-bottom: 28px;
   padding-bottom: 20px;
@@ -1453,7 +1599,6 @@ onMounted(async () => {
   width: auto;
 }
 
-/* Variants Table */
 .variants-header {
   display: flex;
   justify-content: space-between;
@@ -1511,10 +1656,6 @@ onMounted(async () => {
   font-size: 13px;
 }
 
-.promotion-select {
-  min-width: 140px;
-}
-
 .discounted-price {
   background-color: #e8f5e9;
   color: #2e7d32;
@@ -1536,7 +1677,16 @@ onMounted(async () => {
   background: #d32f2f;
 }
 
-/* Modal Buttons */
+.promotion-select {
+  min-width: 140px;
+}
+
+.form-hint {
+  font-size: 12px;
+  color: #f59e0b;
+  margin-top: 5px;
+}
+
 .btn-cancel, .btn-save, .btn-danger {
   padding: 8px 20px;
   border: none;
@@ -1587,7 +1737,6 @@ onMounted(async () => {
   font-size: 13px;
 }
 
-/* Toast */
 .toast {
   position: fixed;
   bottom: 30px;
@@ -1613,7 +1762,6 @@ onMounted(async () => {
   transform: translateY(0);
 }
 
-/* Responsive */
 @media (max-width: 768px) {
   .admin-products { padding: 15px; }
   .page-header { flex-direction: column; align-items: stretch; gap: 12px; }
@@ -1636,82 +1784,6 @@ onMounted(async () => {
   .variant-price-stock {
     justify-content: space-between;
     width: 100%;
-  }
-}
-
-
-.promotion-cell {
-  text-align: center;
-}
-
-.promotion-badge {
-  display: inline-block;
-  background: linear-gradient(135deg, #667eea, #764ba2);
-  color: white;
-  padding: 4px 10px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-.no-promotion {
-  color: #9ca3af;
-  font-size: 14px;
-}
-
-.variant-prices {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.variant-original-price {
-  font-size: 11px;
-  color: #9ca3af;
-  text-decoration: line-through;
-}
-
-.variant-price.has-discount {
-  color: #e74c3c;
-  font-weight: 700;
-}
-
-.form-hint {
-  font-size: 12px;
-  color: #f59e0b;
-  margin-top: 5px;
-}
-
-.promotion-select {
-  background-color: white;
-}
-
-/* Điều chỉnh cột variants cell */
-.variants-cell {
-  min-width: 280px;
-}
-
-.variant-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 8px 0;
-  border-bottom: 1px solid #f0f0f0;
-  flex-wrap: wrap;
-}
-
-@media (max-width: 768px) {
-  .variant-item {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  
-  .variant-price-stock {
-    width: 100%;
-    justify-content: space-between;
   }
 }
 </style>

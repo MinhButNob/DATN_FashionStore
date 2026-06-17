@@ -460,4 +460,40 @@ public class ProductService {
                         .collect(Collectors.toList()))
                 .build();
     }
+
+    @Transactional
+    public ProductResponse restoreProduct(Integer id) {
+        if (id == null) {
+            throw new IllegalArgumentException("ID sản phẩm không được để trống");
+        }
+
+        // Tìm sản phẩm (bao gồm cả đã xóa)
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Product not found with id: " + id));
+
+        // Kiểm tra sản phẩm đã bị xóa chưa
+        if (product.getDeletedAt() == null) {
+            throw new RuntimeException("Sản phẩm chưa bị xóa, không cần khôi phục");
+        }
+
+        // Khôi phục sản phẩm
+        product.setStatus("ACTIVE");
+        product.setDeletedAt(null);
+        product = productRepository.save(product);
+
+        // Khôi phục tất cả variants
+        for (ProductDetail detail : product.getProductDetails()) {
+            if (detail.getDeletedAt() != null) {
+                detail.setStatus("ACTIVE");
+                detail.setDeletedAt(null);
+                productDetailRepository.save(detail);
+            }
+        }
+
+        log.info("Khôi phục sản phẩm thành công với ID: {}", id);
+
+        // Lấy promotion để trả về response
+        Promotion promotion = getPromotionForProduct(product);
+        return toResponse(product, promotion);
+    }
 }

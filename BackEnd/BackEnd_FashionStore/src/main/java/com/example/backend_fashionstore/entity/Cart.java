@@ -2,6 +2,7 @@ package com.example.backend_fashionstore.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -20,13 +21,20 @@ public class Cart {
     @Column(name = "cart_id")
     private Integer cartId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "cart_customer_id")
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "cart_customer_id", nullable = false)
     private Customer customer;
 
-    @Builder.Default  // ✅ THÊM @Builder.Default
     @OneToMany(mappedBy = "cart", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<CartItem> cartItems = new ArrayList<>();
+
+    // ✅ Thêm voucher
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "voucher_id")
+    private Voucher voucher;
+
+    @Column(name = "voucher_discount")
+    private BigDecimal voucherDiscount;
 
     @Column(name = "cart_created_at")
     private LocalDateTime createdAt;
@@ -37,17 +45,6 @@ public class Cart {
     @Column(name = "cart_deleted_at")
     private LocalDateTime deletedAt;
 
-    @PrePersist
-    public void prePersist() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
-    }
-
-    @PreUpdate
-    public void preUpdate() {
-        updatedAt = LocalDateTime.now();
-    }
-
     public void addCartItem(CartItem item) {
         cartItems.add(item);
         item.setCart(this);
@@ -56,9 +53,5 @@ public class Cart {
     public void removeCartItem(CartItem item) {
         cartItems.remove(item);
         item.setCart(null);
-    }
-
-    public List<CartItem> getCartItems() {
-        return cartItems == null ? new ArrayList<>() : cartItems;
     }
 }

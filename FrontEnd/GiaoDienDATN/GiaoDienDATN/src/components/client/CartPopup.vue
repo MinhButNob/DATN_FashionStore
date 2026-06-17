@@ -29,7 +29,17 @@
                 <p class="product-variant" v-if="product.size || product.color">
                   {{ product.size || '' }} {{ product.color || '' }}
                 </p>
-                <p class="product-price">{{ formatPrice(product.price) }}</p>
+                <div class="product-price-wrapper">
+                  <!-- Hiển thị giá gốc và giá đã giảm nếu có -->
+                  <p v-if="product.originalPrice && product.originalPrice > product.price" class="product-price">
+                    <span class="original-price">{{ formatPrice(product.originalPrice) }}</span>
+                    <span class="discounted-price">{{ formatPrice(product.price) }}</span>
+                    <span class="discount-badge">-{{ calculateDiscount(product.originalPrice, product.price) }}%</span>
+                  </p>
+                  <p v-else class="product-price">
+                    <span class="discounted-price">{{ formatPrice(product.price) }}</span>
+                  </p>
+                </div>
                 
                 <div class="quantity-stock">
                   <div class="quantity-control">
@@ -53,6 +63,14 @@
               <div class="summary-row">
                 <span>Số lượng sản phẩm:</span>
                 <span>{{ cartStore.totalItems }}</span>
+              </div>
+              <div class="summary-row">
+                <span>Tạm tính:</span>
+                <span>{{ formatPrice(cartStore.subtotal) }}</span>
+              </div>
+              <div v-if="cartStore.voucherDiscount > 0" class="summary-row discount">
+                <span>Giảm giá (Voucher):</span>
+                <span>-{{ formatPrice(cartStore.voucherDiscount) }}</span>
               </div>
               <div class="summary-row total">
                 <span>Tổng tiền:</span>
@@ -98,6 +116,12 @@ const router = useRouter()
 const cartStore = useCartStore()
 
 const localQuantity = ref(props.product.quantity || 1)
+
+// Tính phần trăm giảm giá
+const calculateDiscount = (originalPrice, discountedPrice) => {
+  if (!originalPrice || !discountedPrice || originalPrice <= discountedPrice) return 0
+  return Math.round(((originalPrice - discountedPrice) / originalPrice) * 100)
+}
 
 watch(() => props.product, (newProduct) => {
   localQuantity.value = newProduct.quantity || 1
@@ -262,11 +286,38 @@ const handleImageError = (event) => {
   margin: 0 0 5px 0;
 }
 
+.product-price-wrapper {
+  margin: 0 0 10px 0;
+}
+
 .product-price {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0;
+}
+
+.original-price {
+  font-size: 14px;
+  color: #999;
+  text-decoration: line-through;
+}
+
+.discounted-price {
   font-size: 18px;
   font-weight: 700;
   color: #e63946;
-  margin: 0 0 10px 0;
+}
+
+.discount-badge {
+  display: inline-block;
+  background: #e63946;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .quantity-stock {
@@ -337,6 +388,10 @@ const handleImageError = (event) => {
   margin-bottom: 8px;
   color: #666;
   font-size: 14px;
+}
+
+.summary-row.discount {
+  color: #28a745;
 }
 
 .summary-row.total {

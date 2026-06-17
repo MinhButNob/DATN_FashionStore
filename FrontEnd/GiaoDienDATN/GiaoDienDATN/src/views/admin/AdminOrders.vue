@@ -2,6 +2,51 @@
   <div class="admin-orders">
     <div class="admin-header">
       <h1 class="page-title">Quản lý đơn hàng</h1>
+      <div class="header-actions">
+        <button class="btn-refresh" @click="fetchOrders">
+          <i class="fas fa-sync-alt"></i> Làm mới
+        </button>
+      </div>
+    </div>
+
+    <!-- Thống kê nhanh -->
+    <div class="stats-grid" v-if="statistics">
+      <div class="stat-card">
+        <div class="stat-icon blue">
+          <i class="fas fa-shopping-bag"></i>
+        </div>
+        <div class="stat-info">
+          <span class="stat-number">{{ statistics.totalOrders || 0 }}</span>
+          <span class="stat-label">Tổng đơn hàng</span>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon yellow">
+          <i class="fas fa-clock"></i>
+        </div>
+        <div class="stat-info">
+          <span class="stat-number">{{ statistics.pendingOrders || 0 }}</span>
+          <span class="stat-label">Chờ xử lý</span>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon green">
+          <i class="fas fa-check-circle"></i>
+        </div>
+        <div class="stat-info">
+          <span class="stat-number">{{ statistics.completedOrders || 0 }}</span>
+          <span class="stat-label">Hoàn thành</span>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon red">
+          <i class="fas fa-times-circle"></i>
+        </div>
+        <div class="stat-info">
+          <span class="stat-number">{{ statistics.cancelledOrders || 0 }}</span>
+          <span class="stat-label">Đã hủy</span>
+        </div>
+      </div>
     </div>
 
     <!-- Filters -->
@@ -20,6 +65,7 @@
         <option value="all">Tất cả trạng thái</option>
         <option value="PENDING_PAYMENT">Chờ thanh toán</option>
         <option value="PROCESSING">Đang xử lý</option>
+        <option value="SHIPPING">Đang giao</option>
         <option value="COMPLETED">Hoàn thành</option>
         <option value="CANCELLED">Đã hủy</option>
       </select>
@@ -76,17 +122,9 @@
             </td>
             <td>{{ formatDate(order.orderDate) }}</td>
             <td>
-              <select 
-                class="status-select" 
-                :class="getStatusClass(order.orderStatus)"
-                v-model="order.orderStatus"
-                @change="updateOrderStatus(order)"
-              >
-                <option value="PENDING_PAYMENT">Chờ thanh toán</option>
-                <option value="PROCESSING">Đang xử lý</option>
-                <option value="COMPLETED">Hoàn thành</option>
-                <option value="CANCELLED">Đã hủy</option>
-              </select>
+              <span :class="['status-badge', getStatusClass(order.orderStatus)]">
+                {{ getStatusText(order.orderStatus) }}
+              </span>
             </td>
             <td>
               <span class="payment-status" :class="getPaymentClass(order.paymentStatus)">
@@ -95,6 +133,14 @@
             </td>
             <td>
               <div class="action-buttons">
+                <button 
+                  class="action-btn update-status-btn" 
+                  @click="openUpdateStatusModal(order)"
+                  :disabled="updatingOrderIds.has(order.orderId)"
+                  title="Cập nhật trạng thái"
+                >
+                  <i class="fas fa-edit"></i>
+                </button>
                 <button class="action-btn view-btn" @click="viewOrderDetail(order)" title="Xem chi tiết">
                   <i class="fas fa-eye"></i>
                 </button>
@@ -103,7 +149,8 @@
           </tr>
           <tr v-if="orders.length === 0 && !loading">
             <td colspan="9" class="no-data">
-              Không tìm thấy đơn hàng nào
+              <i class="fas fa-box-open"></i>
+              <p>Không tìm thấy đơn hàng nào</p>
             </td>
           </tr>
         </tbody>
@@ -261,19 +308,37 @@
         </div>
       </div>
     </div>
+
+    <!-- Update Status Modal -->
+    <UpdateStatusModal
+      :visible="showUpdateModal"
+      :order="selectedOrderForUpdate"
+      @close="closeUpdateStatusModal"
+      @updated="onStatusUpdated"
+    />
+
+    <!-- Toast Notification -->
+    <div :class="['toast', { show: showToast, 'toast-error': toastType === 'error' }]">
+      <i :class="toastType === 'error' ? 'fas fa-exclamation-circle' : 'fas fa-check-circle'"></i>
+      {{ toastMessage }}
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { adminOrderService } from '../../services/adminOrderService'
+import UpdateStatusModal from '../../components/admin/UpdateStatusModal.vue'
 
+// ===== STATE =====
 const loading = ref(false)
 const orders = ref([])
 const currentPage = ref(0)
 const totalPages = ref(0)
 const totalElements = ref(0)
 const pageSize = ref(10)
+const statistics = ref(null)
+const updatingOrderIds = ref(new Set())
 
 // Filters
 const filters = ref({
@@ -286,12 +351,17 @@ const showDetailModal = ref(false)
 const showItemsModal = ref(false)
 const selectedOrder = ref(null)
 
+// Update Status Modal
+const showUpdateModal = ref(false)
+const selectedOrderForUpdate = ref(null)
+
 // Toast
 const showToast = ref(false)
 const toastMessage = ref('')
 const toastType = ref('success')
 let toastTimer = null
 
+// ===== UTILITY FUNCTIONS =====
 const showNotification = (message, type = 'success') => {
   if (toastTimer) clearTimeout(toastTimer)
   toastMessage.value = message
@@ -321,6 +391,7 @@ const getStatusText = (status) => {
   const map = {
     'PENDING_PAYMENT': 'Chờ thanh toán',
     'PROCESSING': 'Đang xử lý',
+    'SHIPPING': 'Đang giao',
     'COMPLETED': 'Hoàn thành',
     'CANCELLED': 'Đã hủy'
   }
@@ -331,6 +402,7 @@ const getStatusClass = (status) => {
   const map = {
     'PENDING_PAYMENT': 'status-pending',
     'PROCESSING': 'status-processing',
+    'SHIPPING': 'status-shipping',
     'COMPLETED': 'status-completed',
     'CANCELLED': 'status-cancelled'
   }
@@ -353,7 +425,7 @@ const getPaymentClass = (status) => {
   return map[status] || ''
 }
 
-// Fetch orders from API
+// ===== API CALLS =====
 const fetchOrders = async () => {
   loading.value = true
   try {
@@ -395,25 +467,35 @@ const fetchOrders = async () => {
   }
 }
 
-// Update order status
-const updateOrderStatus = async (order) => {
+const fetchStatistics = async () => {
   try {
-    const response = await adminOrderService.updateOrderStatus(order.orderId, {
-      orderStatus: order.orderStatus,
-      notes: ''
-    })
-    
-    if (response.data && response.data.code === 200) {
-      showNotification(`Đã cập nhật trạng thái đơn hàng #${order.orderCode || order.orderId}`, 'success')
+    const response = await adminOrderService.getStatistics()
+    if (response.data) {
+      statistics.value = response.data
     }
   } catch (error) {
-    console.error('❌ Error updating order status:', error)
-    showNotification(error.response?.data?.message || 'Cập nhật thất bại', 'error')
-    await fetchOrders()
+    console.error('❌ Error fetching statistics:', error)
   }
 }
 
-// View order detail
+// ===== UPDATE STATUS =====
+const openUpdateStatusModal = (order) => {
+  selectedOrderForUpdate.value = order
+  showUpdateModal.value = true
+}
+
+const closeUpdateStatusModal = () => {
+  showUpdateModal.value = false
+  selectedOrderForUpdate.value = null
+}
+
+const onStatusUpdated = async (data) => {
+  showNotification(`✅ Đã cập nhật trạng thái đơn hàng #${data.orderId} thành "${getStatusText(data.newStatus)}"`, 'success')
+  await fetchOrders()
+  await fetchStatistics()
+}
+
+// ===== VIEW DETAILS =====
 const viewOrderDetail = async (order) => {
   try {
     const response = await adminOrderService.getOrderDetail(order.orderId)
@@ -435,7 +517,7 @@ const closeDetailModal = () => {
   selectedOrder.value = null
 }
 
-// Pagination
+// ===== PAGINATION =====
 const goToPage = (page) => {
   if (page >= 0 && page < totalPages.value) {
     currentPage.value = page
@@ -443,7 +525,7 @@ const goToPage = (page) => {
   }
 }
 
-// Filters
+// ===== FILTERS =====
 const applyFilters = () => {
   currentPage.value = 0
   fetchOrders()
@@ -458,9 +540,10 @@ const resetFilters = () => {
   fetchOrders()
 }
 
-// Lifecycle
+// ===== LIFECYCLE =====
 onMounted(() => {
   fetchOrders()
+  fetchStatistics()
 })
 </script>
 
@@ -483,6 +566,82 @@ onMounted(() => {
   margin: 0;
 }
 
+.header-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.btn-refresh {
+  padding: 10px 20px;
+  background: #2c3e50;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.btn-refresh:hover {
+  background: #1a252f;
+}
+
+/* Stats */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+  margin-bottom: 25px;
+}
+
+.stat-card {
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  transition: all 0.3s;
+}
+
+.stat-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+}
+
+.stat-icon {
+  width: 50px;
+  height: 50px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  color: white;
+}
+
+.stat-icon.blue { background: #3498db; }
+.stat-icon.yellow { background: #f39c12; }
+.stat-icon.green { background: #2ecc71; }
+.stat-icon.red { background: #e74c3c; }
+
+.stat-info {
+  flex: 1;
+}
+
+.stat-number {
+  display: block;
+  font-size: 24px;
+  font-weight: 700;
+  color: #2c3e50;
+}
+
+.stat-label {
+  font-size: 13px;
+  color: #999;
+}
+
+/* Filters */
 .filters-bar {
   background: white;
   padding: 20px;
@@ -554,6 +713,7 @@ onMounted(() => {
   background: #e0e0e0;
 }
 
+/* Loading */
 .loading-state {
   text-align: center;
   padding: 60px;
@@ -576,6 +736,7 @@ onMounted(() => {
   100% { transform: rotate(360deg); }
 }
 
+/* Table */
 .table-container {
   background: white;
   border-radius: 15px;
@@ -587,7 +748,7 @@ onMounted(() => {
 .data-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 800px;
+  min-width: 900px;
 }
 
 .data-table th {
@@ -606,13 +767,7 @@ onMounted(() => {
 }
 
 .data-table tr:hover {
-  background: #f8f9fa;
-}
-
-.customer-info {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
+  background: #fafafa;
 }
 
 .customer-name {
@@ -645,32 +800,32 @@ onMounted(() => {
   color: #e63946;
 }
 
-.status-select {
-  padding: 8px 12px;
+/* Status Badge */
+.status-badge {
+  display: inline-block;
+  padding: 5px 12px;
   border-radius: 20px;
-  border: none;
   font-size: 12px;
   font-weight: 600;
-  cursor: pointer;
-  outline: none;
 }
 
-.status-select.status-pending {
+.status-badge.status-pending {
   background: #fff3cd;
   color: #856404;
 }
-
-.status-select.status-processing {
+.status-badge.status-processing {
   background: #cce5ff;
   color: #004085;
 }
-
-.status-select.status-completed {
+.status-badge.status-shipping {
+  background: #d1ecf1;
+  color: #0c5460;
+}
+.status-badge.status-completed {
   background: #d4edda;
   color: #155724;
 }
-
-.status-select.status-cancelled {
+.status-badge.status-cancelled {
   background: #f8d7da;
   color: #721c24;
 }
@@ -693,6 +848,7 @@ onMounted(() => {
   color: #856404;
 }
 
+/* Action Buttons */
 .action-buttons {
   display: flex;
   gap: 8px;
@@ -708,6 +864,21 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   transition: all 0.3s;
+}
+
+.update-status-btn {
+  background: #e63946;
+  color: white;
+}
+
+.update-status-btn:hover:not(:disabled) {
+  background: #c82333;
+  transform: translateY(-2px);
+}
+
+.update-status-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .view-btn {
@@ -726,6 +897,14 @@ onMounted(() => {
   color: #999;
 }
 
+.no-data i {
+  font-size: 40px;
+  display: block;
+  margin-bottom: 10px;
+  color: #ddd;
+}
+
+/* Pagination */
 .pagination {
   display: flex;
   justify-content: center;
@@ -759,7 +938,7 @@ onMounted(() => {
   color: #666;
 }
 
-/* Modal Styles */
+/* Modal */
 .modal {
   position: fixed;
   top: 0;
@@ -1000,6 +1179,36 @@ onMounted(() => {
   color: #e63946;
 }
 
+/* Toast */
+.toast {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  padding: 12px 24px;
+  border-radius: 10px;
+  background: #27ae60;
+  color: white;
+  font-size: 14px;
+  z-index: 9999;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all 0.4s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.toast.toast-error {
+  background: #e74c3c;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Animations */
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
@@ -1010,7 +1219,20 @@ onMounted(() => {
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* Responsive */
+@media (max-width: 1024px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 @media (max-width: 768px) {
+  .admin-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
   .page-title {
     font-size: 24px;
   }
@@ -1031,6 +1253,30 @@ onMounted(() => {
 
   .modal-content {
     width: 95%;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .stat-card {
+    padding: 15px;
+  }
+
+  .stat-number {
+    font-size: 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .action-buttons {
+    flex-direction: column;
+    align-items: center;
   }
 }
 </style>

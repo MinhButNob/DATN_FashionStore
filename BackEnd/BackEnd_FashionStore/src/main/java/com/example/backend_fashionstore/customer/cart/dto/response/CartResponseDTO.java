@@ -1,6 +1,5 @@
 package com.example.backend_fashionstore.customer.cart.dto.response;
 
-import com.example.backend_fashionstore.customer.cart.dto.response.CartItemResponseDTO;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -19,4 +18,10 @@ public class CartResponseDTO {
     private List<CartItemResponseDTO> items;
     private BigDecimal subtotal;
     private Integer totalQuantity;
+
+    // ✅ Thêm các field mới
+    private BigDecimal voucherDiscount;
+    private BigDecimal shippingFee;
+    private BigDecimal total;
+    private String voucherCode;
 }

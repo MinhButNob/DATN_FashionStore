@@ -32,18 +32,6 @@ public class CartController {
             @AuthenticationPrincipal UserDetails userDetails,
             @RequestBody CartRequestDTO request
     ) {
-        // Debug: In ra giá trị nhận được
-        System.out.println("=== DEBUG ===");
-        System.out.println("ProductDetailId: " + request.getProductDetailId());
-        System.out.println("Quantity from request: " + request.getQuantity());
-        System.out.println("Quantity getter: " + request.getQuantity());
-
-        // Force set nếu null
-        if (request.getQuantity() == null) {
-            System.out.println("!!! Quantity is NULL, setting to 1 !!!");
-            request.setQuantity(1);
-        }
-
         Integer customerId = getCustomerIdFromUserDetails(userDetails);
         CartResponseDTO cart = cartService.addToCart(customerId, request);
         return ResponseEntity.ok(ApiResponse.success(cart));
@@ -77,13 +65,32 @@ public class CartController {
         return ResponseEntity.ok(ApiResponse.success());
     }
 
+    // ✅ API áp dụng voucher
+    @PostMapping("/apply-voucher")
+    public ResponseEntity<ApiResponse<CartResponseDTO>> applyVoucher(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestParam String voucherCode
+    ) {
+        Integer customerId = getCustomerIdFromUserDetails(userDetails);
+        CartResponseDTO cart = cartService.applyVoucher(customerId, voucherCode);
+        return ResponseEntity.ok(ApiResponse.success(cart));
+    }
+
+    // ✅ API xóa voucher
+    @DeleteMapping("/remove-voucher")
+    public ResponseEntity<ApiResponse<CartResponseDTO>> removeVoucher(
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        Integer customerId = getCustomerIdFromUserDetails(userDetails);
+        CartResponseDTO cart = cartService.removeVoucher(customerId);
+        return ResponseEntity.ok(ApiResponse.success(cart));
+    }
+
     private Integer getCustomerIdFromUserDetails(UserDetails userDetails) {
         if (userDetails == null) {
             throw new RuntimeException("Người dùng chưa đăng nhập");
         }
-
         String email = userDetails.getUsername();
-
         return cartRepository.findCustomerIdByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy khách hàng với email: " + email));
     }

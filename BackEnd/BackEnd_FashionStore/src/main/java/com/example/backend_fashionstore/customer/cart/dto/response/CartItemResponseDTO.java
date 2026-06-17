@@ -19,8 +19,9 @@ public class CartItemResponseDTO {
     private String colorName;
     private String sizeName;
     private BigDecimal price;
+    private BigDecimal discountedPrice;  // ✅ Thêm giá đã giảm
     private Integer quantity;
     private BigDecimal subtotal;
     private String imageUrl;
-    private Integer stock;  // ✅ THÊM DÒNG NÀY - Lấy từ ProductDetail.quantity
+    private Integer stock;
 }

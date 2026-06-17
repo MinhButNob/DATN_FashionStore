@@ -89,4 +89,10 @@ export const adminOrderService = {
       headers: getAuthHeader(),
     });
   },
+
+  notifyCustomer(orderId, data) {
+    return axios.post(`${API_BASE}/admin/orders/${orderId}/notify`, data, {
+      headers: getAuthHeader(),
+    });
+  },
 };

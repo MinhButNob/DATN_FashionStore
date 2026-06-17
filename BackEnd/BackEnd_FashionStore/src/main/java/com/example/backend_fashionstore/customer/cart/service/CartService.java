@@ -5,18 +5,20 @@ import com.example.backend_fashionstore.customer.cart.dto.response.CartItemRespo
 import com.example.backend_fashionstore.customer.cart.dto.request.CartRequestDTO;
 import com.example.backend_fashionstore.customer.cart.dto.response.CartResponseDTO;
 import com.example.backend_fashionstore.customer.cart.repository.CartItemRepository;
-import com.example.backend_fashionstore.entity.Cart;
-import com.example.backend_fashionstore.entity.CartItem;
-import com.example.backend_fashionstore.entity.Customer;
-import com.example.backend_fashionstore.entity.ProductDetail;
+import com.example.backend_fashionstore.entity.*;
 import com.example.backend_fashionstore.auth.repository.CustomerRepository;
 import com.example.backend_fashionstore.QuanLySanPham.repository.ProductDetail.ProductDetailRepository;
+import com.example.backend_fashionstore.quanLyKhuyenMai.repository.ProductPromotionRepository;
+import com.example.backend_fashionstore.quanLyVoucher.repository.VoucherRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -29,6 +31,10 @@ public class CartService {
     private final CartItemRepository cartItemRepository;
     private final CustomerRepository customerRepository;
     private final ProductDetailRepository productDetailRepository;
+    private final ProductPromotionRepository productPromotionRepository;
+    private final VoucherRepository voucherRepository;  // ✅ THÊM
+
+    private static final BigDecimal DEFAULT_SHIPPING_FEE = new BigDecimal("30000");
 
     @Transactional(readOnly = true)
     public CartResponseDTO getCart(Integer customerId) {
@@ -48,21 +54,14 @@ public class CartService {
         return cartRepository.save(cart);
     }
 
-    // CartService.java - Phần addToCart
-    // CartService.java - Sửa method addToCart
-
     public CartResponseDTO addToCart(Integer customerId, CartRequestDTO request) {
-        // 🔥 Validate quantity
         Integer quantity = request.getQuantity();
-        log.info("=== ADD TO CART SERVICE ===");
-        log.info("CustomerId: {}", customerId);
-        log.info("ProductDetailId: {}", request.getProductDetailId());
-        log.info("Quantity from request: {}", quantity);
-
         if (quantity == null || quantity <= 0) {
             quantity = 1;
-            log.warn("Quantity is null or invalid, setting to default 1");
         }
+
+        log.info("Adding to cart - customerId: {}, productDetailId: {}, quantity: {}",
+                customerId, request.getProductDetailId(), quantity);
 
         Cart cart = cartRepository.findByCustomerIdAndDeletedAtIsNull(customerId)
                 .orElseGet(() -> createNewCart(customerId));
@@ -70,60 +69,45 @@ public class CartService {
         ProductDetail productDetail = productDetailRepository.findById(request.getProductDetailId())
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy sản phẩm với ID: " + request.getProductDetailId()));
 
-        // Kiểm tra số lượng tồn kho
         if (productDetail.getQuantity() < quantity) {
             throw new RuntimeException("Số lượng sản phẩm không đủ. Còn " + productDetail.getQuantity() + " sản phẩm");
         }
 
-        // Tìm sản phẩm đã có trong giỏ
+        // Kiểm tra promotion
+        BigDecimal discountedPrice = getDiscountedPrice(productDetail);
+
         CartItem existingItem = cart.getCartItems().stream()
                 .filter(item -> item.getProductDetail().getProductDetailId().equals(request.getProductDetailId()))
                 .findFirst()
                 .orElse(null);
 
         if (existingItem != null) {
-            // Cập nhật số lượng
             int newQuantity = existingItem.getQuantity() + quantity;
             if (productDetail.getQuantity() < newQuantity) {
                 throw new RuntimeException("Số lượng sản phẩm không đủ. Còn " + productDetail.getQuantity() + " sản phẩm");
             }
             existingItem.setQuantity(newQuantity);
+            existingItem.setDiscountedPrice(discountedPrice);  // ✅ Lưu giá đã giảm
             existingItem.calculateSubtotal();
             cartItemRepository.save(existingItem);
-            log.info("Updated existing cart item - cartItemId: {}, newQuantity: {}",
-                    existingItem.getCartItemId(), newQuantity);
         } else {
-            // ✅ CÁCH 1: KHÔNG DÙNG BUILDER, dùng constructor hoặc setter
             CartItem newItem = new CartItem();
             newItem.setCart(cart);
             newItem.setProductDetail(productDetail);
-            newItem.setQuantity(quantity);  // ✅ Set quantity
+            newItem.setQuantity(quantity);
+            newItem.setDiscountedPrice(discountedPrice);  // ✅ Lưu giá đã giảm
             newItem.calculateSubtotal();
-
-            // ✅ Log để debug
-            log.info("New item created - cartId: {}, productDetailId: {}, quantity: {}, subtotal: {}",
-                    cart.getCartId(),
-                    productDetail.getProductDetailId(),
-                    newItem.getQuantity(),
-                    newItem.getSubtotal());
-
             cart.addCartItem(newItem);
-            CartItem savedItem = cartItemRepository.save(newItem);
-            log.info("Added new cart item - ID: {}, quantity: {}",
-                    savedItem.getCartItemId(), savedItem.getQuantity());
+            cartItemRepository.save(newItem);
         }
 
         return convertToResponse(cart);
     }
 
     public CartResponseDTO updateCartItem(Integer customerId, Integer cartItemId, Integer quantity) {
-        // 🔥 FIX: Validate quantity khi update
-        if (quantity == null) {
+        if (quantity == null || quantity <= 0) {
             throw new RuntimeException("Số lượng không hợp lệ");
         }
-
-        log.info("Updating cart item - customerId: {}, cartItemId: {}, quantity: {}",
-                customerId, cartItemId, quantity);
 
         Cart cart = cartRepository.findByCustomerIdAndDeletedAtIsNull(customerId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy giỏ hàng"));
@@ -135,28 +119,19 @@ public class CartService {
             throw new RuntimeException("Sản phẩm không thuộc giỏ hàng này");
         }
 
-        if (quantity <= 0) {
-            // Xóa sản phẩm nếu quantity <= 0
-            cart.removeCartItem(cartItem);
-            cartItemRepository.delete(cartItem);
-            log.info("Removed cart item - cartItemId: {}", cartItemId);
-        } else {
-            // Kiểm tra tồn kho
-            if (cartItem.getProductDetail().getQuantity() < quantity) {
-                throw new RuntimeException("Số lượng sản phẩm không đủ. Còn " +
-                        cartItem.getProductDetail().getQuantity() + " sản phẩm");
-            }
-            cartItem.setQuantity(quantity);
-            cartItemRepository.save(cartItem);
-            log.info("Updated cart item quantity - cartItemId: {}, newQuantity: {}", cartItemId, quantity);
+        if (cartItem.getProductDetail().getQuantity() < quantity) {
+            throw new RuntimeException("Số lượng sản phẩm không đủ. Còn " +
+                    cartItem.getProductDetail().getQuantity() + " sản phẩm");
         }
+
+        cartItem.setQuantity(quantity);
+        cartItem.calculateSubtotal();
+        cartItemRepository.save(cartItem);
 
         return convertToResponse(cart);
     }
 
     public CartResponseDTO removeFromCart(Integer customerId, Integer cartItemId) {
-        log.info("Removing from cart - customerId: {}, cartItemId: {}", customerId, cartItemId);
-
         Cart cart = cartRepository.findByCustomerIdAndDeletedAtIsNull(customerId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy giỏ hàng"));
 
@@ -166,30 +141,142 @@ public class CartService {
         cart.removeCartItem(cartItem);
         cartItemRepository.delete(cartItem);
 
-        log.info("Đã xóa sản phẩm {} khỏi giỏ hàng của customer {}", cartItemId, customerId);
         return convertToResponse(cart);
     }
 
     public void clearCart(Integer customerId) {
-        log.info("Clearing cart - customerId: {}", customerId);
-
         Cart cart = cartRepository.findByCustomerIdAndDeletedAtIsNull(customerId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy giỏ hàng"));
 
         cartItemRepository.deleteAll(cart.getCartItems());
         cart.getCartItems().clear();
+    }
 
-        log.info("Đã xóa toàn bộ giỏ hàng của customer {}", customerId);
+    // ✅ Lấy giá đã giảm từ promotion
+    private BigDecimal getDiscountedPrice(ProductDetail productDetail) {
+        List<ProductPromotion> promotions = productPromotionRepository
+                .findByProductDetailId(productDetail.getProductDetailId());
+
+        if (promotions == null || promotions.isEmpty()) {
+            return productDetail.getPrice();
+        }
+
+        Promotion promotion = promotions.get(0).getPromotion();
+        if (promotion == null || promotion.getPromotionDeletedAt() != null ||
+                !"ACTIVE".equals(promotion.getPromotionStatus())) {
+            return productDetail.getPrice();
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        if (now.isBefore(promotion.getPromotionStartDate()) ||
+                now.isAfter(promotion.getPromotionEndDate())) {
+            return productDetail.getPrice();
+        }
+
+        BigDecimal discountPercent = promotion.getPromotionDiscountPercent();
+        if (discountPercent == null || discountPercent.compareTo(BigDecimal.ZERO) == 0) {
+            return productDetail.getPrice();
+        }
+
+        BigDecimal discount = productDetail.getPrice()
+                .multiply(discountPercent.divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP));
+        return productDetail.getPrice().subtract(discount)
+                .setScale(0, RoundingMode.HALF_UP);
+    }
+
+    // ✅ Áp dụng voucher
+    public CartResponseDTO applyVoucher(Integer customerId, String voucherCode) {
+        Cart cart = cartRepository.findByCustomerIdAndDeletedAtIsNull(customerId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy giỏ hàng"));
+
+        Voucher voucher = voucherRepository.findByVoucherCode(voucherCode)
+                .orElseThrow(() -> new RuntimeException("Mã voucher không tồn tại"));
+
+        // Kiểm tra voucher hợp lệ
+        if (!"ACTIVE".equals(voucher.getVoucherStatus()) || voucher.getVoucherDeletedAt() != null) {
+            throw new RuntimeException("Voucher đã bị vô hiệu hóa");
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        if (now.isBefore(voucher.getVoucherStartDate()) || now.isAfter(voucher.getVoucherEndDate())) {
+            throw new RuntimeException("Voucher đã hết hạn hoặc chưa đến thời gian sử dụng");
+        }
+
+        if (voucher.getVoucherUsedCount() >= voucher.getVoucherMaxUsage()) {
+            throw new RuntimeException("Voucher đã được sử dụng hết số lần");
+        }
+
+        // Tính tổng giỏ hàng (sau promotion)
+        BigDecimal cartTotal = calculateCartTotal(cart);
+
+        // Kiểm tra giá trị đơn hàng tối thiểu
+        if (voucher.getVoucherMinOrderValue() != null &&
+                cartTotal.compareTo(voucher.getVoucherMinOrderValue()) < 0) {
+            throw new RuntimeException("Đơn hàng chưa đạt giá trị tối thiểu để sử dụng voucher: " +
+                    voucher.getVoucherMinOrderValue());
+        }
+
+        // Tính discount từ voucher
+        BigDecimal voucherDiscount = BigDecimal.ZERO;
+        if (voucher.getVoucherDiscountAmount() != null &&
+                voucher.getVoucherDiscountAmount().compareTo(BigDecimal.ZERO) > 0) {
+            voucherDiscount = voucher.getVoucherDiscountAmount().min(cartTotal);
+        } else if (voucher.getVoucherDiscountPercent() != null &&
+                voucher.getVoucherDiscountPercent().compareTo(BigDecimal.ZERO) > 0) {
+            voucherDiscount = cartTotal.multiply(voucher.getVoucherDiscountPercent())
+                    .divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP);
+        }
+
+        // Lưu voucher vào cart
+        cart.setVoucher(voucher);
+        cart.setVoucherDiscount(voucherDiscount);
+        cartRepository.save(cart);
+
+        return convertToResponse(cart);
+    }
+
+    // ✅ Xóa voucher
+    public CartResponseDTO removeVoucher(Integer customerId) {
+        Cart cart = cartRepository.findByCustomerIdAndDeletedAtIsNull(customerId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy giỏ hàng"));
+
+        cart.setVoucher(null);
+        cart.setVoucherDiscount(BigDecimal.ZERO);
+        cartRepository.save(cart);
+
+        return convertToResponse(cart);
+    }
+
+    // ✅ Tính tổng giỏ hàng (sau promotion)
+    private BigDecimal calculateCartTotal(Cart cart) {
+        return cart.getCartItems().stream()
+                .map(item -> {
+                    BigDecimal price = item.getDiscountedPrice() != null ?
+                            item.getDiscountedPrice() : item.getProductDetail().getPrice();
+                    return price.multiply(BigDecimal.valueOf(item.getQuantity()));
+                })
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     private CartResponseDTO convertToResponse(Cart cart) {
         BigDecimal subtotal = cart.getCartItems().stream()
-                .map(CartItem::getSubtotal)
+                .map(item -> {
+                    BigDecimal price = item.getDiscountedPrice() != null ?
+                            item.getDiscountedPrice() : item.getProductDetail().getPrice();
+                    return price.multiply(BigDecimal.valueOf(item.getQuantity()));
+                })
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         int totalQuantity = cart.getCartItems().stream()
                 .mapToInt(CartItem::getQuantity)
                 .sum();
+
+        // Tính voucher discount
+        BigDecimal voucherDiscount = cart.getVoucherDiscount() != null ?
+                cart.getVoucherDiscount() : BigDecimal.ZERO;
+
+        // Tính tổng sau khi trừ voucher
+        BigDecimal total = subtotal.subtract(voucherDiscount).add(DEFAULT_SHIPPING_FEE);
 
         return CartResponseDTO.builder()
                 .cartId(cart.getCartId())
@@ -199,27 +286,39 @@ public class CartService {
                         .collect(Collectors.toList()))
                 .subtotal(subtotal)
                 .totalQuantity(totalQuantity)
+                .voucherDiscount(voucherDiscount)
+                .shippingFee(DEFAULT_SHIPPING_FEE)
+                .total(total)
+                .voucherCode(cart.getVoucher() != null ? cart.getVoucher().getVoucherCode() : null)
                 .build();
     }
 
     private CartItemResponseDTO convertToItemResponse(CartItem item) {
         String imageUrl = null;
-        if (item.getProductDetail().getProductImages() != null && !item.getProductDetail().getProductImages().isEmpty()) {
+        if (item.getProductDetail().getProductImages() != null &&
+                !item.getProductDetail().getProductImages().isEmpty()) {
             imageUrl = item.getProductDetail().getProductImages().get(0).getProductImagePath();
         }
+
+        BigDecimal originalPrice = item.getProductDetail().getPrice();
+        BigDecimal discountedPrice = item.getDiscountedPrice() != null ?
+                item.getDiscountedPrice() : originalPrice;
 
         return CartItemResponseDTO.builder()
                 .cartItemId(item.getCartItemId())
                 .productDetailId(item.getProductDetail().getProductDetailId())
                 .productId(item.getProductDetail().getProduct().getProductId())
                 .productName(item.getProductDetail().getProduct().getProductName())
-                .colorName(item.getProductDetail().getColor() != null ? item.getProductDetail().getColor().getColorName() : null)
-                .sizeName(item.getProductDetail().getSize() != null ? item.getProductDetail().getSize().getSizeName() : null)
-                .price(item.getProductDetail().getPrice())
+                .colorName(item.getProductDetail().getColor() != null ?
+                        item.getProductDetail().getColor().getColorName() : null)
+                .sizeName(item.getProductDetail().getSize() != null ?
+                        item.getProductDetail().getSize().getSizeName() : null)
+                .price(originalPrice)
+                .discountedPrice(discountedPrice)  // ✅ Thêm giá đã giảm
                 .quantity(item.getQuantity())
                 .subtotal(item.getSubtotal())
                 .imageUrl(imageUrl)
-                .stock(item.getProductDetail().getQuantity())  // ✅ THÊM DÒNG NÀY - Lấy số lượng tồn kho
+                .stock(item.getProductDetail().getQuantity())
                 .build();
     }
 }

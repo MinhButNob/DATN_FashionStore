@@ -82,8 +82,14 @@
 
               <div class="col-price">
                 <div class="price-wrapper">
-                  <span class="current-price">{{ formatPrice(item.price) }}</span>
-                  <span v-if="item.originalPrice" class="original-price">{{ formatPrice(item.originalPrice) }}</span>
+                  <template v-if="item.discountedPrice && item.discountedPrice < item.price">
+                    <span class="original-price">{{ formatPrice(item.price) }}</span>
+                    <span class="current-price">{{ formatPrice(item.discountedPrice) }}</span>
+                    <span class="discount-badge">-{{ calculateDiscount(item.price, item.discountedPrice) }}%</span>
+                  </template>
+                  <template v-else>
+                    <span class="current-price">{{ formatPrice(item.price) }}</span>
+                  </template>
                 </div>
               </div>
 
@@ -119,7 +125,7 @@
               </div>
 
               <div class="col-total">
-                <span class="total-price">{{ formatPrice((item.price || 0) * (item.quantity || 0)) }}</span>
+                <span class="total-price">{{ formatPrice((item.discountedPrice || item.price || 0) * (item.quantity || 0)) }}</span>
               </div>
 
               <div class="col-action">
@@ -129,30 +135,86 @@
               </div>
             </div>
 
+            <!-- ✅ PHẦN VOUCHER - ĐỔI THÀNH CHECKBOX -->
             <div class="cart-coupon">
               <div class="coupon-wrapper">
-                <div class="coupon-input-group">
-                  <i class="fas fa-tag"></i>
-                  <input 
-                    type="text" 
-                    v-model="couponCode" 
-                    placeholder="Nhập mã giảm giá"
-                    @keyup.enter="applyCoupon"
-                  />
-                  <button 
-                    class="apply-coupon-btn"
-                    @click="applyCoupon"
-                    :disabled="!couponCode"
-                  >
-                    Áp dụng
-                  </button>
-                </div>
-                <div v-if="appliedCoupon" class="applied-coupon">
-                  <i class="fas fa-check-circle"></i>
-                  <span>Đã áp dụng: <strong>{{ appliedCoupon }}</strong></span>
-                  <i class="fas fa-times" @click="removeCoupon"></i>
+                <div class="voucher-section">
+                  <div class="voucher-header">
+                    <i class="fas fa-ticket-alt"></i>
+                    <span class="voucher-title">Mã giảm giá</span>
+                    <span v-if="availableVouchers.length > 0" class="voucher-count">
+                      Có {{ availableVouchers.length }} mã có thể áp dụng
+                    </span>
+                    <button 
+                      class="refresh-btn" 
+                      @click="fetchAvailableVouchers"
+                      :disabled="loadingVouchers"
+                    >
+                      <i class="fas fa-sync-alt" :class="{ 'fa-spin': loadingVouchers }"></i>
+                    </button>
+                  </div>
+
+                  <!-- Loading vouchers -->
+                  <div v-if="loadingVouchers" class="loading-vouchers">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <span>Đang tải mã giảm giá...</span>
+                  </div>
+
+                  <!-- Danh sách voucher dạng checkbox -->
+                  <div v-else-if="availableVouchers.length > 0" class="voucher-list">
+                    <div 
+                      v-for="voucher in availableVouchers" 
+                      :key="voucher.voucherId"
+                      class="voucher-item"
+                      :class="{ 
+                        'selected': selectedVoucher && selectedVoucher.voucherId === voucher.voucherId,
+                        'disabled': !canApplyVoucher(voucher)
+                      }"
+                      @click="toggleVoucher(voucher)"
+                    >
+                      <div class="voucher-checkbox">
+                        <input 
+                          type="checkbox" 
+                          :id="'voucher-' + voucher.voucherId"
+                          :checked="selectedVoucher && selectedVoucher.voucherId === voucher.voucherId"
+                          :disabled="!canApplyVoucher(voucher)"
+                          @change="toggleVoucher(voucher)"
+                        />
+                        <label :for="'voucher-' + voucher.voucherId">
+                          <span class="voucher-code">{{ voucher.voucherCode }}</span>
+                          <span class="voucher-discount">
+                            {{ voucher.voucherDiscountPercent ? voucher.voucherDiscountPercent + '%' : formatPrice(voucher.voucherDiscountAmount) }}
+                          </span>
+                          <span v-if="voucher.voucherMinOrderValue > 0" class="voucher-min-order">
+                            Đơn tối thiểu {{ formatPrice(voucher.voucherMinOrderValue) }}
+                          </span>
+                          <span class="voucher-expiry">
+                            <i class="fas fa-clock"></i>
+                            {{ formatDate(voucher.voucherEndDate) }}
+                          </span>
+                          <span v-if="!canApplyVoucher(voucher)" class="voucher-unavailable">
+                            <i class="fas fa-exclamation-circle"></i>
+                            Chưa đạt điều kiện
+                          </span>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Không có voucher -->
+                  <div v-else class="no-voucher">
+                    <i class="fas fa-ticket-alt"></i>
+                    <span>Hiện chưa có mã giảm giá nào</span>
+                  </div>
+
+                  <!-- Thông báo lỗi -->
+                  <div v-if="voucherError" class="voucher-error">
+                    <i class="fas fa-exclamation-circle"></i>
+                    {{ voucherError }}
+                  </div>
                 </div>
               </div>
+
               <div class="cart-actions-extra">
                 <button class="clear-cart-btn" @click="clearAllCart">
                   <i class="fas fa-trash-alt"></i> Xóa toàn bộ
@@ -180,19 +242,19 @@
 
               <div class="summary-row">
                 <span>Phí vận chuyển:</span>
-                <span>{{ formatPrice(cartStore.shippingFee) }}</span>
+                <span>{{ formatPrice(cartStore.shippingFee || 30000) }}</span>
               </div>
 
-              <div v-if="discount > 0" class="summary-row discount">
-                <span>Giảm giá:</span>
-                <span>-{{ formatPrice(discount) }}</span>
+              <div v-if="cartStore.voucherDiscount > 0" class="summary-row discount">
+                <span>Giảm giá (Voucher):</span>
+                <span>-{{ formatPrice(cartStore.voucherDiscount) }}</span>
               </div>
 
               <div class="summary-divider"></div>
 
               <div class="summary-row total">
                 <span>Tổng cộng:</span>
-                <span class="total-amount">{{ formatPrice(cartStore.total - discount) }}</span>
+                <span class="total-amount">{{ formatPrice(cartStore.total) }}</span>
               </div>
             </div>
 
@@ -243,13 +305,14 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCartStore } from '../../stores/cartStore'
 import { useNotification } from '../../composables/useNotification'
 import ClientHeader from '../../components/client/ClientHeader.vue'
 import ClientFooter from '../../components/client/ClientFooter.vue'
 import ProductCard from '../../components/client/ProductCard.vue'
+import { cartService } from '../../services/cartService'
 import axios from 'axios'
 
 const API_BASE = "http://localhost:8080/api"
@@ -258,13 +321,17 @@ const router = useRouter()
 const cartStore = useCartStore()
 const { showNotification } = useNotification()
 
-const couponCode = ref('')
-const discount = ref(0)
-const appliedCoupon = ref('')
+// State
 const suggestedProducts = ref([])
 const updatingItems = ref(new Set())
 const quantityErrors = ref({})
+const availableVouchers = ref([])
+const selectedVoucher = ref(null)
+const loadingVouchers = ref(false)
+const voucherError = ref('')
+const applyingVoucher = ref(false)
 
+// Format functions
 const formatPrice = (price) => {
   if (!price && price !== 0) return '0₫'
   const numPrice = typeof price === 'string' ? parseFloat(price) : price
@@ -272,25 +339,25 @@ const formatPrice = (price) => {
   return numPrice.toLocaleString('vi-VN') + '₫'
 }
 
+const formatDate = (dateString) => {
+  if (!dateString) return '---'
+  const date = new Date(dateString)
+  if (isNaN(date.getTime())) return '---'
+  return date.toLocaleDateString('vi-VN')
+}
+
+const calculateDiscount = (originalPrice, discountedPrice) => {
+  if (!originalPrice || !discountedPrice || originalPrice <= discountedPrice) return 0
+  return Math.round(((originalPrice - discountedPrice) / originalPrice) * 100)
+}
+
 const getColorHex = (colorName) => {
   if (!colorName) return '#CCCCCC'
   const colorMap = {
-    'Đỏ': '#FF0000',
-    'Đen': '#000000',
-    'Trắng': '#FFFFFF',
-    'Xanh': '#0000FF',
-    'Xanh dương': '#0000FF',
-    'Xanh lá': '#00FF00',
-    'Navy': '#1B2951',
-    'Vàng': '#FFFF00',
-    'Hồng': '#FFC0CB',
-    'Xám': '#808080',
-    'Nâu': '#8B4513',
-    'Tím': '#800080',
-    'Cam': '#FFA500',
-    'Be': '#F5F5DC',
-    'Bạc': '#C0C0C0',
-    'Vàng kim': '#FFD700'
+    'Đỏ': '#FF0000', 'Đen': '#000000', 'Trắng': '#FFFFFF',
+    'Xanh': '#0000FF', 'Xanh dương': '#0000FF', 'Navy': '#1B2951',
+    'Vàng': '#FFFF00', 'Hồng': '#FFC0CB', 'Xám': '#808080',
+    'Nâu': '#8B4513', 'Tím': '#800080', 'Cam': '#FFA500'
   }
   return colorMap[colorName] || '#CCCCCC'
 }
@@ -305,6 +372,105 @@ const handleImageError = (event) => {
   }
 }
 
+// Kiểm tra xem voucher có áp dụng được không
+const canApplyVoucher = (voucher) => {
+  const subtotal = cartStore.subtotal || 0
+  if (voucher.voucherMinOrderValue > 0 && subtotal < voucher.voucherMinOrderValue) {
+    return false
+  }
+  return true
+}
+
+// Lấy danh sách voucher có thể áp dụng
+const fetchAvailableVouchers = async () => {
+  loadingVouchers.value = true
+  voucherError.value = ''
+  
+  try {
+    const token = localStorage.getItem('token')
+    if (!token) {
+      availableVouchers.value = []
+      return
+    }
+
+    const response = await axios.get(`${API_BASE}/vouchers/available`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+
+    if (response.data && response.data.data) {
+      const now = new Date()
+      availableVouchers.value = response.data.data.filter(v => {
+        const endDate = new Date(v.voucherEndDate)
+        const startDate = new Date(v.voucherStartDate)
+        return v.voucherStatus === 'ACTIVE' && 
+               now >= startDate && 
+               now <= endDate &&
+               v.voucherUsedCount < v.voucherMaxUsage
+      })
+    }
+  } catch (error) {
+    console.error('Lỗi tải voucher:', error)
+    voucherError.value = 'Không thể tải danh sách mã giảm giá'
+  } finally {
+    loadingVouchers.value = false
+  }
+}
+
+// Chọn/Bỏ chọn voucher (checkbox)
+const toggleVoucher = async (voucher) => {
+  if (applyingVoucher.value) return
+
+  // Kiểm tra điều kiện áp dụng
+  if (!canApplyVoucher(voucher)) {
+    showNotification(`Đơn hàng tối thiểu ${formatPrice(voucher.voucherMinOrderValue)} để sử dụng mã này`, 'warning')
+    return
+  }
+
+  // Nếu đang chọn voucher khác, bỏ chọn cũ
+  if (selectedVoucher.value && selectedVoucher.value.voucherId !== voucher.voucherId) {
+    await removeCurrentVoucher()
+  }
+
+  // Nếu chọn cùng voucher -> bỏ chọn
+  if (selectedVoucher.value && selectedVoucher.value.voucherId === voucher.voucherId) {
+    await removeCurrentVoucher()
+    return
+  }
+
+  // Áp dụng voucher mới
+  applyingVoucher.value = true
+  try {
+    const response = await cartService.applyVoucher(voucher.voucherCode)
+    if (response.data && response.data.success) {
+      selectedVoucher.value = voucher
+      await cartStore.fetchCart()
+      showNotification(`Đã áp dụng mã ${voucher.voucherCode}!`, 'success')
+    }
+  } catch (error) {
+    console.error('Lỗi áp dụng voucher:', error)
+    showNotification(error.response?.data?.message || 'Không thể áp dụng mã giảm giá', 'error')
+  } finally {
+    applyingVoucher.value = false
+  }
+}
+
+// Xóa voucher đang áp dụng
+const removeCurrentVoucher = async () => {
+  if (!selectedVoucher.value) return
+
+  try {
+    const response = await cartService.removeVoucher()
+    if (response.data && response.data.success) {
+      selectedVoucher.value = null
+      await cartStore.fetchCart()
+      showNotification('Đã xóa mã giảm giá', 'info')
+    }
+  } catch (error) {
+    console.error('Lỗi xóa voucher:', error)
+  }
+}
+
+// Update quantity
 const updateQuantity = async (item, change) => {
   const newQuantity = (item.quantity || 0) + change
   const maxStock = item.stock || 99
@@ -393,6 +559,7 @@ const performUpdateQuantity = async (item, newQuantity) => {
 const updateAllCart = async () => {
   showNotification('Đang cập nhật giỏ hàng...', 'info')
   await cartStore.fetchCart()
+  await fetchAvailableVouchers()
   showNotification('Đã cập nhật giỏ hàng!', 'success')
 }
 
@@ -401,7 +568,11 @@ const removeItem = async (item) => {
     try {
       await cartStore.removeFromCart(item.cartItemId, item.id, item.size, item.color)
       showNotification('Đã xóa sản phẩm khỏi giỏ hàng', 'success')
+      if (selectedVoucher.value && !canApplyVoucher(selectedVoucher.value)) {
+        await removeCurrentVoucher()
+      }
       await fetchSuggestedProducts()
+      await fetchAvailableVouchers()
     } catch (error) {
       console.error('Remove item error:', error)
       showNotification(error.response?.data?.message || 'Xóa thất bại', 'error')
@@ -413,39 +584,14 @@ const clearAllCart = async () => {
   if (confirm('Bạn có chắc muốn xóa toàn bộ giỏ hàng?')) {
     try {
       await cartStore.clearCart()
+      selectedVoucher.value = null
       showNotification('Đã xóa toàn bộ giỏ hàng', 'success')
+      await fetchAvailableVouchers()
     } catch (error) {
       console.error('Clear cart error:', error)
       showNotification(error.response?.data?.message || 'Xóa thất bại', 'error')
     }
   }
-}
-
-const applyCoupon = () => {
-  const code = couponCode.value.toUpperCase().trim()
-  
-  if (code === 'SALE20') {
-    discount.value = cartStore.subtotal * 0.2
-    appliedCoupon.value = 'SALE20 (Giảm 20%)'
-    showNotification('Áp dụng mã SALE20 thành công! Giảm 20%', 'success')
-  } else if (code === 'FREESHIP') {
-    discount.value = cartStore.shippingFee
-    appliedCoupon.value = 'FREESHIP (Miễn phí vận chuyển)'
-    showNotification('Áp dụng mã FREESHIP thành công! Miễn phí vận chuyển', 'success')
-  } else if (code === 'SALE50K') {
-    discount.value = 50000
-    appliedCoupon.value = 'SALE50K (Giảm 50,000đ)'
-    showNotification('Áp dụng mã SALE50K thành công! Giảm 50,000đ', 'success')
-  } else {
-    showNotification('Mã giảm giá không hợp lệ!', 'error')
-  }
-}
-
-const removeCoupon = () => {
-  discount.value = 0
-  appliedCoupon.value = ''
-  couponCode.value = ''
-  showNotification('Đã xóa mã giảm giá', 'info')
 }
 
 const goToProduct = (id) => {
@@ -475,24 +621,28 @@ watch(() => cartStore.items.length, () => {
   fetchSuggestedProducts()
 })
 
+// Watch subtotal để kiểm tra lại điều kiện voucher
+watch(() => cartStore.subtotal, (newSubtotal) => {
+  if (selectedVoucher.value && !canApplyVoucher(selectedVoucher.value)) {
+    removeCurrentVoucher()
+  }
+})
+
 onMounted(async () => {
   console.log("🚀 Cart page mounted")
   await cartStore.fetchCart()
-  console.log("📦 Cart items after fetch:", cartStore.items)
-  
-  cartStore.items.forEach((item, index) => {
-    console.log(`📦 Item ${index + 1}:`, {
-      id: item.id,
-      cartItemId: item.cartItemId,
-      name: item.name,
-      quantity: item.quantity,
-      price: item.price,
-      stock: item.stock
-    })
-  })
-  
+  await fetchAvailableVouchers()
   await fetchSuggestedProducts()
-  window.addEventListener('login-success', handleLoginSuccess)
+  
+  // Kiểm tra voucher đang áp dụng
+  if (cartStore.voucherCode) {
+    const voucher = availableVouchers.value.find(v => v.voucherCode === cartStore.voucherCode)
+    if (voucher && canApplyVoucher(voucher)) {
+      selectedVoucher.value = voucher
+    } else {
+      await removeCurrentVoucher()
+    }
+  }
 })
 
 onUnmounted(() => {
@@ -501,6 +651,7 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+/* ===== GIỮ NGUYÊN CÁC STYLE CŨ ===== */
 .cart-page {
   min-height: 100vh;
   background: #f8f9fa;
@@ -884,93 +1035,196 @@ main {
   transform: scale(1.1);
 }
 
+/* ===== VOUCHER SECTION - STYLE MỚI ===== */
 .cart-coupon {
   padding: 20px 25px;
   background: #f8f9fa;
   border-top: 1px solid #eee;
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   flex-wrap: wrap;
   gap: 15px;
 }
 
 .coupon-wrapper {
+  flex: 1;
+  min-width: 300px;
+}
+
+.voucher-section {
+  width: 100%;
+}
+
+.voucher-header {
   display: flex;
   align-items: center;
-  gap: 15px;
+  gap: 12px;
+  margin-bottom: 12px;
   flex-wrap: wrap;
 }
 
-.coupon-input-group {
-  display: flex;
-  align-items: center;
-  background: white;
-  border: 2px solid #e0e0e0;
-  border-radius: 8px;
-  padding: 0 5px 0 15px;
-  transition: border-color 0.3s;
+.voucher-header i {
+  font-size: 20px;
+  color: #e63946;
 }
 
-.coupon-input-group:focus-within {
-  border-color: #e63946;
-}
-
-.coupon-input-group i {
-  color: #999;
+.voucher-title {
+  font-weight: 600;
+  color: #2c3e50;
   font-size: 16px;
 }
 
-.coupon-input-group input {
-  flex: 1;
-  padding: 10px 12px;
-  border: none;
-  outline: none;
-  font-size: 14px;
-  min-width: 180px;
+.voucher-count {
+  font-size: 13px;
+  color: #28a745;
+  background: #e8f5e9;
+  padding: 2px 10px;
+  border-radius: 12px;
 }
 
-.apply-coupon-btn {
-  padding: 8px 20px;
-  background: #e63946;
-  color: white;
+.refresh-btn {
+  background: none;
   border: none;
-  border-radius: 6px;
   cursor: pointer;
-  font-weight: 600;
+  color: #999;
+  font-size: 16px;
+  padding: 4px 8px;
   transition: all 0.3s;
-  white-space: nowrap;
 }
 
-.apply-coupon-btn:hover:not(:disabled) {
-  background: #c62828;
-  transform: translateY(-2px);
+.refresh-btn:hover {
+  color: #e63946;
 }
 
-.apply-coupon-btn:disabled {
-  opacity: 0.5;
+.loading-vouchers {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  color: #666;
+  font-size: 14px;
+}
+
+.voucher-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 250px;
+  overflow-y: auto;
+}
+
+.voucher-item {
+  background: white;
+  border: 2px solid #e0e0e0;
+  border-radius: 10px;
+  padding: 10px 15px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.voucher-item:hover:not(.disabled) {
+  border-color: #e63946;
+}
+
+.voucher-item.selected {
+  border-color: #28a745;
+  background: #f0faf0;
+}
+
+.voucher-item.disabled {
+  opacity: 0.6;
   cursor: not-allowed;
 }
 
-.applied-coupon {
+.voucher-checkbox {
+  display: flex;
+  align-items: flex-start;
+}
+
+.voucher-checkbox input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin-right: 12px;
+  margin-top: 2px;
+  cursor: pointer;
+  accent-color: #e63946;
+  flex-shrink: 0;
+}
+
+.voucher-checkbox input[type="checkbox"]:disabled {
+  cursor: not-allowed;
+}
+
+.voucher-checkbox label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  cursor: pointer;
+  flex: 1;
+  font-size: 14px;
+}
+
+.voucher-code {
+  font-weight: 700;
+  color: #e63946;
+  font-size: 15px;
+  background: #fff5f5;
+  padding: 2px 10px;
+  border-radius: 4px;
+}
+
+.voucher-discount {
+  font-weight: 600;
+  color: #28a745;
+  font-size: 14px;
+}
+
+.voucher-min-order {
+  font-size: 12px;
+  color: #999;
+  background: #f5f5f5;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.voucher-expiry {
+  font-size: 12px;
+  color: #999;
+}
+
+.voucher-expiry i {
+  margin-right: 3px;
+}
+
+.voucher-unavailable {
+  font-size: 12px;
+  color: #e63946;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.no-voucher {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 15px;
+  color: #999;
+  font-size: 14px;
+}
+
+.voucher-error {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 12px 6px 16px;
-  background: #e8f5e9;
-  border-radius: 20px;
-  font-size: 13px;
-  color: #2e7d32;
-}
-
-.applied-coupon i.fa-times {
-  cursor: pointer;
-  padding: 5px;
-  transition: color 0.3s;
-}
-
-.applied-coupon i.fa-times:hover {
   color: #e63946;
+  font-size: 13px;
+  padding: 8px 12px;
+  background: #fde8e8;
+  border-radius: 6px;
+  margin-top: 8px;
 }
 
 .cart-actions-extra {
@@ -1172,6 +1426,25 @@ main {
   gap: 20px;
 }
 
+/* ===== THÊM STYLE CHO DISCOUNT BADGE ===== */
+.discount-badge {
+  display: inline-block;
+  background: #e63946;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-left: 5px;
+}
+
+.original-price {
+  font-size: 14px;
+  color: #999;
+  text-decoration: line-through;
+}
+
+/* ===== RESPONSIVE ===== */
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -1268,24 +1541,11 @@ main {
 
   .cart-coupon {
     flex-direction: column;
-    align-items: stretch;
   }
 
   .coupon-wrapper {
     flex-direction: column;
     align-items: stretch;
-  }
-
-  .coupon-input-group {
-    width: 100%;
-  }
-
-  .coupon-input-group input {
-    min-width: auto;
-  }
-
-  .apply-coupon-btn {
-    padding: 10px 20px;
   }
 
   .cart-actions-extra {
@@ -1298,6 +1558,14 @@ main {
 
   .product-grid {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  .voucher-checkbox label {
+    gap: 6px;
+  }
+  
+  .voucher-code {
+    font-size: 13px;
   }
 }
 
@@ -1335,6 +1603,15 @@ main {
   .col-price, .col-total {
     flex-wrap: wrap;
     justify-content: center;
+  }
+
+  .voucher-checkbox {
+    flex-direction: column;
+  }
+  
+  .voucher-checkbox label {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
 </style>

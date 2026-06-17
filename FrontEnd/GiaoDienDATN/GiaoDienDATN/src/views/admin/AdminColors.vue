@@ -111,17 +111,22 @@
               <span class="hex-code" :style="{ color: color.hexCode }">{{ color.hexCode || '—' }}</span>
             </td>
             <td>
-              <span v-if="!color._deletedAt" :class="['status-badge', color.status === 'ACTIVE' ? 'status-active' : 'status-inactive']">
-                {{ color.status === 'ACTIVE' ? 'Hoạt động' : 'Tạm dừng' }}
-              </span>
-              <span v-else class="status-badge status-deleted">
+              <span v-if="color._deletedAt" class="status-badge status-deleted">
                 Đã xóa
+              </span>
+              <span v-else :class="['status-badge', color.status === 'ACTIVE' ? 'status-active' : 'status-inactive']">
+                {{ color.status === 'ACTIVE' ? 'Hoạt động' : 'Tạm dừng' }}
               </span>
             </td>
             <td>
               <div class="action-buttons">
-                <!-- Nếu chưa xóa: hiển thị đầy đủ các nút -->
-                <template v-if="!color._deletedAt">
+                <template v-if="color._deletedAt">
+                  <span class="readonly-label">Đã xóa</span>
+                  <button class="action-btn restore-btn" @click="confirmRestore(color)" title="Khôi phục">
+                    ↩️
+                  </button>
+                </template>
+                <template v-else>
                   <button class="action-btn edit-btn" @click="openEditModal(color)" title="Sửa">
                     ✏️
                   </button>
@@ -130,13 +135,6 @@
                   </button>
                   <button class="action-btn delete-btn" @click="confirmDelete(color)" title="Xóa">
                     🗑️
-                  </button>
-                </template>
-                <!-- Nếu đã xóa: chỉ hiển thị nút khôi phục -->
-                <template v-else>
-                  <span class="readonly-label">Đã xóa</span>
-                  <button class="action-btn restore-btn" @click="confirmRestore(color)" title="Khôi phục">
-                    ↩️
                   </button>
                 </template>
               </div>
@@ -229,7 +227,7 @@
       </div>
     </div>
 
-    <!-- Delete Confirmation Modal -->
+    <!-- Delete Modal -->
     <div v-if="showDeleteModal" class="modal-overlay" @click.self="closeDeleteModal">
       <div class="modal-container modal-sm">
         <div class="modal-header">
@@ -238,7 +236,7 @@
         </div>
         <div class="modal-body">
           <p>Bạn có chắc chắn muốn xóa màu <strong>{{ deleteColorName }}</strong>?</p>
-          <p class="warning-text">Sau khi xóa, màu sẽ không thể sửa được nữa, chỉ có thể khôi phục!</p>
+          <p class="warning-text">Sau khi xóa, màu sẽ chuyển sang trạng thái đã xóa và có thể khôi phục lại!</p>
         </div>
         <div class="modal-footer">
           <button class="btn-cancel" @click="closeDeleteModal">Hủy</button>
@@ -247,7 +245,7 @@
       </div>
     </div>
 
-    <!-- Restore Confirmation Modal -->
+    <!-- Restore Modal -->
     <div v-if="showRestoreModal" class="modal-overlay" @click.self="closeRestoreModal">
       <div class="modal-container modal-sm">
         <div class="modal-header">
@@ -399,7 +397,6 @@ export default {
           colors = response.data;
         }
         
-        // Thêm _deletedAt dựa trên status
         this.allColors = colors.map(color => ({
           ...color,
           _deletedAt: color.status === 'DELETED' ? new Date().toISOString() : null
@@ -508,7 +505,6 @@ export default {
         };
 
         if (this.isEdit) {
-          // ✅ GỌI API UPDATE THẬT
           await axios.put(`${API_BASE}/colors/${this.selectedColor.colorId}`, submitData);
           this.showNotification('Cập nhật màu thành công!', 'success');
         } else {
@@ -524,8 +520,7 @@ export default {
         }
         
         this.closeModal();
-        await this.loadColors(); // Reload lại danh sách
-        
+        await this.loadColors();
       } catch (error) {
         console.error('Lỗi lưu màu:', error);
         const errorMsg = error.response?.data?.message || error.response?.data?.error || 'Có lỗi xảy ra';
@@ -544,8 +539,15 @@ export default {
       try {
         const newStatus = color.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
         await axios.patch(`${API_BASE}/colors/${color.colorId}/toggle-status`);
+        
+        const index = this.allColors.findIndex(c => c.colorId === color.colorId);
+        if (index !== -1) {
+          this.allColors[index].status = newStatus;
+          this.allColors[index]._deletedAt = null;
+        }
+        
+        this.filterColors();
         this.showNotification(`Đã ${newStatus === 'ACTIVE' ? 'kích hoạt' : 'tạm dừng'} màu!`, 'success');
-        await this.loadColors();
       } catch (error) {
         console.error('Lỗi cập nhật trạng thái:', error);
         this.showNotification('Không thể cập nhật trạng thái!', 'error');
@@ -566,11 +568,20 @@ export default {
 
     async deleteColor() {
       try {
-        // ✅ GỌI API XÓA THẬT (xóa mềm)
         await axios.delete(`${API_BASE}/colors/${this.deleteColorId}`);
-        this.showNotification('Xóa màu thành công!', 'success');
+        
+        const index = this.allColors.findIndex(c => c.colorId === this.deleteColorId);
+        if (index !== -1) {
+          this.allColors[index] = {
+            ...this.allColors[index],
+            _deletedAt: new Date().toISOString(),
+            status: 'DELETED'
+          };
+        }
+        
+        this.filterColors();
+        this.showNotification('Xóa màu thành công! Màu đã chuyển sang trạng thái đã xóa.', 'success');
         this.closeDeleteModal();
-        await this.loadColors();
       } catch (error) {
         console.error('Lỗi xóa màu:', error);
         this.showNotification('Không thể xóa màu này!', 'error');
@@ -591,11 +602,20 @@ export default {
 
     async restoreColor() {
       try {
-        // ✅ GỌI API RESTORE
         await axios.patch(`${API_BASE}/colors/${this.restoreColorId}/restore`);
+        
+        const index = this.allColors.findIndex(c => c.colorId === this.restoreColorId);
+        if (index !== -1) {
+          this.allColors[index] = {
+            ...this.allColors[index],
+            _deletedAt: null,
+            status: 'ACTIVE'
+          };
+        }
+        
+        this.filterColors();
         this.showNotification('Khôi phục màu thành công!', 'success');
         this.closeRestoreModal();
-        await this.loadColors();
       } catch (error) {
         console.error('Lỗi khôi phục màu:', error);
         this.showNotification('Không thể khôi phục màu này!', 'error');
@@ -609,7 +629,6 @@ export default {
 </script>
 
 <style scoped>
-/* Giữ nguyên style cũ */
 .admin-colors {
   padding: 20px;
   background-color: #f8f9fa;
@@ -622,7 +641,7 @@ export default {
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* Header */
+/* ===== HEADER ===== */
 .page-header {
   display: flex;
   justify-content: space-between;
@@ -662,7 +681,7 @@ export default {
   transform: translateY(-2px);
 }
 
-/* Stats Row */
+/* ===== STATS ===== */
 .stats-row {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -690,7 +709,7 @@ export default {
 .stat-value { font-size: 28px; font-weight: 700; color: #1a1a2e; }
 .stat-label { font-size: 12px; color: #6b7280; margin-top: 4px; }
 
-/* Filter Bar */
+/* ===== FILTER BAR ===== */
 .filter-bar {
   display: flex;
   gap: 15px;
@@ -779,7 +798,7 @@ export default {
   background-color: #e0e0e0;
 }
 
-/* Table */
+/* ===== TABLE ===== */
 .table-container {
   background: white;
   border-radius: 12px;
@@ -819,17 +838,18 @@ export default {
   color: #9ca3af;
 }
 
+.row-deleted .deleted-text {
+  text-decoration: line-through;
+  color: #9ca3af;
+}
+
 .stt-cell {
   font-weight: 600;
   color: #3498db;
   width: 60px;
 }
 
-.deleted-text {
-  text-decoration: line-through;
-  color: #9ca3af;
-}
-
+/* ===== COLOR DISPLAY ===== */
 .color-display {
   width: 50px;
   height: 50px;
@@ -881,7 +901,7 @@ export default {
   font-weight: 500;
 }
 
-/* Status Badges */
+/* ===== STATUS BADGES ===== */
 .status-badge {
   padding: 5px 12px;
   border-radius: 20px;
@@ -889,11 +909,12 @@ export default {
   font-weight: 500;
   display: inline-block;
 }
+
 .status-active { background-color: #e8f8f5; color: #27ae60; }
 .status-inactive { background-color: #fdf2e9; color: #f39c12; }
-.status-deleted { background-color: #f3f4f6; color: #9ca3af; }
+.status-deleted { background-color: #f3f4f6; color: #6b7280; }
 
-/* Action Buttons */
+/* ===== ACTION BUTTONS ===== */
 .action-buttons {
   display: flex;
   gap: 6px;
@@ -916,7 +937,24 @@ export default {
 .edit-btn:hover { background-color: #fef3c7; }
 .toggle-btn:hover { background-color: #e8f4f8; }
 .delete-btn:hover { background-color: #fde8e8; }
-.restore-btn:hover { background-color: #e8f4f8; }
+
+.restore-btn {
+  background: #10b981;
+  color: white;
+  border-radius: 6px;
+  padding: 6px 10px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.restore-btn:hover {
+  background: #059669;
+  transform: scale(1.05);
+}
 
 .readonly-label {
   font-size: 12px;
@@ -928,7 +966,7 @@ export default {
   white-space: nowrap;
 }
 
-/* Pagination */
+/* ===== PAGINATION ===== */
 .pagination {
   display: flex;
   justify-content: space-between;
@@ -980,7 +1018,7 @@ export default {
   text-align: center;
 }
 
-/* Loading State */
+/* ===== LOADING ===== */
 .loading-state {
   text-align: center;
   padding: 60px 20px;
@@ -1017,7 +1055,7 @@ export default {
   margin-right: 6px;
 }
 
-/* Empty State */
+/* ===== EMPTY STATE ===== */
 .empty-row {
   text-align: center;
   padding: 40px;
@@ -1049,7 +1087,7 @@ export default {
   background: #2980b9;
 }
 
-/* Modal */
+/* ===== MODAL ===== */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -1122,7 +1160,7 @@ export default {
   gap: 12px;
 }
 
-/* Form */
+/* ===== FORM ===== */
 .form-group {
   margin-bottom: 16px;
 }
@@ -1140,6 +1178,11 @@ export default {
   border: 1px solid #ddd;
   border-radius: 6px;
   font-size: 14px;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: #667eea;
 }
 
 .hex-input-group {
@@ -1186,7 +1229,17 @@ export default {
   display: block;
 }
 
-/* Buttons */
+.required {
+  color: #e74c3c;
+}
+
+.warning-text {
+  color: #dc3545;
+  margin-top: 10px;
+  font-size: 13px;
+}
+
+/* ===== BUTTONS ===== */
 .btn-cancel, .btn-save, .btn-danger {
   padding: 8px 20px;
   border: none;
@@ -1231,13 +1284,7 @@ export default {
   background: #c82333;
 }
 
-.warning-text {
-  color: #dc3545;
-  margin-top: 10px;
-  font-size: 13px;
-}
-
-/* Toast */
+/* ===== TOAST ===== */
 .toast {
   position: fixed;
   bottom: 30px;
@@ -1263,7 +1310,7 @@ export default {
   transform: translateY(0);
 }
 
-/* Responsive */
+/* ===== RESPONSIVE ===== */
 @media (max-width: 768px) {
   .admin-colors { padding: 15px; }
   .page-header { flex-direction: column; align-items: stretch; gap: 12px; }

@@ -14,6 +14,8 @@ export const useCartStore = defineStore("cart", {
     shippingFee: 30000,
     coupon: null,
     discount: 0,
+    voucherDiscount: 0,
+    voucherCode: null,
   }),
 
   getters: {
@@ -21,106 +23,120 @@ export const useCartStore = defineStore("cart", {
       return state.items.reduce((sum, item) => sum + (item.quantity || 0), 0);
     },
     subtotal: (state) => {
-      return state.items.reduce(
-        (sum, item) => sum + (item.price || 0) * (item.quantity || 0),
-        0,
+      // ✅ QUAN TRỌNG: Tính subtotal dựa trên discountedPrice
+      return state.items.reduce((sum, item) => {
+        // Ưu tiên dùng discountedPrice, nếu không có thì dùng price
+        const price = item.discountedPrice || item.price || 0;
+        return sum + price * (item.quantity || 0);
+      }, 0);
+    },
+    total: (state) => {
+      const subtotal = state.items.reduce((sum, item) => {
+        const price = item.discountedPrice || item.price || 0;
+        return sum + price * (item.quantity || 0);
+      }, 0);
+      return (
+        subtotal - (state.voucherDiscount || 0) + (state.shippingFee || 30000)
       );
     },
   },
 
   actions: {
-   // stores/cartStore.js
-async addToCart(productOrId, quantity = 1, size, color) {
-  try {
-    let productDetailId;
-    let productName = '';
-    let price = 0;
-    let image = null;
-    let stock = 99;
+    async addToCart(productOrId, quantity = 1, size, color) {
+      try {
+        let productDetailId;
+        let productName = "";
+        let price = 0;
+        let discountedPrice = null;
+        let image = null;
+        let stock = 99;
 
-    if (typeof productOrId === "object" && productOrId !== null) {
-      // ✅ Lấy productDetailId từ các key khác nhau
-      productDetailId = productOrId.productDetailId || productOrId.id || productOrId.productId;
-      productName = productOrId.productName || productOrId.name || "Sản phẩm";
-      price = productOrId.price || 0;
-      image = productOrId.image || productOrId.imageUrl || null;
-      stock = productOrId.stock || 99;
-      
-      if (!size && productOrId.size) size = productOrId.size;
-      if (!color && productOrId.color) color = productOrId.color;
-      if (productOrId.quantity) quantity = productOrId.quantity;
-    } else {
-      productDetailId = productOrId;
-    }
+        if (typeof productOrId === "object" && productOrId !== null) {
+          productDetailId =
+            productOrId.productDetailId ||
+            productOrId.id ||
+            productOrId.productId;
+          productName =
+            productOrId.productName || productOrId.name || "Sản phẩm";
+          price = productOrId.price || 0;
+          discountedPrice =
+            productOrId.discountedPrice || productOrId.discountedPrice || null;
+          image = productOrId.image || productOrId.imageUrl || null;
+          stock = productOrId.stock || 99;
 
-    if (!productDetailId) {
-      console.error("❌ Missing productDetailId");
-      throw new Error("Không tìm thấy thông tin sản phẩm");
-    }
+          if (!size && productOrId.size) size = productOrId.size;
+          if (!color && productOrId.color) color = productOrId.color;
+          if (productOrId.quantity) quantity = productOrId.quantity;
+        } else {
+          productDetailId = productOrId;
+        }
 
-    const token = localStorage.getItem("token") || localStorage.getItem("accessToken");
+        if (!productDetailId) {
+          console.error("❌ Missing productDetailId");
+          throw new Error("Không tìm thấy thông tin sản phẩm");
+        }
 
-    if (!token) {
-      console.log("ℹ️ Chưa đăng nhập, lưu vào localStorage");
-      const cartItem = {
-        id: productDetailId,
-        productDetailId: productDetailId,
-        productId: productDetailId,
-        name: productName,
-        price: price,
-        quantity: quantity,
-        size: size || null,
-        color: color || null,
-        image: image,
-        imageUrl: image,
-        stock: stock,
-      };
+        const token =
+          localStorage.getItem("token") || localStorage.getItem("accessToken");
 
-      let localCart = JSON.parse(localStorage.getItem("cart") || "[]");
-      const existingIndex = localCart.findIndex(
-        (item) =>
-          item.id === productDetailId &&
-          item.size === size &&
-          item.color === color,
-      );
+        if (!token) {
+          console.log("ℹ️ Chưa đăng nhập, lưu vào localStorage");
+          const cartItem = {
+            id: productDetailId,
+            productDetailId: productDetailId,
+            productId: productDetailId,
+            name: productName,
+            price: price,
+            discountedPrice: discountedPrice,
+            quantity: quantity,
+            size: size || null,
+            color: color || null,
+            image: image,
+            imageUrl: image,
+            stock: stock,
+          };
 
-      if (existingIndex !== -1) {
-        localCart[existingIndex].quantity += quantity;
-      } else {
-        localCart.push(cartItem);
+          let localCart = JSON.parse(localStorage.getItem("cart") || "[]");
+          const existingIndex = localCart.findIndex(
+            (item) =>
+              item.id === productDetailId &&
+              item.size === size &&
+              item.color === color,
+          );
+
+          if (existingIndex !== -1) {
+            localCart[existingIndex].quantity += quantity;
+          } else {
+            localCart.push(cartItem);
+          }
+
+          localStorage.setItem("cart", JSON.stringify(localCart));
+          await this.loadFromLocalStorage();
+          return { success: true, local: true };
+        }
+
+        const response = await axios.post(
+          `${API_BASE}/cart/add`,
+          {
+            productDetailId: productDetailId,
+            quantity: quantity,
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          },
+        );
+
+        console.log("✅ Add to cart response:", response.data);
+        await this.fetchCart();
+        return response.data;
+      } catch (error) {
+        console.error("❌ Add to cart error:", error);
+        throw error;
       }
-
-      localStorage.setItem("cart", JSON.stringify(localCart));
-      await this.loadFromLocalStorage();
-      return { success: true, local: true };
-    }
-
-    // ✅ Gọi API thêm vào giỏ hàng
-    const response = await axios.post(
-      `${API_BASE}/cart/add`,
-      { 
-        productDetailId: productDetailId, 
-        quantity: quantity 
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      },
-    );
-
-    console.log("✅ Add to cart response:", response.data);
-    
-    // ✅ Fetch lại cart để cập nhật state
-    await this.fetchCart();
-    
-    return response.data;
-  } catch (error) {
-    console.error("❌ Add to cart error:", error);
-    throw error;
-  }
-},
+    },
 
     async updateQuantity(cartItemId, quantity, productDetailId, size, color) {
       if (!cartItemId) {
@@ -194,6 +210,8 @@ async addToCart(productOrId, quantity = 1, size, color) {
         this.subtotal = 0;
         this.totalItems = 0;
         this.total = 0;
+        this.voucherDiscount = 0;
+        this.voucherCode = null;
         this.saveToLocalStorage();
       } catch (error) {
         console.error("❌ Clear cart error:", error);
@@ -226,6 +244,8 @@ async addToCart(productOrId, quantity = 1, size, color) {
 
         if (response.data && response.data.data) {
           const cartData = response.data.data;
+
+          // ✅ Map items - QUAN TRỌNG: Lấy discountedPrice từ response
           this.items = (cartData.items || []).map((item) => ({
             ...item,
             stock: item.stock || 99,
@@ -234,12 +254,33 @@ async addToCart(productOrId, quantity = 1, size, color) {
             name: item.productName || item.name,
             image: item.imageUrl || null,
             imageUrl: item.imageUrl || null,
+            price: item.price || 0,
+            discountedPrice: item.discountedPrice || item.price || 0, // ✅ LẤY discountedPrice
           }));
-          this.subtotal = cartData.subtotal || 0;
+
+          // ✅ Tính subtotal dựa trên discountedPrice
+          this.subtotal = this.items.reduce((sum, item) => {
+            const price = item.discountedPrice || item.price || 0;
+            return sum + price * (item.quantity || 0);
+          }, 0);
+
           this.totalItems = cartData.totalQuantity || 0;
-          this.total = this.subtotal + this.shippingFee - this.discount;
+
+          this.voucherDiscount = cartData.voucherDiscount || 0;
+          this.voucherCode = cartData.voucherCode || null;
+          this.shippingFee = cartData.shippingFee || 30000;
+
+          this.total = this.subtotal - this.voucherDiscount + this.shippingFee;
+
+          console.log("📊 Cart summary:", {
+            items: this.items.length,
+            subtotal: this.subtotal,
+            voucherDiscount: this.voucherDiscount,
+            shippingFee: this.shippingFee,
+            total: this.total,
+          });
+
           this.saveToLocalStorage();
-          console.log("📦 Cart loaded:", this.items.length, "items");
         }
       } catch (error) {
         console.error("❌ Fetch cart error:", error);
@@ -257,6 +298,8 @@ async addToCart(productOrId, quantity = 1, size, color) {
           total: this.total,
           totalItems: this.totalItems,
           shippingFee: this.shippingFee,
+          voucherDiscount: this.voucherDiscount,
+          voucherCode: this.voucherCode,
         };
         localStorage.setItem("cart", JSON.stringify(data));
         console.log("💾 Cart saved to localStorage");
@@ -275,6 +318,8 @@ async addToCart(productOrId, quantity = 1, size, color) {
           this.total = parsed.total || 0;
           this.totalItems = parsed.totalItems || 0;
           this.shippingFee = parsed.shippingFee || 30000;
+          this.voucherDiscount = parsed.voucherDiscount || 0;
+          this.voucherCode = parsed.voucherCode || null;
           console.log(
             "📂 Cart loaded from localStorage:",
             this.items.length,
@@ -288,10 +333,6 @@ async addToCart(productOrId, quantity = 1, size, color) {
 
     syncCartAfterLogin() {
       console.log("🔄 Syncing cart after login");
-      const localCart = JSON.parse(localStorage.getItem("cart") || "[]");
-      if (localCart.length > 0) {
-        console.log("📦 Merging local cart with server...");
-      }
       this.fetchCart();
     },
   },

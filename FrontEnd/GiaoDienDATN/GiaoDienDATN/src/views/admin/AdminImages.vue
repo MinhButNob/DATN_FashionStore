@@ -24,7 +24,6 @@
         </select>
       </div>
       
-      <!-- Step 2: Chọn biến thể -->
       <div class="input-group" v-if="selectedProductId && productDetailsList.length > 0">
         <label>🎨 Chọn biến thể (Màu - Size):</label>
         <select v-model="selectedProductDetailId" @change="loadImages" class="detail-select">
@@ -59,6 +58,13 @@
         <div class="stat-info">
           <div class="stat-value">{{ mainImageCount }}</div>
           <div class="stat-label">Ảnh chính</div>
+        </div>
+      </div>
+      <div class="stat-card stat-deleted">
+        <div class="stat-icon">🗑️</div>
+        <div class="stat-info">
+          <div class="stat-value">{{ deletedImageCount }}</div>
+          <div class="stat-label">Đã xóa</div>
         </div>
       </div>
     </div>
@@ -120,11 +126,12 @@
             <th>Đường dẫn</th>
             <th>Số thứ tự</th>
             <th>Ảnh chính</th>
+            <th>Trạng thái</th>
             <th>Thao tác</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="(image, index) in paginatedImages" :key="image.productImageId" class="table-row">
+          <tr v-for="(image, index) in paginatedImages" :key="image.productImageId" class="table-row" :class="{ 'row-deleted': image._deletedAt }">
             <td class="stt-cell">{{ getSTT(index) }}</td>
             <td>
               <div class="image-thumb">
@@ -147,6 +154,7 @@
                 @change="updateDisplayOrder(image)"
                 class="order-input"
                 min="0"
+                :disabled="image._deletedAt"
               />
             </td>
             <td>
@@ -156,15 +164,32 @@
                   name="mainImage"
                   :checked="image.isMain === true"
                   @change="setMainImage(image)"
+                  :disabled="image._deletedAt"
                 />
                 <span>Ảnh chính</span>
               </label>
             </td>
             <td>
+              <span v-if="image._deletedAt" class="status-badge status-deleted">
+                Đã xóa
+              </span>
+              <span v-else :class="['status-badge', image.status === 'ACTIVE' ? 'status-active' : 'status-inactive']">
+                {{ image.status === 'ACTIVE' ? 'Hoạt động' : 'Tạm dừng' }}
+              </span>
+            </td>
+            <td>
               <div class="action-buttons">
-                <button class="action-btn delete-btn" @click="confirmDelete(image)" title="Xóa ảnh">
-                  🗑️
-                </button>
+                <template v-if="image._deletedAt">
+                  <span class="readonly-label">Đã xóa</span>
+                  <button class="action-btn restore-btn" @click="confirmRestore(image)" title="Khôi phục">
+                    ↩️
+                  </button>
+                </template>
+                <template v-else>
+                  <button class="action-btn delete-btn" @click="confirmDelete(image)" title="Xóa ảnh">
+                    🗑️
+                  </button>
+                </template>
               </div>
             </td>
           </tr>
@@ -199,11 +224,29 @@
         </div>
         <div class="modal-body">
           <p>Bạn có chắc chắn muốn xóa ảnh này?</p>
-          <p class="warning-text">Ảnh sẽ bị xóa vĩnh viễn!</p>
+          <p class="warning-text">Sau khi xóa, ảnh sẽ chuyển sang trạng thái đã xóa và có thể khôi phục lại!</p>
         </div>
         <div class="modal-footer">
           <button class="btn-cancel" @click="closeDeleteModal">Hủy</button>
           <button class="btn-danger" @click="deleteImage">Xóa</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Restore Modal -->
+    <div v-if="showRestoreModal" class="modal-overlay" @click.self="closeRestoreModal">
+      <div class="modal-container modal-sm">
+        <div class="modal-header">
+          <h3>Xác nhận khôi phục</h3>
+          <button class="close-btn" @click="closeRestoreModal">✕</button>
+        </div>
+        <div class="modal-body">
+          <p>Bạn có chắc muốn khôi phục ảnh này?</p>
+          <p>Sau khi khôi phục, ảnh sẽ trở lại trạng thái hoạt động.</p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-cancel" @click="closeRestoreModal">Hủy</button>
+          <button class="btn-save" @click="restoreImage">Khôi phục</button>
         </div>
       </div>
     </div>
@@ -242,7 +285,9 @@ export default {
       selectedFiles: [],
       
       showDeleteModal: false,
+      showRestoreModal: false,
       deleteImageId: null,
+      restoreImageId: null,
       
       showToast: false,
       toastMessage: '',
@@ -252,7 +297,10 @@ export default {
   },
   computed: {
     mainImageCount() {
-      return this.images.filter(img => img.isMain === true).length;
+      return this.images.filter(img => img.isMain === true && !img._deletedAt).length;
+    },
+    deletedImageCount() {
+      return this.images.filter(img => img._deletedAt).length;
     },
     totalPages() {
       return Math.ceil(this.images.length / this.pageSize);
@@ -284,41 +332,29 @@ export default {
       return parts[parts.length - 1] || path;
     },
 
-    // ✅ QUAN TRỌNG: Sửa URL ảnh đúng cách
     getImageUrl(path) {
       if (!path) {
         return 'https://via.placeholder.com/80x80?text=No+Image';
       }
       
-      // Nếu đã là URL đầy đủ
       if (path.startsWith('http://') || path.startsWith('https://')) {
         return path;
       }
       
-      // Xử lý các trường hợp đường dẫn
       let cleanPath = path;
-      
-      // Nếu path bắt đầu bằng uploads/ (không có dấu / ở đầu)
       if (cleanPath.startsWith('uploads/')) {
         return `http://localhost:8080/${cleanPath}`;
       }
-      
-      // Nếu path bắt đầu bằng /uploads/
       if (cleanPath.startsWith('/uploads/')) {
         return `http://localhost:8080${cleanPath}`;
       }
-      
-      // Nếu path bắt đầu bằng product-images/
       if (cleanPath.startsWith('product-images/')) {
         return `http://localhost:8080/uploads/${cleanPath}`;
       }
-      
-      // Nếu path bắt đầu bằng /product-images/
       if (cleanPath.startsWith('/product-images/')) {
         return `http://localhost:8080/uploads${cleanPath}`;
       }
       
-      // Mặc định: thêm /uploads/ vào đầu
       if (!cleanPath.startsWith('/')) {
         cleanPath = '/' + cleanPath;
       }
@@ -327,7 +363,6 @@ export default {
 
     handleImageError(e) {
       console.error('❌ Lỗi tải ảnh:', e.target.src);
-      // Thử thay đổi URL nếu có thể
       const failedUrl = e.target.src;
       if (failedUrl.includes('/uploads/uploads/')) {
         const fixedUrl = failedUrl.replace('/uploads/uploads/', '/uploads/');
@@ -425,17 +460,11 @@ export default {
           }
         }
         
-        // Log để debug
-        if (allImages.length > 0) {
-          console.log('🔍 API trả về ảnh mẫu:', allImages.slice(0, 2).map(img => ({
-            id: img.productImageId,
-            path: img.productImagePath,
-            status: img.status
-          })));
-        }
-        
-        // Chỉ lấy ảnh ACTIVE
-        this.images = allImages.filter(img => img.status === 'ACTIVE');
+        // ✅ GIỮ TẤT CẢ ẢNH (bao gồm cả đã xóa)
+        this.images = allImages.map(img => ({
+          ...img,
+          _deletedAt: img.status === 'DELETED' ? new Date().toISOString() : null
+        }));
         this.images.sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
         this.currentPage = 0;
         
@@ -450,6 +479,11 @@ export default {
     },
 
     async updateDisplayOrder(image) {
+      if (image._deletedAt) {
+        this.showNotification('Không thể cập nhật ảnh đã xóa!', 'error');
+        return;
+      }
+      
       try {
         const formData = new FormData();
         formData.append('displayOrder', image.displayOrder || 0);
@@ -559,6 +593,11 @@ export default {
     },
 
     async setMainImage(image) {
+      if (image._deletedAt) {
+        this.showNotification('Không thể đặt ảnh chính cho ảnh đã xóa!', 'error');
+        return;
+      }
+      
       try {
         const formData = new FormData();
         formData.append('isMain', true);
@@ -566,7 +605,6 @@ export default {
           headers: { 'Content-Type': 'multipart/form-data' }
         });
         
-        // Cập nhật local state
         this.images.forEach(img => {
           img.isMain = (img.productImageId === image.productImageId);
         });
@@ -578,6 +616,7 @@ export default {
       }
     },
 
+    // ✅ SOFT DELETE - Xóa mềm (giữ lại trong danh sách)
     confirmDelete(image) {
       this.deleteImageId = image.productImageId;
       this.showDeleteModal = true;
@@ -590,13 +629,61 @@ export default {
 
     async deleteImage() {
       try {
+        // ✅ GỌI API SOFT DELETE
         await axios.delete(`${API_BASE}/product-images/${this.deleteImageId}`);
-        this.showNotification('Xóa ảnh thành công!', 'success');
+        
+        // ✅ CẬP NHẬT TRẠNG THÁI (KHÔNG XÓA KHỎI DANH SÁCH)
+        const index = this.images.findIndex(img => img.productImageId === this.deleteImageId);
+        if (index !== -1) {
+          this.images[index] = {
+            ...this.images[index],
+            _deletedAt: new Date().toISOString(),
+            status: 'DELETED'
+          };
+        }
+        
+        this.showNotification('Xóa ảnh thành công! Ảnh đã chuyển sang trạng thái đã xóa.', 'success');
         this.closeDeleteModal();
+        // Reload lại danh sách để cập nhật thứ tự
         await this.loadImages();
       } catch (error) {
         console.error('Lỗi xóa ảnh:', error);
-        this.showNotification('Không thể xóa ảnh!', 'error');
+        this.showNotification(error.response?.data?.message || 'Không thể xóa ảnh!', 'error');
+      }
+    },
+
+    // ✅ RESTORE - Khôi phục
+    confirmRestore(image) {
+      this.restoreImageId = image.productImageId;
+      this.showRestoreModal = true;
+    },
+
+    closeRestoreModal() {
+      this.showRestoreModal = false;
+      this.restoreImageId = null;
+    },
+
+    async restoreImage() {
+      try {
+        // ✅ GỌI API RESTORE
+        await axios.patch(`${API_BASE}/product-images/${this.restoreImageId}/restore`);
+        
+        // ✅ CẬP NHẬT TRẠNG THÁI
+        const index = this.images.findIndex(img => img.productImageId === this.restoreImageId);
+        if (index !== -1) {
+          this.images[index] = {
+            ...this.images[index],
+            _deletedAt: null,
+            status: 'ACTIVE'
+          };
+        }
+        
+        this.showNotification('Khôi phục ảnh thành công!', 'success');
+        this.closeRestoreModal();
+        await this.loadImages();
+      } catch (error) {
+        console.error('Lỗi khôi phục ảnh:', error);
+        this.showNotification(error.response?.data?.message || 'Không thể khôi phục ảnh!', 'error');
       }
     },
     
@@ -625,7 +712,6 @@ export default {
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* Header */
 .page-header {
   display: flex;
   justify-content: space-between;
@@ -646,7 +732,6 @@ export default {
   font-size: 14px;
 }
 
-/* Product Detail Selector */
 .product-detail-selector {
   background: white;
   padding: 20px;
@@ -700,10 +785,9 @@ export default {
   font-size: 14px;
 }
 
-/* Stats Row */
 .stats-row {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 16px;
   margin-bottom: 24px;
 }
@@ -721,12 +805,12 @@ export default {
 
 .stat-total { border-left-color: #3b82f6; }
 .stat-main { border-left-color: #f59e0b; }
+.stat-deleted { border-left-color: #ef4444; }
 
 .stat-icon { font-size: 32px; }
 .stat-value { font-size: 28px; font-weight: 700; color: #1a1a2e; }
 .stat-label { font-size: 12px; color: #6b7280; margin-top: 4px; }
 
-/* Upload Area */
 .upload-area {
   border: 2px dashed #cbd5e1;
   border-radius: 12px;
@@ -768,7 +852,6 @@ export default {
   margin-top: 4px;
 }
 
-/* Upload Preview */
 .upload-preview {
   background: white;
   border-radius: 12px;
@@ -859,7 +942,6 @@ export default {
   background: #e2e8f0;
 }
 
-/* Table */
 .table-container {
   background: white;
   border-radius: 12px;
@@ -888,6 +970,15 @@ export default {
 
 .table-row:hover {
   background: #f8fafc;
+}
+
+.row-deleted {
+  opacity: 0.6;
+  background-color: #fafafa;
+}
+
+.row-deleted td {
+  color: #9ca3af;
 }
 
 .stt-cell {
@@ -928,6 +1019,11 @@ export default {
   font-size: 14px;
 }
 
+.order-input:disabled {
+  background: #f1f5f9;
+  cursor: not-allowed;
+}
+
 .order-input:focus {
   outline: none;
   border-color: #3498db;
@@ -946,12 +1042,27 @@ export default {
   cursor: pointer;
 }
 
+.main-image-checkbox input:disabled {
+  cursor: not-allowed;
+}
+
 .main-image-checkbox span {
   font-size: 13px;
   color: #2c3e50;
 }
 
-/* Action Buttons */
+.status-badge {
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  display: inline-block;
+}
+
+.status-active { background-color: #e8f8f5; color: #27ae60; }
+.status-inactive { background-color: #fdf2e9; color: #f39c12; }
+.status-deleted { background-color: #f3f4f6; color: #6b7280; }
+
 .action-buttons {
   display: flex;
   gap: 8px;
@@ -967,11 +1078,37 @@ export default {
   transition: all 0.2s;
 }
 
-.delete-btn:hover {
-  background-color: #fee2e2;
+.delete-btn:hover { background-color: #fee2e2; }
+.restore-btn:hover { background-color: #d1fae5; }
+
+.restore-btn {
+  background: #10b981;
+  color: white;
+  border-radius: 6px;
+  padding: 6px 10px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
-/* Loading State */
+.restore-btn:hover {
+  background: #059669;
+  transform: scale(1.05);
+}
+
+.readonly-label {
+  font-size: 12px;
+  color: #9ca3af;
+  font-style: italic;
+  padding: 4px 8px;
+  background: #f3f4f6;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
 .loading-state {
   text-align: center;
   padding: 60px 20px;
@@ -1007,7 +1144,6 @@ export default {
   to { transform: rotate(360deg); }
 }
 
-/* Empty State */
 .empty-state {
   text-align: center;
   padding: 60px 20px;
@@ -1032,7 +1168,6 @@ export default {
   font-size: 14px;
 }
 
-/* Pagination */
 .pagination {
   display: flex;
   justify-content: space-between;
@@ -1084,7 +1219,6 @@ export default {
   text-align: center;
 }
 
-/* Modal */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -1161,7 +1295,7 @@ export default {
   font-size: 13px;
 }
 
-.btn-cancel, .btn-danger {
+.btn-cancel, .btn-danger, .btn-save {
   padding: 8px 20px;
   border: none;
   border-radius: 8px;
@@ -1192,7 +1326,16 @@ export default {
   background: #c82333;
 }
 
-/* Toast */
+.btn-save {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+}
+
+.btn-save:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+}
+
 .toast {
   position: fixed;
   bottom: 30px;
@@ -1218,7 +1361,6 @@ export default {
   transform: translateY(0);
 }
 
-/* Responsive */
 @media (max-width: 768px) {
   .admin-images { padding: 15px; }
   .page-header { flex-direction: column; align-items: stretch; gap: 12px; }

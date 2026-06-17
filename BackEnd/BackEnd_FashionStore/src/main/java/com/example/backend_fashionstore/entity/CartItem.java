@@ -18,18 +18,21 @@ public class CartItem {
     @Column(name = "cart_item_id")
     private Integer cartItemId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne
     @JoinColumn(name = "cart_item_cart_id", nullable = false)
     private Cart cart;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne
     @JoinColumn(name = "cart_item_product_detail_id", nullable = false)
     private ProductDetail productDetail;
 
     @Column(name = "cart_item_quantity", nullable = false)
     private Integer quantity;
 
-    @Column(name = "subtotal")  // hoặc "cart_item_subtotal" nếu đã đổi tên
+    @Column(name = "discounted_price")
+    private BigDecimal discountedPrice;  // ✅ Thêm giá đã giảm
+
+    @Column(name = "subtotal")
     private BigDecimal subtotal;
 
     @Column(name = "cart_item_created_at")
@@ -58,8 +61,12 @@ public class CartItem {
     }
 
     public void calculateSubtotal() {
-        if (this.productDetail != null && this.productDetail.getPrice() != null && this.quantity != null) {
-            this.subtotal = this.productDetail.getPrice().multiply(BigDecimal.valueOf(this.quantity));
+        BigDecimal price = this.discountedPrice != null ?
+                this.discountedPrice :
+                (this.productDetail != null ? this.productDetail.getPrice() : BigDecimal.ZERO);
+
+        if (price != null && this.quantity != null) {
+            this.subtotal = price.multiply(BigDecimal.valueOf(this.quantity));
         } else {
             this.subtotal = BigDecimal.ZERO;
         }
