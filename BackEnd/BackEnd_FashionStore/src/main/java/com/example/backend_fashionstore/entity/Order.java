@@ -2,6 +2,9 @@ package com.example.backend_fashionstore.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
@@ -19,24 +22,19 @@ public class Order {
     @Column(name = "order_id")
     private Long orderId;
 
-
     @ManyToOne
     @JoinColumn(name = "order_customer_id", nullable = false)
-
-//    @ManyToOne(fetch = FetchType.LAZY)
-//    @JoinColumn(name = "customer_id")
-//>>>>>>> 5092b2ddd0a487f1ab9655fb4b92b065d8cb0a2a
     private Customer customer;
 
     @ManyToOne
-    @JoinColumn(name = "order_shipping_address_id", nullable = true)  // ✅ Cho phép null
+    @JoinColumn(name = "order_shipping_address_id", nullable = true)
     private ShippingAddress shippingAddress;
 
     @ManyToOne
-    @JoinColumn(name = "order_voucher_id", nullable = true)  // ✅ Cho phép null
+    @JoinColumn(name = "order_voucher_id", nullable = true)
     private Voucher voucher;
 
-    @Column(name = "order_cart_id", nullable = true)  // ✅ Cho phép null
+    @Column(name = "order_cart_id", nullable = true)
     private Integer cartId;
 
     @Column(name = "order_date", nullable = false)
@@ -54,7 +52,8 @@ public class Order {
     @Column(name = "order_shipping_fee", nullable = false)
     private BigDecimal orderShippingFee;
 
-    @Column(name = "order_total_amount")
+    // ✅ Generated column - KHÔNG insert hoặc update
+    @Column(name = "order_total_amount", insertable = false, updatable = false)
     private BigDecimal orderTotalAmount;
 
     @Column(name = "order_payment_status", nullable = false)
@@ -63,46 +62,14 @@ public class Order {
     @Column(name = "order_notes")
     private String notes;
 
-    @Column(name = "order_created_at", nullable = false)
+    @CreationTimestamp
+    @Column(name = "order_created_at", updatable = false)
     private LocalDateTime createdAt;
 
-    @Column(name = "order_updated_at", nullable = false)
+    @UpdateTimestamp
+    @Column(name = "order_updated_at")
     private LocalDateTime updatedAt;
 
     @Column(name = "order_deleted_at")
     private LocalDateTime deletedAt;
-
-    @PrePersist
-    protected void onCreate() {
-        if (createdAt == null) {
-            createdAt = LocalDateTime.now();
-        }
-        if (updatedAt == null) {
-            updatedAt = LocalDateTime.now();
-        }
-        if (orderStatus == null) {
-            orderStatus = "PENDING_PAYMENT";
-        }
-        if (paymentStatus == null) {
-            paymentStatus = "UNPAID";
-        }
-        if (orderDiscountAmount == null) {
-            orderDiscountAmount = BigDecimal.ZERO;
-        }
-        if (orderShippingFee == null) {
-            orderShippingFee = BigDecimal.ZERO;
-        }
-        // Tính total amount
-        if (orderSubtotalAmount != null && orderDiscountAmount != null && orderShippingFee != null) {
-            orderTotalAmount = orderSubtotalAmount.subtract(orderDiscountAmount).add(orderShippingFee);
-        }
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
-        if (orderSubtotalAmount != null && orderDiscountAmount != null && orderShippingFee != null) {
-            orderTotalAmount = orderSubtotalAmount.subtract(orderDiscountAmount).add(orderShippingFee);
-        }
-    }
 }
