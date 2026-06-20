@@ -19,24 +19,19 @@ public class Order {
     @Column(name = "order_id")
     private Long orderId;
 
-
-//    @ManyToOne(fetch = FetchType.LAZY)
-//    @JoinColumn(name = "customer_id")
-
     @ManyToOne
     @JoinColumn(name = "order_customer_id", nullable = false)
-
     private Customer customer;
 
     @ManyToOne
-    @JoinColumn(name = "order_shipping_address_id", nullable = true)  // ✅ Cho phép null
+    @JoinColumn(name = "order_shipping_address_id", nullable = true)
     private ShippingAddress shippingAddress;
 
     @ManyToOne
-    @JoinColumn(name = "order_voucher_id", nullable = true)  // ✅ Cho phép null
+    @JoinColumn(name = "order_voucher_id", nullable = true)
     private Voucher voucher;
 
-    @Column(name = "order_cart_id", nullable = true)  // ✅ Cho phép null
+    @Column(name = "order_cart_id", nullable = true)
     private Integer cartId;
 
     @Column(name = "order_date", nullable = false)
@@ -54,7 +49,8 @@ public class Order {
     @Column(name = "order_shipping_fee", nullable = false)
     private BigDecimal orderShippingFee;
 
-    @Column(name = "order_total_amount")
+    // ✅ THÊM: insertable = false, updatable = false cho generated column
+    @Column(name = "order_total_amount", insertable = false, updatable = false)
     private BigDecimal orderTotalAmount;
 
     @Column(name = "order_payment_status", nullable = false)
@@ -92,17 +88,18 @@ public class Order {
         if (orderShippingFee == null) {
             orderShippingFee = BigDecimal.ZERO;
         }
-        // Tính total amount
-        if (orderSubtotalAmount != null && orderDiscountAmount != null && orderShippingFee != null) {
-            orderTotalAmount = orderSubtotalAmount.subtract(orderDiscountAmount).add(orderShippingFee);
-        }
+        // ❌ XÓA: Không set orderTotalAmount vì là generated column
+        // if (orderSubtotalAmount != null && orderDiscountAmount != null && orderShippingFee != null) {
+        //     orderTotalAmount = orderSubtotalAmount.subtract(orderDiscountAmount).add(orderShippingFee);
+        // }
     }
 
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
-        if (orderSubtotalAmount != null && orderDiscountAmount != null && orderShippingFee != null) {
-            orderTotalAmount = orderSubtotalAmount.subtract(orderDiscountAmount).add(orderShippingFee);
-        }
+        // ❌ XÓA: Không set orderTotalAmount vì là generated column
+        // if (orderSubtotalAmount != null && orderDiscountAmount != null && orderShippingFee != null) {
+        //     orderTotalAmount = orderSubtotalAmount.subtract(orderDiscountAmount).add(orderShippingFee);
+        // }
     }
 }

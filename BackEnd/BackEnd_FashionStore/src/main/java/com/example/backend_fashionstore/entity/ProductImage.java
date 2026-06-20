@@ -31,14 +31,14 @@ public class ProductImage {
     @Column(name = "product_image_type", length = 50)
     private String productImageType;
 
-    @Column(name = "product_image_display_order")
-    private Integer displayOrder;
+    @Column(name = "product_image_display_order", nullable = false)
+    private Integer displayOrder = 0;
 
-    @Column(name = "product_image_is_main")
-    private Boolean isMain;
+    @Column(name = "product_image_is_main", nullable = false)
+    private Boolean isMain = false;
 
     @Column(name = "product_image_status", nullable = false, length = 20)
-    private String status;
+    private String status = "ACTIVE";
 
     @CreationTimestamp
     @Column(name = "product_image_created_at", updatable = false)
@@ -51,31 +51,21 @@ public class ProductImage {
     @Column(name = "product_image_deleted_at")
     private LocalDateTime deletedAt;
 
-    // ========== CÁC CỘT CŨ (PHẢI CÓ GIÁ TRỊ) ==========
-    @Column(name = "created_at")
-    private LocalDateTime oldCreatedAt;
+    // ===== Các phương thức tiện ích =====
 
-    @Column(name = "display_order")
-    private Integer oldDisplayOrder;
+    public Integer getDisplayOrder() {
+        return displayOrder;
+    }
 
-    @Column(name = "is_main")
-    private Boolean oldIsMain;
+    public void setDisplayOrder(Integer displayOrder) {
+        this.displayOrder = displayOrder;
+    }
 
-    @PrePersist
-    public void prePersist() {
-        if (displayOrder == null) displayOrder = 0;
-        if (isMain == null) isMain = false;
-        if (status == null) status = "ACTIVE";
+    public Boolean getIsMain() {
+        return isMain;
+    }
 
-        // ✅ Set giá trị cho các cột cũ
-        if (oldDisplayOrder == null) {
-            oldDisplayOrder = displayOrder;
-        }
-        if (oldIsMain == null) {
-            oldIsMain = isMain;
-        }
-        if (oldCreatedAt == null) {
-            oldCreatedAt = LocalDateTime.now();
-        }
+    public void setIsMain(Boolean isMain) {
+        this.isMain = isMain;
     }
 }

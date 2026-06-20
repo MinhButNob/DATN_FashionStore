@@ -2,6 +2,8 @@ package com.example.backend_fashionstore.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -37,9 +39,11 @@ public class Cart {
     private BigDecimal voucherDiscount;
 
     @Column(name = "cart_created_at")
+    @CreationTimestamp
     private LocalDateTime createdAt;
 
     @Column(name = "cart_updated_at")
+    @CreationTimestamp
     private LocalDateTime updatedAt;
 
     @Column(name = "cart_deleted_at")

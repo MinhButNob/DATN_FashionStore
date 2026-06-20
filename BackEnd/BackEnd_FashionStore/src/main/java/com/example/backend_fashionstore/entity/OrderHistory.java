@@ -4,6 +4,8 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import jakarta.persistence.*;
+import org.hibernate.annotations.CreationTimestamp;
+
 import java.time.LocalDateTime;
 
 @Entity
@@ -22,17 +24,24 @@ public class OrderHistory {
     @JoinColumn(name = "order_id", nullable = false)
     private Order order;
 
-    @Column(name = "order_status", nullable = false)
+    // ✅ SỬA: Đúng tên cột trong database
+    @Column(name = "order_history_order_status")
     private String orderStatus;
 
     @Column(name = "order_history_note")
     private String note;
 
-    @Column(name = "order_history_timestamp")
+    @CreationTimestamp
+    @Column(name = "order_history_timestamp", updatable = false)
     private LocalDateTime timestamp;
+
+    @Column(name = "order_history_deleted_at")
+    private LocalDateTime deletedAt;
 
     @PrePersist
     protected void onCreate() {
-        timestamp = LocalDateTime.now();
+        if (timestamp == null) {
+            timestamp = LocalDateTime.now();
+        }
     }
 }
