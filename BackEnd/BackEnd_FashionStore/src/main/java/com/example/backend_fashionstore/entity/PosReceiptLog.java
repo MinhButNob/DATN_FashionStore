@@ -7,7 +7,6 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.time.LocalDateTime;
 import java.math.BigDecimal;
 
-
 @Entity
 @Table(name = "pos_receipt_logs")
 @Getter
@@ -42,4 +41,16 @@ public class PosReceiptLog {
 
     @Column(name = "receipt_log_error_message")
     private String receiptLogErrorMessage;
+
+    // Thêm 3 trường audit
+    @CreationTimestamp
+    @Column(name = "receipt_log_created_at", updatable = false)
+    private LocalDateTime receiptLogCreatedAt;
+
+    @UpdateTimestamp
+    @Column(name = "receipt_log_updated_at")
+    private LocalDateTime receiptLogUpdatedAt;
+
+    @Column(name = "receipt_log_deleted_at")
+    private LocalDateTime receiptLogDeletedAt;
 }
