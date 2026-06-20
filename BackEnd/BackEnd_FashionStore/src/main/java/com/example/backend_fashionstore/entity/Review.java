@@ -43,6 +43,9 @@ public class Review {
     @Column(name = "status")
     private String status;
 
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
