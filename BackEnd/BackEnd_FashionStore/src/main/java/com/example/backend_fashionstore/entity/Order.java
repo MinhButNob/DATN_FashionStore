@@ -1,7 +1,10 @@
 package com.example.backend_fashionstore.entity;
 
+import com.example.backend_fashionstore.enums.OrderStatus;
+import com.example.backend_fashionstore.enums.PaymentStatus;
 import jakarta.persistence.*;
 import lombok.*;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
@@ -19,26 +22,27 @@ public class Order {
     @Column(name = "order_id")
     private Long orderId;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "order_customer_id", nullable = false)
     private Customer customer;
 
-    @ManyToOne
-    @JoinColumn(name = "order_shipping_address_id", nullable = true)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "order_shipping_address_id")
     private ShippingAddress shippingAddress;
 
-    @ManyToOne
-    @JoinColumn(name = "order_voucher_id", nullable = true)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "order_voucher_id")
     private Voucher voucher;
 
-    @Column(name = "order_cart_id", nullable = true)
+    @Column(name = "order_cart_id")
     private Integer cartId;
 
     @Column(name = "order_date", nullable = false)
     private LocalDateTime orderDate;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "order_status", nullable = false)
-    private String orderStatus;
+    private OrderStatus orderStatus;
 
     @Column(name = "order_subtotal_amount", nullable = false)
     private BigDecimal orderSubtotalAmount;
@@ -49,12 +53,13 @@ public class Order {
     @Column(name = "order_shipping_fee", nullable = false)
     private BigDecimal orderShippingFee;
 
-    // ✅ THÊM: insertable = false, updatable = false cho generated column
+
     @Column(name = "order_total_amount", insertable = false, updatable = false)
     private BigDecimal orderTotalAmount;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "order_payment_status", nullable = false)
-    private String paymentStatus;
+    private PaymentStatus paymentStatus;
 
     @Column(name = "order_notes")
     private String notes;
@@ -70,36 +75,40 @@ public class Order {
 
     @PrePersist
     protected void onCreate() {
+
+        LocalDateTime now = LocalDateTime.now();
+
         if (createdAt == null) {
-            createdAt = LocalDateTime.now();
+            createdAt = now;
         }
+
         if (updatedAt == null) {
-            updatedAt = LocalDateTime.now();
+            updatedAt = now;
         }
+
+        if (orderDate == null) {
+            orderDate = now;
+        }
+
         if (orderStatus == null) {
-            orderStatus = "PENDING_PAYMENT";
+            orderStatus = OrderStatus.PENDING_PAYMENT;
         }
+
         if (paymentStatus == null) {
-            paymentStatus = "UNPAID";
+            paymentStatus = PaymentStatus.UNPAID;
         }
+
         if (orderDiscountAmount == null) {
             orderDiscountAmount = BigDecimal.ZERO;
         }
+
         if (orderShippingFee == null) {
             orderShippingFee = BigDecimal.ZERO;
         }
-        // ❌ XÓA: Không set orderTotalAmount vì là generated column
-        // if (orderSubtotalAmount != null && orderDiscountAmount != null && orderShippingFee != null) {
-        //     orderTotalAmount = orderSubtotalAmount.subtract(orderDiscountAmount).add(orderShippingFee);
-        // }
     }
 
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
-        // ❌ XÓA: Không set orderTotalAmount vì là generated column
-        // if (orderSubtotalAmount != null && orderDiscountAmount != null && orderShippingFee != null) {
-        //     orderTotalAmount = orderSubtotalAmount.subtract(orderDiscountAmount).add(orderShippingFee);
-        // }
     }
 }
