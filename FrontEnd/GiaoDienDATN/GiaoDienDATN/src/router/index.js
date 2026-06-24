@@ -18,6 +18,7 @@ import AboutPage from "../views/client/AboutPage.vue";
 import ContactPage from "../views/client/ContactPage.vue";
 import BlogDetailPage from "../views/client/BlogDetailPage.vue";
 import NotFoundPage from "../views/client/NotFoundPage.vue";
+import PaymentResultPage from "../views/client/PaymentResultPage.vue";
 
 // Admin views
 import AdminLayout from "../views/admin/AdminLayout.vue";
@@ -107,6 +108,7 @@ const routes = [
   { path: "/about", name: "about", component: AboutPage },
   { path: "/contact", name: "contact", component: ContactPage },
   { path: "/blog/:id", name: "blog-detail", component: BlogDetailPage },
+  { path: "/payment-result", name: "payment-result", component: PaymentResultPage },
   {
     path: "/admin/login",
     name: "admin-login",
