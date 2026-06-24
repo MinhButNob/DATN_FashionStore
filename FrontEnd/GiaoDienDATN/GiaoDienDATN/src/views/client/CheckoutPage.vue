@@ -79,6 +79,25 @@
 
             <!-- Form đặt hàng -->
             <form @submit.prevent="placeOrder">
+              <!-- Phương thức thanh toán -->
+              <div class="form-group payment-methods">
+                <label>Phương thức thanh toán <span class="required">*</span></label>
+                <div class="payment-options">
+                  <label class="payment-option">
+                    <input type="radio" v-model="orderData.paymentMethod" value="COD" />
+                    <span class="option-content">
+                      <i class="fas fa-money-bill-wave"></i> Thanh toán khi nhận hàng (COD)
+                    </span>
+                  </label>
+                  <label class="payment-option">
+                    <input type="radio" v-model="orderData.paymentMethod" value="VNPAY" />
+                    <span class="option-content">
+                      <i class="fas fa-credit-card"></i> Thanh toán qua VNPay
+                    </span>
+                  </label>
+                </div>
+              </div>
+
               <div class="form-group">
                 <label>Ghi chú cho đơn hàng</label>
                 <textarea v-model="orderData.notes" rows="3" placeholder="Ghi chú (không bắt buộc)..."></textarea>
@@ -201,7 +220,8 @@ const editForm = reactive({
 })
 
 const orderData = ref({
-  notes: ''
+  notes: '',
+  paymentMethod: 'COD'
 })
 
 // ✅ Computed: Tính tổng tiền với voucher
@@ -373,7 +393,7 @@ const placeOrder = async () => {
     shippingWard: profile.ward || '',
     notes: orderData.value.notes || '',
     items: orderItems,
-    paymentMethod: 'COD',
+    paymentMethod: orderData.value.paymentMethod || 'COD',
     voucherId: voucherId  // ✅ TRUYỀN VOUCHER ID
   }
 
@@ -387,6 +407,20 @@ const placeOrder = async () => {
 
     // ✅ Clear cart (cả voucher)
     await cartStore.clearCart()
+    
+    // Xử lý nếu chọn VNPay
+    if (orderData.value.paymentMethod === 'VNPAY' && response.data && response.data.orderId) {
+      showNotification('Đang chuyển hướng sang cổng thanh toán VNPay...', 'success')
+      const token = localStorage.getItem('token')
+      const paymentRes = await axios.post(`${API_BASE}/payment/vnpay/create/${response.data.orderId}`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      
+      if (paymentRes.data && paymentRes.data.paymentUrl) {
+        window.location.href = paymentRes.data.paymentUrl
+        return // Không redirect sang orders nữa
+      }
+    }
     
     showNotification('Đặt hàng thành công!', 'success')
     
@@ -653,6 +687,39 @@ main {
 .btn-place-order:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+/* Payment Methods */
+.payment-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.payment-option {
+  cursor: pointer;
+}
+
+.payment-option input {
+  display: none;
+}
+
+.option-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 15px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  transition: all 0.3s;
+  color: #666;
+}
+
+.payment-option input:checked + .option-content {
+  border-color: #e63946;
+  background: #fff0f0;
+  color: #e63946;
+  font-weight: 600;
 }
 
 /* Order Summary */
