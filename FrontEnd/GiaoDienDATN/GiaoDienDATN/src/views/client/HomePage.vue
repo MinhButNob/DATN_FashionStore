@@ -139,7 +139,6 @@ const latestProducts = ref([]);
 const categories = ref([]);
 const newsletterEmail = ref("");
 
-// Format price
 const formatPriceVND = (price) => {
   if (price === undefined || price === null) return '0₫'
   const numPrice = typeof price === 'number' ? price : Number(price)
@@ -147,7 +146,6 @@ const formatPriceVND = (price) => {
   return numPrice.toLocaleString('vi-VN') + '₫'
 }
 
-// Handle image error
 const handleImageError = (event) => {
   event.target.style.display = 'none'
   const placeholder = event.target.parentElement.querySelector('.no-image-placeholder')
@@ -193,14 +191,11 @@ const addToCartDirect = (product) => {
   showNotification('Đã thêm sản phẩm vào giỏ hàng!', 'success');
 };
 
-// ✅ SỬA LẠI HÀM NÀY - Thêm số lượng sản phẩm cho từng danh mục
 const loadCategories = async () => {
   try {
-    // Lấy danh sách danh mục
     const response = await axios.get(`${API_BASE}/categories/active`);
     const categoriesData = response.data || [];
     
-    // Lấy tất cả sản phẩm để đếm số lượng theo danh mục
     const productsResponse = await axios.get(`${API_BASE}/products`, {
       params: { page: 0, size: 1000 }
     });
@@ -214,7 +209,6 @@ const loadCategories = async () => {
       allProducts = productsResponse.data;
     }
     
-    // Đếm số lượng sản phẩm theo từng danh mục
     const productCountByCategory = {};
     allProducts.forEach(product => {
       const catId = product.categoryId || product.category?.categoryId;
@@ -223,7 +217,6 @@ const loadCategories = async () => {
       }
     });
     
-    // Gán productCount cho từng danh mục
     categories.value = categoriesData.map(cat => ({
       ...cat,
       productCount: productCountByCategory[cat.categoryId] || 0
@@ -298,7 +291,6 @@ onMounted(() => {
   padding: 0 20px;
 }
 
-/* Product Card Styles */
 .product-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -428,7 +420,6 @@ onMounted(() => {
   cursor: not-allowed;
 }
 
-/* Category styles */
 .category-section {
   padding: 60px 0;
   background: #f8f9fa;

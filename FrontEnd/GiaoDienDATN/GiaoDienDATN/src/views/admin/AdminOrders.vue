@@ -216,7 +216,7 @@
                   <td>
                     <div class="item-info">
                       <div class="item-image">
-                        <img v-if="item.imageUrl" :src="item.imageUrl" alt="product" />
+                        <img v-if="item.imageUrl" :src="getImageUrl(item.imageUrl)" alt="product" />
                         <i v-else class="fas fa-tshirt"></i>
                       </div>
                       <div>
@@ -286,7 +286,7 @@
                 <td>
                   <div class="item-info">
                     <div class="item-image">
-                      <img v-if="item.imageUrl" :src="item.imageUrl" alt="product" />
+                      <img v-if="item.imageUrl" :src="getImageUrl(item.imageUrl)" alt="product" />
                       <i v-else class="fas fa-tshirt"></i>
                     </div>
                     <div>
@@ -360,6 +360,20 @@ const showToast = ref(false)
 const toastMessage = ref('')
 const toastType = ref('success')
 let toastTimer = null
+
+// ✅ BASE URL CHO ẢNH
+const IMAGE_BASE = "http://localhost:8080"
+
+// ✅ HÀM LẤY URL ẢNH ĐẦY ĐỦ
+const getImageUrl = (imagePath) => {
+  if (!imagePath) return ''
+  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+    return imagePath
+  }
+  // Nếu là đường dẫn tương đối, thêm base URL
+  const cleanPath = imagePath.startsWith('/') ? imagePath : '/' + imagePath
+  return IMAGE_BASE + cleanPath
+}
 
 // ===== UTILITY FUNCTIONS =====
 const showNotification = (message, type = 'success') => {

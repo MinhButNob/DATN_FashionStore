@@ -8,7 +8,7 @@ import ProductDetailPage from "../views/client/ProductDetailPage.vue";
 import CartPage from "../views/client/CartPage.vue";
 import CheckoutPage from "../views/client/CheckoutPage.vue";
 import ProfilePage from "../views/client/ProfilePage.vue";
-import OrdersPage from "../views/client/OrdersPage.vue"; 
+import OrdersPage from "../views/client/OrdersPage.vue";
 import WishlistPage from "../views/client/WishlistPage.vue";
 import LoginPage from "../views/client/LoginPage.vue";
 import SignupPage from "../views/client/SignupPage.vue";
@@ -36,7 +36,9 @@ import AdminRoles from "../views/admin/AdminRoles.vue";
 import AdminColors from "../views/admin/AdminColors.vue";
 import AdminPromotions from "../views/admin/AdminPromotions.vue";
 import AdminVouchers from "../views/admin/AdminVouchers.vue";
+import AdminBanners from "../views/admin/AdminBanners.vue";
 
+// Staff views
 import StaffLayout from "../views/staff/StaffLayout.vue";
 import StaffDashboard from "../views/staff/StaffDashboard.vue";
 import StaffPos from "../views/staff/StaffPos.vue";
@@ -62,7 +64,7 @@ const routes = [
     meta: { requiresAuth: true },
   },
   {
-    path: "/orders", // ✅ THÊM ROUTE CHO ORDERS
+    path: "/orders",
     name: "orders",
     component: OrdersPage,
     meta: { requiresAuth: true },
@@ -137,7 +139,8 @@ const routes = [
         name: "admin-promotions",
         component: AdminPromotions,
       },
-      { path: "vouchers", name: "admin-vouchers", component: AdminVouchers }, // ← THÊM DÒNG NÀY
+      { path: "banners", name: "admin-banners", component: AdminBanners },
+      { path: "vouchers", name: "admin-vouchers", component: AdminVouchers },
       { path: "settings", name: "admin-settings", component: AdminSettings },
     ],
   },
@@ -166,7 +169,7 @@ const router = createRouter({
   },
 });
 
-// ========== NAVIGATION GUARDS ==========
+// Navigation Guards
 const getDefaultRouteByRole = (authStore) => {
   if (authStore.isAdmin) return { name: "admin-dashboard" };
   if (authStore.isStaff) return { name: "staff-dashboard" };
