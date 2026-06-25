@@ -22,10 +22,18 @@ public class CustomerProfileService {
     public CustomerProfileResponseDTO getProfile(String email) {
         log.info("🔍 Getting profile for email: {}", email);
 
+        // ✅ Tìm customer, nếu chưa có thì tạo mới
         Customer customer = customerProfileRepository.findByUserEmail(email)
-                .orElseThrow(() -> {
-                    log.error("❌ Customer not found for email: {}", email);
-                    return new RuntimeException("Không tìm thấy khách hàng");
+                .orElseGet(() -> {
+                    log.info("📝 Customer not found, creating new for email: {}", email);
+                    User user = userRepository.findByEmail(email)
+                            .orElseThrow(() -> new RuntimeException("Không tìm thấy user"));
+
+                    Customer newCustomer = Customer.builder()
+                            .user(user)
+                            .customerName(user.getUsername())
+                            .build();
+                    return customerProfileRepository.save(newCustomer);
                 });
 
         log.info("✅ Found customer: id={}, name={}, phone={}, address={}",
@@ -45,11 +53,18 @@ public class CustomerProfileService {
                 request.getPhone(),
                 request.getAddress());
 
-        // Tìm customer theo email
+        // ✅ Tìm customer, nếu chưa có thì tạo mới
         Customer customer = customerProfileRepository.findByUserEmail(email)
-                .orElseThrow(() -> {
-                    log.error("❌ Customer not found for email: {}", email);
-                    return new RuntimeException("Không tìm thấy khách hàng");
+                .orElseGet(() -> {
+                    log.info("📝 Customer not found, creating new for email: {}", email);
+                    User user = userRepository.findByEmail(email)
+                            .orElseThrow(() -> new RuntimeException("Không tìm thấy user"));
+
+                    Customer newCustomer = Customer.builder()
+                            .user(user)
+                            .customerName(user.getUsername())
+                            .build();
+                    return customerProfileRepository.save(newCustomer);
                 });
 
         User user = customer.getUser();
@@ -67,7 +82,7 @@ public class CustomerProfileService {
             log.info("✅ Updated email to: {}", request.getEmail());
         }
 
-        // ✅ Cập nhật số điện thoại - QUAN TRỌNG
+        // ✅ Cập nhật số điện thoại
         if (request.getPhone() != null) {
             customer.setPhone(request.getPhone());
             log.info("✅ Updated phone to: {}", request.getPhone());
@@ -75,7 +90,7 @@ public class CustomerProfileService {
             log.warn("⚠️ Phone is null, keeping existing: {}", customer.getPhone());
         }
 
-        // ✅ Cập nhật địa chỉ - QUAN TRỌNG
+        // ✅ Cập nhật địa chỉ
         if (request.getAddress() != null) {
             customer.setAddress(request.getAddress());
             log.info("✅ Updated address to: {}", request.getAddress());

@@ -117,7 +117,7 @@
             <div class="summary-items">
               <div v-for="item in cartStore.items" :key="item.id" class="summary-item">
                 <div class="item-image">
-                  <img v-if="item.image && item.image !== 'tshirt'" :src="item.image" :alt="item.name" />
+                  <img v-if="item.image && item.image !== 'tshirt'" :src="getImageUrl(item.image)" :alt="item.name" />
                   <i v-else class="fas fa-tshirt"></i>
                 </div>
                 <div class="item-details">
@@ -189,6 +189,7 @@ const cartStore = useCartStore()
 const authStore = useAuthStore()
 
 const API_BASE = "http://localhost:8080/api"
+const IMAGE_BASE = "http://localhost:8080"
 const SHIPPING_FEE = 30000
 
 const placingOrder = ref(false)
@@ -224,9 +225,18 @@ const orderData = ref({
   paymentMethod: 'COD'
 })
 
+// ✅ HÀM LẤY URL ẢNH ĐẦY ĐỦ
+const getImageUrl = (imagePath) => {
+  if (!imagePath) return ''
+  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+    return imagePath
+  }
+  const cleanPath = imagePath.startsWith('/') ? imagePath : '/' + imagePath
+  return IMAGE_BASE + cleanPath
+}
+
 // ✅ Computed: Tính tổng tiền với voucher
 const shippingFee = computed(() => {
-  // Miễn phí ship nếu đơn hàng >= 500,000
   const subtotal = cartStore.subtotal || 0
   return subtotal >= 500000 ? 0 : SHIPPING_FEE
 })
@@ -365,14 +375,13 @@ const saveProfileInfo = async () => {
   }
 }
 
-// ✅ Đặt hàng - có voucher
+// ✅ Đặt hàng - chuyển về Profile Page
 const placeOrder = async () => {
   if (!profile.address || profile.address.trim() === '') {
     showNotification('Vui lòng cập nhật địa chỉ trước khi đặt hàng!', 'error')
     return
   }
 
-  // ✅ Lấy voucherId từ cartStore
   const voucherId = cartStore.voucherId || null
   
   console.log('📋 Place order with voucherId:', voucherId)
@@ -394,7 +403,7 @@ const placeOrder = async () => {
     notes: orderData.value.notes || '',
     items: orderItems,
     paymentMethod: orderData.value.paymentMethod || 'COD',
-    voucherId: voucherId  // ✅ TRUYỀN VOUCHER ID
+    voucherId: voucherId
   }
 
   console.log('📦 Order payload:', orderPayload)
@@ -418,14 +427,18 @@ const placeOrder = async () => {
       
       if (paymentRes.data && paymentRes.data.paymentUrl) {
         window.location.href = paymentRes.data.paymentUrl
-        return // Không redirect sang orders nữa
+        return
       }
     }
     
     showNotification('Đặt hàng thành công!', 'success')
     
+    // ✅ CHUYỂN HƯỚNG VỀ PROFILE PAGE VỚI TAB ORDERS
     setTimeout(() => {
-      router.push('/orders')
+      router.push({ 
+        path: '/profile', 
+        query: { tab: 'orders' } 
+      })
     }, 1500)
 
   } catch (error) {

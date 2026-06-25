@@ -52,7 +52,7 @@
                   <div class="product-image" @click="goToProduct(item.productId || item.id)">
                     <img 
                       v-if="item.image && item.image !== 'tshirt' && !item.image.includes('placeholder')" 
-                      :src="item.image" 
+                      :src="getImageUrl(item.image)" 
                       :alt="item.name"
                       @error="handleImageError"
                     />
@@ -316,6 +316,7 @@ import { cartService } from '../../services/cartService'
 import axios from 'axios'
 
 const API_BASE = "http://localhost:8080/api"
+const IMAGE_BASE = "http://localhost:8080"
 
 const router = useRouter()
 const cartStore = useCartStore()
@@ -330,6 +331,17 @@ const selectedVoucher = ref(null)
 const loadingVouchers = ref(false)
 const voucherError = ref('')
 const applyingVoucher = ref(false)
+
+// ✅ HÀM LẤY URL ẢNH ĐẦY ĐỦ
+const getImageUrl = (imagePath) => {
+  if (!imagePath) return ''
+  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+    return imagePath
+  }
+  // Nếu là đường dẫn tương đối, thêm base URL
+  const cleanPath = imagePath.startsWith('/') ? imagePath : '/' + imagePath
+  return IMAGE_BASE + cleanPath
+}
 
 // Format functions
 const formatPrice = (price) => {
