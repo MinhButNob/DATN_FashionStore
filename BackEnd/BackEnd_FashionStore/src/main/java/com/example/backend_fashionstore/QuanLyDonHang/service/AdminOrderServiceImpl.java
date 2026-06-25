@@ -17,6 +17,8 @@ import com.example.backend_fashionstore.entity.ProductDetail;
 import com.example.backend_fashionstore.entity.Product;
 import com.example.backend_fashionstore.entity.ShippingAddress;
 import com.example.backend_fashionstore.entity.Voucher;
+import com.example.backend_fashionstore.enums.OrderStatus;
+import com.example.backend_fashionstore.enums.PaymentStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -74,7 +76,7 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng với ID: " + orderId));
 
-        String oldStatus = order.getOrderStatus();
+        String oldStatus = order.getOrderStatus().toString();
         String newStatus = request.getOrderStatus();
 
         // ✅ Kiểm tra chuyển đổi trạng thái hợp lệ
@@ -83,12 +85,12 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         }
 
         // ✅ Cập nhật trạng thái
-        order.setOrderStatus(newStatus);
+        order.setOrderStatus(OrderStatus.valueOf(newStatus));
         order.setUpdatedAt(LocalDateTime.now());
 
         // ✅ Nếu đơn hàng hoàn thành, cập nhật payment status
         if ("COMPLETED".equals(newStatus)) {
-            order.setPaymentStatus("PAID");
+            order.setPaymentStatus(PaymentStatus.SUCCESS);
         }
 
         // ✅ Nếu đơn hàng bị hủy, hoàn lại số lượng sản phẩm
@@ -198,8 +200,8 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng với ID: " + orderId));
 
-        String oldPaymentStatus = order.getPaymentStatus();
-        order.setPaymentStatus(paymentStatus);
+        String oldPaymentStatus = order.getPaymentStatus().toString();  // ✅ Lấy giá trị String từ enum
+        order.setPaymentStatus(PaymentStatus.valueOf(paymentStatus));    // ✅ Chuyển String thành enum
         order.setUpdatedAt(LocalDateTime.now());
         orderRepository.save(order);
 
@@ -322,8 +324,9 @@ public class AdminOrderServiceImpl implements AdminOrderService {
                 .orderId(order.getOrderId())
                 .orderCode("ORD" + String.format("%08d", order.getOrderId()))
                 .orderDate(order.getOrderDate())
-                .orderStatus(order.getOrderStatus())
-                .paymentStatus(order.getPaymentStatus() != null ? order.getPaymentStatus() : "UNPAID")
+                .orderStatus(order.getOrderStatus().toString())  // ✅ SỬA
+                .paymentStatus(order.getPaymentStatus() != null ?
+                        order.getPaymentStatus().toString() : PaymentStatus.UNPAID.toString())  // ✅ SỬA
                 .subtotalAmount(subtotal)
                 .discountAmount(discount)
                 .shippingFee(shippingFee)

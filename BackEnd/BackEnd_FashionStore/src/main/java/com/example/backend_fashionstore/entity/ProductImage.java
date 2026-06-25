@@ -50,4 +50,22 @@ public class ProductImage {
 
     @Column(name = "product_image_deleted_at")
     private LocalDateTime deletedAt;
+
+    // ===== Các phương thức tiện ích =====
+
+    public Integer getDisplayOrder() {
+        return displayOrder;
+    }
+
+    public void setDisplayOrder(Integer displayOrder) {
+        this.displayOrder = displayOrder;
+    }
+
+    public Boolean getIsMain() {
+        return isMain;
+    }
+
+    public void setIsMain(Boolean isMain) {
+        this.isMain = isMain;
+    }
 }

@@ -45,6 +45,8 @@ public class OrderDetail {
     @Column(name = "order_detail_created_at", updatable = false)
     private LocalDateTime orderDetailCreatedAt;
 
+    // ===== Các phương thức tiện ích =====
+
     public void calculateFinalAmount() {
         if (unitPrice != null && quantity != null) {
             BigDecimal subtotal = unitPrice.multiply(BigDecimal.valueOf(quantity));

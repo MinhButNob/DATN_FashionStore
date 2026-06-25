@@ -16,6 +16,8 @@ import com.example.backend_fashionstore.customer.order.dto.response.OrderItemRes
 import com.example.backend_fashionstore.customer.order.repository.OrderHistoryRepository;
 import com.example.backend_fashionstore.customer.order.repository.ShippingAddressRepository;
 import com.example.backend_fashionstore.entity.*;
+import com.example.backend_fashionstore.enums.OrderStatus;
+import com.example.backend_fashionstore.enums.PaymentStatus;
 import com.example.backend_fashionstore.quanLyVoucher.repository.VoucherRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -141,11 +143,11 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
         order.setShippingAddress(null);
         order.setCartId(null);
         order.setOrderDate(LocalDateTime.now());
-        order.setOrderStatus("PENDING_PAYMENT");
+        order.setOrderStatus(OrderStatus.PENDING_PAYMENT);
         order.setOrderSubtotalAmount(subtotal);
         order.setOrderDiscountAmount(discountAmount);  // ✅ LƯU DISCOUNT
         order.setOrderShippingFee(DEFAULT_SHIPPING_FEE);
-        order.setPaymentStatus("UNPAID");
+        order.setPaymentStatus(PaymentStatus.UNPAID);
         order.setNotes(request.getNotes() != null ? request.getNotes() : "");
         order.setCreatedAt(LocalDateTime.now());
         order.setUpdatedAt(LocalDateTime.now());
@@ -175,7 +177,7 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
         // ✅ LƯU ORDER HISTORY
         OrderHistory history = new OrderHistory();
         history.setOrder(savedOrder);
-        history.setOrderStatus(savedOrder.getOrderStatus());
+        history.setOrderStatus(savedOrder.getOrderStatus().toString());
         String note = "Đơn hàng được tạo thành công";
         if (appliedVoucher != null) {
             note += " (Áp dụng voucher: " + appliedVoucher.getVoucherCode() + ", giảm " + discountAmount + "₫)";
@@ -244,7 +246,7 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
             throw new RuntimeException("Chỉ có thể hủy đơn hàng đang chờ thanh toán");
         }
 
-        order.setOrderStatus("CANCELLED");
+        order.setOrderStatus(OrderStatus.CANCELLED);
         order.setUpdatedAt(LocalDateTime.now());
         orderRepository.save(order);
 
@@ -371,8 +373,8 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
                 .orderId(order.getOrderId())
                 .orderCode("ORD" + String.format("%08d", order.getOrderId()))
                 .orderDate(order.getOrderDate())
-                .orderStatus(order.getOrderStatus())
-                .paymentStatus(order.getPaymentStatus() != null ? order.getPaymentStatus() : "UNPAID")
+                .orderStatus(order.getOrderStatus().toString())
+                .paymentStatus(order.getPaymentStatus() != null ? order.getPaymentStatus().toString() : PaymentStatus.UNPAID.toString())
                 .subtotalAmount(order.getOrderSubtotalAmount())
                 .discountAmount(discountAmount)  // ✅ THÊM
                 .shippingFee(order.getOrderShippingFee())

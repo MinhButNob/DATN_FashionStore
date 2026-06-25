@@ -28,183 +28,193 @@
         </div>
 
         <!-- Product Detail -->
-        <div v-else class="product-detail">
-          <div class="product-gallery">
-            <div class="main-image">
-              <img v-if="mainImage" :src="mainImage" :alt="product.productName" class="detail-main-img" />
-              <i v-else class="fas fa-tshirt"></i>
-            </div>
-            <div class="thumbnail-list" v-if="productImages.length > 1">
-              <div 
-                v-for="(img, idx) in productImages" 
-                :key="idx"
-                class="thumbnail"
-                :class="{ active: currentImage === idx }"
-                @click="currentImage = idx"
-              >
-                <img :src="img" :alt="'Hình ảnh ' + (idx + 1)" />
+        <div v-else>
+          <!-- ✅ HÀNG TRÊN: ẢNH + THÔNG TIN SẢN PHẨM -->
+          <div class="product-detail-top">
+            <div class="product-gallery">
+              <div class="main-image">
+                <img v-if="mainImage" :src="mainImage" :alt="product.productName" class="detail-main-img" />
+                <i v-else class="fas fa-tshirt"></i>
+              </div>
+              <div class="thumbnail-list" v-if="productImages.length > 1">
+                <div 
+                  v-for="(img, idx) in productImages" 
+                  :key="idx"
+                  class="thumbnail"
+                  :class="{ active: currentImage === idx }"
+                  @click="currentImage = idx"
+                >
+                  <img :src="img" :alt="'Hình ảnh ' + (idx + 1)" />
+                </div>
               </div>
             </div>
-          </div>
 
-          <div class="product-info">
-            <div class="product-category">{{ product.categoryName }}</div>
-            <h1 class="product-title">{{ product.productName }}</h1>
-            <p class="product-description">{{ product.description }}</p>
+            <div class="product-info">
+              <div class="product-category">{{ product.categoryName }}</div>
+              <h1 class="product-title">{{ product.productName }}</h1>
 
-            <!-- Hiển thị giá theo biến thể được chọn -->
-            <div class="product-price">
-              <div v-if="selectedVariant">
-                <!-- Nếu có khuyến mãi -->
-                <div v-if="selectedVariant.discountedPrice && selectedVariant.discountedPrice < selectedVariant.price" class="price-wrapper">
-                  <span class="original-price">{{ formatPrice(selectedVariant.price) }}</span>
-                  <span class="discount-badge">-{{ calculateDiscountPercent(selectedVariant.price, selectedVariant.discountedPrice) }}%</span>
-                  <div class="current-price-wrapper">
-                    <span class="current-price">{{ formatPrice(selectedVariant.discountedPrice) }}</span>
-                    <span class="price-label">(Giá sau khuyến mãi)</span>
+              <!-- Hiển thị giá theo biến thể được chọn -->
+              <div class="product-price">
+                <div v-if="selectedVariant">
+                  <!-- Nếu có khuyến mãi -->
+                  <div v-if="selectedVariant.discountedPrice && selectedVariant.discountedPrice < selectedVariant.price" class="price-wrapper">
+                    <span class="original-price">{{ formatPrice(selectedVariant.price) }}</span>
+                    <span class="discount-badge">-{{ calculateDiscountPercent(selectedVariant.price, selectedVariant.discountedPrice) }}%</span>
+                    <div class="current-price-wrapper">
+                      <span class="current-price">{{ formatPrice(selectedVariant.discountedPrice) }}</span>
+                      <span class="price-label">(Giá sau khuyến mãi)</span>
+                    </div>
+                  </div>
+                  <!-- Không có khuyến mãi -->
+                  <div v-else>
+                    <span class="current-price">{{ formatPrice(selectedVariant.price) }}</span>
                   </div>
                 </div>
-                <!-- Không có khuyến mãi -->
-                <div v-else>
-                  <span class="current-price">{{ formatPrice(selectedVariant.price) }}</span>
+                <div v-else class="price-range-wrapper">
+                  <span class="current-price">{{ formatPrice(product.minPrice) }}</span>
+                  <span v-if="product.maxPrice && product.maxPrice !== product.minPrice" class="price-range">
+                    - {{ formatPrice(product.maxPrice) }}
+                  </span>
                 </div>
               </div>
-              <div v-else class="price-range-wrapper">
-                <span class="current-price">{{ formatPrice(product.minPrice) }}</span>
-                <span v-if="product.maxPrice && product.maxPrice !== product.minPrice" class="price-range">
-                  - {{ formatPrice(product.maxPrice) }}
-                </span>
-              </div>
-            </div>
 
-            <!-- Hiển thị thông tin khuyến mãi của sản phẩm -->
-            <div v-if="product.promotion" class="promotion-info">
-              <div class="promotion-badge">
-                🎁 <strong>{{ product.promotion.promotionName }}</strong>
-              </div>
-              <div class="promotion-discount">
-                Giảm <strong>{{ product.promotion.promotionDiscountPercent }}%</strong> cho tất cả biến thể
-              </div>
-            </div>
-
-            <!-- Màu sắc -->
-            <div class="variant-group" v-if="availableColors.length > 0">
-              <h4>Màu sắc:</h4>
-              <div class="color-options">
-                <div 
-                  v-for="color in availableColors" 
-                  :key="color.colorId"
-                  class="color-btn"
-                  :style="{ backgroundColor: color.hexCode || '#CCCCCC' }"
-                  :class="{ active: selectedColorId === color.colorId }"
-                  :title="color.colorName"
-                  @click="selectColor(color.colorId)"
-                >
-                  <span class="color-name">{{ color.colorName }}</span>
+              <!-- Hiển thị thông tin khuyến mãi của sản phẩm -->
+              <div v-if="product.promotion" class="promotion-info">
+                <div class="promotion-badge">
+                  🎁 <strong>{{ product.promotion.promotionName }}</strong>
+                </div>
+                <div class="promotion-discount">
+                  Giảm <strong>{{ product.promotion.promotionDiscountPercent }}%</strong> cho tất cả biến thể
                 </div>
               </div>
-            </div>
 
-            <!-- Kích thước -->
-            <div class="variant-group" v-if="availableSizes.length > 0">
-              <h4>Kích thước:</h4>
-              <div class="size-options">
-                <button 
-                  v-for="size in availableSizes" 
-                  :key="size.sizeId"
-                  class="size-btn"
-                  :class="{ 
-                    active: selectedSizeId === size.sizeId,
-                    'out-of-stock': !isSizeAvailable(size.sizeId)
-                  }"
-                  @click="selectSize(size.sizeId)"
-                  :disabled="!isSizeAvailable(size.sizeId)"
-                >
-                  {{ size.sizeName }}
+              <!-- Màu sắc -->
+              <div class="variant-group" v-if="availableColors.length > 0">
+                <h4>Màu sắc:</h4>
+                <div class="color-options">
+                  <div 
+                    v-for="color in availableColors" 
+                    :key="color.colorId"
+                    class="color-btn"
+                    :style="{ backgroundColor: color.hexCode || '#CCCCCC' }"
+                    :class="{ active: selectedColorId === color.colorId }"
+                    :title="color.colorName"
+                    @click="selectColor(color.colorId)"
+                  >
+                    <span class="color-name">{{ color.colorName }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Kích thước -->
+              <div class="variant-group" v-if="availableSizes.length > 0">
+                <h4>Kích thước:</h4>
+                <div class="size-options">
+                  <button 
+                    v-for="size in availableSizes" 
+                    :key="size.sizeId"
+                    class="size-btn"
+                    :class="{ 
+                      active: selectedSizeId === size.sizeId,
+                      'out-of-stock': !isSizeAvailable(size.sizeId)
+                    }"
+                    @click="selectSize(size.sizeId)"
+                    :disabled="!isSizeAvailable(size.sizeId)"
+                  >
+                    {{ size.sizeName }}
+                  </button>
+                </div>
+              </div>
+
+              <!-- Selected Variant Info -->
+              <div class="selected-variant" v-if="selectedVariant">
+                <div class="variant-info">
+                  <div class="variant-sku" v-if="selectedVariant.sku">
+                    Mã SKU: {{ selectedVariant.sku }}
+                  </div>
+                  <div class="variant-stock" :class="{ 'out-of-stock': selectedVariant.quantity === 0 }">
+                    <i class="fas" :class="selectedVariant.quantity > 0 ? 'fa-check-circle' : 'fa-times-circle'"></i>
+                    {{ selectedVariant.quantity > 0 ? `Còn ${selectedVariant.quantity} sản phẩm` : 'Hết hàng' }}
+                  </div>
+                </div>
+              </div>
+
+              <!-- Quantity -->
+              <div class="product-quantity" v-if="selectedVariant && selectedVariant.quantity > 0">
+                <h4>Số lượng:</h4>
+                <div class="quantity-selector">
+                  <button @click="quantity > 1 && quantity--" :disabled="quantity <= 1">-</button>
+                  <input type="number" v-model.number="quantity" min="1" :max="selectedVariant.quantity" />
+                  <button @click="quantity < selectedVariant.quantity && quantity++">+</button>
+                </div>
+              </div>
+
+              <!-- Actions -->
+              <div class="product-actions">
+                <button class="add-to-cart-btn" @click="addToCart" :disabled="!selectedVariant || selectedVariant.quantity === 0">
+                  <i class="fas fa-shopping-cart"></i> Thêm vào giỏ
+                </button>
+                <button class="buy-now-btn" @click="buyNow" :disabled="!selectedVariant || selectedVariant.quantity === 0">
+                  <i class="fas fa-bolt"></i> Mua ngay
                 </button>
               </div>
             </div>
+          </div>
 
-            <!-- Selected Variant Info -->
-            <div class="selected-variant" v-if="selectedVariant">
-              <div class="variant-info">
-                <div class="variant-sku" v-if="selectedVariant.sku">
-                  Mã SKU: {{ selectedVariant.sku }}
-                </div>
-                <div class="variant-stock" :class="{ 'out-of-stock': selectedVariant.quantity === 0 }">
-                  <i class="fas" :class="selectedVariant.quantity > 0 ? 'fa-check-circle' : 'fa-times-circle'"></i>
-                  {{ selectedVariant.quantity > 0 ? `Còn ${selectedVariant.quantity} sản phẩm` : 'Hết hàng' }}
-                </div>
-              </div>
-            </div>
-
-            <!-- Quantity -->
-            <div class="product-quantity" v-if="selectedVariant && selectedVariant.quantity > 0">
-              <h4>Số lượng:</h4>
-              <div class="quantity-selector">
-                <button @click="quantity > 1 && quantity--" :disabled="quantity <= 1">-</button>
-                <input type="number" v-model.number="quantity" min="1" :max="selectedVariant.quantity" />
-                <button @click="quantity < selectedVariant.quantity && quantity++">+</button>
-              </div>
-            </div>
-
-            <!-- Actions -->
-            <div class="product-actions">
-              <button class="add-to-cart-btn" @click="addToCart" :disabled="!selectedVariant || selectedVariant.quantity === 0">
-                <i class="fas fa-shopping-cart"></i> Thêm vào giỏ
-              </button>
-              <button class="buy-now-btn" @click="buyNow" :disabled="!selectedVariant || selectedVariant.quantity === 0">
-                <i class="fas fa-bolt"></i> Mua ngay
-              </button>
+          <!-- ✅ HÀNG DƯỚI: MÔ TẢ SẢN PHẨM -->
+          <div class="product-description-section">
+            <h3 class="section-title">Mô tả sản phẩm</h3>
+            <div class="product-description-content">
+              <p>{{ product.description || 'Chưa có mô tả cho sản phẩm này.' }}</p>
             </div>
           </div>
-        </div>
 
-        <!-- Variants Table -->
-        <div class="variants-table" v-if="product?.variants && product.variants.length > 0">
-          <h3>Bảng thông số kỹ thuật</h3>
-          <div class="table-wrapper">
-            <table class="variant-table">
-              <thead>
-                <tr>
-                  <th>Màu sắc</th>
-                  <th>Kích thước</th>
-                  <th>SKU</th>
-                  <th>Giá gốc</th>
-                  <th>Giá khuyến mãi</th>
-                  <th>Giảm giá</th>
-                  <th>Tồn kho</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="variant in product.variants" :key="variant.productDetailId">
-                  <td>
-                    <span class="color-dot" :style="{ backgroundColor: variant.hexCode || '#CCCCCC' }"></span>
-                    {{ variant.colorName }}
-                  </td>
-                  <td>{{ variant.sizeName }}</td>
-                  <td>{{ variant.sku || '---' }}</td>
-                  <td class="price-cell">
-                    {{ formatPrice(variant.price) }}
-                  </td>
-                  <td class="discounted-price-cell" v-if="variant.discountedPrice && variant.discountedPrice < variant.price">
-                    <span class="sale-price">{{ formatPrice(variant.discountedPrice) }}</span>
-                  </td>
-                  <td class="discounted-price-cell" v-else>
-                    <span class="no-discount">—</span>
-                  </td>
-                  <td class="discount-percent-cell" v-if="variant.discountedPrice && variant.discountedPrice < variant.price">
-                    <span class="discount-badge-table">-{{ calculateDiscountPercent(variant.price, variant.discountedPrice) }}%</span>
-                  </td>
-                  <td class="discount-percent-cell" v-else>
-                    <span class="no-discount">0%</span>
-                  </td>
-                  <td :class="{ 'out-of-stock-text': variant.quantity === 0 }">
-                    {{ variant.quantity > 0 ? variant.quantity + ' sản phẩm' : 'Hết hàng' }}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+          <!-- Variants Table -->
+          <div class="variants-table" v-if="product?.variants && product.variants.length > 0">
+            <h3>Bảng thông số kỹ thuật</h3>
+            <div class="table-wrapper">
+              <table class="variant-table">
+                <thead>
+                  <tr>
+                    <th>Màu sắc</th>
+                    <th>Kích thước</th>
+                    <th>SKU</th>
+                    <th>Giá gốc</th>
+                    <th>Giá khuyến mãi</th>
+                    <th>Giảm giá</th>
+                    <th>Tồn kho</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="variant in product.variants" :key="variant.productDetailId">
+                    <td>
+                      <span class="color-dot" :style="{ backgroundColor: variant.hexCode || '#CCCCCC' }"></span>
+                      {{ variant.colorName }}
+                    </td>
+                    <td>{{ variant.sizeName }}</td>
+                    <td>{{ variant.sku || '---' }}</td>
+                    <td class="price-cell">
+                      {{ formatPrice(variant.price) }}
+                    </td>
+                    <td class="discounted-price-cell" v-if="variant.discountedPrice && variant.discountedPrice < variant.price">
+                      <span class="sale-price">{{ formatPrice(variant.discountedPrice) }}</span>
+                    </td>
+                    <td class="discounted-price-cell" v-else>
+                      <span class="no-discount">—</span>
+                    </td>
+                    <td class="discount-percent-cell" v-if="variant.discountedPrice && variant.discountedPrice < variant.price">
+                      <span class="discount-badge-table">-{{ calculateDiscountPercent(variant.price, variant.discountedPrice) }}%</span>
+                    </td>
+                    <td class="discount-percent-cell" v-else>
+                      <span class="no-discount">0%</span>
+                    </td>
+                    <td :class="{ 'out-of-stock-text': variant.quantity === 0 }">
+                      {{ variant.quantity > 0 ? variant.quantity + ' sản phẩm' : 'Hết hàng' }}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
@@ -449,8 +459,7 @@ const loadProductDetail = async () => {
   }
 }
 
-// ✅ Add to cart với popup - SỬA LỖI STOCK
-// ProductDetailPage.vue
+// ✅ Add to cart với popup
 const addToCart = async () => {
   if (!selectedVariant.value) {
     showNotification('Vui lòng chọn màu sắc và kích thước!', 'error')
@@ -474,7 +483,7 @@ const addToCart = async () => {
   const stockQuantity = selectedVariant.value.quantity || 0
   
   const productData = {
-    productDetailId: selectedVariant.value.productDetailId, // ✅ QUAN TRỌNG: dùng đúng key này
+    productDetailId: selectedVariant.value.productDetailId,
     productId: product.value.productId,
     productName: product.value.productName,
     name: product.value.productName,
@@ -491,10 +500,8 @@ const addToCart = async () => {
   }
   
   try {
-    // ✅ AWAIT để đợi API trả về
     await cartStore.addToCart(productData)
     
-    // ✅ Lưu thông tin để hiển thị popup
     lastAddedProduct.value = {
       name: product.value.productName,
       price: finalPrice,
@@ -505,10 +512,7 @@ const addToCart = async () => {
       stock: stockQuantity
     }
     
-    // ✅ Hiển thị popup
     showCartPopup.value = true
-    
-    // ✅ Reset quantity về 1 sau khi thêm thành công
     quantity.value = 1
     
   } catch (error) {
@@ -593,7 +597,8 @@ main {
   100% { transform: rotate(360deg); }
 }
 
-.product-detail {
+/* ✅ HÀNG TRÊN: ẢNH + THÔNG TIN */
+.product-detail-top {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 50px;
@@ -674,12 +679,6 @@ main {
   font-size: 32px;
   color: #2c3e50;
   margin-bottom: 15px;
-}
-
-.product-description {
-  color: #666;
-  line-height: 1.6;
-  margin-bottom: 20px;
 }
 
 /* Price Styles */
@@ -982,12 +981,51 @@ main {
   transform: translateY(-2px);
 }
 
+/* ✅ PHẦN MÔ TẢ SẢN PHẨM - HÀNG DƯỚI */
+.product-description-section {
+  background: white;
+  border-radius: 20px;
+  padding: 40px;
+  margin-bottom: 40px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.section-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #2c3e50;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 2px solid #e63946;
+  position: relative;
+}
+
+.section-title::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 50px;
+  height: 2px;
+  background: #e63946;
+}
+
+.product-description-content {
+  line-height: 1.8;
+  color: #555;
+  font-size: 16px;
+}
+
+.product-description-content p {
+  margin-bottom: 15px;
+}
+
 /* Variants Table */
 .variants-table {
   background: white;
   border-radius: 20px;
   padding: 30px;
-  margin-top: 30px;
+  margin-top: 0;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
   overflow-x: auto;
 }
@@ -1081,7 +1119,7 @@ main {
     margin-top: 200px;
   }
 
-  .product-detail {
+  .product-detail-top {
     grid-template-columns: 1fr;
     padding: 20px;
   }
@@ -1125,6 +1163,14 @@ main {
     min-width: 45px;
     height: 36px;
     font-size: 13px;
+  }
+
+  .product-description-section {
+    padding: 20px;
+  }
+
+  .section-title {
+    font-size: 18px;
   }
 }
 </style>

@@ -29,6 +29,7 @@ public class PosService {
     private final PosRefundRepository posRefundRepository;
     private final PosReceiptLogRepository posReceiptLogRepository;
     private final ProductDetailRepository productDetailRepository;
+    private final CashRegisterRepository cashRegisterRepository;
     private final EmployeeService employeeService;
     private static final DateTimeFormatter INVOICE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
 
@@ -42,13 +43,24 @@ public class PosService {
     // =====================================================
     @Transactional
     public PosOrderResponse createOrder(PosOrderRequest request) {
-        // Kiểm tra session đang active
-        PosSession session = posSessionRepository.findById(request.getPosSessionId())
-                .orElseThrow(() -> new BusinessException("Phiên bán hàng không tồn tại"));
+        // Tự động resolve session: tìm hoặc tạo session để đảm bảo pos_order_session_id không null
+        PosSession session;
+        Integer resolvedSessionId = request.getPosSessionId();
 
-        if (!"ACTIVE".equals(session.getPosSessionStatus())) {
-            throw new BusinessException("Phiên bán hàng đã đóng, vui lòng mở phiên mới");
+        if (resolvedSessionId != null) {
+            // Frontend gửi kèm sessionId — kiểm tra và dùng
+            session = posSessionRepository.findById(resolvedSessionId).orElse(null);
+            if (session != null && !"ACTIVE".equals(session.getPosSessionStatus())) {
+                throw new BusinessException("Phiên bán hàng đã đóng, vui lòng mở phiên mới");
+            }
+            if (session == null) {
+                session = getOrCreateActiveSession();
+            }
+        } else {
+            // Không có sessionId — tự động tìm hoặc tạo session
+            session = getOrCreateActiveSession();
         }
+        resolvedSessionId = session.getPosSessionId();
 
         // Tính toán
         BigDecimal subtotal = calculateSubtotal(request.getItems());
@@ -65,9 +77,9 @@ public class PosService {
         // Tạo mã hóa đơn
         String invoiceNumber = generateInvoiceNumber();
 
-        // Tạo order
+        // Tạo order — gán resolvedSessionId (có thể null nếu không có session nào)
         PosOrder order = PosOrder.builder()
-                .posOrderSessionId(request.getPosSessionId())
+                .posOrderSessionId(resolvedSessionId)
                 .posOrderCustomerId(request.getPosOrderCustomerId())
                 .posOrderCustomerName(request.getPosOrderCustomerName())
                 .posOrderCustomerPhone(request.getPosOrderCustomerPhone())
@@ -126,8 +138,10 @@ public class PosService {
             posPaymentRepository.save(payment);
         }
 
-        // Cập nhật doanh số cho session
-        updateSessionSales(session, totalAmount, request.getPayments());
+        // Cập nhật doanh số cho session (chỉ khi tìm được session)
+        if (session != null) {
+            updateSessionSales(session, totalAmount, request.getPayments());
+        }
 
         return convertToResponse(savedOrder);
     }
@@ -476,4 +490,57 @@ public class PosService {
         response.setPosRefundCreatedAt(refund.getPosRefundCreatedAt());
         return response;
     }
-}
+
+    /**
+     * Tìm session ACTIVE của nhân viên hiện tại.
+     * Nếu không có → tìm bất kỳ session ACTIVE nào trong hệ thống.
+     * Nếu vẫn không có → tự động tạo session mặc định.
+     * Đảm bảo luôn trả về session hợp lệ (không bao giờ null).
+     */
+    @Transactional
+    private PosSession getOrCreateActiveSession() {
+        // Bước 1: tìm session ACTIVE của nhân viên đang đăng nhập
+        try {
+            Integer employeeId = getCurrentEmployeeId();
+            PosSession mySession = posSessionRepository
+                    .findActiveSessionByEmployee(employeeId)
+                    .orElse(null);
+            if (mySession != null) return mySession;
+        } catch (Exception ignored) {
+            // Không lấy được employeeId — tiếp tục fallback
+        }
+
+        // Bước 2: fallback — lấy bất kỳ session ACTIVE nào trong hệ thống
+        List<PosSession> activeSessions = posSessionRepository.findAllActiveSessions();
+        if (!activeSessions.isEmpty()) {
+            return activeSessions.get(0);
+        }
+
+        // Bước 3: không có session nào — tự động tạo session mặc định
+        Integer employeeId = null;
+        try {
+            employeeId = getCurrentEmployeeId();
+        } catch (Exception ignored) {}
+
+        // Lấy quầy đầu tiên còn hoạt động, nếu không có thì dùng ID=1
+        Integer cashRegisterId = cashRegisterRepository.findAll()
+                .stream()
+                .filter(cr -> !"DELETED".equals(cr.getCashRegisterStatus()))
+                .findFirst()
+                .map(CashRegister::getCashRegisterId)
+                .orElse(1);
+
+        PosSession defaultSession = PosSession.builder()
+                .posSessionCashRegisterId(cashRegisterId)
+                .posSessionEmployeeId(employeeId)
+                .posSessionStartTime(LocalDateTime.now())
+                .posSessionStatus("ACTIVE")
+                .posSessionStartBalance(BigDecimal.ZERO)
+                .posSessionCashSales(BigDecimal.ZERO)
+                .posSessionCardSales(BigDecimal.ZERO)
+                .posSessionTransferSales(BigDecimal.ZERO)
+                .build();
+
+        return posSessionRepository.save(defaultSession);
+    }
+}

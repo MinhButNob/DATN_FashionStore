@@ -22,19 +22,35 @@ public class Wishlist {
     @JoinColumn(name = "customer_id", nullable = false)
     private Customer customer;
 
-    @Column(name = "wishlist_name")
+    @Column(name = "wishlist_name", nullable = false, length = 100)
     private String wishlistName;
 
-    @Column(name = "created_at")
+    @Column(name = "is_public", nullable = false)
+    private Boolean isPublic;
+
+    @Column(name = "wishlist_status", nullable = false, length = 20)
+    private String wishlistStatus;
+
+    @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    @Column(name = "is_public")
-    private Boolean isPublic;
+    @Column(name = "updated_at", nullable = false)
+    private LocalDateTime updatedAt;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
 
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
         if (wishlistName == null) wishlistName = "Default";
         if (isPublic == null) isPublic = false;
+        if (wishlistStatus == null) wishlistStatus = "ACTIVE";
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
     }
 }
