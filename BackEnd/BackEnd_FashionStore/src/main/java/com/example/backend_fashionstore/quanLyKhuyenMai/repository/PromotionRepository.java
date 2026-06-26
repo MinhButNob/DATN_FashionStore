@@ -62,4 +62,12 @@ public interface PromotionRepository extends JpaRepository<Promotion, Integer> {
             "LOWER(p.promotionName) = LOWER(:name) AND " +
             "p.promotionId != :id AND p.promotionDeletedAt IS NULL")
     boolean existsByPromotionNameAndIdNot(@Param("name") String name, @Param("id") Integer id);
+
+    // Lấy khuyến mãi đang diễn ra (ACTIVE, trong thời gian hiệu lực, chưa xóa)
+    @Query("SELECT p FROM Promotion p WHERE " +
+            "p.promotionStatus = 'ACTIVE' AND " +
+            "p.promotionDeletedAt IS NULL AND " +
+            "p.promotionStartDate <= :now AND " +
+            "p.promotionEndDate >= :now")
+    java.util.List<Promotion> findCurrentlyActivePromotions(@Param("now") java.time.LocalDateTime now);
 }
