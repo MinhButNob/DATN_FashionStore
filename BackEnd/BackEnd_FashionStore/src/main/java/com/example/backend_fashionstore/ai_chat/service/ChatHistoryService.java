@@ -52,16 +52,28 @@ public class ChatHistoryService {
         return messageRepository.save(message);
     }
 
+//    @Transactional
+//    public Message saveAIMessage(Chat chat, String content) {
+//        Message message = new Message();
+//        message.setChat(chat);
+//        message.setUser(null); // Không có user cho tin nhắn AI
+//        message.setMessageContent(content);
+//        message.setIsAi(true);
+//        message.setIsRead(false); // Khách hàng chưa đọc
+//        return messageRepository.save(message);
+//    }
+
     @Transactional
     public Message saveAIMessage(Chat chat, String content) {
         Message message = new Message();
         message.setChat(chat);
-        message.setUser(null); // Không có user cho tin nhắn AI
+        message.setUser(chat.getCustomer().getUser()); // dùng user của chat thay vì null
         message.setMessageContent(content);
         message.setIsAi(true);
-        message.setIsRead(false); // Khách hàng chưa đọc
+        message.setIsRead(false);
         return messageRepository.save(message);
     }
+
 
     public List<Message> getChatHistory(Integer userId) {
         Chat chat = getOrCreateActiveChat(userId); // userId (không phải customerId)
