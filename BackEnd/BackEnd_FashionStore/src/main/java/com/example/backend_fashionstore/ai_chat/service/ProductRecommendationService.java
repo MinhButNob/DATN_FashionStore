@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -24,7 +25,7 @@ public class ProductRecommendationService {
         }
 
         List<Product> products = productRepository.searchActiveProductsByKeyword(keyword.trim());
-        
+
         // Take top 5 recommendations
         return products.stream()
                 .limit(5)
@@ -32,16 +33,26 @@ public class ProductRecommendationService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Lấy 1 product card theo productId, dùng khi Haru muốn hiển thị
+     * chi tiết một sản phẩm cụ thể đang được khách hỏi (intent OPEN_PRODUCT).
+     */
+    public Optional<ProductRecommendationDTO> getProductCardById(Integer productId) {
+        if (productId == null) return Optional.empty();
+        return productRepository.findById(productId)
+                .filter(p -> "ACTIVE".equals(p.getStatus()) && p.getDeletedAt() == null)
+                .map(this::mapToDTO);
+    }
+
     private ProductRecommendationDTO mapToDTO(Product product) {
         ProductRecommendationDTO dto = new ProductRecommendationDTO();
         dto.setId(product.getProductId());
         dto.setName(product.getProductName());
 
-        // Find the first active detail
         if (product.getProductDetails() != null && !product.getProductDetails().isEmpty()) {
             ProductDetail firstDetail = product.getProductDetails().get(0);
-            
-            // Set price, color, size
+
+            // Set price, color, size (lấy từ detail đầu tiên)
             if (firstDetail.getPrice() != null) {
                 dto.setPrice(firstDetail.getPrice().doubleValue());
             }
@@ -51,12 +62,17 @@ public class ProductRecommendationService {
             if (firstDetail.getSize() != null) {
                 dto.setSize(firstDetail.getSize().getSizeName());
             }
-            
-            // Set image link if available
-            if (firstDetail.getProductImages() != null && !firstDetail.getProductImages().isEmpty()) {
-                ProductImage firstImage = firstDetail.getProductImages().get(0);
-                dto.setLink(firstImage.getProductImagePath());
-            }
+
+            // Lấy ảnh: quét qua TẤT CẢ các detail (không chỉ detail đầu tiên),
+            // vì ảnh có thể được gắn ở một detail khác (màu/size khác) chứ không phải detail đầu.
+            String imagePath = product.getProductDetails().stream()
+                    .filter(d -> d.getProductImages() != null && !d.getProductImages().isEmpty())
+                    .flatMap(d -> d.getProductImages().stream())
+                    .map(ProductImage::getProductImagePath)
+                    .filter(p -> p != null && !p.isBlank())
+                    .findFirst()
+                    .orElse(null);
+            dto.setLink(imagePath);
         }
 
         if (product.getCategory() != null) {

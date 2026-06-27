@@ -27,6 +27,19 @@ public class AIChatController {
     @PostMapping("/chat")
     public ResponseEntity<Map<String, Object>> chat(@RequestBody ChatRequestDTO request) {
         Map<String, Object> response = new HashMap<>();
+
+        // Validate input sớm để tránh NPE sâu trong service
+        if (request == null || request.getUserId() == null) {
+            response.put("success", false);
+            response.put("message", "Thiếu userId. Vui lòng đăng nhập lại.");
+            return ResponseEntity.badRequest().body(response);
+        }
+        if (request.getMessage() == null || request.getMessage().trim().isEmpty()) {
+            response.put("success", false);
+            response.put("message", "Nội dung tin nhắn không được để trống.");
+            return ResponseEntity.badRequest().body(response);
+        }
+
         try {
             ChatResponseDTO chatResponse = aiChatService.processChat(request);
             response.put("success", true);
@@ -34,8 +47,10 @@ public class AIChatController {
             response.put("data", chatResponse);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
+            // In log đầy đủ stack trace ra console BE để biết nguyên nhân thật
+            e.printStackTrace();
             response.put("success", false);
-            response.put("message", e.getMessage());
+            response.put("message", e.getMessage() != null ? e.getMessage() : "Lỗi không xác định, kiểm tra log server.");
             return ResponseEntity.internalServerError().body(response);
         }
     }

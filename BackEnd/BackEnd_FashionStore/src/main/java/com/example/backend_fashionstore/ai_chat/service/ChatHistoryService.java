@@ -23,9 +23,19 @@ public class ChatHistoryService {
 
     @Transactional
     public Chat getOrCreateActiveChat(Integer userId) {
+        if (userId == null) {
+            throw new RuntimeException("userId là null, không thể tạo/lấy phiên chat.");
+        }
+
         // Tìm Customer theo user_id (user_id là ID đăng nhập của người dùng)
         Customer customer = customerRepository.findByUser_UserId(userId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy khách hàng với userId: " + userId));
+                .orElseThrow(() -> new RuntimeException(
+                        "Không tìm thấy khách hàng (Customer) liên kết với userId=" + userId +
+                                ". Kiểm tra xem frontend có đang gửi đúng User.userId hay đang gửi nhầm customerId không."));
+
+        if (customer.getUser() == null) {
+            throw new RuntimeException("Customer (customerId=" + customer.getCustomerId() + ") không có liên kết User hợp lệ (customer.getUser() == null).");
+        }
 
         Optional<Chat> activeChatOpt = chatRepository.findByCustomer_CustomerIdAndStatus(customer.getCustomerId(), "ACTIVE");
 
@@ -67,8 +77,11 @@ public class ChatHistoryService {
     public Message saveAIMessage(Chat chat, String content) {
         Message message = new Message();
         message.setChat(chat);
-        message.setUser(chat.getCustomer().getUser()); // dùng user của chat thay vì null
-        message.setMessageContent(content);
+        message.setUser(chat.getCustomer().getUser());
+        // Truncate content to avoid DB column overflow (most TEXT columns ~65535, but varchar may be smaller)
+        String safeContent = (content != null && content.length() > 2000)
+                ? content.substring(0, 2000) : content;
+        message.setMessageContent(safeContent);
         message.setIsAi(true);
         message.setIsRead(false);
         return messageRepository.save(message);

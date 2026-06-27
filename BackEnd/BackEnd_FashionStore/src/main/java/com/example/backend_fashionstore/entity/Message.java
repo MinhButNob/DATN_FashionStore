@@ -26,7 +26,7 @@ public class Message {
     @JoinColumn(name = "user_id")
     private User user;
 
-    @Column(name = "message_content", nullable = false, columnDefinition = "TEXT")
+    @Column(columnDefinition = "TEXT")
     private String messageContent;
 
     @Column(name = "message_sent_date")

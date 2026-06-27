@@ -61,6 +61,35 @@
                 <p v-html="message.content"></p>
                 <span class="message-time">{{ formatTime(message.timestamp) }}</span>
               </div>
+
+              <!-- Card sản phẩm gắn theo tin nhắn này (nếu có) -->
+              <div v-if="message.products && message.products.length > 0" class="product-recommendations">
+                <div class="product-list">
+                  <div
+                    v-for="product in message.products"
+                    :key="product.id"
+                    class="product-card"
+                    @click="navigateToProduct(product.id)"
+                    title="Xem chi tiết sản phẩm"
+                  >
+                    <img
+                      v-if="product.link"
+                      :src="resolveImageUrl(product.link)"
+                      :alt="product.name"
+                      class="product-img"
+                      @error="(e) => e.target.style.display='none'"
+                    />
+                    <div class="product-info">
+                      <p class="product-name">{{ product.name }}</p>
+                      <p class="product-price">{{ formatPrice(product.price) }}đ</p>
+                      <p v-if="product.color" class="product-meta">
+                        {{ product.color }}<span v-if="product.size"> · {{ product.size }}</span>
+                      </p>
+                      <span class="product-view-btn">Xem chi tiết →</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -69,36 +98,6 @@
               <div class="message-bubble typing">
                 <div class="typing-indicator">
                   <span></span><span></span><span></span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Sản phẩm gợi ý từ AI -->
-          <div v-if="recommendedProducts.length > 0" class="product-recommendations">
-            <p class="product-rec-title">🛍️ Sản phẩm gợi ý:</p>
-            <div class="product-list">
-              <div
-                v-for="product in recommendedProducts"
-                :key="product.id"
-                class="product-card"
-                @click="navigateToProduct(product.id)"
-                title="Xem chi tiết sản phẩm"
-              >
-                <img
-                  v-if="product.link"
-                  :src="product.link"
-                  :alt="product.name"
-                  class="product-img"
-                  @error="(e) => e.target.style.display='none'"
-                />
-                <div class="product-info">
-                  <p class="product-name">{{ product.name }}</p>
-                  <p class="product-price">{{ formatPrice(product.price) }}đ</p>
-                  <p v-if="product.color" class="product-meta">
-                    {{ product.color }}<span v-if="product.size"> · {{ product.size }}</span>
-                  </p>
-                  <span class="product-view-btn">Xem chi tiết →</span>
                 </div>
               </div>
             </div>
@@ -161,7 +160,6 @@ const isTyping = ref(false)
 const messagesContainer = ref(null)
 const hasUnreadMessages = ref(false)
 const live2dRef = ref(null)
-const recommendedProducts = ref([])
 
 // Vị trí Haru (từ emit của Live2DAvatar)
 const haruPos = ref({ x: 20, centerX: 120, width: 200, bottom: 0 })
@@ -297,24 +295,19 @@ const sendMessage = async () => {
       type: 'bot',
       content: result.text,
       timestamp: new Date(),
-      read: isOpen.value
+      read: isOpen.value,
+      products: result.products || []
     }
 
     messages.value.push(botMessage)
-    recommendedProducts.value = result.products || []
 
     // Phân tích nội dung response để chọn emotion phù hợp
     if (live2dRef.value) {
       const emotion = detectEmotion(result.text)
       live2dRef.value.playEmotion(emotion)
     }
-
-    // Nếu AI muốn điều hướng đến trang sản phẩm
-    if (result.navigateToProductId) {
-      setTimeout(() => {
-        navigateToProduct(result.navigateToProductId)
-      }, 1200) // delay nhỏ để user đọc tin nhắn trước
-    }
+    // Lưu ý: không tự động điều hướng nữa — Haru chỉ hiển thị card sản phẩm,
+    // người dùng bấm vào card mới chuyển sang trang chi tiết.
   } catch (error) {
     console.error('API Error:', error)
     messages.value.push({
@@ -334,8 +327,19 @@ const sendMessage = async () => {
 }
 
 const callAIAPI = async (message) => {
-  const userObj = JSON.parse(localStorage.getItem('user') || 'null')
-  const userId = userObj?.userId || userObj?.id || userObj?.user_id
+  let userId = null
+  try {
+    const userObj = JSON.parse(localStorage.getItem('user') || 'null')
+    userId = userObj?.userId ?? userObj?.id ?? userObj?.user_id ?? userObj?.customerId ?? null
+  } catch (e) {
+    console.warn('Could not parse user from localStorage', e)
+  }
+
+  // Also try direct key
+  if (!userId) {
+    userId = localStorage.getItem('userId') || localStorage.getItem('user_id')
+    if (userId) userId = Number(userId)
+  }
 
   if (!userId) {
     return {
@@ -358,11 +362,13 @@ const callAIAPI = async (message) => {
 
   const data = await response.json()
   if (data.success && data.data) {
-    const { response: aiText, products } = data.data
+    const { response: aiText, products, navigateToProductId, intent } = data.data
+    // Debug log - xoá khi production
+    console.log('[Haru] intent:', intent, '| products:', products)
     return {
       text: aiText || 'Xin lỗi, Haru không hiểu. Bạn có thể hỏi lại không?',
-      products: products || [],
-      navigateToProductId: data.data.navigateToProductId || null
+      products: Array.isArray(products) ? products : [],
+      navigateToProductId: navigateToProductId || null
     }
   }
   throw new Error('Invalid response format')
@@ -383,6 +389,15 @@ const formatTime = (date) =>
 
 const formatPrice = (price) =>
   price ? new Intl.NumberFormat('vi-VN').format(price) : 'Liên hệ'
+
+// Ảnh sản phẩm từ DB có thể là path tương đối (vd: /uploads/abc.jpg)
+// => cần ghép domain backend để hiển thị đúng, nếu đã là URL đầy đủ (http...) thì giữ nguyên.
+const BACKEND_BASE_URL = 'http://localhost:8080'
+const resolveImageUrl = (link) => {
+  if (!link) return ''
+  if (/^https?:\/\//i.test(link)) return link
+  return `${BACKEND_BASE_URL}${link.startsWith('/') ? '' : '/'}${link}`
+}
 
 const handleTyping = () => {}
 
@@ -679,7 +694,9 @@ watch(messages, saveMessages, { deep: true })
 .message { display: flex; flex-direction: column; max-width: 85%; }
 .message.user { align-self: flex-end; }
 .message.bot { align-self: flex-start; }
-.message-content { display: flex; align-items: flex-end; gap: 8px; }
+.message-content { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+.message.user .message-content { align-items: flex-end; }
+.message.bot .message-content { align-items: flex-start; }
 
 .message-bubble {
   padding: 12px 16px;
@@ -766,7 +783,7 @@ watch(messages, saveMessages, { deep: true })
 .send-btn:disabled { background: #ccc; cursor: not-allowed; }
 
 /* ---- Product Recommendations ---- */
-.product-recommendations { padding: 4px 0; }
+.product-recommendations { padding: 0; width: 100%; max-width: 280px; }
 .product-rec-title { font-size: 12px; color: #667eea; font-weight: 600; margin: 0 0 8px 0; }
 .product-list { display: flex; flex-direction: column; gap: 8px; }
 
@@ -794,7 +811,7 @@ watch(messages, saveMessages, { deep: true })
   transition: opacity 0.2s;
 }
 
-.product-img { width: 52px; height: 52px; object-fit: cover; border-radius: 8px; flex-shrink: 0; background: #eee; }
+.product-img { width: 64px; height: 64px; object-fit: cover; border-radius: 8px; flex-shrink: 0; background: #eee; }
 .product-info { flex: 1; min-width: 0; }
 .product-name { font-size: 13px; font-weight: 600; color: #222; margin: 0 0 2px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .product-price { font-size: 13px; color: #667eea; font-weight: 700; margin: 0 0 2px 0; }

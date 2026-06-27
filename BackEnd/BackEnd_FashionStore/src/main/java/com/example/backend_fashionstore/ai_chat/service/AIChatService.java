@@ -82,7 +82,11 @@ public class AIChatService {
                     "5. Không trả lời lan man.\n" +
                     "6. Luôn giữ vai trò là Haru, nhân viên tư vấn thời trang của Fashion Store.\n" +
                     "7. Nhớ ngữ cảnh hội thoại: nếu khách hỏi về 'mẫu đó', 'sản phẩm vừa giới thiệu', 'size của nó'... " +
-                    "hãy dựa vào lịch sử trò chuyện để xác định đang đề cập đến sản phẩm nào.\n\n" +
+                    "hãy dựa vào lịch sử trò chuyện để xác định đang đề cập đến sản phẩm nào.\n" +
+                    "8. KHÔNG dùng markdown (không dùng **chữ đậm**, không dùng dấu *, #, -, hay bất kỳ ký tự định dạng nào). " +
+                    "Chỉ viết văn bản thuần (plain text) tự nhiên như tin nhắn nhắn thật.\n" +
+                    "9. KHÔNG nhắc đến ID sản phẩm (ID, mã sản phẩm, productId, số thứ tự...) trong câu trả lời với khách. " +
+                    "ID chỉ dùng nội bộ trong tag [INTENT:...], khách không cần và không nên thấy ID.\n\n" +
                     "KHI KHÁCH HỎI NGOÀI PHẠM VI THỜI TRANG\n" +
                     "Vẫn trả lời lịch sự, ngắn gọn, sau đó điều hướng trở lại tư vấn mua sắm.\n\n" +
                     "INTENT TAGS - Ở CUỐI mỗi câu trả lời, LUÔN thêm đúng 1 tag:\n" +
@@ -92,10 +96,16 @@ public class AIChatService {
                     "  [INTENT:SUPPORT] - khi cần hỗ trợ\n" +
                     "  [INTENT:GREETING] - khi chào hỏi\n" +
                     "  [INTENT:GENERAL] - các trường hợp khác\n" +
-                    "  [INTENT:OPEN_PRODUCT:productId] - khi khách muốn xem chi tiết/đồng ý mua một sản phẩm cụ thể đã giới thiệu, thay productId bằng ID số nguyên của sản phẩm đó";
+                    "  [INTENT:OPEN_PRODUCT:productId] - khi khách muốn xem chi tiết, hỏi kỹ thông tin (giá/màu/size/tồn kho), " +
+                    "hoặc đồng ý mua một sản phẩm CỤ THỂ đã được giới thiệu trước đó. Thay productId bằng ID số nguyên của sản phẩm đó. " +
+                    "Khi dùng tag này, KHÔNG cần liệt kê lại đầy đủ thông tin sản phẩm trong câu trả lời (vì frontend sẽ tự hiển thị thẻ sản phẩm), " +
+                    "chỉ cần trả lời ngắn gọn và tiếp tục tư vấn (ví dụ: hỏi size, gợi ý phối đồ).";
 
     public ChatResponseDTO processChat(ChatRequestDTO request) {
         String userMessage = request.getMessage();
+        if (request.getUserId() == null) {
+            throw new RuntimeException("userId là null trong ChatRequestDTO.");
+        }
         Integer userId = request.getUserId().intValue();
 
         // 1. Get or create chat session
@@ -155,6 +165,9 @@ public class AIChatService {
             rawResponse = aiResponseText.replace(matcher.group(0), "").trim();
         }
 
+        // Dọn markdown còn sót (an toàn dù AI có lỡ dùng ** dù đã được dặn trong prompt)
+        rawResponse = stripMarkdown(rawResponse);
+
         // 10. Lấy ProductRecommendationDTO để trả về Frontend
         List<ProductRecommendationDTO> products = new ArrayList<>();
         String kwForRecommendation = (searchKeyword != null) ? searchKeyword
@@ -164,11 +177,16 @@ public class AIChatService {
             products = productRecommendationService.recommendProducts(kwForRecommendation);
         }
 
-        // 10b. Xử lý OPEN_PRODUCT: lấy productId để điều hướng frontend
+        // 10b. Xử lý OPEN_PRODUCT: lấy productId + product card để frontend hiển thị,
+        // KHÔNG tự động điều hướng — người dùng phải bấm vào card mới chuyển trang.
         Integer navigateToProductId = null;
         if ("OPEN_PRODUCT".equals(intent) && searchKeyword != null) {
             try {
                 navigateToProductId = Integer.parseInt(searchKeyword.trim());
+                Optional<ProductRecommendationDTO> cardOpt = productRecommendationService.getProductCardById(navigateToProductId);
+                if (cardOpt.isPresent()) {
+                    products.add(cardOpt.get());
+                }
             } catch (NumberFormatException e) {
                 // searchKeyword không phải số → bỏ qua
             }
@@ -381,6 +399,19 @@ public class AIChatService {
         }
 
         return keywords.stream().limit(8).collect(Collectors.toList());
+    }
+
+    /**
+     * Loại bỏ các ký tự markdown phổ biến (**, *, #) mà AI có thể lỡ chèn vào,
+     * để hiển thị như tin nhắn chat thuần, không lộ cú pháp markdown ra UI.
+     */
+    private String stripMarkdown(String text) {
+        if (text == null) return null;
+        return text
+                .replaceAll("\\*\\*(.*?)\\*\\*", "$1") // **bold** -> bold
+                .replaceAll("\\*(.*?)\\*", "$1")       // *italic* -> italic
+                .replaceAll("(?m)^#{1,6}\\s*", "")     // # heading -> bỏ dấu #
+                .trim();
     }
 
     private String formatPrice(BigDecimal price) {
