@@ -202,6 +202,9 @@
                         @click="changeOrderFilter(tab.value)"
                       >
                         {{ tab.label }}
+                        <span v-if="tab.value !== 'all'" class="tab-count">
+                          ({{ getOrderCountByStatus(tab.value) }})
+                        </span>
                       </button>
                     </div>
                   </div>
@@ -216,7 +219,8 @@
                   <div v-else-if="orders.length === 0" class="empty-state">
                     <i class="fas fa-shopping-bag"></i>
                     <h3>Chưa có đơn hàng nào</h3>
-                    <p>Bạn chưa có đơn hàng nào trong danh sách này</p>
+                    <p v-if="orderFilter === 'all'">Bạn chưa có đơn hàng nào</p>
+                    <p v-else>Không có đơn hàng nào ở trạng thái này</p>
                     <router-link to="/shop" class="btn-shop-now">
                       <i class="fas fa-shopping-cart"></i> Mua sắm ngay
                     </router-link>
@@ -235,10 +239,10 @@
                         </span>
                       </div>
 
+                      <!-- Order Items với nút đánh giá riêng cho từng sản phẩm -->
                       <div class="order-items">
                         <div v-for="item in order.items" :key="item.itemId" class="order-item">
                           <div class="item-image">
-                            <!-- ✅ SỬA: Thêm getImageUrl() -->
                             <img v-if="item.imageUrl" :src="getImageUrl(item.imageUrl)" :alt="item.productName" @error="handleImageError" />
                             <i v-else class="fas fa-tshirt"></i>
                           </div>
@@ -251,6 +255,39 @@
                           </div>
                           <div class="item-price">
                             {{ formatPrice(item.finalAmount) }}
+                          </div>
+                          
+                          <!-- Nút Đánh giá cho từng sản phẩm - Chỉ hiển thị khi COMPLETED -->
+                          <div class="item-actions" v-if="order.orderStatus === 'COMPLETED'">
+                            <!-- Nếu chưa đánh giá -->
+                            <button 
+                              v-if="!isItemReviewed(order.orderId, item.productDetailId)"
+                              class="btn btn-review btn-sm"
+                              @click="openReviewModal(order, item)"
+                            >
+                              <i class="fas fa-star"></i> Đánh giá
+                            </button>
+                            
+                            <!-- Nếu đã đánh giá -->
+                            <div v-else class="reviewed-group">
+                              <span class="reviewed-badge">
+                                <i class="fas fa-check-circle"></i> Đã đánh giá
+                              </span>
+                              <button 
+                                class="btn btn-sm btn-outline"
+                                @click="viewReview(order.orderId, item.productDetailId)"
+                                title="Xem đánh giá"
+                              >
+                                <i class="fas fa-eye"></i>
+                              </button>
+                              <button 
+                                class="btn btn-sm btn-danger"
+                                @click="deleteReview(order.orderId, item.productDetailId)"
+                                title="Xóa đánh giá"
+                              >
+                                <i class="fas fa-trash"></i>
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -271,13 +308,26 @@
                           <button class="btn btn-outline" @click="viewOrderDetail(order.orderId)">
                             <i class="fas fa-eye"></i> Xem chi tiết
                           </button>
+                          
+                          <!-- HỦY ĐƠN - Chỉ khi PENDING_PAYMENT hoặc PROCESSING -->
                           <button 
-                            v-if="order.orderStatus === 'PENDING_PAYMENT'" 
+                            v-if="['PENDING_PAYMENT', 'PROCESSING'].includes(order.orderStatus)" 
                             class="btn btn-danger" 
                             @click="handleCancelOrder(order.orderId)"
                           >
                             <i class="fas fa-times"></i> Hủy đơn
                           </button>
+                          
+                          <!-- HOÀN HÀNG - Chỉ khi COMPLETED -->
+                          <button 
+                            v-if="order.orderStatus === 'COMPLETED'" 
+                            class="btn btn-warning" 
+                            @click="handleReturnOrder(order)"
+                          >
+                            <i class="fas fa-undo"></i> Hoàn hàng
+                          </button>
+                          
+                          <!-- MUA LẠI - Chỉ khi COMPLETED -->
                           <button 
                             v-if="order.orderStatus === 'COMPLETED'" 
                             class="btn btn-primary" 
@@ -357,117 +407,76 @@
                 </div>
 
                 <!-- Đổi mật khẩu -->
-                <div v-show="activeTab === 'password'" class="profile-tab">
-                  <h2>Đổi mật khẩu</h2>
+<div v-show="activeTab === 'password'" class="profile-tab">
+  <h2>Đổi mật khẩu</h2>
 
-                  <form @submit.prevent="changePassword" class="password-form">
-                    <div class="form-group">
-                      <label>Mật khẩu hiện tại <span class="required">*</span></label>
-                      <div class="password-input">
-                        <input
-                          :type="showCurrentPassword ? 'text' : 'password'"
-                          v-model="passwordForm.currentPassword"
-                          required
-                          placeholder="Nhập mật khẩu hiện tại"
-                        />
-                        <i
-                          :class="
-                            showCurrentPassword ? 'fas fa-eye-slash' : 'fas fa-eye'
-                          "
-                          @click="showCurrentPassword = !showCurrentPassword"
-                        ></i>
-                      </div>
-                    </div>
+  <form @submit.prevent="changePassword" class="password-form">
+    <!-- Mật khẩu hiện tại -->
+    <div class="form-group">
+      <label>Mật khẩu hiện tại <span class="required">*</span></label>
+      <input
+        type="password"
+        v-model="passwordForm.currentPassword"
+        required
+        placeholder="Nhập mật khẩu hiện tại"
+        class="password-input-field"
+      />
+    </div>
 
-                    <div class="form-group">
-                      <label>Mật khẩu mới <span class="required">*</span></label>
-                      <div class="password-input">
-                        <input
-                          :type="showNewPassword ? 'text' : 'password'"
-                          v-model="passwordForm.newPassword"
-                          required
-                          minlength="6"
-                          placeholder="Nhập mật khẩu mới"
-                        />
-                        <i
-                          :class="
-                            showNewPassword ? 'fas fa-eye-slash' : 'fas fa-eye'
-                          "
-                          @click="showNewPassword = !showNewPassword"
-                        ></i>
-                      </div>
-                    </div>
+    <!-- Mật khẩu mới -->
+    <div class="form-group">
+      <label>Mật khẩu mới <span class="required">*</span></label>
+      <input
+        type="password"
+        v-model="passwordForm.newPassword"
+        required
+        minlength="6"
+        placeholder="Nhập mật khẩu mới (ít nhất 6 ký tự)"
+        class="password-input-field"
+      />
+    </div>
 
-                    <div class="form-group">
-                      <label>Xác nhận mật khẩu mới <span class="required">*</span></label>
-                      <div class="password-input">
-                        <input
-                          :type="showConfirmPassword ? 'text' : 'password'"
-                          v-model="passwordForm.confirmPassword"
-                          required
-                          placeholder="Xác nhận mật khẩu mới"
-                        />
-                        <i
-                          :class="
-                            showConfirmPassword ? 'fas fa-eye-slash' : 'fas fa-eye'
-                          "
-                          @click="showConfirmPassword = !showConfirmPassword"
-                        ></i>
-                      </div>
-                    </div>
+    <!-- Xác nhận mật khẩu mới -->
+    <div class="form-group">
+      <label>Xác nhận mật khẩu mới <span class="required">*</span></label>
+      <input
+        type="password"
+        v-model="passwordForm.confirmPassword"
+        required
+        placeholder="Xác nhận mật khẩu mới"
+        class="password-input-field"
+      />
+    </div>
 
-                    <div class="password-requirements">
-                      <p>Mật khẩu phải có:</p>
-                      <ul>
-                        <li
-                          :class="{ valid: passwordForm.newPassword.length >= 6 }"
-                        >
-                          <i
-                            :class="
-                              passwordForm.newPassword.length >= 6
-                                ? 'fas fa-check-circle'
-                                : 'far fa-circle'
-                            "
-                          ></i>
-                          Ít nhất 6 ký tự
-                        </li>
-                        <li
-                          :class="{ valid: /[A-Z]/.test(passwordForm.newPassword) }"
-                        >
-                          <i
-                            :class="
-                              /[A-Z]/.test(passwordForm.newPassword)
-                                ? 'fas fa-check-circle'
-                                : 'far fa-circle'
-                            "
-                          ></i>
-                          Ít nhất 1 chữ hoa
-                        </li>
-                        <li
-                          :class="{ valid: /[0-9]/.test(passwordForm.newPassword) }"
-                        >
-                          <i
-                            :class="
-                              /[0-9]/.test(passwordForm.newPassword)
-                                ? 'fas fa-check-circle'
-                                : 'far fa-circle'
-                            "
-                          ></i>
-                          Ít nhất 1 số
-                        </li>
-                      </ul>
-                    </div>
+    <!-- Password requirements -->
+    <div class="password-requirements">
+      <p>Mật khẩu phải có:</p>
+      <ul>
+        <li :class="{ valid: passwordForm.newPassword.length >= 6 }">
+          <i :class="passwordForm.newPassword.length >= 6 ? 'fas fa-check-circle' : 'far fa-circle'"></i>
+          Ít nhất 6 ký tự
+        </li>
+        <li :class="{ valid: /[A-Z]/.test(passwordForm.newPassword) }">
+          <i :class="/[A-Z]/.test(passwordForm.newPassword) ? 'fas fa-check-circle' : 'far fa-circle'"></i>
+          Ít nhất 1 chữ hoa
+        </li>
+        <li :class="{ valid: /[0-9]/.test(passwordForm.newPassword) }">
+          <i :class="/[0-9]/.test(passwordForm.newPassword) ? 'fas fa-check-circle' : 'far fa-circle'"></i>
+          Ít nhất 1 số
+        </li>
+      </ul>
+    </div>
 
-                    <button
-                      type="submit"
-                      class="btn btn-primary"
-                      :disabled="!isPasswordValid || passwordLoading"
-                    >
-                      <i v-if="passwordLoading" class="fas fa-spinner fa-spin"></i>
-                      {{ passwordLoading ? "Đang xử lý..." : "Đổi mật khẩu" }}
-                    </button>
-                  </form>
-                </div>
+    <button
+      type="submit"
+      class="btn btn-primary"
+      :disabled="!isPasswordValid || passwordLoading"
+    >
+      <i v-if="passwordLoading" class="fas fa-spinner fa-spin"></i>
+      {{ passwordLoading ? "Đang xử lý..." : "Đổi mật khẩu" }}
+    </button>
+  </form>
+</div>
               </template>
             </template>
           </div>
@@ -592,6 +601,99 @@
       </div>
     </div>
 
+    <!-- Review Modal (Tạo mới) -->
+    <CreateReviewModal
+      :visible="showReviewModal"
+      :product="selectedProduct"
+      :orderId="selectedOrderId"
+      :editReviewId="editingReviewId"
+      @close="showReviewModal = false"
+      @submitted="onReviewSubmitted"
+    />
+
+    <!-- View Review Modal -->
+    <div v-if="showViewReviewModal" class="modal-overlay" @click.self="closeViewReview">
+      <div class="modal-container modal-lg">
+        <div class="modal-header">
+          <h3>Chi tiết đánh giá</h3>
+          <button class="close-btn" @click="closeViewReview">✕</button>
+        </div>
+        <div class="modal-body">
+          <div v-if="viewingReview">
+            <div class="product-info">
+              <div class="product-image">
+                <img v-if="viewingReview.imageUrl" :src="getImageUrl(viewingReview.imageUrl)" :alt="viewingReview.productName" />
+                <i v-else class="fas fa-tshirt"></i>
+              </div>
+              <div class="product-details">
+                <h4>{{ viewingReview.productName }}</h4>
+                <p class="product-variant">
+                  {{ viewingReview.sizeName || '' }} {{ viewingReview.colorName || '' }}
+                </p>
+              </div>
+            </div>
+
+            <div class="rating-section">
+              <label>Đánh giá:</label>
+              <div class="stars">
+                <i v-for="star in 5" :key="star" 
+                   :class="star <= viewingReview.rating ? 'fas fa-star active' : 'far fa-star'">
+                </i>
+              </div>
+            </div>
+
+            <div class="comment-section">
+              <label>Nhận xét:</label>
+              <p class="comment-text">{{ viewingReview.comment || 'Không có nhận xét' }}</p>
+            </div>
+
+            <div v-if="viewingReview.images && viewingReview.images.length > 0" class="image-gallery">
+              <label>Hình ảnh:</label>
+              <div class="images">
+                <img 
+                  v-for="(img, idx) in viewingReview.images" 
+                  :key="idx"
+                  :src="getImageUrl(img)"
+                  class="gallery-image"
+                  @click="viewImage(img)"
+                />
+              </div>
+            </div>
+
+            <div class="info-row">
+              <span class="label">Trạng thái:</span>
+              <span :class="['status-badge', getStatusClass(viewingReview.reviewStatus)]">
+                {{ getStatusText(viewingReview.reviewStatus) }}
+              </span>
+            </div>
+            <div class="info-row">
+              <span class="label">Ngày đánh giá:</span>
+              <span>{{ formatDate(viewingReview.createdAt) }}</span>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" @click="closeViewReview">Đóng</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Image Viewer Modal -->
+    <div v-if="showImageViewer" class="modal-overlay" @click.self="closeImageViewer">
+      <div class="image-viewer-container">
+        <img :src="viewingImage" alt="Review image" />
+        <button class="close-btn" @click="closeImageViewer">✕</button>
+      </div>
+    </div>
+
+    <!-- ✅ Return Request Modal -->
+    <ReturnRequestModal
+      :visible="showReturnModal"
+      :order="selectedOrderForReturn"
+      @close="closeReturnModal"
+      @submitted="onReturnSubmitted"
+    />
+
     <!-- Toast Notification -->
     <div :class="['toast', { show: showToast, 'toast-error': toastType === 'error' }]">
       <i :class="toastType === 'error' ? 'fas fa-exclamation-circle' : 'fas fa-check-circle'"></i>
@@ -608,6 +710,8 @@ import { useCartStore } from "../../stores/cartStore";
 import { useNotification } from "../../composables/useNotification";
 import ClientHeader from "../../components/client/ClientHeader.vue";
 import ClientFooter from "../../components/client/ClientFooter.vue";
+import CreateReviewModal from "../../components/client/CreateReviewModal.vue";
+import ReturnRequestModal from "../../components/client/ReturnRequestModal.vue";
 import { formatPrice } from "../../utils/helpers";
 import { orderService } from "../../services/orderService";
 import axios from "axios";
@@ -618,10 +722,11 @@ const authStore = useAuthStore();
 const cartStore = useCartStore();
 const { showNotification } = useNotification();
 
-// ✅ THÊM BASE URL CHO ẢNH
+// ✅ BASE URL CHO ẢNH
 const IMAGE_BASE = "http://localhost:8080";
+const API_BASE = "http://localhost:8080/api";
 
-// ✅ HÀM LẤY URL ẢNH ĐẦY ĐỦ
+// ✅ HÀM LẤY URL ẢNH
 const getImageUrl = (imagePath) => {
   if (!imagePath) return '';
   if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
@@ -643,12 +748,27 @@ const wishlistLoading = ref(false);
 const cancelLoading = ref(false);
 const showCancelModal = ref(false);
 const showDetailModal = ref(false);
+const showImageViewer = ref(false);
 const cancelOrderId = ref(null);
 const cancelReason = ref("");
 const selectedOrder = ref(null);
 const currentPage = ref(0);
 const totalPages = ref(0);
 const orderFilter = ref("all");
+const viewingImage = ref("");
+
+// ✅ State cho Return
+const showReturnModal = ref(false);
+const selectedOrderForReturn = ref(null);
+
+// ✅ State cho Review
+const showReviewModal = ref(false);
+const showViewReviewModal = ref(false);
+const selectedProduct = ref(null);
+const selectedOrderId = ref(null);
+const editingReviewId = ref(null);
+const reviewedItems = ref(new Map());
+const viewingReview = ref(null);
 
 // Profile data
 const profile = reactive({
@@ -697,7 +817,7 @@ const passwordForm = reactive({
   confirmPassword: "",
 });
 
-// Order tabs
+// ✅ Order tabs
 const orderTabs = [
   { value: 'all', label: 'Tất cả' },
   { value: 'PENDING_PAYMENT', label: 'Chờ thanh toán' },
@@ -705,7 +825,12 @@ const orderTabs = [
   { value: 'SHIPPING', label: 'Đang giao hàng' },
   { value: 'DELIVERED', label: 'Đã giao hàng' },
   { value: 'COMPLETED', label: 'Hoàn thành' },
-  { value: 'CANCELLED', label: 'Đã hủy' }
+  { value: 'CANCELLED', label: 'Đã hủy' },
+  { value: 'RETURN_REQUESTED', label: 'Yêu cầu hoàn hàng' },
+  { value: 'RETURN_APPROVED', label: 'Đã duyệt hoàn hàng' },
+  { value: 'RETURN_RECEIVED', label: 'Đã nhận hàng trả' },
+  { value: 'REJECTED', label: 'Đã từ chối hoàn trả' },
+  { value: 'RETURNED', label: 'Đã hoàn trả' }
 ];
 
 const isPasswordValid = computed(() => {
@@ -740,11 +865,20 @@ const formatDate = (dateString) => {
 const getStatusText = (status) => {
   const map = {
     "PENDING_PAYMENT": "Chờ thanh toán",
+    "CONFIRMED": "Đã xác nhận",
     "PROCESSING": "Đang xử lý",
     "SHIPPING": "Đang giao hàng",
     "DELIVERED": "Đã giao hàng",
     "COMPLETED": "Hoàn thành",
-    "CANCELLED": "Đã hủy"
+    "CANCELLED": "Đã hủy",
+    "PENDING": "Chờ duyệt",
+    "APPROVED": "Đã duyệt",
+    "REJECTED": "Đã từ chối hoàn trả",
+    "RETURN_REQUESTED": "Yêu cầu hoàn hàng",
+    "RETURN_APPROVED": "Đã duyệt hoàn hàng",
+    "RETURN_RECEIVED": "Đã nhận hàng trả",
+    "RETURN_PENDING": "Đang thu hồi hàng",
+    "RETURNED": "Đã hoàn trả"
   };
   return map[status] || status;
 };
@@ -752,11 +886,20 @@ const getStatusText = (status) => {
 const getStatusClass = (status) => {
   const map = {
     "PENDING_PAYMENT": "status-pending",
+    "CONFIRMED": "status-confirmed",
     "PROCESSING": "status-processing",
     "SHIPPING": "status-shipping",
     "DELIVERED": "status-delivered",
     "COMPLETED": "status-completed",
-    "CANCELLED": "status-cancelled"
+    "CANCELLED": "status-cancelled",
+    "PENDING": "status-pending-review",
+    "APPROVED": "status-approved",
+    "REJECTED": "status-rejected",
+    "RETURN_REQUESTED": "status-return-requested",
+    "RETURN_APPROVED": "status-return-approved",
+    "RETURN_RECEIVED": "status-return-received",
+    "RETURN_PENDING": "status-return-pending",
+    "RETURNED": "status-returned"
   };
   return map[status] || "";
 };
@@ -909,6 +1052,8 @@ const fetchOrders = async () => {
       orders.value = response.data.content;
       totalPages.value = response.data.totalPages || 0;
       currentPage.value = response.data.number || 0;
+      
+      await checkAllReviewsStatus(orders.value);
     } else {
       orders.value = [];
     }
@@ -919,6 +1064,124 @@ const fetchOrders = async () => {
   } finally {
     ordersLoading.value = false;
   }
+};
+
+const checkAllReviewsStatus = async (orders) => {
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    for (const order of orders) {
+      if (order.orderStatus !== 'COMPLETED') continue;
+      if (!order.items || order.items.length === 0) continue;
+      
+      for (const item of order.items) {
+        if (!item || !item.productDetailId) continue;
+        
+        const reviewKey = `${order.orderId}_${item.productDetailId}`;
+        
+        if (reviewedItems.value.has(reviewKey)) {
+          const data = reviewedItems.value.get(reviewKey);
+          if (data && data.reviewId === null) {
+            reviewedItems.value.delete(reviewKey);
+          }
+          continue;
+        }
+        
+        try {
+          const response = await axios.get(`${API_BASE}/reviews/check`, {
+            params: {
+              orderId: order.orderId,
+              productDetailId: item.productDetailId
+            },
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
+          });
+          
+          console.log('🔍 Check review for order:', order.orderId, 'item:', item.productDetailId, response.data);
+          
+          if (response.data.reviewed) {
+            try {
+              const myReviewsResponse = await axios.get(`${API_BASE}/reviews/my-reviews`, {
+                params: {
+                  page: 0,
+                  size: 100
+                },
+                headers: {
+                  Authorization: `Bearer ${token}`
+                }
+              });
+              
+              if (myReviewsResponse.data && myReviewsResponse.data.content) {
+                const foundReview = myReviewsResponse.data.content.find(
+                  r => r.orderId === order.orderId && r.productDetailId === item.productDetailId
+                );
+                if (foundReview && foundReview.reviewId) {
+                  console.log('✅ Found review:', foundReview);
+                  reviewedItems.value.set(reviewKey, foundReview);
+                } else {
+                  reviewedItems.value.delete(reviewKey);
+                }
+              }
+            } catch (err) {
+              console.warn('Cannot get review detail, skip caching');
+              reviewedItems.value.delete(reviewKey);
+            }
+          } else {
+            reviewedItems.value.delete(reviewKey);
+          }
+        } catch (error) {
+          console.error(`❌ Error checking review:`, error);
+          reviewedItems.value.delete(reviewKey);
+        }
+      }
+    }
+  } catch (error) {
+    console.error('❌ Error checking all reviews:', error);
+  }
+};
+
+const getReviewDetail = async (orderId, productDetailId) => {
+  try {
+    const token = localStorage.getItem('token');
+    const response = await axios.get(`${API_BASE}/reviews/my-reviews`, {
+      params: {
+        orderId: orderId,
+        productDetailId: productDetailId
+      },
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+    if (response.data && response.data.content && response.data.content.length > 0) {
+      return response.data.content[0];
+    }
+    return null;
+  } catch (error) {
+    console.error('❌ Error getting review detail:', error);
+    return null;
+  }
+};
+
+const isItemReviewed = (orderId, productDetailId) => {
+  if (!orderId || !productDetailId) return false;
+  const reviewKey = `${orderId}_${productDetailId}`;
+  const data = reviewedItems.value.get(reviewKey);
+  return data && data.reviewId !== null && data.reviewId !== undefined;
+};
+
+const getReviewData = (orderId, productDetailId) => {
+  const reviewKey = `${orderId}_${productDetailId}`;
+  const data = reviewedItems.value.get(reviewKey);
+  if (data && data.reviewId) {
+    return data;
+  }
+  return null;
+};
+
+const getOrderCountByStatus = (status) => {
+  return orders.value.filter(order => order.orderStatus === status).length;
 };
 
 const changeOrderFilter = (filterValue) => {
@@ -982,6 +1245,32 @@ const confirmCancelOrder = async () => {
   }
 };
 
+const handleReturnOrder = (order) => {
+  if (!order) {
+    showNotificationMsg("Không tìm thấy đơn hàng", "error");
+    return;
+  }
+  
+  if (order.orderStatus !== 'COMPLETED') {
+    showNotificationMsg("Chỉ có thể yêu cầu hoàn hàng khi đơn hàng đã hoàn thành", "warning");
+    return;
+  }
+  
+  selectedOrderForReturn.value = order;
+  showReturnModal.value = true;
+};
+
+const closeReturnModal = () => {
+  showReturnModal.value = false;
+  selectedOrderForReturn.value = null;
+};
+
+const onReturnSubmitted = (data) => {
+  showNotificationMsg("Yêu cầu hoàn hàng đã được gửi!", "success");
+  closeReturnModal();
+  fetchOrders();
+};
+
 const handleReorder = (order) => {
   if (order.items && order.items.length > 0) {
     order.items.forEach(item => {
@@ -999,6 +1288,154 @@ const handleReorder = (order) => {
     showNotificationMsg("Đã thêm sản phẩm vào giỏ hàng!", "success");
     router.push("/cart");
   }
+};
+
+// ===== REVIEW FUNCTIONS =====
+const openReviewModal = (order, item) => {
+  if (!order || !item) {
+    showNotificationMsg("Không có sản phẩm để đánh giá", "warning");
+    return;
+  }
+  
+  if (!item.productDetailId) {
+    showNotificationMsg("Sản phẩm không hợp lệ", "warning");
+    return;
+  }
+  
+  const reviewKey = `${order.orderId}_${item.productDetailId}`;
+  const existingReview = reviewedItems.value.get(reviewKey);
+  
+  if (existingReview && existingReview.reviewId) {
+    showNotificationMsg("Bạn đã đánh giá sản phẩm này trong đơn hàng này!", "info");
+    return;
+  }
+  
+  selectedProduct.value = {
+    productDetailId: item.productDetailId,
+    productName: item.productName || 'Sản phẩm',
+    sizeName: item.sizeName || '',
+    colorName: item.colorName || '',
+    imageUrl: item.imageUrl || ''
+  };
+  selectedOrderId.value = order.orderId;
+  editingReviewId.value = null;
+  showReviewModal.value = true;
+};
+
+const onReviewSubmitted = (review) => {
+  if (review && review.productDetailId && review.orderId) {
+    const reviewKey = `${review.orderId}_${review.productDetailId}`;
+    reviewedItems.value.set(reviewKey, review);
+  }
+  showNotificationMsg("Đánh giá thành công! Cảm ơn bạn.", "success");
+  editingReviewId.value = null;
+  fetchOrders();
+};
+
+const viewReview = async (orderId, productDetailId) => {
+  try {
+    const reviewData = getReviewData(orderId, productDetailId);
+    
+    if (!reviewData || !reviewData.reviewId) {
+      showNotificationMsg("Không tìm thấy đánh giá", "warning");
+      const reviewKey = `${orderId}_${productDetailId}`;
+      reviewedItems.value.delete(reviewKey);
+      return;
+    }
+    
+    console.log('📖 Viewing review:', reviewData);
+    
+    if (reviewData && reviewData.comment !== undefined) {
+      viewingReview.value = reviewData;
+      showViewReviewModal.value = true;
+      return;
+    }
+    
+    const token = localStorage.getItem('token');
+    const response = await axios.get(`${API_BASE}/reviews/${reviewData.reviewId}`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+    
+    if (response.data) {
+      viewingReview.value = response.data;
+      const reviewKey = `${orderId}_${productDetailId}`;
+      reviewedItems.value.set(reviewKey, response.data);
+      showViewReviewModal.value = true;
+    } else {
+      showNotificationMsg("Không tìm thấy đánh giá", "warning");
+      const reviewKey = `${orderId}_${productDetailId}`;
+      reviewedItems.value.delete(reviewKey);
+    }
+  } catch (error) {
+    console.error('❌ Error viewing review:', error);
+    if (error.response?.status === 404) {
+      const reviewKey = `${orderId}_${productDetailId}`;
+      reviewedItems.value.delete(reviewKey);
+      showNotificationMsg("Đánh giá không tồn tại", "warning");
+    } else {
+      showNotificationMsg("Không thể tải đánh giá", "error");
+    }
+  }
+};
+
+const closeViewReview = () => {
+  showViewReviewModal.value = false;
+  viewingReview.value = null;
+};
+
+const deleteReview = async (orderId, productDetailId) => {
+  if (!confirm("Bạn có chắc muốn xóa đánh giá này?")) return;
+  
+  try {
+    const token = localStorage.getItem('token');
+    const reviewData = getReviewData(orderId, productDetailId);
+    
+    if (!reviewData || !reviewData.reviewId) {
+      showNotificationMsg("Không tìm thấy đánh giá để xóa", "error");
+      const reviewKey = `${orderId}_${productDetailId}`;
+      reviewedItems.value.delete(reviewKey);
+      await fetchOrders();
+      return;
+    }
+    
+    console.log('🗑️ Deleting review with ID:', reviewData.reviewId);
+    
+    await axios.delete(`${API_BASE}/reviews/${reviewData.reviewId}`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+    
+    const reviewKey = `${orderId}_${productDetailId}`;
+    reviewedItems.value.delete(reviewKey);
+    
+    showNotificationMsg("Xóa đánh giá thành công! Bạn có thể đánh giá lại sản phẩm này trong đơn hàng này.", "success");
+    await fetchOrders();
+    
+  } catch (error) {
+    console.error('❌ Error deleting review:', error);
+    
+    if (error.response?.status === 404) {
+      const reviewKey = `${orderId}_${productDetailId}`;
+      reviewedItems.value.delete(reviewKey);
+      showNotificationMsg("Đánh giá đã được xóa trước đó. Bạn có thể đánh giá lại.", "info");
+      await fetchOrders();
+    } else {
+      showNotificationMsg(error.response?.data?.error || "Không thể xóa đánh giá", "error");
+    }
+  }
+};
+
+const viewImage = (imageUrl) => {
+  viewingImage.value = getImageUrl(imageUrl);
+  showImageViewer.value = true;
+};
+
+const closeImageViewer = () => {
+  showImageViewer.value = false;
+  viewingImage.value = '';
 };
 
 // ===== WISHLIST FUNCTIONS =====
@@ -1032,8 +1469,37 @@ const removeFromWishlist = (id) => {
 
 // ===== PASSWORD FUNCTIONS =====
 const changePassword = async () => {
-  if (!isPasswordValid.value) {
-    showNotificationMsg("Vui lòng kiểm tra lại mật khẩu", "error");
+  // Kiểm tra mật khẩu hiện tại
+  if (!passwordForm.currentPassword || passwordForm.currentPassword.length === 0) {
+    showNotificationMsg("Vui lòng nhập mật khẩu hiện tại", "error");
+    return;
+  }
+
+  // Kiểm tra mật khẩu mới
+  if (!passwordForm.newPassword || passwordForm.newPassword.length < 6) {
+    showNotificationMsg("Mật khẩu mới phải có ít nhất 6 ký tự", "error");
+    return;
+  }
+
+  if (!/[A-Z]/.test(passwordForm.newPassword)) {
+    showNotificationMsg("Mật khẩu mới phải có ít nhất 1 chữ hoa", "error");
+    return;
+  }
+
+  if (!/[0-9]/.test(passwordForm.newPassword)) {
+    showNotificationMsg("Mật khẩu mới phải có ít nhất 1 số", "error");
+    return;
+  }
+
+  // Kiểm tra xác nhận mật khẩu
+  if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+    showNotificationMsg("Mật khẩu xác nhận không khớp", "error");
+    return;
+  }
+
+  // Kiểm tra mật khẩu mới không trùng mật khẩu cũ
+  if (passwordForm.newPassword === passwordForm.currentPassword) {
+    showNotificationMsg("Mật khẩu mới không được trùng với mật khẩu hiện tại", "error");
     return;
   }
 
@@ -1041,30 +1507,38 @@ const changePassword = async () => {
   try {
     const token = authStore.token || localStorage.getItem("token");
     
-    if (token) {
-      await axios.put(
-        "http://localhost:8080/api/customers/change-password",
-        {
-          currentPassword: passwordForm.currentPassword,
-          newPassword: passwordForm.newPassword
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json"
-          }
-        }
-      );
-      showNotificationMsg("Đổi mật khẩu thành công!", "success");
-      passwordForm.currentPassword = "";
-      passwordForm.newPassword = "";
-      passwordForm.confirmPassword = "";
-    } else {
+    if (!token) {
       showNotificationMsg("Vui lòng đăng nhập để đổi mật khẩu", "warning");
+      passwordLoading.value = false;
+      return;
     }
+
+    const response = await axios.put(
+      "http://localhost:8080/api/customers/change-password",
+      {
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
+        }
+      }
+    );
+
+    console.log("✅ Change password response:", response.data);
+    
+    showNotificationMsg("Đổi mật khẩu thành công!", "success");
+    
+    // Reset form
+    passwordForm.currentPassword = "";
+    passwordForm.newPassword = "";
+    passwordForm.confirmPassword = "";
+    
   } catch (error) {
-    console.error("Error changing password:", error);
-    const message = error.response?.data?.message || "Có lỗi xảy ra";
+    console.error("❌ Error changing password:", error);
+    const message = error.response?.data?.message || "Có lỗi xảy ra khi đổi mật khẩu";
     showNotificationMsg(message, "error");
   } finally {
     passwordLoading.value = false;
@@ -1106,7 +1580,6 @@ watch(
   }
 );
 
-// ✅ Lắng nghe query param tab
 watch(
   () => route.query.tab,
   (newTab) => {
@@ -1122,7 +1595,6 @@ watch(
 onMounted(() => {
   console.log("🚀 Profile page mounted");
   
-  // ✅ Kiểm tra query param tab
   if (route.query.tab === 'orders') {
     activeTab.value = 'orders';
   }
@@ -1132,8 +1604,6 @@ onMounted(() => {
   fetchWishlist();
 });
 </script>
-
-
 
 <style scoped>
 /* ===== RESET & CONTAINER ===== */
@@ -1408,12 +1878,12 @@ main {
 
 /* ===== FORM STYLES ===== */
 .form-group {
-  margin-bottom: 20px;
+  margin-bottom: 12px;
 }
 
 .form-group label {
   display: block;
-  margin-bottom: 8px;
+  margin-bottom: 5px;
   color: #1a1a2e;
   font-weight: 500;
 }
@@ -1433,6 +1903,7 @@ main {
   transition: all 0.3s;
   font-size: 14px;
   font-family: inherit;
+  box-sizing: border-box;
 }
 
 .form-group input:focus,
@@ -1464,26 +1935,55 @@ main {
   max-width: 600px;
 }
 
-.password-input {
+/* ===== PASSWORD INPUT - FIXED ===== */
+.password-input-wrapper {
   position: relative;
+  width: 100%;
 }
 
-.password-input input {
-  padding-right: 45px;
+.password-input-field {
+  width: 100%;
+  padding: 12px 45px 12px 15px !important;
+  border: 2px solid #e9ecef;
+  border-radius: 10px;
+  outline: none;
+  transition: all 0.3s;
+  font-size: 14px;
+  font-family: inherit;
+  box-sizing: border-box;
+  background: white;
 }
 
-.password-input i {
+.password-input-field:focus {
+  border-color: #e63946;
+  box-shadow: 0 0 0 3px rgba(230, 57, 70, 0.1);
+}
+
+.password-toggle-icon {
   position: absolute;
-  right: 15px;
+  right: 12px;
   top: 50%;
   transform: translateY(-50%);
   cursor: pointer;
   color: #6c757d;
   font-size: 18px;
+  z-index: 2;
+  transition: color 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px;
+  background: transparent;
+  border-radius: 4px;
+  user-select: none;
 }
 
-.password-input i:hover {
+.password-toggle-icon:hover {
   color: #1a1a2e;
+}
+
+.password-toggle-icon i {
+  pointer-events: none;
 }
 
 .form-actions {
@@ -1508,8 +2008,9 @@ main {
 }
 
 .btn-sm {
-  padding: 8px 18px;
-  font-size: 13px;
+  padding: 6px 12px;
+  font-size: 12px;
+  min-width: 32px;
 }
 
 .btn-primary {
@@ -1547,6 +2048,147 @@ main {
 
 .btn-danger:hover {
   background: #c82333;
+}
+
+.btn-warning {
+  background: #ffc107;
+  color: #333;
+}
+
+.btn-warning:hover {
+  background: #e0a800;
+}
+
+.btn-success {
+  background: #28a745;
+  color: white;
+}
+
+.btn-success:hover {
+  background: #1e7e34;
+}
+
+.btn-review {
+  background: linear-gradient(135deg, #f5c842, #f0a500);
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.btn-review:hover {
+  background: linear-gradient(135deg, #e6b800, #cc9900);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(245, 200, 66, 0.4);
+}
+
+/* ===== ITEM ACTIONS ===== */
+.item-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.review-action-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.reviewed-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.reviewed-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: #e8f5e9;
+  color: #2e7d32;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.reviewed-badge i {
+  font-size: 14px;
+}
+
+/* ===== ORDER ITEMS ===== */
+.order-item {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 10px 0;
+  border-bottom: 1px dashed #e9ecef;
+}
+
+.order-item:last-child {
+  border-bottom: none;
+}
+
+.item-image {
+  width: 60px;
+  height: 60px;
+  background: #f1f3f5;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.item-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.item-image i {
+  font-size: 30px;
+  color: #adb5bd;
+}
+
+.item-details {
+  flex: 1;
+}
+
+.item-details h4 {
+  font-size: 15px;
+  color: #1a1a2e;
+  margin-bottom: 3px;
+}
+
+.item-variant {
+  font-size: 13px;
+  color: #6c757d;
+}
+
+.item-quantity {
+  font-size: 13px;
+  color: #6c757d;
+}
+
+.item-price {
+  font-weight: 600;
+  color: #e63946;
+  font-size: 15px;
 }
 
 /* ===== ORDERS ===== */
@@ -1587,6 +2229,11 @@ main {
 .tab-btn.active {
   background: #e63946;
   color: white;
+}
+
+.tab-count {
+  font-size: 11px;
+  opacity: 0.8;
 }
 
 .orders-list {
@@ -1663,70 +2310,37 @@ main {
   background: #f8d7da;
   color: #721c24;
 }
-
-.order-items {
-  margin: 10px 0;
+.status-pending-review {
+  background: #fff3cd;
+  color: #856404;
 }
-
-.order-item {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  padding: 10px 0;
-  border-bottom: 1px dashed #e9ecef;
+.status-approved {
+  background: #d4edda;
+  color: #155724;
 }
-
-.order-item:last-child {
-  border-bottom: none;
+.status-rejected {
+  background: #f8d7da;
+  color: #721c24;
 }
-
-.item-image {
-  width: 60px;
-  height: 60px;
-  background: #f1f3f5;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  flex-shrink: 0;
+.status-return-requested {
+  background: #fff3cd;
+  color: #856404;
 }
-
-.item-image img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+.status-return-approved {
+  background: #cce5ff;
+  color: #004085;
 }
-
-.item-image i {
-  font-size: 30px;
-  color: #adb5bd;
+.status-return-received {
+  background: #cce5ff;
+  color: #004085;
 }
-
-.item-details {
-  flex: 1;
+.status-return-pending {
+  background: #d1ecf1;
+  color: #0c5460;
 }
-
-.item-details h4 {
-  font-size: 15px;
-  color: #1a1a2e;
-  margin-bottom: 3px;
-}
-
-.item-variant {
-  font-size: 13px;
-  color: #6c757d;
-}
-
-.item-quantity {
-  font-size: 13px;
-  color: #6c757d;
-}
-
-.item-price {
-  font-weight: 600;
-  color: #e63946;
-  font-size: 15px;
+.status-returned {
+  background: #d4edda;
+  color: #155724;
 }
 
 .order-voucher {
@@ -1782,8 +2396,9 @@ main {
 
 .order-actions {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
+  align-items: center;
 }
 
 /* ===== PAGINATION ===== */
@@ -1847,7 +2462,6 @@ main {
   font-size: 16px;
 }
 
-/* ✅ SỬA NÚT MUA SẮM NGAY */
 .btn-shop-now {
   display: inline-flex;
   align-items: center;
@@ -2107,6 +2721,175 @@ main {
   color: #999;
 }
 
+/* ===== VIEW REVIEW MODAL ===== */
+.product-info {
+  display: flex;
+  gap: 15px;
+  padding: 15px;
+  background: #f8f9fa;
+  border-radius: 10px;
+  margin-bottom: 20px;
+}
+
+.product-info .product-image {
+  width: 60px;
+  height: 60px;
+  background: #f5f5f5;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.product-info .product-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.product-info .product-image i {
+  font-size: 30px;
+  color: #ccc;
+}
+
+.product-info .product-details h4 {
+  font-size: 15px;
+  color: #2c3e50;
+  margin: 0 0 4px 0;
+}
+
+.product-info .product-details .product-variant {
+  font-size: 13px;
+  color: #999;
+  margin: 0;
+}
+
+.rating-section {
+  margin-bottom: 15px;
+}
+
+.rating-section label {
+  font-weight: 600;
+  color: #2c3e50;
+  display: block;
+  margin-bottom: 5px;
+}
+
+.rating-section .stars {
+  display: flex;
+  gap: 4px;
+}
+
+.rating-section .stars i {
+  font-size: 20px;
+  color: #ddd;
+}
+
+.rating-section .stars i.active {
+  color: #f5c842;
+}
+
+.comment-section {
+  margin-bottom: 15px;
+}
+
+.comment-section label {
+  font-weight: 600;
+  color: #2c3e50;
+  display: block;
+  margin-bottom: 5px;
+}
+
+.comment-section .comment-text {
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  color: #555;
+  line-height: 1.6;
+}
+
+.image-gallery {
+  margin-bottom: 15px;
+}
+
+.image-gallery label {
+  font-weight: 600;
+  color: #2c3e50;
+  display: block;
+  margin-bottom: 5px;
+}
+
+.image-gallery .images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.image-gallery .gallery-image {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 1px solid #e9ecef;
+  transition: all 0.3s;
+}
+
+.image-gallery .gallery-image:hover {
+  transform: scale(1.05);
+}
+
+.info-row {
+  display: flex;
+  gap: 10px;
+  padding: 4px 0;
+  font-size: 14px;
+}
+
+.info-row .label {
+  font-weight: 600;
+  color: #666;
+  min-width: 120px;
+}
+
+/* ===== IMAGE VIEWER ===== */
+.image-viewer-container {
+  max-width: 90vw;
+  max-height: 90vh;
+  position: relative;
+}
+
+.image-viewer-container img {
+  max-width: 100%;
+  max-height: 85vh;
+  object-fit: contain;
+  border-radius: 8px;
+}
+
+.image-viewer-container .close-btn {
+  position: absolute;
+  top: -40px;
+  right: -40px;
+  background: white;
+  color: #333;
+  border: none;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  font-size: 20px;
+  cursor: pointer;
+  transition: all 0.3s;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+.image-viewer-container .close-btn:hover {
+  transform: rotate(90deg);
+  background: #e63946;
+  color: white;
+}
+
 /* ===== WISHLIST ===== */
 .wishlist-grid {
   display: grid;
@@ -2350,6 +3133,21 @@ main {
     flex: 1;
   }
 
+  .order-item {
+    flex-wrap: wrap;
+  }
+
+  .item-actions {
+    width: 100%;
+    margin-left: 0;
+    justify-content: flex-start;
+  }
+
+  .reviewed-group {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
   .wishlist-grid {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -2366,6 +3164,11 @@ main {
   .order-tabs {
     overflow-x: auto;
     flex-wrap: nowrap;
+  }
+
+  .image-viewer-container .close-btn {
+    top: 10px;
+    right: 10px;
   }
 }
 

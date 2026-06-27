@@ -8,17 +8,22 @@ import com.example.backend_fashionstore.customer.cart.repository.CartItemReposit
 import com.example.backend_fashionstore.customer.cart.repository.CartRepository;
 import com.example.backend_fashionstore.customer.order.dto.request.OrderRequestDTO;
 import com.example.backend_fashionstore.customer.order.dto.request.OrderItemRequestDTO;
+import com.example.backend_fashionstore.customer.order.dto.request.ReturnRequestDTO;
 import com.example.backend_fashionstore.customer.order.dto.response.OrderResponseDTO;
 import com.example.backend_fashionstore.customer.order.dto.response.CustomerInfoDTO;
 import com.example.backend_fashionstore.customer.order.dto.response.ShippingAddressDTO;
 import com.example.backend_fashionstore.customer.order.dto.response.VoucherInfoDTO;
 import com.example.backend_fashionstore.customer.order.dto.response.OrderItemResponseDTO;
+import com.example.backend_fashionstore.customer.order.dto.response.ReturnRequestResponseDTO;
 import com.example.backend_fashionstore.customer.order.repository.OrderHistoryRepository;
 import com.example.backend_fashionstore.customer.order.repository.ShippingAddressRepository;
+import com.example.backend_fashionstore.customer.order.repository.ReturnRequestRepository;
 import com.example.backend_fashionstore.entity.*;
 import com.example.backend_fashionstore.enums.OrderStatus;
 import com.example.backend_fashionstore.enums.PaymentStatus;
 import com.example.backend_fashionstore.quanLyVoucher.repository.VoucherRepository;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -48,9 +53,13 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
     private final VoucherRepository voucherRepository;
     private final CartRepository cartRepository;
     private final CartItemRepository cartItemRepository;
+    private final ReturnRequestRepository returnRequestRepository;
 
     private static final BigDecimal DEFAULT_SHIPPING_FEE = new BigDecimal("30000");
 
+    // ============================================
+    // 1. TẠO ĐƠN HÀNG
+    // ============================================
     @Override
     @Transactional
     public OrderResponseDTO createOrder(Integer customerId, OrderRequestDTO request) {
@@ -64,7 +73,6 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
             throw new RuntimeException("Không có sản phẩm trong đơn hàng");
         }
 
-        // ✅ TÍNH TOÁN ĐƠN HÀNG
         BigDecimal subtotal = BigDecimal.ZERO;
         List<OrderDetail> orderDetails = new ArrayList<>();
 
@@ -77,10 +85,7 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
                         " không đủ số lượng. Còn: " + productDetail.getQuantity());
             }
 
-            // ✅ Lấy giá đã giảm (nếu có promotion)
             BigDecimal unitPrice = productDetail.getPrice();
-            // TODO: Nếu có promotion thì tính giá đã giảm
-
             BigDecimal itemTotal = unitPrice.multiply(BigDecimal.valueOf(itemReq.getQuantity()));
             subtotal = subtotal.add(itemTotal);
 
@@ -93,7 +98,6 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
             orderDetails.add(detail);
         }
 
-        // ✅ ===== XỬ LÝ VOUCHER =====
         BigDecimal discountAmount = BigDecimal.ZERO;
         Voucher appliedVoucher = null;
 
@@ -104,7 +108,6 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
                     .orElse(null);
 
             if (voucher != null && isValidVoucher(voucher)) {
-                // Kiểm tra điều kiện giá trị đơn hàng tối thiểu
                 if (voucher.getVoucherMinOrderValue() != null &&
                         subtotal.compareTo(voucher.getVoucherMinOrderValue()) < 0) {
                     log.warn("⚠️ Order value {} is less than min order value {}",
@@ -113,7 +116,6 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
                             voucher.getVoucherMinOrderValue());
                 }
 
-                // Tính discount
                 if (voucher.getVoucherDiscountAmount() != null &&
                         voucher.getVoucherDiscountAmount().compareTo(BigDecimal.ZERO) > 0) {
                     discountAmount = voucher.getVoucherDiscountAmount().min(subtotal);
@@ -125,7 +127,6 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
                     log.info("💰 Discount by percent: {}% = {}", voucher.getVoucherDiscountPercent(), discountAmount);
                 }
 
-                // ✅ Cập nhật số lần sử dụng voucher
                 voucher.setVoucherUsedCount(voucher.getVoucherUsedCount() + 1);
                 voucherRepository.save(voucher);
                 appliedVoucher = voucher;
@@ -137,7 +138,6 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
             }
         }
 
-        // ✅ TẠO ORDER
         Order order = new Order();
         order.setCustomer(customer);
         order.setShippingAddress(null);
@@ -145,16 +145,15 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
         order.setOrderDate(LocalDateTime.now());
         order.setOrderStatus(OrderStatus.PENDING_PAYMENT);
         order.setOrderSubtotalAmount(subtotal);
-        order.setOrderDiscountAmount(discountAmount);  // ✅ LƯU DISCOUNT
+        order.setOrderDiscountAmount(discountAmount);
         order.setOrderShippingFee(DEFAULT_SHIPPING_FEE);
         order.setPaymentStatus(PaymentStatus.UNPAID);
         order.setNotes(request.getNotes() != null ? request.getNotes() : "");
         order.setCreatedAt(LocalDateTime.now());
         order.setUpdatedAt(LocalDateTime.now());
         order.setDeletedAt(null);
-        order.setVoucher(appliedVoucher);  // ✅ LƯU VOUCHER
+        order.setVoucher(appliedVoucher);
 
-        // ✅ Tính tổng tiền: subtotal - discount + shipping
         BigDecimal totalAmount = subtotal.subtract(discountAmount).add(DEFAULT_SHIPPING_FEE);
         order.setOrderTotalAmount(totalAmount);
 
@@ -163,18 +162,15 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
 
         Order savedOrder = orderRepository.save(order);
 
-        // ✅ LƯU ORDER DETAILS
         for (OrderDetail detail : orderDetails) {
             detail.setOrder(savedOrder);
             orderDetailRepository.save(detail);
 
-            // ✅ Cập nhật tồn kho
             ProductDetail pd = detail.getProductDetail();
             pd.setQuantity(pd.getQuantity() - detail.getQuantity());
             productDetailRepository.save(pd);
         }
 
-        // ✅ LƯU ORDER HISTORY
         OrderHistory history = new OrderHistory();
         history.setOrder(savedOrder);
         history.setOrderStatus(savedOrder.getOrderStatus().toString());
@@ -186,7 +182,6 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
         history.setTimestamp(LocalDateTime.now());
         orderHistoryRepository.save(history);
 
-        // ✅ XÓA GIỎ HÀNG
         try {
             Cart cart = cartRepository.findByCustomerIdAndDeletedAtIsNull(customerId).orElse(null);
             if (cart != null) {
@@ -206,6 +201,9 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
         return convertToResponse(savedOrder);
     }
 
+    // ============================================
+    // 2. LẤY CHI TIẾT ĐƠN HÀNG
+    // ============================================
     @Override
     public OrderResponseDTO getOrder(Long orderId, Integer customerId) {
         Order order = orderRepository.findById(orderId)
@@ -218,6 +216,9 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
         return convertToResponse(order);
     }
 
+    // ============================================
+    // 3. LẤY DANH SÁCH ĐƠN HÀNG CỦA KHÁCH HÀNG
+    // ============================================
     @Override
     public Page<OrderResponseDTO> getMyOrders(Integer customerId, String status, Pageable pageable) {
         Customer customer = customerRepository.findById(customerId)
@@ -225,7 +226,13 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
 
         Page<Order> orders;
         if (status != null && !status.isEmpty()) {
-            orders = orderRepository.findByCustomerAndOrderStatusAndDeletedAtIsNull(customer, status, pageable);
+            try {
+                OrderStatus orderStatus = OrderStatus.valueOf(status);
+                orders = orderRepository.findByCustomerAndOrderStatusAndDeletedAtIsNull(customer, orderStatus, pageable);
+            } catch (IllegalArgumentException e) {
+                log.warn("Invalid order status: {}", status);
+                orders = orderRepository.findByCustomerAndDeletedAtIsNull(customer, pageable);
+            }
         } else {
             orders = orderRepository.findByCustomerAndDeletedAtIsNull(customer, pageable);
         }
@@ -233,6 +240,9 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
         return orders.map(this::convertToResponse);
     }
 
+    // ============================================
+    // 4. HỦY ĐƠN HÀNG
+    // ============================================
     @Override
     public OrderResponseDTO cancelOrder(Long orderId, Integer customerId, String reason) {
         Order order = orderRepository.findById(orderId)
@@ -242,15 +252,15 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
             throw new RuntimeException("Đơn hàng không thuộc về khách hàng này");
         }
 
-        if (!order.getOrderStatus().equals("PENDING_PAYMENT")) {
-            throw new RuntimeException("Chỉ có thể hủy đơn hàng đang chờ thanh toán");
+        String currentStatus = order.getOrderStatus().toString();
+        if (!"PENDING_PAYMENT".equals(currentStatus) && !"PROCESSING".equals(currentStatus)) {
+            throw new RuntimeException("Chỉ có thể hủy đơn hàng đang ở trạng thái 'Chờ thanh toán' hoặc 'Đang xử lý'");
         }
 
         order.setOrderStatus(OrderStatus.CANCELLED);
         order.setUpdatedAt(LocalDateTime.now());
         orderRepository.save(order);
 
-        // ✅ Trả lại số lượng sản phẩm
         List<OrderDetail> details = orderDetailRepository.findByOrder_OrderId(orderId);
         for (OrderDetail detail : details) {
             ProductDetail pd = detail.getProductDetail();
@@ -258,7 +268,6 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
             productDetailRepository.save(pd);
         }
 
-        // ✅ Trả lại số lần sử dụng voucher
         Voucher voucher = order.getVoucher();
         if (voucher != null) {
             voucher.setVoucherUsedCount(Math.max(0, voucher.getVoucherUsedCount() - 1));
@@ -268,16 +277,106 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
 
         OrderHistory history = new OrderHistory();
         history.setOrder(order);
+        history.setOrderStatus("CANCELLED");
         history.setNote("Đơn hàng bị hủy. Lý do: " + reason);
         history.setTimestamp(LocalDateTime.now());
         orderHistoryRepository.save(history);
 
+        log.info("✅ Order {} cancelled by customer {}, reason: {}", orderId, customerId, reason);
+
         return convertToResponse(order);
     }
 
-    /**
-     * ✅ KIỂM TRA VOUCHER HỢP LỆ
-     */
+    // ============================================
+    // 5. YÊU CẦU HOÀN HÀNG (CÓ ẢNH)
+    // ============================================
+    @Override
+    @Transactional
+    public ReturnRequestResponseDTO requestReturn(Long orderId, Integer customerId, ReturnRequestDTO request) {
+        log.info("🔄 Customer {} requesting return for order {}", customerId, orderId);
+
+        // 1. Kiểm tra đơn hàng tồn tại
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng"));
+
+        // 2. Kiểm tra quyền sở hữu
+        if (!order.getCustomer().getCustomerId().equals(customerId)) {
+            throw new RuntimeException("Đơn hàng không thuộc về khách hàng này");
+        }
+
+        // 3. Kiểm tra trạng thái (chỉ cho phép khi COMPLETED)
+        String currentStatus = order.getOrderStatus().toString();
+        if (!"COMPLETED".equals(currentStatus)) {
+            throw new RuntimeException("Chỉ có thể yêu cầu hoàn hàng khi đơn hàng đã hoàn thành");
+        }
+
+        // 4. Kiểm tra đã có yêu cầu hoàn hàng chưa
+        var existingReturn = returnRequestRepository.findByOrderIdAndDeletedAtIsNull(orderId);
+        if (existingReturn.isPresent()) {
+            String status = existingReturn.get().getStatus();
+            if ("PENDING".equals(status) || "APPROVED".equals(status) || "RETURN_PENDING".equals(status)) {
+                throw new RuntimeException("Đã có yêu cầu hoàn hàng đang được xử lý");
+            }
+        }
+
+        // 5. Chuyển đổi images sang JSON
+        String imagesJson = null;
+        if (request.getImages() != null && !request.getImages().isEmpty()) {
+            try {
+                ObjectMapper objectMapper = new ObjectMapper();
+                imagesJson = objectMapper.writeValueAsString(request.getImages());
+                log.info("✅ Images converted to JSON: {}", imagesJson);
+            } catch (Exception e) {
+                log.warn("Cannot convert images to JSON: {}", e.getMessage());
+            }
+        }
+
+        // 6. Tạo yêu cầu hoàn hàng
+        ReturnRequest returnRequest = ReturnRequest.builder()
+                .orderId(orderId)
+                .customerId(customerId)
+                .reason(request.getReason())
+                .description(request.getDescription())
+                .images(imagesJson)
+                .status("PENDING")
+                .build();
+
+        returnRequest = returnRequestRepository.save(returnRequest);
+        log.info("✅ Return request saved with ID: {}", returnRequest.getReturnRequestId());
+
+        // 7. Cập nhật trạng thái đơn hàng
+        order.setOrderStatus(OrderStatus.RETURN_REQUESTED);
+        order.setUpdatedAt(LocalDateTime.now());
+        orderRepository.save(order);
+
+        // 8. Ghi lịch sử
+        OrderHistory history = new OrderHistory();
+        history.setOrder(order);
+        history.setOrderStatus("RETURN_REQUESTED");
+        history.setNote("Khách hàng yêu cầu hoàn hàng. Lý do: " + request.getReason());
+        history.setTimestamp(LocalDateTime.now());
+        orderHistoryRepository.save(history);
+
+        log.info("✅ Return request created for order {}", orderId);
+
+        return convertToReturnResponse(returnRequest, order);
+    }
+
+    // ============================================
+    // 6. LẤY DANH SÁCH YÊU CẦU HOÀN HÀNG
+    // ============================================
+    @Override
+    public Page<ReturnRequestResponseDTO> getMyReturnRequests(Integer customerId, Pageable pageable) {
+        return returnRequestRepository.findByCustomerIdAndDeletedAtIsNull(customerId, pageable)
+                .map(r -> {
+                    Order order = orderRepository.findById(r.getOrderId()).orElse(null);
+                    return convertToReturnResponse(r, order);
+                });
+    }
+
+    // ============================================
+    // 7. KIỂM TRA VOUCHER HỢP LỆ
+    // ============================================
     private boolean isValidVoucher(Voucher voucher) {
         if (voucher == null) return false;
 
@@ -303,9 +402,9 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
         return isValid;
     }
 
-    /**
-     * ✅ CHUYỂN ĐỔI ORDER -> ORDER RESPONSE DTO
-     */
+    // ============================================
+    // 8. CHUYỂN ĐỔI ORDER -> ORDER RESPONSE DTO
+    // ============================================
     private OrderResponseDTO convertToResponse(Order order) {
         List<OrderDetail> details = orderDetailRepository.findByOrder_OrderId(order.getOrderId());
 
@@ -348,7 +447,6 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
                     .build();
         }
 
-        // ✅ LẤY THÔNG TIN VOUCHER
         Voucher voucher = order.getVoucher();
         VoucherInfoDTO voucherDTO = null;
         if (voucher != null) {
@@ -360,11 +458,9 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
                     .build();
         }
 
-        // ✅ LẤY DISCOUNT AMOUNT
         BigDecimal discountAmount = order.getOrderDiscountAmount() != null ?
                 order.getOrderDiscountAmount() : BigDecimal.ZERO;
 
-        // ✅ TÍNH TỔNG TIỀN
         BigDecimal totalAmount = order.getOrderSubtotalAmount()
                 .subtract(discountAmount)
                 .add(order.getOrderShippingFee() != null ? order.getOrderShippingFee() : BigDecimal.ZERO);
@@ -376,7 +472,7 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
                 .orderStatus(order.getOrderStatus().toString())
                 .paymentStatus(order.getPaymentStatus() != null ? order.getPaymentStatus().toString() : PaymentStatus.UNPAID.toString())
                 .subtotalAmount(order.getOrderSubtotalAmount())
-                .discountAmount(discountAmount)  // ✅ THÊM
+                .discountAmount(discountAmount)
                 .shippingFee(order.getOrderShippingFee())
                 .totalAmount(totalAmount)
                 .notes(order.getNotes())
@@ -388,8 +484,41 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
                         .email(order.getCustomer().getUser().getEmail())
                         .build())
                 .shippingAddress(shippingDTO)
-                .voucher(voucherDTO)  // ✅ THÊM
+                .voucher(voucherDTO)
                 .items(itemResponses)
+                .build();
+    }
+
+    // ============================================
+    // 9. CHUYỂN ĐỔI RETURN REQUEST -> RESPONSE DTO
+    // ============================================
+    private ReturnRequestResponseDTO convertToReturnResponse(ReturnRequest returnRequest, Order order) {
+        // Parse images từ JSON
+        List<String> images = null;
+        if (returnRequest.getImages() != null && !returnRequest.getImages().isEmpty()) {
+            try {
+                ObjectMapper objectMapper = new ObjectMapper();
+                images = objectMapper.readValue(
+                        returnRequest.getImages(),
+                        new TypeReference<List<String>>() {}
+                );
+            } catch (Exception e) {
+                log.warn("Cannot parse images: {}", e.getMessage());
+            }
+        }
+
+        String orderCode = order != null ? "ORD" + String.format("%08d", order.getOrderId()) : null;
+
+        return ReturnRequestResponseDTO.builder()
+                .orderId(returnRequest.getOrderId())
+                .orderCode(orderCode)
+                .reason(returnRequest.getReason())
+                .description(returnRequest.getDescription())
+                .images(images)
+                .status(returnRequest.getStatus())
+                .createdAt(returnRequest.getCreatedAt())
+                .updatedAt(returnRequest.getUpdatedAt())
+                .adminNote(returnRequest.getAdminNote())
                 .build();
     }
 }

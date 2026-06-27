@@ -1,6 +1,7 @@
 package com.example.backend_fashionstore.customer.profile.service;
 
 import com.example.backend_fashionstore.auth.repository.UserRepository;
+import com.example.backend_fashionstore.customer.profile.dto.request.ChangePasswordRequestDTO;
 import com.example.backend_fashionstore.customer.profile.dto.request.CustomerProfileRequestDTO;
 import com.example.backend_fashionstore.customer.profile.dto.response.CustomerProfileResponseDTO;
 import com.example.backend_fashionstore.customer.profile.repository.CustomerProfileRepository;
@@ -8,6 +9,7 @@ import com.example.backend_fashionstore.entity.Customer;
 import com.example.backend_fashionstore.entity.User;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,6 +20,7 @@ public class CustomerProfileService {
 
     private final CustomerProfileRepository customerProfileRepository;
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;  // ✅ Thêm PasswordEncoder
 
     public CustomerProfileResponseDTO getProfile(String email) {
         log.info("🔍 Getting profile for email: {}", email);
@@ -109,6 +112,35 @@ public class CustomerProfileService {
                 updatedCustomer.getAddress());
 
         return convertToDTO(updatedCustomer);
+    }
+
+    /**
+     * ✅ Đổi mật khẩu
+     */
+    @Transactional
+    public void changePassword(String email, ChangePasswordRequestDTO request) {
+        log.info("🔐 Changing password for email: {}", email);
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
+
+        // ✅ Kiểm tra mật khẩu hiện tại
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash())) {
+            log.warn("❌ Current password is incorrect for email: {}", email);
+            throw new RuntimeException("Mật khẩu hiện tại không chính xác");
+        }
+
+        // ✅ Kiểm tra mật khẩu mới không trùng mật khẩu cũ
+        if (passwordEncoder.matches(request.getNewPassword(), user.getPasswordHash())) {
+            log.warn("❌ New password is same as old password for email: {}", email);
+            throw new RuntimeException("Mật khẩu mới không được trùng với mật khẩu hiện tại");
+        }
+
+        // ✅ Cập nhật mật khẩu mới
+        user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+
+        log.info("✅ Password changed successfully for email: {}", email);
     }
 
     private CustomerProfileResponseDTO convertToDTO(Customer customer) {

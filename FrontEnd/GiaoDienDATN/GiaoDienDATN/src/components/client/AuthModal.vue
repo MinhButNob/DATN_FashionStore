@@ -227,35 +227,142 @@
             <i class="fas fa-times"></i>
           </button>
 
-          <div class="forgot-header">
-            <i class="fas fa-key"></i>
-            <h2>Quên mật khẩu?</h2>
-            <p>Nhập email để nhận hướng dẫn đặt lại mật khẩu</p>
-          </div>
-
-          <form @submit.prevent="handleForgotPassword">
-            <div class="form-group">
-              <i class="fas fa-envelope"></i>
-              <input
-                type="email"
-                v-model="forgotEmail"
-                placeholder="Email của bạn"
-                required
-              />
+          <!-- Bước 1: Nhập email -->
+          <div v-if="!otpSent" class="forgot-content">
+            <div class="forgot-header">
+              <i class="fas fa-key"></i>
+              <h2>Quên mật khẩu?</h2>
+              <p>Nhập email để nhận mã OTP đặt lại mật khẩu</p>
             </div>
 
-            <button type="submit" class="auth-btn" :disabled="forgotLoading">
-              <span v-if="!forgotLoading">GỬI YÊU CẦU</span>
-              <span v-else
-                ><i class="fas fa-spinner fa-spin"></i> Đang gửi...</span
-              >
-            </button>
-          </form>
+            <div v-if="forgotError" class="alert alert-error">
+              <i class="fas fa-exclamation-circle"></i>
+              {{ forgotError }}
+            </div>
 
-          <div class="back-to-login">
-            <a href="#" @click.prevent="backToLogin">
-              <i class="fas fa-arrow-left"></i> Quay lại đăng nhập
-            </a>
+            <form @submit.prevent="handleForgotPassword">
+              <div class="form-group">
+                <i class="fas fa-envelope"></i>
+                <input
+                  type="email"
+                  v-model="forgotEmail"
+                  placeholder="Email của bạn"
+                  required
+                  :disabled="forgotLoading"
+                />
+              </div>
+
+              <button type="submit" class="auth-btn" :disabled="forgotLoading">
+                <span v-if="!forgotLoading">GỬI MÃ OTP</span>
+                <span v-else
+                  ><i class="fas fa-spinner fa-spin"></i> Đang gửi...</span
+                >
+              </button>
+            </form>
+
+            <div class="back-to-login">
+              <a href="#" @click.prevent="backToLogin">
+                <i class="fas fa-arrow-left"></i> Quay lại đăng nhập
+              </a>
+            </div>
+          </div>
+
+          <!-- Bước 2: Nhập OTP và mật khẩu mới -->
+          <div v-else class="forgot-content">
+            <div class="forgot-header">
+              <i class="fas fa-key"></i>
+              <h2>Đặt lại mật khẩu</h2>
+              <p>Nhập mã OTP và mật khẩu mới của bạn</p>
+            </div>
+
+            <div v-if="resetError" class="alert alert-error">
+              <i class="fas fa-exclamation-circle"></i>
+              {{ resetError }}
+            </div>
+
+            <div v-if="resetSuccess" class="alert alert-success">
+              <i class="fas fa-check-circle"></i>
+              {{ resetSuccess }}
+            </div>
+
+            <form @submit.prevent="handleResetPassword">
+              <div class="form-group">
+                <i class="fas fa-shield-alt"></i>
+                <input
+                  type="text"
+                  v-model="resetForm.otp"
+                  placeholder="Mã OTP (6 số)"
+                  required
+                  maxlength="6"
+                  :disabled="resetLoading"
+                />
+              </div>
+
+              <div class="form-group">
+                <i class="fas fa-lock"></i>
+                <input
+                  :type="showResetPassword ? 'text' : 'password'"
+                  v-model="resetForm.newPassword"
+                  placeholder="Mật khẩu mới"
+                  required
+                  :disabled="resetLoading"
+                />
+                <i
+                  class="fas fa-eye toggle-password"
+                  :class="{ 'fa-eye-slash': showResetPassword }"
+                  @click="showResetPassword = !showResetPassword"
+                ></i>
+              </div>
+
+              <div class="form-group">
+                <i class="fas fa-lock"></i>
+                <input
+                  :type="showResetConfirmPassword ? 'text' : 'password'"
+                  v-model="resetForm.confirmPassword"
+                  placeholder="Xác nhận mật khẩu mới"
+                  required
+                  :disabled="resetLoading"
+                />
+                <i
+                  class="fas fa-eye toggle-password"
+                  :class="{ 'fa-eye-slash': showResetConfirmPassword }"
+                  @click="showResetConfirmPassword = !showResetConfirmPassword"
+                ></i>
+              </div>
+
+              <div class="password-requirements">
+                <p class="requirements-title">Mật khẩu phải có:</p>
+                <ul>
+                  <li :class="{ valid: resetForm.newPassword.length >= 6 }">
+                    <i :class="resetForm.newPassword.length >= 6 ? 'fas fa-check-circle' : 'far fa-circle'"></i>
+                    Ít nhất 6 ký tự
+                  </li>
+                  <li :class="{ valid: /[A-Z]/.test(resetForm.newPassword) }">
+                    <i :class="/[A-Z]/.test(resetForm.newPassword) ? 'fas fa-check-circle' : 'far fa-circle'"></i>
+                    Ít nhất 1 chữ hoa
+                  </li>
+                  <li :class="{ valid: /[0-9]/.test(resetForm.newPassword) }">
+                    <i :class="/[0-9]/.test(resetForm.newPassword) ? 'fas fa-check-circle' : 'far fa-circle'"></i>
+                    Ít nhất 1 số
+                  </li>
+                  <li :class="{ valid: resetForm.newPassword && resetForm.confirmPassword && resetForm.newPassword === resetForm.confirmPassword }">
+                    <i :class="resetForm.newPassword && resetForm.confirmPassword && resetForm.newPassword === resetForm.confirmPassword ? 'fas fa-check-circle' : 'far fa-circle'"></i>
+                    Mật khẩu xác nhận khớp
+                  </li>
+                </ul>
+              </div>
+
+              <button type="submit" class="auth-btn" :disabled="resetLoading || !isResetFormValid">
+                <span v-if="!resetLoading">ĐẶT LẠI MẬT KHẨU</span>
+                <span v-else><i class="fas fa-spinner fa-spin"></i> Đang xử lý...</span>
+              </button>
+            </form>
+
+            <div class="back-to-login">
+              <a href="#" @click.prevent="backToLogin">
+                <i class="fas fa-arrow-left"></i> Quay lại đăng nhập
+              </a>
+            </div>
           </div>
         </div>
       </div>
@@ -264,14 +371,14 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from "vue";
+import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useAuthStore } from "../../stores/authStore";
 import { useNotification } from "../../composables/useNotification";
-import { googleTokenLogin } from "vue3-google-login";
-import { googleSdkLoaded } from "vue3-google-login";
+import axios from "axios";
 
 const authStore = useAuthStore();
 const { showNotification } = useNotification();
+const API_BASE = "http://localhost:8080/api";
 
 // State
 const isOpen = ref(false);
@@ -282,7 +389,21 @@ const showRegisterPassword = ref(false);
 const showConfirmPassword = ref(false);
 const showForgotModal = ref(false);
 const forgotLoading = ref(false);
+const forgotError = ref("");
 const forgotEmail = ref("");
+const otpSent = ref(false);
+const resetLoading = ref(false);
+const resetError = ref("");
+const resetSuccess = ref("");
+const showResetPassword = ref(false);
+const showResetConfirmPassword = ref(false);
+
+// Reset form
+const resetForm = ref({
+  otp: "",
+  newPassword: "",
+  confirmPassword: "",
+});
 
 // Login form
 const loginForm = ref({
@@ -300,10 +421,20 @@ const registerForm = ref({
   confirmPassword: "",
   agreeTerms: false,
 });
+
+// Computed
+const isResetFormValid = computed(() => {
+  return resetForm.value.otp.length === 6 &&
+         resetForm.value.newPassword.length >= 6 &&
+         /[A-Z]/.test(resetForm.value.newPassword) &&
+         /[0-9]/.test(resetForm.value.newPassword) &&
+         resetForm.value.newPassword === resetForm.value.confirmPassword;
+});
+
+// ===== GIỮ NGUYÊN CÁC HÀM HIỆN CÓ =====
 const handleRegister = async () => {
   const form = registerForm.value;
 
-  // validate
   if (!form.name || !form.email || !form.password) {
     showNotification("Vui lòng nhập đầy đủ thông tin", "error");
     return;
@@ -335,7 +466,6 @@ const handleRegister = async () => {
 
     showNotification("Đăng ký thành công!", "success");
 
-    // reset form
     registerForm.value = {
       name: "",
       email: "",
@@ -345,7 +475,6 @@ const handleRegister = async () => {
       agreeTerms: false,
     };
 
-    // chuyển sang login
     activeTab.value = "login";
   } catch (error) {
     const message =
@@ -358,7 +487,6 @@ const handleRegister = async () => {
   }
 };
 
-// Methods
 const handleGoogleCallback = async (response) => {
   if (!response.credential) {
     showNotification("Đăng nhập Google thất bại", "error");
@@ -438,7 +566,6 @@ const handleLogin = async () => {
 
     closeModal();
 
-    // redirect admin/staff
     if (authStore.isAdmin) {
       window.location.href = "/admin";
     }
@@ -449,94 +576,20 @@ const handleLogin = async () => {
   }
 };
 
-// const socialLogin = async (provider) => {
-//   if (provider !== "google") return;
-
-//   loading.value = true;
-
-//   try {
-//     const response = await new Promise((resolve, reject) => {
-//       google.accounts.id.initialize({
-//         client_id:
-//           "402914017010-6lmb8tf0937e9gpmjfjh36ps6mf94lu6.apps.googleusercontent.com",
-
-//         callback: (response) => {
-//           if (!response.credential) {
-//             reject(new Error("Google login cancelled"));
-//             return;
-//           }
-
-//           resolve(response);
-//         },
-//       });
-
-//       google.accounts.id.prompt((notification) => {
-//         // user bấm X hoặc cancel
-//         if (
-//           notification.isNotDisplayed() ||
-//           notification.isSkippedMoment()
-//         ) {
-//           reject(new Error("Google login cancelled"));
-//         }
-//       });
-//     });
-
-//     const idToken = response.credential;
-
-//     const user = await authStore.googleLogin(idToken);
-
-//     showNotification(
-//       "Đăng nhập Google thành công!",
-//       "success"
-//     );
-
-//     closeModal();
-
-//     if (
-//       user.roles?.includes("ADMIN") ||
-//       user.roles?.includes("STAFF")
-//     ) {
-//       window.location.href = "/admin";
-//     }
-//   } catch (error) {
-//     console.error("Google Login Error:", error);
-
-//     // user tự đóng popup -> không báo lỗi đỏ
-//     if (
-//       error.message === "Google login cancelled"
-//     ) {
-//       return;
-//     }
-
-//     showNotification(
-//       "Đăng nhập Google thất bại",
-//       "error"
-//     );
-//   } finally {
-//     // QUAN TRỌNG
-//     loading.value = false;
-//   }
-// };
-
 const socialLogin = async (provider) => {
   loading.value = true;
 
   try {
-    // ======================
-    // GOOGLE LOGIN
-    // ======================
     if (provider === "google") {
       const response = await new Promise((resolve, reject) => {
         google.accounts.id.initialize({
           client_id:
             "402914017010-6lmb8tf0937e9gpmjfjh36ps6mf94lu6.apps.googleusercontent.com",
-
           callback: (response) => {
             if (!response.credential) {
               reject(new Error("Google login cancelled"));
               return;
             }
-
             resolve(response);
           },
         });
@@ -549,11 +602,9 @@ const socialLogin = async (provider) => {
       });
 
       const idToken = response.credential;
-
       const user = await authStore.googleLogin(idToken);
 
       showNotification("Đăng nhập Google thành công!", "success");
-
       closeModal();
 
       if (authStore.isAdmin) {
@@ -563,9 +614,6 @@ const socialLogin = async (provider) => {
       return;
     }
 
-    // ======================
-    // FACEBOOK LOGIN
-    // ======================
     if (provider === "facebook") {
       const response = await new Promise((resolve, reject) => {
         FB.login(
@@ -583,13 +631,9 @@ const socialLogin = async (provider) => {
       });
 
       const accessToken = response.authResponse.accessToken;
-
-      console.log("FACEBOOK TOKEN:", accessToken);
-
       const user = await authStore.facebookLogin(accessToken);
 
       showNotification("Đăng nhập Facebook thành công!", "success");
-
       closeModal();
 
       if (authStore.isAdmin) {
@@ -611,41 +655,122 @@ const socialLogin = async (provider) => {
   }
 };
 
+// ===== FORGOT PASSWORD =====
 const showForgotPassword = () => {
+  forgotEmail.value = "";
+  forgotError.value = "";
+  otpSent.value = false;
+  resetError.value = "";
+  resetSuccess.value = "";
+  resetForm.value = {
+    otp: "",
+    newPassword: "",
+    confirmPassword: "",
+  };
   showForgotModal.value = true;
 };
 
 const closeForgotModal = () => {
   showForgotModal.value = false;
   forgotEmail.value = "";
+  forgotError.value = "";
+  otpSent.value = false;
+  resetError.value = "";
+  resetSuccess.value = "";
+  resetForm.value = {
+    otp: "",
+    newPassword: "",
+    confirmPassword: "",
+  };
+  resetLoading.value = false;
 };
 
 const backToLogin = () => {
   closeForgotModal();
 };
 
+// Bước 1: Gửi OTP
 const handleForgotPassword = async () => {
   if (!forgotEmail.value) {
-    showNotification("Vui lòng nhập email", "error");
+    forgotError.value = "Vui lòng nhập email";
     return;
   }
 
+  forgotError.value = "";
   forgotLoading.value = true;
+
   try {
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    const response = await axios.post(`${API_BASE}/auth/forgot-password`, {
+      email: forgotEmail.value,
+    });
+
+    console.log("✅ Forgot password response:", response.data);
+    
+    otpSent.value = true;
     showNotification(
-      "Link đặt lại mật khẩu đã được gửi đến email của bạn!",
-      "success",
+      "Mã OTP đã được gửi đến email của bạn! Vui lòng kiểm tra hộp thư.",
+      "success"
     );
-    closeForgotModal();
   } catch (error) {
-    showNotification("Có lỗi xảy ra. Vui lòng thử lại sau.", "error");
+    console.error("❌ Forgot password error:", error);
+    forgotError.value =
+      error.response?.data?.message ||
+      "Email không tồn tại hoặc có lỗi xảy ra. Vui lòng thử lại.";
+    showNotification(forgotError.value, "error");
   } finally {
     forgotLoading.value = false;
   }
 };
 
+// Bước 2: Đặt lại mật khẩu với OTP
+const handleResetPassword = async () => {
+  resetError.value = "";
+  resetSuccess.value = "";
+
+  if (resetForm.value.otp.length !== 6) {
+    resetError.value = "Mã OTP phải có 6 số";
+    return;
+  }
+
+  if (resetForm.value.newPassword.length < 6) {
+    resetError.value = "Mật khẩu phải có ít nhất 6 ký tự";
+    return;
+  }
+
+  if (resetForm.value.newPassword !== resetForm.value.confirmPassword) {
+    resetError.value = "Mật khẩu xác nhận không khớp";
+    return;
+  }
+
+  resetLoading.value = true;
+
+  try {
+    const response = await axios.post(`${API_BASE}/auth/reset-password`, {
+      email: forgotEmail.value,
+      otp: resetForm.value.otp,
+      newPassword: resetForm.value.newPassword,
+    });
+
+    console.log("✅ Reset password response:", response.data);
+    
+    resetSuccess.value = "Đặt lại mật khẩu thành công!";
+    showNotification("Mật khẩu đã được cập nhật!", "success");
+
+    setTimeout(() => {
+      closeForgotModal();
+    }, 2000);
+  } catch (error) {
+    console.error("❌ Reset password error:", error);
+    resetError.value =
+      error.response?.data?.message ||
+      "Mã OTP không hợp lệ hoặc đã hết hạn. Vui lòng thử lại.";
+    showNotification(resetError.value, "error");
+  } finally {
+    resetLoading.value = false;
+  }
+};
+
+// ===== TERMS =====
 const showTerms = () => {
   showNotification("Điều khoản sử dụng", "info");
 };
@@ -691,7 +816,7 @@ onUnmounted(() => {
   max-width: 450px;
   position: relative;
   overflow: hidden;
-  max-height: 90vh; /* Ensure modal itself doesn't exceed screen height */
+  max-height: 90vh;
   display: flex;
   flex-direction: column;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
@@ -720,9 +845,9 @@ onUnmounted(() => {
   transform: rotate(90deg);
 }
 
-/* Tabs inside flex container */
+/* Tabs */
 .auth-tabs {
-  flex-shrink: 0; /* Keep tabs fixed while form scrolls */
+  flex-shrink: 0;
   display: flex;
   background: var(--light-gray);
   border-bottom: 1px solid var(--border-color);
@@ -753,7 +878,6 @@ onUnmounted(() => {
   overflow-y: auto;
 }
 
-/* Custom scrollbar for better look */
 .auth-form::-webkit-scrollbar {
   width: 6px;
 }
@@ -970,6 +1094,10 @@ onUnmounted(() => {
 }
 
 /* Forgot Password */
+.forgot-content {
+  padding: 20px 10px;
+}
+
 .forgot-header {
   text-align: center;
   margin-bottom: 30px;
@@ -1007,6 +1135,75 @@ onUnmounted(() => {
 
 .back-to-login a:hover {
   gap: 10px;
+}
+
+/* ✅ Alert styles */
+.alert {
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.alert-error {
+  background: #fee;
+  color: #dc3545;
+  border: 1px solid #fcc;
+}
+
+.alert-success {
+  background: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.alert i {
+  font-size: 18px;
+}
+
+/* ✅ Password Requirements */
+.password-requirements {
+  background: #f8f9fa;
+  padding: 15px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.requirements-title {
+  color: #2c3e50;
+  font-weight: 600;
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+
+.password-requirements ul {
+  list-style: none;
+  padding: 0;
+}
+
+.password-requirements li {
+  margin-bottom: 5px;
+  color: #999;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.password-requirements li i {
+  font-size: 12px;
+  color: #999;
+}
+
+.password-requirements li.valid {
+  color: #28a745;
+}
+
+.password-requirements li.valid i {
+  color: #28a745;
 }
 
 /* Animations */
@@ -1059,6 +1256,10 @@ onUnmounted(() => {
 
   .forgot-container {
     padding: 30px 20px;
+  }
+
+  .password-requirements li {
+    font-size: 12px;
   }
 }
 </style>
