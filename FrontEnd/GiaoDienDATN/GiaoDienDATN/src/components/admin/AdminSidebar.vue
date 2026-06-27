@@ -64,7 +64,7 @@ const menuSections = [
       { name: "Quản lý banner", path: "/admin/banners", icon: "fas fa-images" },
       { name: "Quản lý size", path: "/admin/sizes", icon: "fas fa-ruler-combined" },
       { name: "Quản lý màu sắc", path: "/admin/colors", icon: "fas fa-boxes" },
-      { name: "Đánh giá", path: "/admin/reviews", icon: "fas fa-star" },
+      { name: "Quản lý đánh giá", path: "/admin/reviews", icon: "fas fa-star" },
       { name: "Quản lý khuyến mãi", path: "/admin/promotions", icon: "fas fa-percent" },
       { name: "Voucher", path: "/admin/vouchers", icon: "fas fa-ticket-alt" },
     ],

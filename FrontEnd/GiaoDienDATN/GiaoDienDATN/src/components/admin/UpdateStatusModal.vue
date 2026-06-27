@@ -1,192 +1,162 @@
 <template>
-  <Teleport to="body">
-    <Transition name="modal">
-      <div v-if="visible" class="modal-overlay" @click.self="close">
-        <div class="modal-container">
-          <div class="modal-header">
-            <h3>
-              <i class="fas fa-exchange-alt"></i>
-              Cập nhật trạng thái đơn hàng
-            </h3>
-            <button class="close-btn" @click="close">
-              <i class="fas fa-times"></i>
-            </button>
-          </div>
+  <div v-if="visible" class="modal-overlay" @click.self="close">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3>Cập nhật trạng thái đơn hàng</h3>
+        <button class="close-btn" @click="close">✕</button>
+      </div>
 
-          <div class="modal-body" v-if="order">
-            <!-- Thông tin đơn hàng -->
-            <div class="order-info">
-              <div class="info-row">
-                <span class="label">Mã đơn hàng:</span>
-                <span class="value">#{{ order.orderCode || order.orderId }}</span>
-              </div>
-              <div class="info-row">
-                <span class="label">Ngày đặt:</span>
-                <span class="value">{{ formatDate(order.orderDate) }}</span>
-              </div>
-              <div class="info-row">
-                <span class="label">Khách hàng:</span>
-                <span class="value">{{ order.customer?.customerName || 'Khách vãng lai' }}</span>
-              </div>
-              <div class="info-row">
-                <span class="label">Số điện thoại:</span>
-                <span class="value">{{ order.customer?.phone || '---' }}</span>
-              </div>
-              <div class="info-row">
-                <span class="label">Email:</span>
-                <span class="value">{{ order.customer?.email || '---' }}</span>
-              </div>
-              <div class="info-row address-row">
-                <span class="label">Địa chỉ giao hàng:</span>
-                <span class="value">
-                  <i class="fas fa-map-marker-alt"></i>
-                  {{ getFullAddress(order.shippingAddress) }}
-                </span>
-              </div>
-              <div class="info-row">
-                <span class="label">Tổng tiền:</span>
-                <span class="value total-amount">{{ formatPrice(order.totalAmount) }}</span>
-              </div>
-            </div>
+      <div class="modal-body">
+        <!-- Thông tin đơn hàng -->
+        <div class="order-info">
+          <p><strong>Mã đơn hàng:</strong> #{{ order?.orderCode || order?.orderId }}</p>
+          <p><strong>Trạng thái hiện tại:</strong> 
+            <span :class="['status-badge', getStatusClass(order?.orderStatus)]">
+              {{ getStatusText(order?.orderStatus) }}
+            </span>
+          </p>
+        </div>
 
-            <!-- Trạng thái hiện tại -->
-            <div class="current-status">
-              <span class="status-label">Trạng thái hiện tại:</span>
-              <span :class="['status-badge', getStatusClass(order.orderStatus)]">
-                {{ getStatusText(order.orderStatus) }}
-              </span>
-            </div>
-
-            <!-- Chọn trạng thái mới -->
-            <div class="status-select-group">
-              <label class="form-label">Chọn trạng thái mới</label>
-              <select v-model="selectedStatus" class="status-select-input">
-                <option 
-                  v-for="status in availableStatuses" 
-                  :key="status.value"
-                  :value="status.value"
-                  :disabled="status.value === order.orderStatus"
-                >
-                  {{ status.label }}
-                  <span v-if="status.value === order.orderStatus">(Hiện tại)</span>
-                </option>
-              </select>
-            </div>
-
-            <!-- Ghi chú -->
-            <div class="notes-group">
-              <label class="form-label">Ghi chú (không bắt buộc)</label>
-              <textarea 
-                v-model="notes" 
-                rows="3" 
-                placeholder="Nhập ghi chú cho việc cập nhật trạng thái..."
-                class="notes-input"
-              ></textarea>
-            </div>
-
-            <!-- Thông báo lỗi -->
-            <div v-if="errorMessage" class="error-message">
-              <i class="fas fa-exclamation-circle"></i>
-              {{ errorMessage }}
-            </div>
-          </div>
-
-          <div class="modal-footer">
-            <button class="btn btn-cancel" @click="close">
-              <i class="fas fa-times"></i> Hủy
-            </button>
-            <button 
-              class="btn btn-update" 
-              @click="updateStatus"
-              :disabled="loading || selectedStatus === order?.orderStatus"
+        <!-- Chọn trạng thái mới -->
+        <div class="form-group">
+          <label>Chọn trạng thái mới <span class="required">*</span></label>
+          <select v-model="selectedStatus" class="form-control">
+            <option value="" disabled>-- Chọn trạng thái --</option>
+            <option 
+              v-for="status in availableStatuses" 
+              :key="status.value"
+              :value="status.value"
             >
-              <i v-if="loading" class="fas fa-spinner fa-spin"></i>
-              <i v-else class="fas fa-save"></i>
-              {{ loading ? 'Đang cập nhật...' : 'Cập nhật trạng thái' }}
-            </button>
-          </div>
+              {{ status.label }}
+            </option>
+          </select>
+          <small v-if="availableStatuses.length === 0" class="text-muted">
+            Không thể cập nhật trạng thái này
+          </small>
+        </div>
+
+        <!-- Ghi chú -->
+        <div class="form-group">
+          <label>Ghi chú (tùy chọn)</label>
+          <textarea 
+            v-model="notes" 
+            rows="3" 
+            placeholder="Nhập ghi chú cho khách hàng..."
+            class="form-control"
+          ></textarea>
+        </div>
+
+        <div v-if="error" class="error-message">
+          <i class="fas fa-exclamation-circle"></i>
+          {{ error }}
         </div>
       </div>
-    </Transition>
-  </Teleport>
+
+      <div class="modal-footer">
+        <button class="btn btn-outline" @click="close">Hủy</button>
+        <button 
+          class="btn btn-primary" 
+          @click="updateStatus" 
+          :disabled="loading || !selectedStatus"
+        >
+          <i v-if="loading" class="fas fa-spinner fa-spin"></i>
+          {{ loading ? 'Đang cập nhật...' : 'Cập nhật' }}
+        </button>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup>
 import { ref, watch, computed } from 'vue'
-import { adminOrderService } from '../../services/adminOrderService'
+import axios from 'axios'
 
 const props = defineProps({
-  visible: {
-    type: Boolean,
-    default: false
-  },
-  order: {
-    type: Object,
-    default: null
-  }
+  visible: Boolean,
+  order: Object
 })
 
 const emit = defineEmits(['close', 'updated'])
 
+const API_BASE = "http://localhost:8080/api/admin/orders"
+
 const loading = ref(false)
-const selectedStatus = ref('')
+const error = ref('')
 const notes = ref('')
-const errorMessage = ref('')
+const selectedStatus = ref('')
 
-// Danh sách trạng thái có thể chọn
-const availableStatuses = [
-  { value: 'PENDING_PAYMENT', label: 'Chờ thanh toán' },
-  { value: 'PROCESSING', label: 'Đang xử lý' },
-  { value: 'SHIPPING', label: 'Đang giao hàng' },
-  { value: 'COMPLETED', label: 'Hoàn thành' },
-  { value: 'CANCELLED', label: 'Đã hủy' }
-]
+// ✅ Các trạng thái Admin được phép chuyển tiếp
+const ADMIN_STATUS_TRANSITIONS = {
+  'PENDING_PAYMENT': ['CONFIRMED'],
+  'CONFIRMED': ['PROCESSING'],
+  'PROCESSING': ['SHIPPING'],
+  'SHIPPING': ['DELIVERED'],
+  'DELIVERED': ['COMPLETED'],
+  // 🆕 Thêm chuyển đổi cho trạng thái hoàn hàng
+  'RETURN_APPROVED': ['RETURN_RECEIVED'],
+  'RETURN_RECEIVED': ['RETURNED']  // Từ Đã nhận hàng trả -> Đã hoàn trả
+}
 
-// Watch để reset khi mở modal
-watch(() => props.visible, (newVal) => {
-  if (newVal && props.order) {
-    selectedStatus.value = props.order.orderStatus || ''
-    notes.value = ''
-    errorMessage.value = ''
+// ✅ Các trạng thái cuối (không thể cập nhật)
+const FINAL_STATUSES = ['CANCELLED', 'RETURNED', 'RETURN_REQUESTED', 'RETURN_PENDING', 'REJECTED']
+
+// ✅ Lấy danh sách trạng thái có thể chọn
+const availableStatuses = computed(() => {
+  if (!props.order || !props.order.orderStatus) {
+    return []
   }
+  
+  const currentStatus = props.order.orderStatus
+  
+  // Nếu là trạng thái cuối, không hiển thị gì
+  if (FINAL_STATUSES.includes(currentStatus)) {
+    return []
+  }
+  
+  // Nếu đang ở DELIVERED, cho phép chuyển sang COMPLETED
+  if (currentStatus === 'DELIVERED') {
+    return [
+      { value: 'COMPLETED', label: 'Hoàn thành' }
+    ]
+  }
+  
+  // Nếu đang ở RETURN_APPROVED, cho phép chuyển sang RETURN_RECEIVED
+  if (currentStatus === 'RETURN_APPROVED') {
+    return [
+      { value: 'RETURN_RECEIVED', label: 'Đã nhận hàng trả' }
+    ]
+  }
+  
+  // Nếu đang ở RETURN_RECEIVED, cho phép chuyển sang RETURNED
+  if (currentStatus === 'RETURN_RECEIVED') {
+    return [
+      { value: 'RETURNED', label: 'Đã hoàn trả' }
+    ]
+  }
+  
+  const allowed = ADMIN_STATUS_TRANSITIONS[currentStatus] || []
+  
+  return allowed.map(status => ({
+    value: status,
+    label: getStatusText(status)
+  }))
 })
-
-// Lấy địa chỉ đầy đủ
-const getFullAddress = (address) => {
-  if (!address) return 'Không có địa chỉ'
-  
-  const parts = []
-  if (address.addressLine) parts.push(address.addressLine)
-  if (address.ward) parts.push(address.ward)
-  if (address.district) parts.push(address.district)
-  if (address.city) parts.push(address.city)
-  
-  return parts.length > 0 ? parts.join(', ') : 'Không có địa chỉ'
-}
-
-// Format functions
-const formatPrice = (price) => {
-  if (!price && price !== 0) return '0₫'
-  const num = Number(price)
-  if (isNaN(num)) return '0₫'
-  return num.toLocaleString('vi-VN') + '₫'
-}
-
-const formatDate = (dateString) => {
-  if (!dateString) return '---'
-  const date = new Date(dateString)
-  if (isNaN(date.getTime())) return '---'
-  return date.toLocaleDateString('vi-VN') + ' ' + 
-         date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
-}
 
 const getStatusText = (status) => {
   const map = {
     'PENDING_PAYMENT': 'Chờ thanh toán',
+    'CONFIRMED': 'Đã xác nhận',
     'PROCESSING': 'Đang xử lý',
-    'SHIPPING': 'Đang giao',
+    'SHIPPING': 'Đang giao hàng',
+    'DELIVERED': 'Đã giao hàng',
     'COMPLETED': 'Hoàn thành',
-    'CANCELLED': 'Đã hủy'
+    'CANCELLED': 'Đã hủy',
+    'RETURN_REQUESTED': 'Yêu cầu hoàn hàng',
+    'RETURN_APPROVED': 'Đã duyệt hoàn hàng',
+    'RETURN_RECEIVED': 'Đã nhận hàng trả',
+    'RETURN_PENDING': 'Đang thu hồi hàng',
+    'RETURNED': 'Đã hoàn trả',
+    'REJECTED': 'Đã từ chối hoàn trả'  // ✅ Thêm
   }
   return map[status] || status
 }
@@ -194,66 +164,89 @@ const getStatusText = (status) => {
 const getStatusClass = (status) => {
   const map = {
     'PENDING_PAYMENT': 'status-pending',
+    'CONFIRMED': 'status-confirmed',
     'PROCESSING': 'status-processing',
     'SHIPPING': 'status-shipping',
+    'DELIVERED': 'status-delivered',
     'COMPLETED': 'status-completed',
-    'CANCELLED': 'status-cancelled'
+    'CANCELLED': 'status-cancelled',
+    'RETURN_REQUESTED': 'status-return-requested',
+    'RETURN_APPROVED': 'status-return-approved',
+    'RETURN_RECEIVED': 'status-return-received',
+    'RETURN_PENDING': 'status-return-pending',
+    'RETURNED': 'status-returned',
+    'REJECTED': 'status-rejected'  // ✅ Thêm
   }
   return map[status] || ''
 }
 
 const close = () => {
+  error.value = ''
+  notes.value = ''
+  selectedStatus.value = ''
   emit('close')
 }
 
 const updateStatus = async () => {
-  if (!props.order) return
-  
-  const oldStatus = props.order.orderStatus
-  const newStatus = selectedStatus.value
-  
-  if (oldStatus === newStatus) {
-    errorMessage.value = 'Trạng thái mới trùng với trạng thái hiện tại'
-    return
-  }
-
-  // Xác nhận trước khi cập nhật
-  const confirmMessage = `Bạn có chắc muốn chuyển trạng thái đơn hàng #${props.order.orderCode || props.order.orderId} từ "${getStatusText(oldStatus)}" sang "${getStatusText(newStatus)}"?`
-  
-  if (!confirm(confirmMessage)) {
+  if (!selectedStatus.value) {
+    error.value = 'Vui lòng chọn trạng thái mới'
     return
   }
 
   loading.value = true
-  errorMessage.value = ''
+  error.value = ''
 
   try {
-    const response = await adminOrderService.updateOrderStatus(props.order.orderId, {
-      orderStatus: newStatus,
-      notes: notes.value || `Admin cập nhật trạng thái từ "${getStatusText(oldStatus)}" sang "${getStatusText(newStatus)}"`
-    })
-
-    if (response.data) {
-      // Cập nhật thành công
-      emit('updated', {
-        orderId: props.order.orderId,
-        oldStatus: oldStatus,
-        newStatus: newStatus,
-        data: response.data
-      })
-      close()
+    const token = localStorage.getItem('token')
+    const payload = {
+      orderStatus: selectedStatus.value,
+      notes: notes.value || null
     }
-  } catch (error) {
-    console.error('❌ Error updating order status:', error)
-    errorMessage.value = error.response?.data?.message || 'Cập nhật thất bại! Vui lòng thử lại.'
+
+    console.log('📤 Updating order status:', payload)
+
+    const response = await axios.put(
+      `${API_BASE}/${props.order.orderId}/status`,
+      payload,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    )
+
+    console.log('✅ Order status updated:', response.data)
+
+    emit('updated', {
+      orderId: props.order.orderId,
+      newStatus: selectedStatus.value,
+      data: response.data
+    })
+    
+    close()
+  } catch (err) {
+    console.error('❌ Error updating order status:', err)
+    console.error('❌ Error response:', err.response?.data)
+    
+    const message = err.response?.data?.message || 'Không thể cập nhật trạng thái đơn hàng'
+    error.value = message
   } finally {
     loading.value = false
   }
 }
+
+// Reset khi modal mở
+watch(() => props.visible, (newVal) => {
+  if (newVal && props.order) {
+    selectedStatus.value = ''
+    error.value = ''
+    notes.value = ''
+  }
+})
 </script>
 
 <style scoped>
-/* ===== OVERLAY ===== */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -264,143 +257,181 @@ const updateStatus = async () => {
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 2000;
+  z-index: 1000;
   backdrop-filter: blur(5px);
-  padding: 20px;
 }
 
 .modal-container {
   background: white;
   border-radius: 16px;
-  width: 100%;
-  max-width: 550px;
+  width: 90%;
+  max-width: 500px;
   max-height: 90vh;
   overflow-y: auto;
-  animation: slideUp 0.3s ease;
+  animation: slideIn 0.3s;
 }
 
-/* ===== HEADER ===== */
+@keyframes slideIn {
+  from { transform: translateY(-30px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
 .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 20px 24px;
-  background: linear-gradient(135deg, #e63946, #ff6b6b);
-  border-radius: 16px 16px 0 0;
-  position: sticky;
-  top: 0;
-  z-index: 1;
+  border-bottom: 1px solid #eee;
 }
 
 .modal-header h3 {
-  color: white;
   margin: 0;
   font-size: 18px;
-  font-weight: 600;
-}
-
-.modal-header h3 i {
-  margin-right: 10px;
+  color: #2c3e50;
 }
 
 .close-btn {
-  background: rgba(255, 255, 255, 0.2);
+  background: none;
   border: none;
-  color: white;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
+  font-size: 24px;
   cursor: pointer;
+  color: #999;
   transition: all 0.3s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
 }
 
 .close-btn:hover {
-  background: rgba(255, 255, 255, 0.3);
+  color: #e63946;
   transform: rotate(90deg);
 }
 
-/* ===== BODY ===== */
 .modal-body {
   padding: 24px;
 }
 
-/* Order Info */
 .order-info {
   background: #f8f9fa;
-  border-radius: 10px;
-  padding: 16px;
-  margin-bottom: 16px;
+  padding: 15px;
+  border-radius: 8px;
+  margin-bottom: 20px;
 }
 
-.info-row {
-  display: flex;
-  padding: 6px 0;
-  font-size: 14px;
+.order-info p {
+  margin: 5px 0;
 }
 
-.info-row .label {
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
   font-weight: 600;
   color: #2c3e50;
-  width: 140px;
-  flex-shrink: 0;
+  margin-bottom: 8px;
 }
 
-.info-row .value {
-  color: #555;
-  flex: 1;
-  word-break: break-word;
-}
-
-.address-row .value {
-  display: flex;
-  align-items: flex-start;
-  gap: 6px;
-}
-
-.address-row .value i {
+.required {
   color: #e63946;
-  margin-top: 2px;
-  flex-shrink: 0;
 }
 
-.total-amount {
-  font-weight: 700;
-  color: #e63946;
-  font-size: 16px;
+.form-control {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 14px;
+  transition: all 0.3s;
 }
 
-/* Current Status */
-.current-status {
+.form-control:focus {
+  outline: none;
+  border-color: #e63946;
+  box-shadow: 0 0 0 3px rgba(230, 57, 70, 0.1);
+}
+
+textarea.form-control {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.text-muted {
+  display: block;
+  margin-top: 6px;
+  font-size: 13px;
+  color: #999;
+}
+
+.error-message {
+  padding: 12px 16px;
+  background: #fee;
+  color: #dc3545;
+  border-radius: 8px;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
-  background: #f0f0f0;
-  border-radius: 8px;
-  margin-bottom: 16px;
+  gap: 8px;
+  font-size: 14px;
 }
 
-.status-label {
-  font-weight: 600;
-  color: #2c3e50;
+.modal-footer {
+  padding: 16px 24px;
+  border-top: 1px solid #eee;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.btn {
+  padding: 10px 24px;
+  border: none;
+  border-radius: 8px;
   font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.btn-outline {
+  background: #f8f9fa;
+  color: #666;
+  border: 1px solid #ddd;
+}
+
+.btn-outline:hover {
+  background: #e9ecef;
+}
+
+.btn-primary {
+  background: #e63946;
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #c62828;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(230, 57, 70, 0.3);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .status-badge {
   display: inline-block;
-  padding: 4px 14px;
+  padding: 4px 12px;
   border-radius: 20px;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
 }
 
 .status-badge.status-pending {
   background: #fff3cd;
   color: #856404;
+}
+.status-badge.status-confirmed {
+  background: #cce5ff;
+  color: #004085;
 }
 .status-badge.status-processing {
   background: #cce5ff;
@@ -410,6 +441,10 @@ const updateStatus = async () => {
   background: #d1ecf1;
   color: #0c5460;
 }
+.status-badge.status-delivered {
+  background: #d4edda;
+  color: #155724;
+}
 .status-badge.status-completed {
   background: #d4edda;
   color: #155724;
@@ -418,189 +453,28 @@ const updateStatus = async () => {
   background: #f8d7da;
   color: #721c24;
 }
-
-/* Select Status */
-.status-select-group {
-  margin-bottom: 16px;
+.status-badge.status-return-requested {
+  background: #fff3cd;
+  color: #856404;
 }
-
-.form-label {
-  display: block;
-  font-weight: 600;
-  color: #2c3e50;
-  margin-bottom: 8px;
-  font-size: 14px;
+.status-badge.status-return-approved {
+  background: #cce5ff;
+  color: #004085;
 }
-
-.status-select-input {
-  width: 100%;
-  padding: 12px 16px;
-  border: 2px solid #e0e0e0;
-  border-radius: 10px;
-  font-size: 14px;
-  outline: none;
-  transition: border-color 0.3s;
-  background: white;
-  cursor: pointer;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 16px center;
+.status-badge.status-return-received {
+  background: #cce5ff;
+  color: #004085;
 }
-
-.status-select-input:focus {
-  border-color: #e63946;
-  box-shadow: 0 0 0 3px rgba(230, 57, 70, 0.1);
+.status-badge.status-return-pending {
+  background: #d1ecf1;
+  color: #0c5460;
 }
-
-.status-select-input:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+.status-badge.status-returned {
+  background: #d4edda;
+  color: #155724;
 }
-
-/* Notes */
-.notes-group {
-  margin-bottom: 16px;
-}
-
-.notes-input {
-  width: 100%;
-  padding: 12px 16px;
-  border: 2px solid #e0e0e0;
-  border-radius: 10px;
-  font-size: 14px;
-  outline: none;
-  transition: border-color 0.3s;
-  resize: vertical;
-  font-family: inherit;
-  min-height: 80px;
-}
-
-.notes-input:focus {
-  border-color: #e63946;
-  box-shadow: 0 0 0 3px rgba(230, 57, 70, 0.1);
-}
-
-/* Error */
-.error-message {
-  padding: 12px 16px;
-  background: #fde8e8;
-  border-radius: 8px;
-  color: #e63946;
-  font-size: 14px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-/* ===== FOOTER ===== */
-.modal-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  padding: 16px 24px 24px;
-  border-top: 1px solid #eee;
-}
-
-.btn {
-  padding: 10px 24px;
-  border: none;
-  border-radius: 10px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.btn-cancel {
-  background: #f0f0f0;
-  color: #666;
-}
-
-.btn-cancel:hover {
-  background: #e0e0e0;
-}
-
-.btn-update {
-  background: linear-gradient(135deg, #e63946, #ff6b6b);
-  color: white;
-}
-
-.btn-update:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 15px rgba(230, 57, 70, 0.3);
-}
-
-.btn-update:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none;
-}
-
-/* ===== ANIMATIONS ===== */
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(50px) scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-.modal-enter-active,
-.modal-leave-active {
-  transition: all 0.3s ease;
-}
-
-.modal-enter-from,
-.modal-leave-to {
-  opacity: 0;
-  transform: scale(0.9);
-}
-
-/* ===== RESPONSIVE ===== */
-@media (max-width: 480px) {
-  .modal-container {
-    max-width: 100%;
-    margin: 10px;
-    border-radius: 12px;
-  }
-
-  .modal-header {
-    padding: 16px 20px;
-  }
-
-  .modal-body {
-    padding: 16px 20px;
-  }
-
-  .modal-footer {
-    flex-direction: column;
-  }
-
-  .btn {
-    width: 100%;
-    justify-content: center;
-  }
-
-  .info-row {
-    flex-direction: column;
-    padding: 4px 0;
-  }
-
-  .info-row .label {
-    width: 100%;
-    margin-bottom: 2px;
-  }
-
-  .current-status {
-    flex-direction: column;
-    align-items: flex-start;
-  }
+.status-badge.status-rejected {
+  background: #f8d7da;
+  color: #721c24;
 }
 </style>
