@@ -1,3 +1,4 @@
+// services/bannerService.js
 import { bannerApiService } from '../api/bannerApi';
 
 const bannerService = {
@@ -20,6 +21,21 @@ const bannerService = {
     } catch (error) {
       console.error('Lỗi lấy danh sách banner:', error);
       throw error;
+    }
+  },
+
+  // ✅ THÊM: Kiểm tra thứ tự đã tồn tại
+  async checkOrderExists(order, excludeId = null) {
+    try {
+        const params = { order };
+        if (excludeId) {
+            params.excludeId = excludeId;
+        }
+        const data = await bannerApiService.checkOrderExists(params);
+        return data;
+    } catch (error) {
+        console.error('Lỗi kiểm tra thứ tự:', error);
+        throw error;
     }
   },
 

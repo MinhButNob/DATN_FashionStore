@@ -1,3 +1,4 @@
+// stores/bannerStore.js
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
 import bannerService from "../services/bannerService";
@@ -35,7 +36,6 @@ export const useBannerStore = defineStore("banners", () => {
       const res = await bannerService.getActiveBanners();
       activeBanners.value = res.data || [];
       console.log('✅ Active banners loaded:', activeBanners.value.length);
-      // ✅ Log image paths để debug
       activeBanners.value.forEach(b => {
         console.log(`📸 Banner "${b.title}" image path:`, b.imagePath);
       });
@@ -70,10 +70,36 @@ export const useBannerStore = defineStore("banners", () => {
     }
   }
 
+  // ✅ THÊM: Kiểm tra thứ tự
+  async function checkOrderExists(order, excludeId = null) {
+    try {
+      const result = await bannerService.checkOrderExists(order, excludeId);
+      return result;
+    } catch (e) {
+      console.error("checkOrderExists error:", e);
+      return { exists: false, message: "Lỗi kiểm tra" };
+    }
+  }
+
+  // ✅ SỬA: Thêm validation trước khi tạo
   async function createBanner(formData) {
     saving.value = true;
     error.value = null;
     try {
+      // Lấy displayOrder từ formData
+      const displayOrder = formData.get('displayOrder');
+      
+      if (displayOrder !== null && displayOrder !== '' && Number(displayOrder) >= 0) {
+        // Kiểm tra trùng lặp
+        const check = await checkOrderExists(Number(displayOrder));
+        if (check.exists) {
+          return {
+            success: false,
+            message: `Thứ tự ${displayOrder} đã được sử dụng. Vui lòng chọn thứ tự khác.`,
+          };
+        }
+      }
+
       console.log("📤 Creating banner with data:");
       for (let [key, value] of formData.entries()) {
         console.log(`  ${key}: ${value instanceof File ? `File: ${value.name} (${value.size} bytes)` : value}`);
@@ -124,10 +150,25 @@ export const useBannerStore = defineStore("banners", () => {
     }
   }
 
+  // ✅ SỬA: Thêm validation trước khi cập nhật
   async function updateBanner(id, formData) {
     saving.value = true;
     error.value = null;
     try {
+      // Lấy displayOrder từ formData
+      const displayOrder = formData.get('displayOrder');
+      
+      if (displayOrder !== null && displayOrder !== '' && Number(displayOrder) >= 0) {
+        // Kiểm tra trùng lặp (không tính banner đang sửa)
+        const check = await checkOrderExists(Number(displayOrder), id);
+        if (check.exists) {
+          return {
+            success: false,
+            message: `Thứ tự ${displayOrder} đã được sử dụng bởi banner khác. Vui lòng chọn thứ tự khác.`,
+          };
+        }
+      }
+
       console.log(`📤 Updating banner ${id} with data:`);
       for (let [key, value] of formData.entries()) {
         console.log(`  ${key}: ${value instanceof File ? `File: ${value.name} (${value.size} bytes)` : value}`);
@@ -246,6 +287,7 @@ export const useBannerStore = defineStore("banners", () => {
     // actions
     fetchActiveBanners,
     fetchBanners,
+    checkOrderExists,
     createBanner,
     updateBanner,
     deleteBanner,

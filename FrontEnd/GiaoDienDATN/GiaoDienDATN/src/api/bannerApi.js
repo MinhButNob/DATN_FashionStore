@@ -1,3 +1,4 @@
+// api/bannerApi.js
 import axios from 'axios';
 
 // ========== CONFIGURATION ==========
@@ -22,7 +23,6 @@ bannerApi.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
 
-    // ✅ Nếu là FormData, xóa Content-Type để browser tự set
     if (config.data instanceof FormData) {
       delete config.headers['Content-Type'];
       console.log('📤 Sending FormData request to:', config.url);
@@ -108,9 +108,19 @@ export const bannerApiService = {
     }
   },
 
+  // ✅ THÊM: Kiểm tra thứ tự
+  async checkOrderExists(params) {
+    try {
+        const response = await bannerApi.get('/admin/banners/check-order', { params });
+        return response.data;
+    } catch (error) {
+        console.error('❌ Failed to check order:', error);
+        throw error;
+    }
+  },
+
   async createBanner(formData) {
     try {
-      // ✅ Log FormData để debug
       console.log('📤 Creating banner with FormData:');
       for (let [key, value] of formData.entries()) {
         console.log(`  ${key}:`, value instanceof File ? `File: ${value.name} (${value.size} bytes)` : value);

@@ -55,12 +55,39 @@ public class BannerController {
         }
     }
 
+    // ========== CHECK ORDER EXISTS (ĐÃ SỬA) ==========
+    @GetMapping("/admin/banners/check-order")
+    public ResponseEntity<?> checkOrderExists(
+            @RequestParam(required = false) Integer order,
+            @RequestParam(required = false) Integer excludeId
+    ) {
+        try {
+            // Kiểm tra order null
+            if (order == null) {
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("exists", false);
+                errorResponse.put("message", "Vui lòng nhập thứ tự hiển thị");
+                return ResponseEntity.badRequest().body(errorResponse);
+            }
+
+            Map<String, Object> result = bannerService.checkOrderExists(order, excludeId);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            log.error("Error checking order: ", e);
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("message", "Lỗi kiểm tra thứ tự: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+
+    // ========== CREATE BANNER ==========
     @PostMapping("/admin/banners")
     public ResponseEntity<?> createBanner(@ModelAttribute BannerDto.BannerRequest request) {
         try {
-            log.info("Creating banner with title: {}", request.getTitle());
+            log.info("Creating banner with title: {}, displayOrder: {}",
+                    request.getTitle(), request.getDisplayOrder());
 
-            // Validate manually
+            // Validate cơ bản
             Map<String, String> errors = validateBannerRequest(request, true);
             if (!errors.isEmpty()) {
                 return ResponseEntity.badRequest().body(errors);
@@ -79,13 +106,15 @@ public class BannerController {
         }
     }
 
+    // ========== UPDATE BANNER ==========
     @PutMapping("/admin/banners/{id}")
     public ResponseEntity<?> updateBanner(
             @PathVariable Integer id,
             @ModelAttribute BannerDto.BannerRequest request
     ) {
         try {
-            log.info("Updating banner {} with title: {}", id, request.getTitle());
+            log.info("Updating banner {} with title: {}, displayOrder: {}",
+                    id, request.getTitle(), request.getDisplayOrder());
 
             Map<String, String> errors = validateBannerRequest(request, false);
             if (!errors.isEmpty()) {
@@ -109,6 +138,7 @@ public class BannerController {
         }
     }
 
+    // ========== DELETE BANNER ==========
     @DeleteMapping("/admin/banners/{id}")
     public ResponseEntity<?> deleteBanner(@PathVariable Integer id) {
         try {
@@ -125,6 +155,7 @@ public class BannerController {
         }
     }
 
+    // ========== RESTORE BANNER ==========
     @PatchMapping("/admin/banners/{id}/restore")
     public ResponseEntity<?> restoreBanner(@PathVariable Integer id) {
         try {

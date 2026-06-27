@@ -18,12 +18,14 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.nio.file.*;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Slf4j
-@Service
+@Service  // ✅ QUAN TRỌNG: Phải có @Service
 @RequiredArgsConstructor
 @Transactional
 public class BannerService {
@@ -34,6 +36,7 @@ public class BannerService {
 
     private static final String UPLOAD_DIR = "uploads/banners/";
 
+    // ========== CLIENT ==========
     public List<BannerDto.BannerResponse> getActiveBanners() {
         try {
             return bannerRepository.findByStatusOrderByDisplayOrderAsc("ACTIVE")
@@ -46,6 +49,7 @@ public class BannerService {
         }
     }
 
+    // ========== ADMIN ==========
     public Page<BannerDto.BannerResponse> getBanners(String keyword, String sortBy, String sortDirection, int page, int size) {
         try {
             Sort.Direction direction = "desc".equalsIgnoreCase(sortDirection) ? Sort.Direction.DESC : Sort.Direction.ASC;
@@ -65,6 +69,7 @@ public class BannerService {
         }
     }
 
+    // ========== CREATE BANNER ==========
     public BannerDto.BannerResponse createBanner(BannerDto.BannerRequest request) {
         try {
             if (request.getTitle() == null || request.getTitle().trim().isEmpty()) {
@@ -75,6 +80,24 @@ public class BannerService {
                 throw new IllegalArgumentException("Vui lòng chọn ảnh banner");
             }
 
+            Integer displayOrder = request.getDisplayOrder();
+
+            if (displayOrder == null) {
+                Integer maxOrder = bannerRepository.findMaxDisplayOrder();
+                displayOrder = (maxOrder == null) ? 1 : maxOrder + 1;
+                log.info("Auto-assigned displayOrder: {}", displayOrder);
+            } else {
+                if (displayOrder < 0) {
+                    throw new IllegalArgumentException("Thứ tự hiển thị phải lớn hơn hoặc bằng 0");
+                }
+                boolean exists = bannerRepository.existsByDisplayOrderAndNotDeleted(displayOrder);
+                if (exists) {
+                    throw new IllegalArgumentException(
+                            "Thứ tự " + displayOrder + " đã được sử dụng. Vui lòng chọn thứ tự khác."
+                    );
+                }
+            }
+
             String imagePath = saveImage(request.getImageFile());
 
             Banner banner = Banner.builder()
@@ -82,13 +105,13 @@ public class BannerService {
                     .subtitle(request.getSubtitle() != null ? request.getSubtitle().trim() : null)
                     .imagePath(imagePath)
                     .linkType(request.getLinkType())
-                    .displayOrder(request.getDisplayOrder() != null ? request.getDisplayOrder() : 0)
+                    .displayOrder(displayOrder)
                     .status(request.getStatus() != null ? request.getStatus() : "ACTIVE")
                     .build();
 
             setLinkTarget(banner, request);
             Banner savedBanner = bannerRepository.save(banner);
-            log.info("Created banner with id: {}", savedBanner.getBannerId());
+            log.info("✅ Created banner with id: {}, order: {}", savedBanner.getBannerId(), savedBanner.getDisplayOrder());
 
             return BannerDto.toResponse(savedBanner);
 
@@ -100,6 +123,7 @@ public class BannerService {
         }
     }
 
+    // ========== UPDATE BANNER ==========
     public BannerDto.BannerResponse updateBanner(Integer id, BannerDto.BannerRequest request) {
         try {
             Banner banner = bannerRepository.findById(id)
@@ -109,10 +133,23 @@ public class BannerService {
                 throw new IllegalArgumentException("Tiêu đề banner không được để trống");
             }
 
+            Integer displayOrder = request.getDisplayOrder();
+            if (displayOrder != null) {
+                if (displayOrder < 0) {
+                    throw new IllegalArgumentException("Thứ tự hiển thị phải lớn hơn hoặc bằng 0");
+                }
+                boolean exists = bannerRepository.existsByDisplayOrderAndNotDeletedAndIdNot(displayOrder, id);
+                if (exists) {
+                    throw new IllegalArgumentException(
+                            "Thứ tự " + displayOrder + " đã được sử dụng bởi banner khác. Vui lòng chọn thứ tự khác."
+                    );
+                }
+                banner.setDisplayOrder(displayOrder);
+            }
+
             banner.setTitle(request.getTitle().trim());
             banner.setSubtitle(request.getSubtitle() != null ? request.getSubtitle().trim() : null);
             banner.setLinkType(request.getLinkType());
-            banner.setDisplayOrder(request.getDisplayOrder() != null ? request.getDisplayOrder() : banner.getDisplayOrder());
 
             if (request.getStatus() != null) {
                 banner.setStatus(request.getStatus());
@@ -126,7 +163,7 @@ public class BannerService {
 
             setLinkTarget(banner, request);
             Banner updatedBanner = bannerRepository.save(banner);
-            log.info("Updated banner with id: {}", updatedBanner.getBannerId());
+            log.info("✅ Updated banner with id: {}, order: {}", updatedBanner.getBannerId(), updatedBanner.getDisplayOrder());
 
             return BannerDto.toResponse(updatedBanner);
 
@@ -140,14 +177,24 @@ public class BannerService {
         }
     }
 
+    // ========== DELETE BANNER ==========
     public void deleteBanner(Integer id) {
         try {
             Banner banner = bannerRepository.findById(id)
                     .orElseThrow(() -> new RuntimeException("Không tìm thấy banner với id: " + id));
+
+            Integer deletedOrder = banner.getDisplayOrder();
+
             banner.setStatus("DELETED");
             banner.setDeletedAt(LocalDateTime.now());
             bannerRepository.save(banner);
-            log.info("Deleted banner with id: {}", id);
+
+            if (deletedOrder != null) {
+                bannerRepository.decrementDisplayOrderAfter(deletedOrder);
+                log.info("✅ Re-ordered banners after deleting order: {}", deletedOrder);
+            }
+
+            log.info("✅ Deleted banner with id: {}", id);
         } catch (RuntimeException e) {
             throw e;
         } catch (Exception e) {
@@ -156,6 +203,7 @@ public class BannerService {
         }
     }
 
+    // ========== RESTORE BANNER ==========
     public void restoreBanner(Integer id) {
         try {
             Banner banner = bannerRepository.findById(id)
@@ -163,13 +211,40 @@ public class BannerService {
             banner.setStatus("INACTIVE");
             banner.setDeletedAt(null);
             bannerRepository.save(banner);
-            log.info("Restored banner with id: {}", id);
+            log.info("✅ Restored banner with id: {}", id);
         } catch (RuntimeException e) {
             throw e;
         } catch (Exception e) {
             log.error("Error restoring banner: ", e);
             throw new RuntimeException("Không thể khôi phục banner: " + e.getMessage());
         }
+    }
+
+    // ✅ ĐÃ SỬA - KHÔNG BỊ NULL
+    public Map<String, Object> checkOrderExists(Integer displayOrder, Integer excludeId) {
+        Map<String, Object> result = new HashMap<>();
+
+        if (displayOrder == null) {
+            result.put("exists", false);
+            result.put("order", null);
+            result.put("excludeId", excludeId != null ? excludeId : 0);
+            result.put("message", "Vui lòng nhập thứ tự hiển thị");
+            return result;
+        }
+
+        boolean exists;
+        if (excludeId != null) {
+            exists = bannerRepository.existsByDisplayOrderAndNotDeletedAndIdNot(displayOrder, excludeId);
+        } else {
+            exists = bannerRepository.existsByDisplayOrderAndNotDeleted(displayOrder);
+        }
+
+        result.put("exists", exists);
+        result.put("order", displayOrder);
+        result.put("excludeId", excludeId != null ? excludeId : 0);
+        result.put("message", exists ? "Thứ tự này đã được sử dụng" : "Thứ tự hợp lệ");
+
+        return result;
     }
 
     // ========== PRIVATE HELPERS ==========
