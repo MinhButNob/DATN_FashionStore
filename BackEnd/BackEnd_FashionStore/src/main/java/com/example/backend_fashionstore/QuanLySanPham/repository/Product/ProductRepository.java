@@ -50,4 +50,7 @@ public interface ProductRepository extends JpaRepository<Product, Integer>, JpaS
 
     @Query("SELECT p FROM Product p WHERE p.productId = :id")
     Optional<Product> findById(@Param("id") Integer id);
+
+    @Query("SELECT p FROM Product p WHERE LOWER(p.productName) LIKE LOWER(CONCAT('%', :keyword, '%')) AND p.status = 'ACTIVE' AND p.deletedAt IS NULL")
+    List<Product> searchActiveProductsByKeyword(@Param("keyword") String keyword);
 }

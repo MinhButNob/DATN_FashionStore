@@ -17,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
@@ -37,21 +38,24 @@ public class PaymentServiceImpl implements PaymentService {
     @Transactional
     public PaymentResponse createVnpayPayment(Long orderId, HttpServletRequest request) {
 
-        Order order =
-                orderRepository.findById(orderId)
-                        .orElseThrow(
-                                () -> new RuntimeException("Order not found")
-                        );
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Order not found"));
+
+        // ✅ FIX: Tính total thủ công vì orderTotalAmount là computed column (insertable=false, updatable=false)
+        BigDecimal paymentAmount = order.getOrderSubtotalAmount()
+                .subtract(order.getOrderDiscountAmount())
+                .add(order.getOrderShippingFee());
 
         String txnRef = VNPayConfig.getRandomNumber(8);
 
         Payment payment = new Payment();
         payment.setOrder(order);
-        payment.setPaymentAmount(order.getOrderTotalAmount());
+        payment.setPaymentAmount(paymentAmount); // ✅ dùng giá trị tính được
         payment.setPaymentStatus(PaymentStatus.PENDING);
         payment.setTxnRef(txnRef);
         payment.setPaymentGateway("VNPAY");
-        
+
+
         PaymentMethod paymentMethod = paymentMethodRepository.findByMethodName("VNPAY")
                 .orElseGet(() -> {
                     PaymentMethod newMethod = new PaymentMethod();
@@ -63,7 +67,7 @@ public class PaymentServiceImpl implements PaymentService {
         
         paymentRepository.save(payment);
 
-        long amount = order.getOrderTotalAmount().longValue() * 100;
+        long amount = paymentAmount.longValue() * 100;
 
         Map<String, String> vnp_Params = new HashMap<>();
         vnp_Params.put("vnp_Version", vnPayConfig.getVnp_Version());

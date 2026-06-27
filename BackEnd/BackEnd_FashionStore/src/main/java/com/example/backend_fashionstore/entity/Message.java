@@ -23,10 +23,10 @@ public class Message {
     private Chat chat;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
+    @JoinColumn(name = "user_id")
     private User user;
 
-    @Column(name = "message_content", nullable = false)
+    @Column(name = "message_content", nullable = false, columnDefinition = "TEXT")
     private String messageContent;
 
     @Column(name = "message_sent_date")
@@ -35,9 +35,13 @@ public class Message {
     @Column(name = "is_read")
     private Boolean isRead;
 
+    @Column(name = "is_ai")
+    private Boolean isAi;
+
     @PrePersist
     protected void onCreate() {
         sentDate = LocalDateTime.now();
         if (isRead == null) isRead = false;
+        if (isAi == null) isAi = false;
     }
 }

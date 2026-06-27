@@ -10,10 +10,38 @@ export default defineConfig({
     hmr: {
       overlay: true,
     },
+    // Enable CORS but remove restrictive headers
+    cors: true,
   },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+    },
+  },
+  // Optimize dependency loading
+  optimizeDeps: {
+    include: [
+      'oh-my-live2d'
+    ],
+  },
+  // Handle static assets
+  assetsInclude: [
+    '**/*.moc3',
+    '**/*.model3.json',
+    '**/*.motion3.json',
+    '**/*.physics3.json',
+    '**/*.pose3.json',
+    '**/*.cdi3.json'
+  ],
+  // Build configuration
+  build: {
+    rollupOptions: {
+      output: {
+        // Separate chunks for better loading
+        manualChunks: {
+          'live2d': ['oh-my-live2d'],
+        },
+      },
     },
   },
 });
