@@ -198,11 +198,13 @@
               :class="{ 'input-error': validationErrors.productId }"
             >
               <option :value="null">-- Chọn sản phẩm --</option>
+              <!-- ✅ Lấy sản phẩm từ store hoặc từ biến products -->
               <option v-for="p in products" :key="p.productId" :value="p.productId">
                 {{ p.productName }}
               </option>
             </select>
             <span v-if="validationErrors.productId" class="error-text">{{ validationErrors.productId }}</span>
+            <small class="hint-text" v-if="products.length === 0">⚠️ Không có sản phẩm nào. Vui lòng tạo sản phẩm trước.</small>
           </div>
 
           <!-- Custom URL -->
@@ -224,9 +226,13 @@
                 type="number" 
                 v-model.number="form.displayOrder" 
                 min="0"
+                name="displayOrder"
+                @input="checkOrderOnInput"
                 :class="{ 'input-error': validationErrors.displayOrder }"
+                placeholder="Để trống tự động tăng"
               />
               <span v-if="validationErrors.displayOrder" class="error-text">{{ validationErrors.displayOrder }}</span>
+              <small class="hint-text" v-else>Để trống để tự động tăng thứ tự</small>
             </div>
             <div class="form-group half">
               <label>Trạng thái</label>
@@ -273,6 +279,7 @@ const selectedFile = ref(null)
 const categories = ref([])
 const products = ref([])
 const validationErrors = reactive({})
+let orderCheckTimeout = null
 
 const form = reactive({
   title: '',
@@ -281,7 +288,7 @@ const form = reactive({
   categoryId: null,
   productId: null,
   customUrl: '',
-  displayOrder: 0,
+  displayOrder: null,
   status: 'ACTIVE',
 })
 
@@ -291,14 +298,40 @@ onMounted(async () => {
     console.log('✅ AdminBanners mounted')
     await store.fetchBanners()
     
-    const [catRes, prodRes] = await Promise.all([
-      axios.get(`${API_BASE}/categories/active`),
-      axios.get(`${API_BASE}/products`, { params: { size: 200 } })
-    ])
+    // ✅ Gọi API lấy danh sách danh mục
+    const catRes = await axios.get(`${API_BASE}/categories/active`)
     categories.value = catRes.data?.content || catRes.data || []
-    products.value = prodRes.data?.content || prodRes.data || []
     console.log('✅ Loaded categories:', categories.value.length)
+    
+    // ✅ Gọi API lấy sản phẩm - SỬ DỤNG API ĐÃ CÓ SẴN /api/products
+    // Với tham số size lớn để lấy tất cả
+    const prodRes = await axios.get(`${API_BASE}/products`, {
+      params: {
+        page: 0,
+        size: 1000, // Lấy tối đa 1000 sản phẩm
+        sortBy: 'productId',
+        sortDir: 'desc'
+      }
+    })
+    
+    // ✅ Xử lý response từ ApiResponse wrapper
+    if (prodRes.data?.data?.content) {
+      products.value = prodRes.data.data.content
+    } else if (prodRes.data?.content) {
+      products.value = prodRes.data.content
+    } else if (Array.isArray(prodRes.data)) {
+      products.value = prodRes.data
+    } else if (prodRes.data?.data && Array.isArray(prodRes.data.data)) {
+      products.value = prodRes.data.data
+    } else {
+      products.value = []
+    }
+    
     console.log('✅ Loaded products:', products.value.length)
+    if (products.value.length > 0) {
+      console.log('📦 Sample product:', products.value[0])
+    }
+    
   } catch (e) {
     console.error('❌ Failed to load data:', e)
   }
@@ -323,10 +356,9 @@ function openEdit(banner) {
     categoryId: banner.categoryId || null,
     productId: banner.productId || null,
     customUrl: banner.customUrl || '',
-    displayOrder: banner.displayOrder || 0,
+    displayOrder: banner.displayOrder !== null && banner.displayOrder !== undefined ? banner.displayOrder : null,
     status: banner.status || 'ACTIVE',
   })
-  // ✅ SỬA: Hiển thị ảnh preview đúng cách
   imagePreview.value = getImageUrl(banner.imagePath)
   selectedFile.value = null
   showModal.value = true
@@ -337,9 +369,12 @@ function closeModal() {
   showModal.value = false
   resetForm()
   clearValidationErrors()
-  // Cleanup URL object để tránh memory leak
   if (imagePreview.value && imagePreview.value.startsWith('blob:')) {
     URL.revokeObjectURL(imagePreview.value)
+  }
+  if (orderCheckTimeout) {
+    clearTimeout(orderCheckTimeout)
+    orderCheckTimeout = null
   }
 }
 
@@ -351,13 +386,13 @@ function resetForm() {
     categoryId: null,
     productId: null,
     customUrl: '',
-    displayOrder: 0,
+    displayOrder: null,
     status: 'ACTIVE',
   })
 }
 
 // ========== VALIDATION ==========
-function validateForm() {
+async function validateForm() {
   clearValidationErrors()
   let isValid = true
 
@@ -389,9 +424,26 @@ function validateForm() {
     isValid = false
   }
 
-  if (form.displayOrder < 0) {
+  if (form.displayOrder !== null && form.displayOrder !== '' && Number(form.displayOrder) < 0) {
     validationErrors.displayOrder = 'Thứ tự hiển thị phải lớn hơn hoặc bằng 0'
     isValid = false
+  }
+
+  // ✅ KIỂM TRA THỨ TỰ TRÙNG LẶP
+  if (form.displayOrder !== null && form.displayOrder !== '' && Number(form.displayOrder) >= 0) {
+    const order = Number(form.displayOrder)
+    const excludeId = editingBanner.value?.bannerId || null
+    
+    try {
+      const check = await store.checkOrderExists(order, excludeId)
+      if (check.exists) {
+        validationErrors.displayOrder = 
+          `Thứ tự ${order} đã được sử dụng${editingBanner.value ? ' bởi banner khác' : ''}. Vui lòng chọn thứ tự khác.`
+        isValid = false
+      }
+    } catch (e) {
+      console.warn('Check order failed:', e)
+    }
   }
 
   return isValid
@@ -401,12 +453,47 @@ function clearValidationErrors() {
   Object.keys(validationErrors).forEach(key => delete validationErrors[key])
 }
 
+// ========== CHECK ORDER REALTIME ==========
+async function checkOrderOnInput() {
+  const order = form.displayOrder
+  
+  if (order === null || order === '' || order === undefined) {
+    delete validationErrors.displayOrder
+    return
+  }
+
+  const numOrder = Number(order)
+  if (isNaN(numOrder) || numOrder < 0) {
+    validationErrors.displayOrder = 'Thứ tự phải là số không âm'
+    return
+  }
+
+  if (orderCheckTimeout) {
+    clearTimeout(orderCheckTimeout)
+  }
+
+  orderCheckTimeout = setTimeout(async () => {
+    try {
+      const excludeId = editingBanner.value?.bannerId || null
+      const check = await store.checkOrderExists(numOrder, excludeId)
+      
+      if (check.exists) {
+        validationErrors.displayOrder = 
+          `Thứ tự ${numOrder} đã được sử dụng${editingBanner.value ? ' bởi banner khác' : ''}. Vui lòng chọn thứ tự khác.`
+      } else {
+        delete validationErrors.displayOrder
+      }
+    } catch (e) {
+      console.warn('Check order realtime failed:', e)
+    }
+  }, 500)
+}
+
 // ========== FILE HANDLING ==========
 function onFileSelect(e) {
   const file = e.target.files[0]
   if (!file) return
   handleFile(file)
-  // Reset input để có thể chọn lại cùng file
   e.target.value = ''
 }
 
@@ -417,20 +504,17 @@ function onDrop(e) {
 }
 
 function handleFile(file) {
-  // Kiểm tra kích thước
   if (file.size > 10 * 1024 * 1024) {
     alert('File ảnh quá lớn. Vui lòng chọn ảnh nhỏ hơn 10MB')
     return
   }
 
-  // Kiểm tra định dạng
   const validTypes = ['image/jpeg', 'image/png', 'image/webp']
   if (!validTypes.includes(file.type)) {
     alert('Vui lòng chọn ảnh định dạng JPG, PNG hoặc WebP')
     return
   }
 
-  // ✅ SỬA: Log file để debug
   console.log('📸 File selected:', {
     name: file.name,
     size: file.size,
@@ -438,7 +522,6 @@ function handleFile(file) {
   })
 
   selectedFile.value = file
-  // Tạo preview
   if (imagePreview.value && imagePreview.value.startsWith('blob:')) {
     URL.revokeObjectURL(imagePreview.value)
   }
@@ -448,11 +531,17 @@ function handleFile(file) {
 
 // ========== SAVE BANNER ==========
 async function saveBanner() {
-  if (!validateForm()) {
+  const isValid = await validateForm()
+  if (!isValid) {
     const firstError = Object.keys(validationErrors)[0]
     if (firstError) {
-      const el = document.querySelector(`[name="${firstError}"]`)
-      if (el) el.focus()
+      if (firstError === 'displayOrder') {
+        const input = document.querySelector('input[name="displayOrder"]')
+        if (input) input.focus()
+      } else {
+        const el = document.querySelector(`[name="${firstError}"]`)
+        if (el) el.focus()
+      }
     }
     return
   }
@@ -461,7 +550,11 @@ async function saveBanner() {
   fd.append('title', form.title.trim())
   fd.append('subtitle', form.subtitle?.trim() || '')
   fd.append('linkType', form.linkType)
-  fd.append('displayOrder', Number(form.displayOrder) || 0)
+  
+  if (form.displayOrder !== null && form.displayOrder !== '') {
+    fd.append('displayOrder', Number(form.displayOrder))
+  }
+  
   fd.append('status', form.status || 'ACTIVE')
 
   if (form.linkType === 'CATEGORY' && form.categoryId) {
@@ -476,7 +569,6 @@ async function saveBanner() {
     fd.append('customUrl', form.customUrl.trim())
   }
   
-  // ✅ QUAN TRỌNG: Chỉ append file khi có file mới
   if (selectedFile.value) {
     fd.append('imageFile', selectedFile.value)
     console.log('📤 Appending file:', selectedFile.value.name)
@@ -496,7 +588,6 @@ async function saveBanner() {
 
   if (result.success) {
     console.log('✅ Banner saved successfully:', result.data)
-    console.log('📸 Image path:', result.data?.imagePath)
     closeModal()
     alert(editingBanner.value ? '✅ Cập nhật banner thành công!' : '✅ Tạo banner thành công!')
   } else {
@@ -534,7 +625,6 @@ async function handleRestore(banner) {
 }
 
 // ========== HELPERS ==========
-// ✅ SỬA: Hàm getImageUrl xử lý đúng đường dẫn
 function getImageUrl(path) {
   if (!path) return ''
   if (path.startsWith('http')) return path
@@ -547,7 +637,6 @@ function getImageUrl(path) {
   return `http://localhost:8080/uploads/${path}`
 }
 
-// ✅ THÊM: Xử lý lỗi ảnh thumb
 function handleThumbError(event) {
   console.error('❌ Thumb image load error:', event.target.src)
   event.target.src = ''
@@ -579,6 +668,7 @@ function resolvedLabel(banner) {
   return banner.customUrl || '—'
 }
 </script>
+
 
 <style scoped>
 .admin-banners { 
@@ -766,6 +856,7 @@ function resolvedLabel(banner) {
 .actions { 
   display: flex; 
   gap: 8px; 
+  flex-wrap: wrap;
 }
 .btn-edit { 
   background: #3b82f6; 
@@ -921,6 +1012,11 @@ function resolvedLabel(banner) {
 .error-text {
   color: #ef4444;
   font-size: 0.8rem;
+  margin-top: 2px;
+}
+.hint-text {
+  color: #888;
+  font-size: 0.75rem;
   margin-top: 2px;
 }
 .form-row { 
