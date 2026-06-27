@@ -17,6 +17,10 @@ public class OrderStatisticsDTO {
     private long cancelledOrders;
     private BigDecimal todayRevenue;
     private BigDecimal monthlyRevenue;
-    private long processingOrders;   // ✅ THÊM
+    private long processingOrders;
     private long shippingOrders;
+    private long confirmedOrders;
+    private long deliveredOrders;
+    private long returnedOrders;
+    private long rejectedOrders;  // 🆕 Thêm field
 }

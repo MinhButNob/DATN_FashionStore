@@ -37,6 +37,7 @@ import AdminColors from "../views/admin/AdminColors.vue";
 import AdminPromotions from "../views/admin/AdminPromotions.vue";
 import AdminVouchers from "../views/admin/AdminVouchers.vue";
 import AdminBanners from "../views/admin/AdminBanners.vue";
+import AdminReviews from "../views/admin/AdminReviews.vue";
 
 // Staff views
 import StaffLayout from "../views/staff/StaffLayout.vue";
@@ -134,6 +135,7 @@ const routes = [
       { path: "employees", name: "admin-employees", component: AdminEmployees },
       { path: "roles", name: "admin-roles", component: AdminRoles },
       { path: "colors", name: "admin-colors", component: AdminColors },
+      { path: "reviews", name: "admin-reviews", component: AdminReviews  },
       {
         path: "promotions",
         name: "admin-promotions",

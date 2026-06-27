@@ -31,13 +31,16 @@ public class Review {
     private Integer customerId;
 
     @Column(name = "rating", nullable = false)
-    private Integer rating;  // 1-5
+    private Integer rating;
 
     @Column(name = "comment")
     private String comment;
 
+    @Column(name = "images", columnDefinition = "TEXT")
+    private String images;
+
     @Column(name = "review_status")
-    private String reviewStatus;  // APPROVED, PENDING, REJECTED
+    private String reviewStatus;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
