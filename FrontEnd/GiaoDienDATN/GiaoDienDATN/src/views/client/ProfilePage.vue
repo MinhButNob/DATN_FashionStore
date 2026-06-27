@@ -13,6 +13,9 @@
               </div>
               <h3>{{ displayName }}</h3>
               <p>{{ displayEmail }}</p>
+              <p class="profile-phone" v-if="profile.phone">
+                <i class="fas fa-phone"></i> {{ profile.phone }}
+              </p>
             </div>
 
             <ul class="profile-menu">
@@ -189,77 +192,171 @@
 
                 <!-- Đơn hàng -->
                 <div v-show="activeTab === 'orders'" class="profile-tab">
-                  <h2>Đơn hàng của tôi</h2>
+                  <div class="orders-header">
+                    <h2>Đơn hàng của tôi</h2>
+                    <div class="order-tabs">
+                      <button 
+                        v-for="tab in orderTabs" 
+                        :key="tab.value"
+                        :class="['tab-btn', { active: orderFilter === tab.value }]"
+                        @click="changeOrderFilter(tab.value)"
+                      >
+                        {{ tab.label }}
+                        <span v-if="tab.value !== 'all'" class="tab-count">
+                          ({{ getOrderCountByStatus(tab.value) }})
+                        </span>
+                      </button>
+                    </div>
+                  </div>
 
+                  <!-- Loading -->
                   <div v-if="ordersLoading" class="loading-state">
                     <i class="fas fa-spinner fa-spin"></i>
                     <p>Đang tải đơn hàng...</p>
                   </div>
 
+                  <!-- Empty orders -->
                   <div v-else-if="orders.length === 0" class="empty-state">
-                    <i class="fas fa-box-open"></i>
-                    <p>Bạn chưa có đơn hàng nào</p>
-                    <router-link to="/shop" class="btn btn-primary">
-                      Mua sắm ngay
+                    <i class="fas fa-shopping-bag"></i>
+                    <h3>Chưa có đơn hàng nào</h3>
+                    <p v-if="orderFilter === 'all'">Bạn chưa có đơn hàng nào</p>
+                    <p v-else>Không có đơn hàng nào ở trạng thái này</p>
+                    <router-link to="/shop" class="btn-shop-now">
+                      <i class="fas fa-shopping-cart"></i> Mua sắm ngay
                     </router-link>
                   </div>
 
+                  <!-- Orders list -->
                   <div v-else class="orders-list">
-                    <div v-for="order in orders" :key="order.id" class="order-card">
+                    <div v-for="order in orders" :key="order.orderId" class="order-card">
                       <div class="order-header">
-                        <div>
-                          <span class="order-id">Mã đơn: {{ order.id }}</span>
-                          <span class="order-date">{{ order.date }}</span>
+                        <div class="order-info">
+                          <span class="order-id">#{{ order.orderCode || order.orderId }}</span>
+                          <span class="order-date">{{ formatDate(order.orderDate) }}</span>
                         </div>
-                        <span :class="['order-status', `status-${order.status}`]">
-                          {{ getOrderStatus(order.status) }}
+                        <span :class="['order-status', getStatusClass(order.orderStatus)]">
+                          {{ getStatusText(order.orderStatus) }}
                         </span>
                       </div>
 
+                      <!-- Order Items với nút đánh giá riêng cho từng sản phẩm -->
                       <div class="order-items">
-                        <div
-                          v-for="item in order.items"
-                          :key="item.id"
-                          class="order-item"
-                        >
+                        <div v-for="item in order.items" :key="item.itemId" class="order-item">
                           <div class="item-image">
-                            <i :class="['fas', `fa-${item.image || 'tshirt'}`]"></i>
+                            <img v-if="item.imageUrl" :src="getImageUrl(item.imageUrl)" :alt="item.productName" @error="handleImageError" />
+                            <i v-else class="fas fa-tshirt"></i>
                           </div>
                           <div class="item-details">
-                            <h4>{{ item.name }}</h4>
+                            <h4>{{ item.productName }}</h4>
                             <p class="item-variant">
-                              {{ item.size }} {{ item.color }}
+                              {{ item.sizeName || '' }} {{ item.colorName || '' }}
                             </p>
                             <p class="item-quantity">x{{ item.quantity }}</p>
                           </div>
                           <div class="item-price">
-                            {{ formatPrice(item.price * item.quantity) }}
+                            {{ formatPrice(item.finalAmount) }}
+                          </div>
+                          
+                          <!-- Nút Đánh giá cho từng sản phẩm - Chỉ hiển thị khi COMPLETED -->
+                          <div class="item-actions" v-if="order.orderStatus === 'COMPLETED'">
+                            <!-- Nếu chưa đánh giá -->
+                            <button 
+                              v-if="!isItemReviewed(order.orderId, item.productDetailId)"
+                              class="btn btn-review btn-sm"
+                              @click="openReviewModal(order, item)"
+                            >
+                              <i class="fas fa-star"></i> Đánh giá
+                            </button>
+                            
+                            <!-- Nếu đã đánh giá -->
+                            <div v-else class="reviewed-group">
+                              <span class="reviewed-badge">
+                                <i class="fas fa-check-circle"></i> Đã đánh giá
+                              </span>
+                              <button 
+                                class="btn btn-sm btn-outline"
+                                @click="viewReview(order.orderId, item.productDetailId)"
+                                title="Xem đánh giá"
+                              >
+                                <i class="fas fa-eye"></i>
+                              </button>
+                              <button 
+                                class="btn btn-sm btn-danger"
+                                @click="deleteReview(order.orderId, item.productDetailId)"
+                                title="Xóa đánh giá"
+                              >
+                                <i class="fas fa-trash"></i>
+                              </button>
+                            </div>
                           </div>
                         </div>
+                      </div>
+
+                      <!-- Hiển thị voucher nếu có -->
+                      <div v-if="order.voucher" class="order-voucher">
+                        <i class="fas fa-ticket-alt"></i>
+                        <span class="voucher-code">{{ order.voucher.voucherCode }}</span>
+                        <span class="voucher-discount">-{{ formatPrice(order.discountAmount || 0) }}</span>
                       </div>
 
                       <div class="order-footer">
                         <div class="order-total">
                           <span>Tổng cộng:</span>
-                          <strong>{{ formatPrice(order.total) }}</strong>
+                          <strong>{{ formatPrice(order.totalAmount) }}</strong>
                         </div>
                         <div class="order-actions">
-                          <button
-                            class="btn btn-outline"
-                            @click="viewOrderDetail(order.id)"
-                          >
-                            Xem chi tiết
+                          <button class="btn btn-outline" @click="viewOrderDetail(order.orderId)">
+                            <i class="fas fa-eye"></i> Xem chi tiết
                           </button>
-                          <button
-                            v-if="order.status === 'delivered'"
-                            class="btn btn-outline"
-                            @click="reorder(order.id)"
+                          
+                          <!-- HỦY ĐƠN - Chỉ khi PENDING_PAYMENT hoặc PROCESSING -->
+                          <button 
+                            v-if="['PENDING_PAYMENT', 'PROCESSING'].includes(order.orderStatus)" 
+                            class="btn btn-danger" 
+                            @click="handleCancelOrder(order.orderId)"
                           >
-                            Mua lại
+                            <i class="fas fa-times"></i> Hủy đơn
+                          </button>
+                          
+                          <!-- HOÀN HÀNG - Chỉ khi COMPLETED -->
+                          <button 
+                            v-if="order.orderStatus === 'COMPLETED'" 
+                            class="btn btn-warning" 
+                            @click="handleReturnOrder(order)"
+                          >
+                            <i class="fas fa-undo"></i> Hoàn hàng
+                          </button>
+                          
+                          <!-- MUA LẠI - Chỉ khi COMPLETED -->
+                          <button 
+                            v-if="order.orderStatus === 'COMPLETED'" 
+                            class="btn btn-primary" 
+                            @click="handleReorder(order)"
+                          >
+                            <i class="fas fa-redo"></i> Mua lại
                           </button>
                         </div>
                       </div>
                     </div>
+                  </div>
+
+                  <!-- Pagination -->
+                  <div class="pagination" v-if="totalPages > 1">
+                    <button 
+                      class="page-btn"
+                      :disabled="currentPage === 0"
+                      @click="goToPage(currentPage - 1)"
+                    >
+                      <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <span class="page-info">{{ currentPage + 1 }} / {{ totalPages }}</span>
+                    <button 
+                      class="page-btn"
+                      :disabled="currentPage === totalPages - 1"
+                      @click="goToPage(currentPage + 1)"
+                    >
+                      <i class="fas fa-chevron-right"></i>
+                    </button>
                   </div>
                 </div>
 
@@ -275,8 +372,8 @@
                   <div v-else-if="wishlist.length === 0" class="empty-state">
                     <i class="fas fa-heart"></i>
                     <p>Bạn chưa có sản phẩm yêu thích nào</p>
-                    <router-link to="/shop" class="btn btn-primary">
-                      Khám phá sản phẩm
+                    <router-link to="/shop" class="btn-shop-now">
+                      <i class="fas fa-shopping-cart"></i> Khám phá sản phẩm
                     </router-link>
                   </div>
 
@@ -310,117 +407,76 @@
                 </div>
 
                 <!-- Đổi mật khẩu -->
-                <div v-show="activeTab === 'password'" class="profile-tab">
-                  <h2>Đổi mật khẩu</h2>
+<div v-show="activeTab === 'password'" class="profile-tab">
+  <h2>Đổi mật khẩu</h2>
 
-                  <form @submit.prevent="changePassword" class="password-form">
-                    <div class="form-group">
-                      <label>Mật khẩu hiện tại <span class="required">*</span></label>
-                      <div class="password-input">
-                        <input
-                          :type="showCurrentPassword ? 'text' : 'password'"
-                          v-model="passwordForm.currentPassword"
-                          required
-                          placeholder="Nhập mật khẩu hiện tại"
-                        />
-                        <i
-                          :class="
-                            showCurrentPassword ? 'fas fa-eye-slash' : 'fas fa-eye'
-                          "
-                          @click="showCurrentPassword = !showCurrentPassword"
-                        ></i>
-                      </div>
-                    </div>
+  <form @submit.prevent="changePassword" class="password-form">
+    <!-- Mật khẩu hiện tại -->
+    <div class="form-group">
+      <label>Mật khẩu hiện tại <span class="required">*</span></label>
+      <input
+        type="password"
+        v-model="passwordForm.currentPassword"
+        required
+        placeholder="Nhập mật khẩu hiện tại"
+        class="password-input-field"
+      />
+    </div>
 
-                    <div class="form-group">
-                      <label>Mật khẩu mới <span class="required">*</span></label>
-                      <div class="password-input">
-                        <input
-                          :type="showNewPassword ? 'text' : 'password'"
-                          v-model="passwordForm.newPassword"
-                          required
-                          minlength="6"
-                          placeholder="Nhập mật khẩu mới"
-                        />
-                        <i
-                          :class="
-                            showNewPassword ? 'fas fa-eye-slash' : 'fas fa-eye'
-                          "
-                          @click="showNewPassword = !showNewPassword"
-                        ></i>
-                      </div>
-                    </div>
+    <!-- Mật khẩu mới -->
+    <div class="form-group">
+      <label>Mật khẩu mới <span class="required">*</span></label>
+      <input
+        type="password"
+        v-model="passwordForm.newPassword"
+        required
+        minlength="6"
+        placeholder="Nhập mật khẩu mới (ít nhất 6 ký tự)"
+        class="password-input-field"
+      />
+    </div>
 
-                    <div class="form-group">
-                      <label>Xác nhận mật khẩu mới <span class="required">*</span></label>
-                      <div class="password-input">
-                        <input
-                          :type="showConfirmPassword ? 'text' : 'password'"
-                          v-model="passwordForm.confirmPassword"
-                          required
-                          placeholder="Xác nhận mật khẩu mới"
-                        />
-                        <i
-                          :class="
-                            showConfirmPassword ? 'fas fa-eye-slash' : 'fas fa-eye'
-                          "
-                          @click="showConfirmPassword = !showConfirmPassword"
-                        ></i>
-                      </div>
-                    </div>
+    <!-- Xác nhận mật khẩu mới -->
+    <div class="form-group">
+      <label>Xác nhận mật khẩu mới <span class="required">*</span></label>
+      <input
+        type="password"
+        v-model="passwordForm.confirmPassword"
+        required
+        placeholder="Xác nhận mật khẩu mới"
+        class="password-input-field"
+      />
+    </div>
 
-                    <div class="password-requirements">
-                      <p>Mật khẩu phải có:</p>
-                      <ul>
-                        <li
-                          :class="{ valid: passwordForm.newPassword.length >= 6 }"
-                        >
-                          <i
-                            :class="
-                              passwordForm.newPassword.length >= 6
-                                ? 'fas fa-check-circle'
-                                : 'far fa-circle'
-                            "
-                          ></i>
-                          Ít nhất 6 ký tự
-                        </li>
-                        <li
-                          :class="{ valid: /[A-Z]/.test(passwordForm.newPassword) }"
-                        >
-                          <i
-                            :class="
-                              /[A-Z]/.test(passwordForm.newPassword)
-                                ? 'fas fa-check-circle'
-                                : 'far fa-circle'
-                            "
-                          ></i>
-                          Ít nhất 1 chữ hoa
-                        </li>
-                        <li
-                          :class="{ valid: /[0-9]/.test(passwordForm.newPassword) }"
-                        >
-                          <i
-                            :class="
-                              /[0-9]/.test(passwordForm.newPassword)
-                                ? 'fas fa-check-circle'
-                                : 'far fa-circle'
-                            "
-                          ></i>
-                          Ít nhất 1 số
-                        </li>
-                      </ul>
-                    </div>
+    <!-- Password requirements -->
+    <div class="password-requirements">
+      <p>Mật khẩu phải có:</p>
+      <ul>
+        <li :class="{ valid: passwordForm.newPassword.length >= 6 }">
+          <i :class="passwordForm.newPassword.length >= 6 ? 'fas fa-check-circle' : 'far fa-circle'"></i>
+          Ít nhất 6 ký tự
+        </li>
+        <li :class="{ valid: /[A-Z]/.test(passwordForm.newPassword) }">
+          <i :class="/[A-Z]/.test(passwordForm.newPassword) ? 'fas fa-check-circle' : 'far fa-circle'"></i>
+          Ít nhất 1 chữ hoa
+        </li>
+        <li :class="{ valid: /[0-9]/.test(passwordForm.newPassword) }">
+          <i :class="/[0-9]/.test(passwordForm.newPassword) ? 'fas fa-check-circle' : 'far fa-circle'"></i>
+          Ít nhất 1 số
+        </li>
+      </ul>
+    </div>
 
-                    <button
-                      type="submit"
-                      class="btn btn-primary"
-                      :disabled="!isPasswordValid || passwordLoading"
-                    >
-                      <i v-if="passwordLoading" class="fas fa-spinner fa-spin"></i>
-                      {{ passwordLoading ? "Đang xử lý..." : "Đổi mật khẩu" }}
-                    </button>
-                  </form>
-                </div>
+    <button
+      type="submit"
+      class="btn btn-primary"
+      :disabled="!isPasswordValid || passwordLoading"
+    >
+      <i v-if="passwordLoading" class="fas fa-spinner fa-spin"></i>
+      {{ passwordLoading ? "Đang xử lý..." : "Đổi mật khẩu" }}
+    </button>
+  </form>
+</div>
               </template>
             </template>
           </div>
@@ -429,6 +485,220 @@
     </main>
 
     <ClientFooter />
+
+    <!-- Cancel Reason Modal -->
+    <div v-if="showCancelModal" class="modal-overlay" @click.self="closeCancelModal">
+      <div class="modal-container modal-sm">
+        <div class="modal-header">
+          <h3>Hủy đơn hàng</h3>
+          <button class="close-btn" @click="closeCancelModal">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Lý do hủy</label>
+            <textarea v-model="cancelReason" rows="3" placeholder="Nhập lý do hủy đơn hàng..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" @click="closeCancelModal">Đóng</button>
+          <button class="btn btn-danger" @click="confirmCancelOrder" :disabled="cancelLoading">
+            {{ cancelLoading ? 'Đang xử lý...' : 'Xác nhận hủy' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Order Detail Modal -->
+    <div v-if="showDetailModal" class="modal-overlay" @click.self="closeDetailModal">
+      <div class="modal-container modal-lg">
+        <div class="modal-header">
+          <h3>Chi tiết đơn hàng #{{ selectedOrder?.orderCode || selectedOrder?.orderId }}</h3>
+          <button class="close-btn" @click="closeDetailModal">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="order-info-grid">
+            <div class="info-section">
+              <h4>Thông tin khách hàng</h4>
+              <p><strong>Họ tên:</strong> {{ selectedOrder?.customer?.customerName || 'Khách hàng' }}</p>
+              <p><strong>SĐT:</strong> {{ selectedOrder?.customer?.phone || '---' }}</p>
+              <p><strong>Email:</strong> {{ selectedOrder?.customer?.email || '---' }}</p>
+            </div>
+            <div class="info-section">
+              <h4>Thông tin đơn hàng</h4>
+              <p><strong>Ngày đặt:</strong> {{ formatDate(selectedOrder?.orderDate) }}</p>
+              <p><strong>Trạng thái:</strong> {{ getStatusText(selectedOrder?.orderStatus) }}</p>
+              <p><strong>Thanh toán:</strong> {{ selectedOrder?.paymentStatus || 'UNPAID' }}</p>
+            </div>
+          </div>
+
+          <div class="order-items-section">
+            <h4>Sản phẩm</h4>
+            <table class="items-table">
+              <thead>
+                <tr>
+                  <th>Sản phẩm</th>
+                  <th>Đơn giá</th>
+                  <th>Số lượng</th>
+                  <th>Thành tiền</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="item in selectedOrder?.items" :key="item.itemId">
+                  <td>
+                    <div class="item-info">
+                      <div class="item-image">
+                        <img v-if="item.imageUrl" :src="getImageUrl(item.imageUrl)" :alt="item.productName" />
+                        <i v-else class="fas fa-tshirt"></i>
+                      </div>
+                      <div>
+                        <div class="item-name">{{ item.productName }}</div>
+                        <div class="item-variant">{{ item.sizeName || '' }} {{ item.colorName || '' }}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td>{{ formatPrice(item.unitPrice) }}</td>
+                  <td>{{ item.quantity }}</td>
+                  <td>{{ formatPrice(item.finalAmount) }}</td>
+                </tr>
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td colspan="3" class="text-right">Tạm tính:</td>
+                  <td>{{ formatPrice(selectedOrder?.subtotalAmount) }}</td>
+                </tr>
+                <tr v-if="selectedOrder?.discountAmount && selectedOrder?.discountAmount > 0" class="discount-row">
+                  <td colspan="3" class="text-right">
+                    <span class="voucher-label">
+                      <i class="fas fa-ticket-alt"></i> Giảm giá 
+                      ({{ selectedOrder?.voucher?.voucherCode || 'Voucher' }})
+                    </span>
+                  </td>
+                  <td class="discount-amount">-{{ formatPrice(selectedOrder?.discountAmount) }}</td>
+                </tr>
+                <tr>
+                  <td colspan="3" class="text-right">Phí vận chuyển:</td>
+                  <td>{{ formatPrice(selectedOrder?.shippingFee || 0) }}</td>
+                </tr>
+                <tr class="total-row">
+                  <td colspan="3" class="text-right">Tổng cộng:</td>
+                  <td class="grand-total">{{ formatPrice(selectedOrder?.totalAmount) }}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          <div v-if="selectedOrder?.voucher" class="voucher-info-section">
+            <h4><i class="fas fa-ticket-alt"></i> Mã giảm giá đã áp dụng</h4>
+            <div class="voucher-detail">
+              <span class="voucher-code">{{ selectedOrder.voucher.voucherCode }}</span>
+              <span class="voucher-savings">Tiết kiệm: {{ formatPrice(selectedOrder.discountAmount || 0) }}</span>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" @click="closeDetailModal">Đóng</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Review Modal (Tạo mới) -->
+    <CreateReviewModal
+      :visible="showReviewModal"
+      :product="selectedProduct"
+      :orderId="selectedOrderId"
+      :editReviewId="editingReviewId"
+      @close="showReviewModal = false"
+      @submitted="onReviewSubmitted"
+    />
+
+    <!-- View Review Modal -->
+    <div v-if="showViewReviewModal" class="modal-overlay" @click.self="closeViewReview">
+      <div class="modal-container modal-lg">
+        <div class="modal-header">
+          <h3>Chi tiết đánh giá</h3>
+          <button class="close-btn" @click="closeViewReview">✕</button>
+        </div>
+        <div class="modal-body">
+          <div v-if="viewingReview">
+            <div class="product-info">
+              <div class="product-image">
+                <img v-if="viewingReview.imageUrl" :src="getImageUrl(viewingReview.imageUrl)" :alt="viewingReview.productName" />
+                <i v-else class="fas fa-tshirt"></i>
+              </div>
+              <div class="product-details">
+                <h4>{{ viewingReview.productName }}</h4>
+                <p class="product-variant">
+                  {{ viewingReview.sizeName || '' }} {{ viewingReview.colorName || '' }}
+                </p>
+              </div>
+            </div>
+
+            <div class="rating-section">
+              <label>Đánh giá:</label>
+              <div class="stars">
+                <i v-for="star in 5" :key="star" 
+                   :class="star <= viewingReview.rating ? 'fas fa-star active' : 'far fa-star'">
+                </i>
+              </div>
+            </div>
+
+            <div class="comment-section">
+              <label>Nhận xét:</label>
+              <p class="comment-text">{{ viewingReview.comment || 'Không có nhận xét' }}</p>
+            </div>
+
+            <div v-if="viewingReview.images && viewingReview.images.length > 0" class="image-gallery">
+              <label>Hình ảnh:</label>
+              <div class="images">
+                <img 
+                  v-for="(img, idx) in viewingReview.images" 
+                  :key="idx"
+                  :src="getImageUrl(img)"
+                  class="gallery-image"
+                  @click="viewImage(img)"
+                />
+              </div>
+            </div>
+
+            <div class="info-row">
+              <span class="label">Trạng thái:</span>
+              <span :class="['status-badge', getStatusClass(viewingReview.reviewStatus)]">
+                {{ getStatusText(viewingReview.reviewStatus) }}
+              </span>
+            </div>
+            <div class="info-row">
+              <span class="label">Ngày đánh giá:</span>
+              <span>{{ formatDate(viewingReview.createdAt) }}</span>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" @click="closeViewReview">Đóng</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Image Viewer Modal -->
+    <div v-if="showImageViewer" class="modal-overlay" @click.self="closeImageViewer">
+      <div class="image-viewer-container">
+        <img :src="viewingImage" alt="Review image" />
+        <button class="close-btn" @click="closeImageViewer">✕</button>
+      </div>
+    </div>
+
+    <!-- ✅ Return Request Modal -->
+    <ReturnRequestModal
+      :visible="showReturnModal"
+      :order="selectedOrderForReturn"
+      @close="closeReturnModal"
+      @submitted="onReturnSubmitted"
+    />
+
+    <!-- Toast Notification -->
+    <div :class="['toast', { show: showToast, 'toast-error': toastType === 'error' }]">
+      <i :class="toastType === 'error' ? 'fas fa-exclamation-circle' : 'fas fa-check-circle'"></i>
+      {{ toastMessage }}
+    </div>
   </div>
 </template>
 
@@ -440,7 +710,10 @@ import { useCartStore } from "../../stores/cartStore";
 import { useNotification } from "../../composables/useNotification";
 import ClientHeader from "../../components/client/ClientHeader.vue";
 import ClientFooter from "../../components/client/ClientFooter.vue";
+import CreateReviewModal from "../../components/client/CreateReviewModal.vue";
+import ReturnRequestModal from "../../components/client/ReturnRequestModal.vue";
 import { formatPrice } from "../../utils/helpers";
+import { orderService } from "../../services/orderService";
 import axios from "axios";
 
 const router = useRouter();
@@ -448,6 +721,20 @@ const route = useRoute();
 const authStore = useAuthStore();
 const cartStore = useCartStore();
 const { showNotification } = useNotification();
+
+// ✅ BASE URL CHO ẢNH
+const IMAGE_BASE = "http://localhost:8080";
+const API_BASE = "http://localhost:8080/api";
+
+// ✅ HÀM LẤY URL ẢNH
+const getImageUrl = (imagePath) => {
+  if (!imagePath) return '';
+  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+    return imagePath;
+  }
+  const cleanPath = imagePath.startsWith('/') ? imagePath : '/' + imagePath;
+  return IMAGE_BASE + cleanPath;
+};
 
 // State
 const activeTab = ref("info");
@@ -458,29 +745,53 @@ const pageLoading = ref(true);
 const showWelcomeBanner = ref(false);
 const ordersLoading = ref(false);
 const wishlistLoading = ref(false);
+const cancelLoading = ref(false);
+const showCancelModal = ref(false);
+const showDetailModal = ref(false);
+const showImageViewer = ref(false);
+const cancelOrderId = ref(null);
+const cancelReason = ref("");
+const selectedOrder = ref(null);
+const currentPage = ref(0);
+const totalPages = ref(0);
+const orderFilter = ref("all");
+const viewingImage = ref("");
+
+// ✅ State cho Return
+const showReturnModal = ref(false);
+const selectedOrderForReturn = ref(null);
+
+// ✅ State cho Review
+const showReviewModal = ref(false);
+const showViewReviewModal = ref(false);
+const selectedProduct = ref(null);
+const selectedOrderId = ref(null);
+const editingReviewId = ref(null);
+const reviewedItems = ref(new Map());
+const viewingReview = ref(null);
 
 // Profile data
 const profile = reactive({
-  fullName: authStore.user?.username || "",
-  email: authStore.user?.email || "",
+  fullName: "",
+  email: "",
   phone: "",
   address: ""
 });
 
 const editForm = reactive({
-  fullName: profile.fullName,
-  email: profile.email,
+  fullName: "",
+  email: "",
   phone: "",
   address: ""
 });
 
 // Computed để hiển thị
 const displayName = computed(() => {
-  return profile.fullName || "Người dùng";
+  return profile.fullName || authStore.user?.username || "Người dùng";
 });
 
 const displayEmail = computed(() => {
-  return profile.email || "email@example.com";
+  return profile.email || authStore.user?.email || "email@example.com";
 });
 
 // Orders data
@@ -488,6 +799,12 @@ const orders = ref([]);
 
 // Wishlist data
 const wishlist = ref([]);
+
+// Toast
+const showToast = ref(false);
+const toastMessage = ref("");
+const toastType = ref("success");
+let toastTimer = null;
 
 // Password change
 const showCurrentPassword = ref(false);
@@ -500,6 +817,22 @@ const passwordForm = reactive({
   confirmPassword: "",
 });
 
+// ✅ Order tabs
+const orderTabs = [
+  { value: 'all', label: 'Tất cả' },
+  { value: 'PENDING_PAYMENT', label: 'Chờ thanh toán' },
+  { value: 'PROCESSING', label: 'Đang xử lý' },
+  { value: 'SHIPPING', label: 'Đang giao hàng' },
+  { value: 'DELIVERED', label: 'Đã giao hàng' },
+  { value: 'COMPLETED', label: 'Hoàn thành' },
+  { value: 'CANCELLED', label: 'Đã hủy' },
+  { value: 'RETURN_REQUESTED', label: 'Yêu cầu hoàn hàng' },
+  { value: 'RETURN_APPROVED', label: 'Đã duyệt hoàn hàng' },
+  { value: 'RETURN_RECEIVED', label: 'Đã nhận hàng trả' },
+  { value: 'REJECTED', label: 'Đã từ chối hoàn trả' },
+  { value: 'RETURNED', label: 'Đã hoàn trả' }
+];
+
 const isPasswordValid = computed(() => {
   return (
     passwordForm.newPassword.length >= 6 &&
@@ -510,13 +843,76 @@ const isPasswordValid = computed(() => {
   );
 });
 
-// ✅ Lấy profile từ API
+// ===== UTILITY FUNCTIONS =====
+const showNotificationMsg = (message, type = 'success') => {
+  if (toastTimer) clearTimeout(toastTimer);
+  toastMessage.value = message;
+  toastType.value = type;
+  showToast.value = true;
+  toastTimer = setTimeout(() => {
+    showToast.value = false;
+  }, 3000);
+};
+
+const formatDate = (dateString) => {
+  if (!dateString) return "---";
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return "---";
+  return date.toLocaleDateString("vi-VN") + " " + 
+         date.toLocaleTimeString("vi-VN", { hour: '2-digit', minute: '2-digit' });
+};
+
+const getStatusText = (status) => {
+  const map = {
+    "PENDING_PAYMENT": "Chờ thanh toán",
+    "CONFIRMED": "Đã xác nhận",
+    "PROCESSING": "Đang xử lý",
+    "SHIPPING": "Đang giao hàng",
+    "DELIVERED": "Đã giao hàng",
+    "COMPLETED": "Hoàn thành",
+    "CANCELLED": "Đã hủy",
+    "PENDING": "Chờ duyệt",
+    "APPROVED": "Đã duyệt",
+    "REJECTED": "Đã từ chối hoàn trả",
+    "RETURN_REQUESTED": "Yêu cầu hoàn hàng",
+    "RETURN_APPROVED": "Đã duyệt hoàn hàng",
+    "RETURN_RECEIVED": "Đã nhận hàng trả",
+    "RETURN_PENDING": "Đang thu hồi hàng",
+    "RETURNED": "Đã hoàn trả"
+  };
+  return map[status] || status;
+};
+
+const getStatusClass = (status) => {
+  const map = {
+    "PENDING_PAYMENT": "status-pending",
+    "CONFIRMED": "status-confirmed",
+    "PROCESSING": "status-processing",
+    "SHIPPING": "status-shipping",
+    "DELIVERED": "status-delivered",
+    "COMPLETED": "status-completed",
+    "CANCELLED": "status-cancelled",
+    "PENDING": "status-pending-review",
+    "APPROVED": "status-approved",
+    "REJECTED": "status-rejected",
+    "RETURN_REQUESTED": "status-return-requested",
+    "RETURN_APPROVED": "status-return-approved",
+    "RETURN_RECEIVED": "status-return-received",
+    "RETURN_PENDING": "status-return-pending",
+    "RETURNED": "status-returned"
+  };
+  return map[status] || "";
+};
+
+const handleImageError = (event) => {
+  event.target.style.display = 'none';
+};
+
+// ===== PROFILE FUNCTIONS =====
 const fetchProfile = async () => {
   try {
     const token = authStore.token || localStorage.getItem("token");
-    console.log("🔍 Token:", token);
     
-    // Nếu có token, gọi API lấy thông tin mới nhất
     if (token) {
       const response = await axios.get("http://localhost:8080/api/customers/profile", {
         headers: {
@@ -525,43 +921,24 @@ const fetchProfile = async () => {
         }
       });
 
-      console.log("✅ Profile from API:", response.data);
-
       if (response.data) {
         const data = response.data;
-        
-        // ✅ Cập nhật profile
-        profile.fullName = data.fullName || data.customerName || "";
-        profile.email = data.email || "";
+        profile.fullName = data.fullName || data.customerName || authStore.user?.username || "";
+        profile.email = data.email || authStore.user?.email || "";
         profile.phone = data.phone || "";
         profile.address = data.address || "";
 
-        // ✅ Cập nhật authStore
         if (authStore.user) {
           authStore.user.username = profile.fullName;
           authStore.user.email = profile.email;
-          // Lưu lại localStorage
           localStorage.setItem("user", JSON.stringify(authStore.user));
         }
-
-        console.log("📋 Profile loaded:", {
-          fullName: profile.fullName,
-          email: profile.email,
-          phone: profile.phone,
-          address: profile.address
-        });
       }
     } else {
-      // Không có token, lấy từ authStore
       profile.fullName = authStore.user?.username || "";
       profile.email = authStore.user?.email || "";
-      console.log("📋 Profile from authStore:", {
-        fullName: profile.fullName,
-        email: profile.email
-      });
     }
 
-    // Kiểm tra user mới
     if (route.query.newUser === 'true') {
       showWelcomeBanner.value = true;
       if (!profile.phone && !profile.address) {
@@ -570,7 +947,6 @@ const fetchProfile = async () => {
     }
   } catch (error) {
     console.error("❌ Error fetching profile:", error);
-    // Nếu API lỗi, vẫn hiển thị thông tin từ authStore
     profile.fullName = authStore.user?.username || "";
     profile.email = authStore.user?.email || "";
   } finally {
@@ -593,10 +969,9 @@ const cancelEditing = () => {
   editing.value = false;
 };
 
-// ✅ Lưu profile và reload dữ liệu
 const saveProfile = async () => {
   if (!editForm.fullName || editForm.fullName.trim().length === 0) {
-    showNotification("Vui lòng nhập họ và tên", "error");
+    showNotificationMsg("Vui lòng nhập họ và tên", "error");
     return;
   }
 
@@ -607,11 +982,9 @@ const saveProfile = async () => {
     const payload = {
       fullName: editForm.fullName.trim(),
       email: editForm.email,
-      phone: editForm.phone ? editForm.phone.trim() : null,
-      address: editForm.address ? editForm.address.trim() : null
+      phone: editForm.phone ? editForm.phone.trim() : "",
+      address: editForm.address ? editForm.address.trim() : ""
     };
-
-    console.log("📤 Sending payload:", payload);
 
     if (token) {
       const response = await axios.put(
@@ -624,19 +997,14 @@ const saveProfile = async () => {
           }
         }
       );
-      
-      console.log("✅ Update response:", response.data);
 
       if (response.data) {
         const data = response.data;
-        
-        // ✅ Cập nhật profile
         profile.fullName = data.fullName || data.customerName || editForm.fullName;
         profile.email = data.email || editForm.email;
         profile.phone = data.phone || editForm.phone || "";
         profile.address = data.address || editForm.address || "";
 
-        // ✅ Cập nhật authStore
         if (authStore.user) {
           authStore.user.username = profile.fullName;
           authStore.user.email = profile.email;
@@ -644,14 +1012,11 @@ const saveProfile = async () => {
         }
 
         editing.value = false;
-        showNotification("Cập nhật thông tin thành công!", "success");
-        
-        // ✅ Gọi lại API để lấy dữ liệu mới nhất (đồng bộ)
+        showNotificationMsg("Cập nhật thông tin thành công!", "success");
         await fetchProfile();
       }
     } else {
-      // Không có token, chỉ cập nhật local
-      showNotification("Vui lòng đăng nhập để lưu thông tin", "warning");
+      showNotificationMsg("Vui lòng đăng nhập để lưu thông tin", "warning");
       profile.fullName = editForm.fullName;
       profile.email = editForm.email;
       profile.phone = editForm.phone || "";
@@ -661,91 +1026,13 @@ const saveProfile = async () => {
   } catch (error) {
     console.error("❌ Error saving profile:", error);
     const message = error.response?.data?.message || "Có lỗi xảy ra khi cập nhật";
-    showNotification(message, "error");
+    showNotificationMsg(message, "error");
   } finally {
     loading.value = false;
   }
 };
 
-// Watch authStore.user để cập nhật profile
-watch(
-  () => authStore.user,
-  (newUser) => {
-    if (newUser) {
-      profile.fullName = newUser.username || profile.fullName;
-      profile.email = newUser.email || profile.email;
-    }
-  },
-  { deep: true }
-);
-
-const getOrderStatus = (status) => {
-  const statuses = {
-    pending: "Chờ xác nhận",
-    processing: "Đang xử lý",
-    shipped: "Đang giao",
-    delivered: "Đã giao",
-    cancelled: "Đã hủy",
-  };
-  return statuses[status] || status;
-};
-
-const viewOrderDetail = (orderId) => {
-  showNotification(`Xem chi tiết đơn hàng ${orderId}`, "info");
-};
-
-const reorder = (orderId) => {
-  showNotification("Đã thêm vào giỏ hàng", "success");
-  router.push("/cart");
-};
-
-const goToProduct = (id) => {
-  router.push(`/product/${id}`);
-};
-
-const addToCart = (product) => {
-  cartStore.addToCart(product);
-  showNotification("Đã thêm vào giỏ hàng", "success");
-};
-
-const removeFromWishlist = (id) => {
-  wishlist.value = wishlist.value.filter((p) => p.id !== id);
-  showNotification("Đã xóa khỏi danh sách yêu thích", "info");
-};
-
-const changePassword = async () => {
-  if (!isPasswordValid.value) {
-    showNotification("Vui lòng kiểm tra lại mật khẩu", "error");
-    return;
-  }
-
-  passwordLoading.value = true;
-  try {
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    showNotification("Đổi mật khẩu thành công!", "success");
-    passwordForm.currentPassword = "";
-    passwordForm.newPassword = "";
-    passwordForm.confirmPassword = "";
-  } catch (error) {
-    console.error("Error changing password:", error);
-    showNotification("Có lỗi xảy ra", "error");
-  } finally {
-    passwordLoading.value = false;
-  }
-};
-
-const changeAvatar = () => {
-  showNotification("Chức năng đang phát triển", "info");
-};
-
-const logout = () => {
-  if (confirm("Bạn có chắc muốn đăng xuất?")) {
-    authStore.logout();
-    router.push("/home");
-  }
-};
-
-// Fetch orders
+// ===== ORDERS FUNCTIONS =====
 const fetchOrders = async () => {
   ordersLoading.value = true;
   try {
@@ -756,41 +1043,402 @@ const fetchOrders = async () => {
       return;
     }
 
-    const response = await axios.get("http://localhost:8080/api/orders", {
-      headers: {
-        Authorization: `Bearer ${token}`
-      },
-      params: {
-        page: 0,
-        size: 10
-      }
-    });
-
+    const status = orderFilter.value === 'all' ? null : orderFilter.value;
+    const response = await orderService.getMyOrders(status, currentPage.value, 10);
+    
+    console.log("📦 Orders response with filter:", orderFilter.value, response.data);
+    
     if (response.data && response.data.content) {
-      orders.value = response.data.content.map(order => ({
-        id: order.orderCode || `DH${order.orderId}`,
-        date: formatDate(order.orderDate),
-        status: mapOrderStatus(order.orderStatus),
-        total: order.totalAmount || 0,
-        items: order.items ? order.items.map(item => ({
-          id: item.itemId,
-          name: item.productName,
-          image: "tshirt",
-          price: item.unitPrice,
-          quantity: item.quantity,
-          size: item.sizeName || "M",
-          color: item.colorName || "Đen"
-        })) : []
-      }));
+      orders.value = response.data.content;
+      totalPages.value = response.data.totalPages || 0;
+      currentPage.value = response.data.number || 0;
+      
+      await checkAllReviewsStatus(orders.value);
+    } else {
+      orders.value = [];
     }
   } catch (error) {
-    console.error("Error fetching orders:", error);
+    console.error("❌ Error fetching orders:", error);
+    showNotificationMsg(error.response?.data?.message || "Không thể tải đơn hàng", "error");
+    orders.value = [];
   } finally {
     ordersLoading.value = false;
   }
 };
 
-// Fetch wishlist
+const checkAllReviewsStatus = async (orders) => {
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    for (const order of orders) {
+      if (order.orderStatus !== 'COMPLETED') continue;
+      if (!order.items || order.items.length === 0) continue;
+      
+      for (const item of order.items) {
+        if (!item || !item.productDetailId) continue;
+        
+        const reviewKey = `${order.orderId}_${item.productDetailId}`;
+        
+        if (reviewedItems.value.has(reviewKey)) {
+          const data = reviewedItems.value.get(reviewKey);
+          if (data && data.reviewId === null) {
+            reviewedItems.value.delete(reviewKey);
+          }
+          continue;
+        }
+        
+        try {
+          const response = await axios.get(`${API_BASE}/reviews/check`, {
+            params: {
+              orderId: order.orderId,
+              productDetailId: item.productDetailId
+            },
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
+          });
+          
+          console.log('🔍 Check review for order:', order.orderId, 'item:', item.productDetailId, response.data);
+          
+          if (response.data.reviewed) {
+            try {
+              const myReviewsResponse = await axios.get(`${API_BASE}/reviews/my-reviews`, {
+                params: {
+                  page: 0,
+                  size: 100
+                },
+                headers: {
+                  Authorization: `Bearer ${token}`
+                }
+              });
+              
+              if (myReviewsResponse.data && myReviewsResponse.data.content) {
+                const foundReview = myReviewsResponse.data.content.find(
+                  r => r.orderId === order.orderId && r.productDetailId === item.productDetailId
+                );
+                if (foundReview && foundReview.reviewId) {
+                  console.log('✅ Found review:', foundReview);
+                  reviewedItems.value.set(reviewKey, foundReview);
+                } else {
+                  reviewedItems.value.delete(reviewKey);
+                }
+              }
+            } catch (err) {
+              console.warn('Cannot get review detail, skip caching');
+              reviewedItems.value.delete(reviewKey);
+            }
+          } else {
+            reviewedItems.value.delete(reviewKey);
+          }
+        } catch (error) {
+          console.error(`❌ Error checking review:`, error);
+          reviewedItems.value.delete(reviewKey);
+        }
+      }
+    }
+  } catch (error) {
+    console.error('❌ Error checking all reviews:', error);
+  }
+};
+
+const getReviewDetail = async (orderId, productDetailId) => {
+  try {
+    const token = localStorage.getItem('token');
+    const response = await axios.get(`${API_BASE}/reviews/my-reviews`, {
+      params: {
+        orderId: orderId,
+        productDetailId: productDetailId
+      },
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+    if (response.data && response.data.content && response.data.content.length > 0) {
+      return response.data.content[0];
+    }
+    return null;
+  } catch (error) {
+    console.error('❌ Error getting review detail:', error);
+    return null;
+  }
+};
+
+const isItemReviewed = (orderId, productDetailId) => {
+  if (!orderId || !productDetailId) return false;
+  const reviewKey = `${orderId}_${productDetailId}`;
+  const data = reviewedItems.value.get(reviewKey);
+  return data && data.reviewId !== null && data.reviewId !== undefined;
+};
+
+const getReviewData = (orderId, productDetailId) => {
+  const reviewKey = `${orderId}_${productDetailId}`;
+  const data = reviewedItems.value.get(reviewKey);
+  if (data && data.reviewId) {
+    return data;
+  }
+  return null;
+};
+
+const getOrderCountByStatus = (status) => {
+  return orders.value.filter(order => order.orderStatus === status).length;
+};
+
+const changeOrderFilter = (filterValue) => {
+  orderFilter.value = filterValue;
+  currentPage.value = 0;
+  fetchOrders();
+};
+
+const goToPage = (page) => {
+  if (page >= 0 && page < totalPages.value) {
+    currentPage.value = page;
+    fetchOrders();
+  }
+};
+
+const viewOrderDetail = async (orderId) => {
+  try {
+    const response = await orderService.getOrderDetail(orderId);
+    selectedOrder.value = response.data;
+    showDetailModal.value = true;
+  } catch (error) {
+    console.error("❌ Error fetching order detail:", error);
+    showNotificationMsg("Không thể tải chi tiết đơn hàng", "error");
+  }
+};
+
+const closeDetailModal = () => {
+  showDetailModal.value = false;
+  selectedOrder.value = null;
+};
+
+const handleCancelOrder = (orderId) => {
+  cancelOrderId.value = orderId;
+  cancelReason.value = "";
+  showCancelModal.value = true;
+};
+
+const closeCancelModal = () => {
+  showCancelModal.value = false;
+  cancelOrderId.value = null;
+  cancelReason.value = "";
+};
+
+const confirmCancelOrder = async () => {
+  if (!cancelReason.value.trim()) {
+    showNotificationMsg("Vui lòng nhập lý do hủy đơn hàng", "error");
+    return;
+  }
+  
+  cancelLoading.value = true;
+  try {
+    await orderService.cancelOrder(cancelOrderId.value, cancelReason.value);
+    showNotificationMsg("Hủy đơn hàng thành công!", "success");
+    closeCancelModal();
+    await fetchOrders();
+  } catch (error) {
+    console.error("❌ Error canceling order:", error);
+    showNotificationMsg(error.response?.data?.message || "Không thể hủy đơn hàng", "error");
+  } finally {
+    cancelLoading.value = false;
+  }
+};
+
+const handleReturnOrder = (order) => {
+  if (!order) {
+    showNotificationMsg("Không tìm thấy đơn hàng", "error");
+    return;
+  }
+  
+  if (order.orderStatus !== 'COMPLETED') {
+    showNotificationMsg("Chỉ có thể yêu cầu hoàn hàng khi đơn hàng đã hoàn thành", "warning");
+    return;
+  }
+  
+  selectedOrderForReturn.value = order;
+  showReturnModal.value = true;
+};
+
+const closeReturnModal = () => {
+  showReturnModal.value = false;
+  selectedOrderForReturn.value = null;
+};
+
+const onReturnSubmitted = (data) => {
+  showNotificationMsg("Yêu cầu hoàn hàng đã được gửi!", "success");
+  closeReturnModal();
+  fetchOrders();
+};
+
+const handleReorder = (order) => {
+  if (order.items && order.items.length > 0) {
+    order.items.forEach(item => {
+      cartStore.addToCart({
+        productDetailId: item.productDetailId,
+        productId: item.productId,
+        productName: item.productName,
+        price: item.unitPrice,
+        quantity: item.quantity,
+        imageUrl: item.imageUrl,
+        sizeName: item.sizeName,
+        colorName: item.colorName
+      });
+    });
+    showNotificationMsg("Đã thêm sản phẩm vào giỏ hàng!", "success");
+    router.push("/cart");
+  }
+};
+
+// ===== REVIEW FUNCTIONS =====
+const openReviewModal = (order, item) => {
+  if (!order || !item) {
+    showNotificationMsg("Không có sản phẩm để đánh giá", "warning");
+    return;
+  }
+  
+  if (!item.productDetailId) {
+    showNotificationMsg("Sản phẩm không hợp lệ", "warning");
+    return;
+  }
+  
+  const reviewKey = `${order.orderId}_${item.productDetailId}`;
+  const existingReview = reviewedItems.value.get(reviewKey);
+  
+  if (existingReview && existingReview.reviewId) {
+    showNotificationMsg("Bạn đã đánh giá sản phẩm này trong đơn hàng này!", "info");
+    return;
+  }
+  
+  selectedProduct.value = {
+    productDetailId: item.productDetailId,
+    productName: item.productName || 'Sản phẩm',
+    sizeName: item.sizeName || '',
+    colorName: item.colorName || '',
+    imageUrl: item.imageUrl || ''
+  };
+  selectedOrderId.value = order.orderId;
+  editingReviewId.value = null;
+  showReviewModal.value = true;
+};
+
+const onReviewSubmitted = (review) => {
+  if (review && review.productDetailId && review.orderId) {
+    const reviewKey = `${review.orderId}_${review.productDetailId}`;
+    reviewedItems.value.set(reviewKey, review);
+  }
+  showNotificationMsg("Đánh giá thành công! Cảm ơn bạn.", "success");
+  editingReviewId.value = null;
+  fetchOrders();
+};
+
+const viewReview = async (orderId, productDetailId) => {
+  try {
+    const reviewData = getReviewData(orderId, productDetailId);
+    
+    if (!reviewData || !reviewData.reviewId) {
+      showNotificationMsg("Không tìm thấy đánh giá", "warning");
+      const reviewKey = `${orderId}_${productDetailId}`;
+      reviewedItems.value.delete(reviewKey);
+      return;
+    }
+    
+    console.log('📖 Viewing review:', reviewData);
+    
+    if (reviewData && reviewData.comment !== undefined) {
+      viewingReview.value = reviewData;
+      showViewReviewModal.value = true;
+      return;
+    }
+    
+    const token = localStorage.getItem('token');
+    const response = await axios.get(`${API_BASE}/reviews/${reviewData.reviewId}`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+    
+    if (response.data) {
+      viewingReview.value = response.data;
+      const reviewKey = `${orderId}_${productDetailId}`;
+      reviewedItems.value.set(reviewKey, response.data);
+      showViewReviewModal.value = true;
+    } else {
+      showNotificationMsg("Không tìm thấy đánh giá", "warning");
+      const reviewKey = `${orderId}_${productDetailId}`;
+      reviewedItems.value.delete(reviewKey);
+    }
+  } catch (error) {
+    console.error('❌ Error viewing review:', error);
+    if (error.response?.status === 404) {
+      const reviewKey = `${orderId}_${productDetailId}`;
+      reviewedItems.value.delete(reviewKey);
+      showNotificationMsg("Đánh giá không tồn tại", "warning");
+    } else {
+      showNotificationMsg("Không thể tải đánh giá", "error");
+    }
+  }
+};
+
+const closeViewReview = () => {
+  showViewReviewModal.value = false;
+  viewingReview.value = null;
+};
+
+const deleteReview = async (orderId, productDetailId) => {
+  if (!confirm("Bạn có chắc muốn xóa đánh giá này?")) return;
+  
+  try {
+    const token = localStorage.getItem('token');
+    const reviewData = getReviewData(orderId, productDetailId);
+    
+    if (!reviewData || !reviewData.reviewId) {
+      showNotificationMsg("Không tìm thấy đánh giá để xóa", "error");
+      const reviewKey = `${orderId}_${productDetailId}`;
+      reviewedItems.value.delete(reviewKey);
+      await fetchOrders();
+      return;
+    }
+    
+    console.log('🗑️ Deleting review with ID:', reviewData.reviewId);
+    
+    await axios.delete(`${API_BASE}/reviews/${reviewData.reviewId}`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+    
+    const reviewKey = `${orderId}_${productDetailId}`;
+    reviewedItems.value.delete(reviewKey);
+    
+    showNotificationMsg("Xóa đánh giá thành công! Bạn có thể đánh giá lại sản phẩm này trong đơn hàng này.", "success");
+    await fetchOrders();
+    
+  } catch (error) {
+    console.error('❌ Error deleting review:', error);
+    
+    if (error.response?.status === 404) {
+      const reviewKey = `${orderId}_${productDetailId}`;
+      reviewedItems.value.delete(reviewKey);
+      showNotificationMsg("Đánh giá đã được xóa trước đó. Bạn có thể đánh giá lại.", "info");
+      await fetchOrders();
+    } else {
+      showNotificationMsg(error.response?.data?.error || "Không thể xóa đánh giá", "error");
+    }
+  }
+};
+
+const viewImage = (imageUrl) => {
+  viewingImage.value = getImageUrl(imageUrl);
+  showImageViewer.value = true;
+};
+
+const closeImageViewer = () => {
+  showImageViewer.value = false;
+  viewingImage.value = '';
+};
+
+// ===== WISHLIST FUNCTIONS =====
 const fetchWishlist = async () => {
   wishlistLoading.value = true;
   try {
@@ -805,30 +1453,151 @@ const fetchWishlist = async () => {
   }
 };
 
-// Helper functions
-const formatDate = (dateString) => {
-  if (!dateString) return "";
-  const date = new Date(dateString);
-  return date.toLocaleDateString("vi-VN");
+const goToProduct = (id) => {
+  router.push(`/product/${id}`);
 };
 
-const mapOrderStatus = (status) => {
-  const map = {
-    "PENDING_PAYMENT": "pending",
-    "PROCESSING": "processing",
-    "SHIPPING": "shipped",
-    "DELIVERED": "delivered",
-    "CANCELLED": "cancelled"
-  };
-  return map[status] || "pending";
+const addToCart = (product) => {
+  cartStore.addToCart(product);
+  showNotificationMsg("Đã thêm vào giỏ hàng", "success");
 };
 
-// Lifecycle
+const removeFromWishlist = (id) => {
+  wishlist.value = wishlist.value.filter((p) => p.id !== id);
+  showNotificationMsg("Đã xóa khỏi danh sách yêu thích", "info");
+};
+
+// ===== PASSWORD FUNCTIONS =====
+const changePassword = async () => {
+  // Kiểm tra mật khẩu hiện tại
+  if (!passwordForm.currentPassword || passwordForm.currentPassword.length === 0) {
+    showNotificationMsg("Vui lòng nhập mật khẩu hiện tại", "error");
+    return;
+  }
+
+  // Kiểm tra mật khẩu mới
+  if (!passwordForm.newPassword || passwordForm.newPassword.length < 6) {
+    showNotificationMsg("Mật khẩu mới phải có ít nhất 6 ký tự", "error");
+    return;
+  }
+
+  if (!/[A-Z]/.test(passwordForm.newPassword)) {
+    showNotificationMsg("Mật khẩu mới phải có ít nhất 1 chữ hoa", "error");
+    return;
+  }
+
+  if (!/[0-9]/.test(passwordForm.newPassword)) {
+    showNotificationMsg("Mật khẩu mới phải có ít nhất 1 số", "error");
+    return;
+  }
+
+  // Kiểm tra xác nhận mật khẩu
+  if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+    showNotificationMsg("Mật khẩu xác nhận không khớp", "error");
+    return;
+  }
+
+  // Kiểm tra mật khẩu mới không trùng mật khẩu cũ
+  if (passwordForm.newPassword === passwordForm.currentPassword) {
+    showNotificationMsg("Mật khẩu mới không được trùng với mật khẩu hiện tại", "error");
+    return;
+  }
+
+  passwordLoading.value = true;
+  try {
+    const token = authStore.token || localStorage.getItem("token");
+    
+    if (!token) {
+      showNotificationMsg("Vui lòng đăng nhập để đổi mật khẩu", "warning");
+      passwordLoading.value = false;
+      return;
+    }
+
+    const response = await axios.put(
+      "http://localhost:8080/api/customers/change-password",
+      {
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
+        }
+      }
+    );
+
+    console.log("✅ Change password response:", response.data);
+    
+    showNotificationMsg("Đổi mật khẩu thành công!", "success");
+    
+    // Reset form
+    passwordForm.currentPassword = "";
+    passwordForm.newPassword = "";
+    passwordForm.confirmPassword = "";
+    
+  } catch (error) {
+    console.error("❌ Error changing password:", error);
+    const message = error.response?.data?.message || "Có lỗi xảy ra khi đổi mật khẩu";
+    showNotificationMsg(message, "error");
+  } finally {
+    passwordLoading.value = false;
+  }
+};
+
+const changeAvatar = () => {
+  showNotificationMsg("Chức năng đang phát triển", "info");
+};
+
+const logout = () => {
+  if (confirm("Bạn có chắc muốn đăng xuất?")) {
+    authStore.logout();
+    router.push("/home");
+  }
+};
+
+// ===== WATCH =====
+watch(
+  () => authStore.user,
+  (newUser) => {
+    if (newUser) {
+      profile.fullName = newUser.username || profile.fullName;
+      profile.email = newUser.email || profile.email;
+    }
+  },
+  { deep: true }
+);
+
+watch(
+  () => route.query.newUser,
+  (newVal) => {
+    if (newVal === 'true') {
+      showWelcomeBanner.value = true;
+      if (!profile.phone && !profile.address) {
+        setTimeout(() => startEditing(), 500);
+      }
+    }
+  }
+);
+
+watch(
+  () => route.query.tab,
+  (newTab) => {
+    if (newTab === 'orders') {
+      activeTab.value = 'orders';
+      fetchOrders();
+    }
+  },
+  { immediate: true }
+);
+
+// ===== LIFECYCLE =====
 onMounted(() => {
   console.log("🚀 Profile page mounted");
-  console.log("🔍 Token:", authStore.token || localStorage.getItem("token"));
-  console.log("🔍 Is authenticated:", authStore.isAuthenticated);
-  console.log("🔍 User:", authStore.user);
+  
+  if (route.query.tab === 'orders') {
+    activeTab.value = 'orders';
+  }
   
   fetchProfile();
   fetchOrders();
@@ -910,6 +1679,16 @@ main {
 .profile-avatar p {
   font-size: 14px;
   opacity: 0.9;
+}
+
+.profile-phone {
+  margin-top: 5px;
+  font-size: 13px;
+  opacity: 0.8;
+}
+
+.profile-phone i {
+  margin-right: 5px;
 }
 
 .profile-menu {
@@ -1020,31 +1799,6 @@ main {
   font-size: 16px;
 }
 
-.loading-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 50px;
-  background: white;
-  border-radius: 15px;
-}
-
-.spinner {
-  width: 40px;
-  height: 40px;
-  border: 3px solid #f3f3f3;
-  border-top: 3px solid #e63946;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin: 0 auto 15px;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
 /* ===== WELCOME BANNER ===== */
 .welcome-banner {
   background: linear-gradient(135deg, #e63946 0%, #ff6b6b 100%);
@@ -1124,12 +1878,12 @@ main {
 
 /* ===== FORM STYLES ===== */
 .form-group {
-  margin-bottom: 20px;
+  margin-bottom: 12px;
 }
 
 .form-group label {
   display: block;
-  margin-bottom: 8px;
+  margin-bottom: 5px;
   color: #1a1a2e;
   font-weight: 500;
 }
@@ -1139,7 +1893,8 @@ main {
 }
 
 .form-group input,
-.form-group select {
+.form-group select,
+.form-group textarea {
   width: 100%;
   padding: 12px 15px;
   border: 2px solid #e9ecef;
@@ -1147,12 +1902,20 @@ main {
   outline: none;
   transition: all 0.3s;
   font-size: 14px;
+  font-family: inherit;
+  box-sizing: border-box;
 }
 
 .form-group input:focus,
-.form-group select:focus {
+.form-group select:focus,
+.form-group textarea:focus {
   border-color: #e63946;
   box-shadow: 0 0 0 3px rgba(230, 57, 70, 0.1);
+}
+
+.form-group textarea {
+  min-height: 80px;
+  resize: vertical;
 }
 
 .disabled-input {
@@ -1172,26 +1935,55 @@ main {
   max-width: 600px;
 }
 
-.password-input {
+/* ===== PASSWORD INPUT - FIXED ===== */
+.password-input-wrapper {
   position: relative;
+  width: 100%;
 }
 
-.password-input input {
-  padding-right: 45px;
+.password-input-field {
+  width: 100%;
+  padding: 12px 45px 12px 15px !important;
+  border: 2px solid #e9ecef;
+  border-radius: 10px;
+  outline: none;
+  transition: all 0.3s;
+  font-size: 14px;
+  font-family: inherit;
+  box-sizing: border-box;
+  background: white;
 }
 
-.password-input i {
+.password-input-field:focus {
+  border-color: #e63946;
+  box-shadow: 0 0 0 3px rgba(230, 57, 70, 0.1);
+}
+
+.password-toggle-icon {
   position: absolute;
-  right: 15px;
+  right: 12px;
   top: 50%;
   transform: translateY(-50%);
   cursor: pointer;
   color: #6c757d;
   font-size: 18px;
+  z-index: 2;
+  transition: color 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px;
+  background: transparent;
+  border-radius: 4px;
+  user-select: none;
 }
 
-.password-input i:hover {
+.password-toggle-icon:hover {
   color: #1a1a2e;
+}
+
+.password-toggle-icon i {
+  pointer-events: none;
 }
 
 .form-actions {
@@ -1216,8 +2008,9 @@ main {
 }
 
 .btn-sm {
-  padding: 8px 18px;
-  font-size: 13px;
+  padding: 6px 12px;
+  font-size: 12px;
+  min-width: 32px;
 }
 
 .btn-primary {
@@ -1248,7 +2041,201 @@ main {
   border-color: #c62828;
 }
 
+.btn-danger {
+  background: #dc3545;
+  color: white;
+}
+
+.btn-danger:hover {
+  background: #c82333;
+}
+
+.btn-warning {
+  background: #ffc107;
+  color: #333;
+}
+
+.btn-warning:hover {
+  background: #e0a800;
+}
+
+.btn-success {
+  background: #28a745;
+  color: white;
+}
+
+.btn-success:hover {
+  background: #1e7e34;
+}
+
+.btn-review {
+  background: linear-gradient(135deg, #f5c842, #f0a500);
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.btn-review:hover {
+  background: linear-gradient(135deg, #e6b800, #cc9900);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(245, 200, 66, 0.4);
+}
+
+/* ===== ITEM ACTIONS ===== */
+.item-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.review-action-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.reviewed-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.reviewed-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: #e8f5e9;
+  color: #2e7d32;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.reviewed-badge i {
+  font-size: 14px;
+}
+
+/* ===== ORDER ITEMS ===== */
+.order-item {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 10px 0;
+  border-bottom: 1px dashed #e9ecef;
+}
+
+.order-item:last-child {
+  border-bottom: none;
+}
+
+.item-image {
+  width: 60px;
+  height: 60px;
+  background: #f1f3f5;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.item-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.item-image i {
+  font-size: 30px;
+  color: #adb5bd;
+}
+
+.item-details {
+  flex: 1;
+}
+
+.item-details h4 {
+  font-size: 15px;
+  color: #1a1a2e;
+  margin-bottom: 3px;
+}
+
+.item-variant {
+  font-size: 13px;
+  color: #6c757d;
+}
+
+.item-quantity {
+  font-size: 13px;
+  color: #6c757d;
+}
+
+.item-price {
+  font-weight: 600;
+  color: #e63946;
+  font-size: 15px;
+}
+
 /* ===== ORDERS ===== */
+.orders-header {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 15px;
+}
+
+.orders-header h2 {
+  margin-bottom: 0;
+}
+
+.order-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 5px 0 10px;
+}
+
+.tab-btn {
+  padding: 6px 16px;
+  background: #f0f0f0;
+  border: none;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: #666;
+  transition: all 0.3s;
+}
+
+.tab-btn:hover {
+  background: #e0e0e0;
+}
+
+.tab-btn.active {
+  background: #e63946;
+  color: white;
+}
+
+.tab-count {
+  font-size: 11px;
+  opacity: 0.8;
+}
+
 .orders-list {
   display: flex;
   flex-direction: column;
@@ -1275,10 +2262,16 @@ main {
   gap: 10px;
 }
 
+.order-info {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
 .order-id {
-  font-weight: 600;
+  font-weight: 700;
   color: #e63946;
-  margin-right: 15px;
+  font-size: 16px;
 }
 
 .order-date {
@@ -1301,7 +2294,7 @@ main {
   background: #cce5ff;
   color: #004085;
 }
-.status-shipped {
+.status-shipping {
   background: #d1ecf1;
   color: #0c5460;
 }
@@ -1309,65 +2302,76 @@ main {
   background: #d4edda;
   color: #155724;
 }
+.status-completed {
+  background: #d4edda;
+  color: #155724;
+}
 .status-cancelled {
   background: #f8d7da;
   color: #721c24;
 }
-
-.order-items {
-  margin: 15px 0;
+.status-pending-review {
+  background: #fff3cd;
+  color: #856404;
+}
+.status-approved {
+  background: #d4edda;
+  color: #155724;
+}
+.status-rejected {
+  background: #f8d7da;
+  color: #721c24;
+}
+.status-return-requested {
+  background: #fff3cd;
+  color: #856404;
+}
+.status-return-approved {
+  background: #cce5ff;
+  color: #004085;
+}
+.status-return-received {
+  background: #cce5ff;
+  color: #004085;
+}
+.status-return-pending {
+  background: #d1ecf1;
+  color: #0c5460;
+}
+.status-returned {
+  background: #d4edda;
+  color: #155724;
 }
 
-.order-item {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  padding: 10px 0;
-  border-bottom: 1px dashed #e9ecef;
-}
-
-.order-item:last-child {
-  border-bottom: none;
-}
-
-.item-image {
-  width: 50px;
-  height: 50px;
-  background: #f1f3f5;
+.order-voucher {
+  background: #e8f5e9;
+  padding: 10px 15px;
   border-radius: 8px;
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 12px;
+  margin: 5px 0 15px;
+  border-left: 4px solid #2e7d32;
 }
 
-.item-image i {
-  font-size: 25px;
-  color: #6c757d;
+.order-voucher i {
+  color: #2e7d32;
+  font-size: 18px;
 }
 
-.item-details {
-  flex: 1;
-}
-
-.item-details h4 {
+.order-voucher .voucher-code {
+  font-weight: 700;
+  color: #2e7d32;
+  background: white;
+  padding: 2px 10px;
+  border-radius: 4px;
   font-size: 14px;
-  margin-bottom: 3px;
-  color: #1a1a2e;
 }
 
-.item-variant {
-  font-size: 12px;
-  color: #6c757d;
-}
-
-.item-quantity {
-  font-size: 12px;
-  color: #6c757d;
-}
-
-.item-price {
-  font-weight: 600;
+.order-voucher .voucher-discount {
   color: #e63946;
+  font-weight: 700;
+  margin-left: auto;
 }
 
 .order-footer {
@@ -1392,7 +2396,498 @@ main {
 
 .order-actions {
   display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* ===== PAGINATION ===== */
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 15px;
+  margin-top: 20px;
+}
+
+.page-btn {
+  padding: 8px 16px;
+  border: 1px solid #ddd;
+  background: white;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.page-btn:hover:not(:disabled) {
+  background: #e63946;
+  color: white;
+  border-color: #e63946;
+}
+
+.page-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.page-info {
+  font-size: 14px;
+  color: #666;
+}
+
+/* ===== EMPTY STATE ===== */
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  background: #f8f9fa;
+  border-radius: 15px;
+}
+
+.empty-state i {
+  font-size: 70px;
+  color: #e63946;
+  margin-bottom: 15px;
+  opacity: 0.7;
+}
+
+.empty-state h3 {
+  color: #1a1a2e;
+  font-size: 22px;
+  margin-bottom: 10px;
+}
+
+.empty-state p {
+  color: #6c757d;
+  margin-bottom: 25px;
+  font-size: 16px;
+}
+
+.btn-shop-now {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   gap: 10px;
+  padding: 14px 32px;
+  background: linear-gradient(135deg, #e63946, #ff6b6b);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-decoration: none;
+  box-shadow: 0 4px 15px rgba(230, 57, 70, 0.3);
+}
+
+.btn-shop-now:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 25px rgba(230, 57, 70, 0.4);
+  background: linear-gradient(135deg, #c62828, #e63946);
+}
+
+.btn-shop-now i {
+  font-size: 18px;
+}
+
+/* ===== MODAL ===== */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  backdrop-filter: blur(5px);
+}
+
+.modal-container {
+  background: white;
+  border-radius: 12px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: slideIn 0.3s;
+}
+
+.modal-container.modal-sm {
+  max-width: 450px;
+}
+
+.modal-container.modal-lg {
+  max-width: 800px;
+}
+
+@keyframes slideIn {
+  from { transform: translateY(-30px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #e63946, #ff6b6b);
+  color: white;
+  border-radius: 12px 12px 0 0;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: white;
+}
+
+.close-btn:hover {
+  opacity: 0.8;
+}
+
+.modal-body {
+  padding: 20px;
+}
+
+.modal-footer {
+  padding: 16px 20px;
+  border-top: 1px solid #eee;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  border-radius: 0 0 12px 12px;
+}
+
+.order-info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.info-section {
+  background: #f8f9fa;
+  padding: 15px;
+  border-radius: 8px;
+}
+
+.info-section h4 {
+  color: #2c3e50;
+  margin-bottom: 10px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid #eee;
+}
+
+.info-section p {
+  margin-bottom: 5px;
+  font-size: 14px;
+  color: #666;
+}
+
+.order-items-section h4 {
+  color: #2c3e50;
+  margin-bottom: 15px;
+}
+
+.items-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.items-table th {
+  background: #f8f9fa;
+  padding: 10px;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 600;
+  color: #2c3e50;
+  border-bottom: 2px solid #eee;
+}
+
+.items-table td {
+  padding: 10px;
+  border-bottom: 1px solid #eee;
+  vertical-align: middle;
+}
+
+.items-table tfoot td {
+  border-bottom: none;
+  padding: 8px 10px;
+}
+
+.text-right {
+  text-align: right;
+}
+
+.total-row {
+  font-weight: 700;
+}
+
+.grand-total {
+  font-size: 18px;
+  color: #e63946;
+}
+
+.discount-row td {
+  color: #28a745;
+  font-weight: 600;
+}
+
+.discount-row .voucher-label {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.discount-row .discount-amount {
+  color: #28a745;
+  font-weight: 700;
+}
+
+.voucher-info-section {
+  background: #e8f5e9;
+  padding: 15px 20px;
+  border-radius: 8px;
+  margin-top: 20px;
+  border-left: 4px solid #2e7d32;
+}
+
+.voucher-info-section h4 {
+  color: #2e7d32;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.voucher-info-section .voucher-detail {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
+.voucher-info-section .voucher-code {
+  font-weight: 700;
+  color: #2e7d32;
+  background: white;
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 16px;
+}
+
+.voucher-info-section .voucher-savings {
+  color: #e63946;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.item-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.item-info .item-image {
+  width: 40px;
+  height: 40px;
+}
+
+.item-info .item-image i {
+  font-size: 20px;
+}
+
+.item-info .item-name {
+  font-weight: 600;
+  color: #2c3e50;
+  font-size: 14px;
+}
+
+.item-info .item-variant {
+  font-size: 12px;
+  color: #999;
+}
+
+/* ===== VIEW REVIEW MODAL ===== */
+.product-info {
+  display: flex;
+  gap: 15px;
+  padding: 15px;
+  background: #f8f9fa;
+  border-radius: 10px;
+  margin-bottom: 20px;
+}
+
+.product-info .product-image {
+  width: 60px;
+  height: 60px;
+  background: #f5f5f5;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.product-info .product-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.product-info .product-image i {
+  font-size: 30px;
+  color: #ccc;
+}
+
+.product-info .product-details h4 {
+  font-size: 15px;
+  color: #2c3e50;
+  margin: 0 0 4px 0;
+}
+
+.product-info .product-details .product-variant {
+  font-size: 13px;
+  color: #999;
+  margin: 0;
+}
+
+.rating-section {
+  margin-bottom: 15px;
+}
+
+.rating-section label {
+  font-weight: 600;
+  color: #2c3e50;
+  display: block;
+  margin-bottom: 5px;
+}
+
+.rating-section .stars {
+  display: flex;
+  gap: 4px;
+}
+
+.rating-section .stars i {
+  font-size: 20px;
+  color: #ddd;
+}
+
+.rating-section .stars i.active {
+  color: #f5c842;
+}
+
+.comment-section {
+  margin-bottom: 15px;
+}
+
+.comment-section label {
+  font-weight: 600;
+  color: #2c3e50;
+  display: block;
+  margin-bottom: 5px;
+}
+
+.comment-section .comment-text {
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  color: #555;
+  line-height: 1.6;
+}
+
+.image-gallery {
+  margin-bottom: 15px;
+}
+
+.image-gallery label {
+  font-weight: 600;
+  color: #2c3e50;
+  display: block;
+  margin-bottom: 5px;
+}
+
+.image-gallery .images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.image-gallery .gallery-image {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 1px solid #e9ecef;
+  transition: all 0.3s;
+}
+
+.image-gallery .gallery-image:hover {
+  transform: scale(1.05);
+}
+
+.info-row {
+  display: flex;
+  gap: 10px;
+  padding: 4px 0;
+  font-size: 14px;
+}
+
+.info-row .label {
+  font-weight: 600;
+  color: #666;
+  min-width: 120px;
+}
+
+/* ===== IMAGE VIEWER ===== */
+.image-viewer-container {
+  max-width: 90vw;
+  max-height: 90vh;
+  position: relative;
+}
+
+.image-viewer-container img {
+  max-width: 100%;
+  max-height: 85vh;
+  object-fit: contain;
+  border-radius: 8px;
+}
+
+.image-viewer-container .close-btn {
+  position: absolute;
+  top: -40px;
+  right: -40px;
+  background: white;
+  color: #333;
+  border: none;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  font-size: 20px;
+  cursor: pointer;
+  transition: all 0.3s;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+.image-viewer-container .close-btn:hover {
+  transform: rotate(90deg);
+  background: #e63946;
+  color: white;
 }
 
 /* ===== WISHLIST ===== */
@@ -1530,47 +3025,49 @@ main {
   color: #28a745;
 }
 
-/* ===== EMPTY STATE ===== */
-.empty-state {
-  text-align: center;
-  padding: 50px 20px;
-  background: #f8f9fa;
-  border-radius: 15px;
+/* ===== TOAST ===== */
+.toast {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  padding: 12px 24px;
+  border-radius: 10px;
+  background: #27ae60;
+  color: white;
+  font-size: 14px;
+  z-index: 9999;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all 0.4s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
-.empty-state i {
-  font-size: 60px;
-  color: #adb5bd;
-  margin-bottom: 15px;
+.toast.toast-error {
+  background: #e74c3c;
 }
 
-.empty-state p {
-  color: #6c757d;
-  margin-bottom: 20px;
-  font-size: 16px;
+.toast.show {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 /* ===== ANIMATIONS ===== */
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes slideDown {
-  from {
-    opacity: 0;
-    transform: translateY(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(-20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideIn {
+  from { transform: translateY(-30px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
 }
 
 /* ===== RESPONSIVE ===== */
@@ -1636,28 +3133,42 @@ main {
     flex: 1;
   }
 
+  .order-item {
+    flex-wrap: wrap;
+  }
+
+  .item-actions {
+    width: 100%;
+    margin-left: 0;
+    justify-content: flex-start;
+  }
+
+  .reviewed-group {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
   .wishlist-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 
-  .filters-bar {
-    flex-direction: column;
+  .order-info-grid {
+    grid-template-columns: 1fr;
   }
 
-  .search-box {
-    width: 100%;
+  .modal-container.modal-lg {
+    max-width: 100%;
+    margin: 10px;
   }
 
-  .filter-select {
-    width: 100%;
+  .order-tabs {
+    overflow-x: auto;
+    flex-wrap: nowrap;
   }
 
-  .stats-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .modal-content {
-    padding: 20px;
+  .image-viewer-container .close-btn {
+    top: 10px;
+    right: 10px;
   }
 }
 
@@ -1683,8 +3194,12 @@ main {
     width: 100%;
   }
 
-  .stats-grid {
-    grid-template-columns: 1fr;
+  .order-voucher {
+    flex-wrap: wrap;
+  }
+  
+  .order-voucher .voucher-discount {
+    margin-left: 0;
   }
 }
 </style>

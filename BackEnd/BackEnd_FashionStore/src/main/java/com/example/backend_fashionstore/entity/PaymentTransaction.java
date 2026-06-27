@@ -41,6 +41,15 @@ public class PaymentTransaction {
     @Column(name = "status")
     private String status;
 
+    @Column(name = "transaction_id")
+    private String transactionId;
+
+    @Column(name = "response_code")
+    private String responseCode;
+
+    @Column(name = "bank_code")
+    private String bankCode;
+
     @PrePersist
     protected void onCreate() {
         transactionTime = LocalDateTime.now();

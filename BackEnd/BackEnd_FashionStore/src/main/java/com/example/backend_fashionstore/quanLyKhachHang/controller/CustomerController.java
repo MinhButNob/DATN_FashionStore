@@ -9,12 +9,14 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/admin/customers")
 @RequiredArgsConstructor
 @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
+@Component("adminCustomerController")
 public class CustomerController {
 
     private final CustomerService customerService;

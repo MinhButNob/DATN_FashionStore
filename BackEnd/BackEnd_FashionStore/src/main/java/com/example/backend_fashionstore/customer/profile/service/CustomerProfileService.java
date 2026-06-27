@@ -1,6 +1,7 @@
 package com.example.backend_fashionstore.customer.profile.service;
 
 import com.example.backend_fashionstore.auth.repository.UserRepository;
+import com.example.backend_fashionstore.customer.profile.dto.request.ChangePasswordRequestDTO;
 import com.example.backend_fashionstore.customer.profile.dto.request.CustomerProfileRequestDTO;
 import com.example.backend_fashionstore.customer.profile.dto.response.CustomerProfileResponseDTO;
 import com.example.backend_fashionstore.customer.profile.repository.CustomerProfileRepository;
@@ -8,6 +9,7 @@ import com.example.backend_fashionstore.entity.Customer;
 import com.example.backend_fashionstore.entity.User;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,14 +20,23 @@ public class CustomerProfileService {
 
     private final CustomerProfileRepository customerProfileRepository;
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;  // ✅ Thêm PasswordEncoder
 
     public CustomerProfileResponseDTO getProfile(String email) {
         log.info("🔍 Getting profile for email: {}", email);
 
+        // ✅ Tìm customer, nếu chưa có thì tạo mới
         Customer customer = customerProfileRepository.findByUserEmail(email)
-                .orElseThrow(() -> {
-                    log.error("❌ Customer not found for email: {}", email);
-                    return new RuntimeException("Không tìm thấy khách hàng");
+                .orElseGet(() -> {
+                    log.info("📝 Customer not found, creating new for email: {}", email);
+                    User user = userRepository.findByEmail(email)
+                            .orElseThrow(() -> new RuntimeException("Không tìm thấy user"));
+
+                    Customer newCustomer = Customer.builder()
+                            .user(user)
+                            .customerName(user.getUsername())
+                            .build();
+                    return customerProfileRepository.save(newCustomer);
                 });
 
         log.info("✅ Found customer: id={}, name={}, phone={}, address={}",
@@ -45,11 +56,18 @@ public class CustomerProfileService {
                 request.getPhone(),
                 request.getAddress());
 
-        // Tìm customer theo email
+        // ✅ Tìm customer, nếu chưa có thì tạo mới
         Customer customer = customerProfileRepository.findByUserEmail(email)
-                .orElseThrow(() -> {
-                    log.error("❌ Customer not found for email: {}", email);
-                    return new RuntimeException("Không tìm thấy khách hàng");
+                .orElseGet(() -> {
+                    log.info("📝 Customer not found, creating new for email: {}", email);
+                    User user = userRepository.findByEmail(email)
+                            .orElseThrow(() -> new RuntimeException("Không tìm thấy user"));
+
+                    Customer newCustomer = Customer.builder()
+                            .user(user)
+                            .customerName(user.getUsername())
+                            .build();
+                    return customerProfileRepository.save(newCustomer);
                 });
 
         User user = customer.getUser();
@@ -67,7 +85,7 @@ public class CustomerProfileService {
             log.info("✅ Updated email to: {}", request.getEmail());
         }
 
-        // ✅ Cập nhật số điện thoại - QUAN TRỌNG
+        // ✅ Cập nhật số điện thoại
         if (request.getPhone() != null) {
             customer.setPhone(request.getPhone());
             log.info("✅ Updated phone to: {}", request.getPhone());
@@ -75,7 +93,7 @@ public class CustomerProfileService {
             log.warn("⚠️ Phone is null, keeping existing: {}", customer.getPhone());
         }
 
-        // ✅ Cập nhật địa chỉ - QUAN TRỌNG
+        // ✅ Cập nhật địa chỉ
         if (request.getAddress() != null) {
             customer.setAddress(request.getAddress());
             log.info("✅ Updated address to: {}", request.getAddress());
@@ -94,6 +112,35 @@ public class CustomerProfileService {
                 updatedCustomer.getAddress());
 
         return convertToDTO(updatedCustomer);
+    }
+
+    /**
+     * ✅ Đổi mật khẩu
+     */
+    @Transactional
+    public void changePassword(String email, ChangePasswordRequestDTO request) {
+        log.info("🔐 Changing password for email: {}", email);
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
+
+        // ✅ Kiểm tra mật khẩu hiện tại
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash())) {
+            log.warn("❌ Current password is incorrect for email: {}", email);
+            throw new RuntimeException("Mật khẩu hiện tại không chính xác");
+        }
+
+        // ✅ Kiểm tra mật khẩu mới không trùng mật khẩu cũ
+        if (passwordEncoder.matches(request.getNewPassword(), user.getPasswordHash())) {
+            log.warn("❌ New password is same as old password for email: {}", email);
+            throw new RuntimeException("Mật khẩu mới không được trùng với mật khẩu hiện tại");
+        }
+
+        // ✅ Cập nhật mật khẩu mới
+        user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+
+        log.info("✅ Password changed successfully for email: {}", email);
     }
 
     private CustomerProfileResponseDTO convertToDTO(Customer customer) {

@@ -28,183 +28,284 @@
         </div>
 
         <!-- Product Detail -->
-        <div v-else class="product-detail">
-          <div class="product-gallery">
-            <div class="main-image">
-              <img v-if="mainImage" :src="mainImage" :alt="product.productName" class="detail-main-img" />
-              <i v-else class="fas fa-tshirt"></i>
-            </div>
-            <div class="thumbnail-list" v-if="productImages.length > 1">
-              <div 
-                v-for="(img, idx) in productImages" 
-                :key="idx"
-                class="thumbnail"
-                :class="{ active: currentImage === idx }"
-                @click="currentImage = idx"
-              >
-                <img :src="img" :alt="'Hình ảnh ' + (idx + 1)" />
+        <div v-else>
+          <!-- HÀNG TRÊN: ẢNH + THÔNG TIN SẢN PHẨM -->
+          <div class="product-detail-top">
+            <div class="product-gallery">
+              <div class="main-image">
+                <img v-if="mainImage" :src="mainImage" :alt="product.productName" class="detail-main-img" />
+                <i v-else class="fas fa-tshirt"></i>
+              </div>
+              <div class="thumbnail-list" v-if="productImages.length > 1">
+                <div 
+                  v-for="(img, idx) in productImages" 
+                  :key="idx"
+                  class="thumbnail"
+                  :class="{ active: currentImage === idx }"
+                  @click="currentImage = idx"
+                >
+                  <img :src="img" :alt="'Hình ảnh ' + (idx + 1)" />
+                </div>
               </div>
             </div>
-          </div>
 
-          <div class="product-info">
-            <div class="product-category">{{ product.categoryName }}</div>
-            <h1 class="product-title">{{ product.productName }}</h1>
-            <p class="product-description">{{ product.description }}</p>
+            <div class="product-info">
+              <div class="product-category">{{ product.categoryName }}</div>
+              <h1 class="product-title">{{ product.productName }}</h1>
 
-            <!-- Hiển thị giá theo biến thể được chọn -->
-            <div class="product-price">
-              <div v-if="selectedVariant">
-                <!-- Nếu có khuyến mãi -->
-                <div v-if="selectedVariant.discountedPrice && selectedVariant.discountedPrice < selectedVariant.price" class="price-wrapper">
-                  <span class="original-price">{{ formatPrice(selectedVariant.price) }}</span>
-                  <span class="discount-badge">-{{ calculateDiscountPercent(selectedVariant.price, selectedVariant.discountedPrice) }}%</span>
-                  <div class="current-price-wrapper">
-                    <span class="current-price">{{ formatPrice(selectedVariant.discountedPrice) }}</span>
-                    <span class="price-label">(Giá sau khuyến mãi)</span>
+              <!-- Hiển thị giá theo biến thể được chọn -->
+              <div class="product-price">
+                <div v-if="selectedVariant">
+                  <!-- Nếu có khuyến mãi -->
+                  <div v-if="selectedVariant.discountedPrice && selectedVariant.discountedPrice < selectedVariant.price" class="price-wrapper">
+                    <span class="original-price">{{ formatPrice(selectedVariant.price) }}</span>
+                    <span class="discount-badge">-{{ calculateDiscountPercent(selectedVariant.price, selectedVariant.discountedPrice) }}%</span>
+                    <div class="current-price-wrapper">
+                      <span class="current-price">{{ formatPrice(selectedVariant.discountedPrice) }}</span>
+                      <span class="price-label">(Giá sau khuyến mãi)</span>
+                    </div>
+                  </div>
+                  <!-- Không có khuyến mãi -->
+                  <div v-else>
+                    <span class="current-price">{{ formatPrice(selectedVariant.price) }}</span>
                   </div>
                 </div>
-                <!-- Không có khuyến mãi -->
-                <div v-else>
-                  <span class="current-price">{{ formatPrice(selectedVariant.price) }}</span>
+                <div v-else class="price-range-wrapper">
+                  <span class="current-price">{{ formatPrice(product.minPrice) }}</span>
+                  <span v-if="product.maxPrice && product.maxPrice !== product.minPrice" class="price-range">
+                    - {{ formatPrice(product.maxPrice) }}
+                  </span>
                 </div>
               </div>
-              <div v-else class="price-range-wrapper">
-                <span class="current-price">{{ formatPrice(product.minPrice) }}</span>
-                <span v-if="product.maxPrice && product.maxPrice !== product.minPrice" class="price-range">
-                  - {{ formatPrice(product.maxPrice) }}
-                </span>
-              </div>
-            </div>
 
-            <!-- Hiển thị thông tin khuyến mãi của sản phẩm -->
-            <div v-if="product.promotion" class="promotion-info">
-              <div class="promotion-badge">
-                🎁 <strong>{{ product.promotion.promotionName }}</strong>
-              </div>
-              <div class="promotion-discount">
-                Giảm <strong>{{ product.promotion.promotionDiscountPercent }}%</strong> cho tất cả biến thể
-              </div>
-            </div>
-
-            <!-- Màu sắc -->
-            <div class="variant-group" v-if="availableColors.length > 0">
-              <h4>Màu sắc:</h4>
-              <div class="color-options">
-                <div 
-                  v-for="color in availableColors" 
-                  :key="color.colorId"
-                  class="color-btn"
-                  :style="{ backgroundColor: color.hexCode || '#CCCCCC' }"
-                  :class="{ active: selectedColorId === color.colorId }"
-                  :title="color.colorName"
-                  @click="selectColor(color.colorId)"
-                >
-                  <span class="color-name">{{ color.colorName }}</span>
+              <!-- Hiển thị thông tin khuyến mãi của sản phẩm -->
+              <div v-if="product.promotion" class="promotion-info">
+                <div class="promotion-badge">
+                  🎁 <strong>{{ product.promotion.promotionName }}</strong>
+                </div>
+                <div class="promotion-discount">
+                  Giảm <strong>{{ product.promotion.promotionDiscountPercent }}%</strong> cho tất cả biến thể
                 </div>
               </div>
-            </div>
 
-            <!-- Kích thước -->
-            <div class="variant-group" v-if="availableSizes.length > 0">
-              <h4>Kích thước:</h4>
-              <div class="size-options">
-                <button 
-                  v-for="size in availableSizes" 
-                  :key="size.sizeId"
-                  class="size-btn"
-                  :class="{ 
-                    active: selectedSizeId === size.sizeId,
-                    'out-of-stock': !isSizeAvailable(size.sizeId)
-                  }"
-                  @click="selectSize(size.sizeId)"
-                  :disabled="!isSizeAvailable(size.sizeId)"
-                >
-                  {{ size.sizeName }}
+              <!-- Màu sắc -->
+              <div class="variant-group" v-if="availableColors.length > 0">
+                <h4>Màu sắc:</h4>
+                <div class="color-options">
+                  <div 
+                    v-for="color in availableColors" 
+                    :key="color.colorId"
+                    class="color-btn"
+                    :style="{ backgroundColor: color.hexCode || '#CCCCCC' }"
+                    :class="{ active: selectedColorId === color.colorId }"
+                    :title="color.colorName"
+                    @click="selectColor(color.colorId)"
+                  >
+                    <span class="color-name">{{ color.colorName }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Kích thước -->
+              <div class="variant-group" v-if="availableSizes.length > 0">
+                <h4>Kích thước:</h4>
+                <div class="size-options">
+                  <button 
+                    v-for="size in availableSizes" 
+                    :key="size.sizeId"
+                    class="size-btn"
+                    :class="{ 
+                      active: selectedSizeId === size.sizeId,
+                      'out-of-stock': !isSizeAvailable(size.sizeId)
+                    }"
+                    @click="selectSize(size.sizeId)"
+                    :disabled="!isSizeAvailable(size.sizeId)"
+                  >
+                    {{ size.sizeName }}
+                  </button>
+                </div>
+              </div>
+
+              <!-- Selected Variant Info -->
+              <div class="selected-variant" v-if="selectedVariant">
+                <div class="variant-info">
+                  <div class="variant-sku" v-if="selectedVariant.sku">
+                    Mã SKU: {{ selectedVariant.sku }}
+                  </div>
+                  <div class="variant-stock" :class="{ 'out-of-stock': selectedVariant.quantity === 0 }">
+                    <i class="fas" :class="selectedVariant.quantity > 0 ? 'fa-check-circle' : 'fa-times-circle'"></i>
+                    {{ selectedVariant.quantity > 0 ? `Còn ${selectedVariant.quantity} sản phẩm` : 'Hết hàng' }}
+                  </div>
+                </div>
+              </div>
+
+              <!-- Quantity -->
+              <div class="product-quantity" v-if="selectedVariant && selectedVariant.quantity > 0">
+                <h4>Số lượng:</h4>
+                <div class="quantity-selector">
+                  <button @click="quantity > 1 && quantity--" :disabled="quantity <= 1">-</button>
+                  <input type="number" v-model.number="quantity" min="1" :max="selectedVariant.quantity" />
+                  <button @click="quantity < selectedVariant.quantity && quantity++">+</button>
+                </div>
+              </div>
+
+              <!-- Actions -->
+              <div class="product-actions">
+                <button class="add-to-cart-btn" @click="addToCart" :disabled="!selectedVariant || selectedVariant.quantity === 0">
+                  <i class="fas fa-shopping-cart"></i> Thêm vào giỏ
+                </button>
+                <button class="buy-now-btn" @click="buyNow" :disabled="!selectedVariant || selectedVariant.quantity === 0">
+                  <i class="fas fa-bolt"></i> Mua ngay
                 </button>
               </div>
             </div>
+          </div>
 
-            <!-- Selected Variant Info -->
-            <div class="selected-variant" v-if="selectedVariant">
-              <div class="variant-info">
-                <div class="variant-sku" v-if="selectedVariant.sku">
-                  Mã SKU: {{ selectedVariant.sku }}
-                </div>
-                <div class="variant-stock" :class="{ 'out-of-stock': selectedVariant.quantity === 0 }">
-                  <i class="fas" :class="selectedVariant.quantity > 0 ? 'fa-check-circle' : 'fa-times-circle'"></i>
-                  {{ selectedVariant.quantity > 0 ? `Còn ${selectedVariant.quantity} sản phẩm` : 'Hết hàng' }}
-                </div>
-              </div>
-            </div>
-
-            <!-- Quantity -->
-            <div class="product-quantity" v-if="selectedVariant && selectedVariant.quantity > 0">
-              <h4>Số lượng:</h4>
-              <div class="quantity-selector">
-                <button @click="quantity > 1 && quantity--" :disabled="quantity <= 1">-</button>
-                <input type="number" v-model.number="quantity" min="1" :max="selectedVariant.quantity" />
-                <button @click="quantity < selectedVariant.quantity && quantity++">+</button>
-              </div>
-            </div>
-
-            <!-- Actions -->
-            <div class="product-actions">
-              <button class="add-to-cart-btn" @click="addToCart" :disabled="!selectedVariant || selectedVariant.quantity === 0">
-                <i class="fas fa-shopping-cart"></i> Thêm vào giỏ
-              </button>
-              <button class="buy-now-btn" @click="buyNow" :disabled="!selectedVariant || selectedVariant.quantity === 0">
-                <i class="fas fa-bolt"></i> Mua ngay
-              </button>
+          <!-- HÀNG DƯỚI: MÔ TẢ SẢN PHẨM -->
+          <div class="product-description-section">
+            <h3 class="section-title">Mô tả sản phẩm</h3>
+            <div class="product-description-content">
+              <p>{{ product.description || 'Chưa có mô tả cho sản phẩm này.' }}</p>
             </div>
           </div>
-        </div>
 
-        <!-- Variants Table -->
-        <div class="variants-table" v-if="product?.variants && product.variants.length > 0">
-          <h3>Bảng thông số kỹ thuật</h3>
-          <div class="table-wrapper">
-            <table class="variant-table">
-              <thead>
-                <tr>
-                  <th>Màu sắc</th>
-                  <th>Kích thước</th>
-                  <th>SKU</th>
-                  <th>Giá gốc</th>
-                  <th>Giá khuyến mãi</th>
-                  <th>Giảm giá</th>
-                  <th>Tồn kho</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="variant in product.variants" :key="variant.productDetailId">
-                  <td>
-                    <span class="color-dot" :style="{ backgroundColor: variant.hexCode || '#CCCCCC' }"></span>
-                    {{ variant.colorName }}
-                  </td>
-                  <td>{{ variant.sizeName }}</td>
-                  <td>{{ variant.sku || '---' }}</td>
-                  <td class="price-cell">
-                    {{ formatPrice(variant.price) }}
-                  </td>
-                  <td class="discounted-price-cell" v-if="variant.discountedPrice && variant.discountedPrice < variant.price">
-                    <span class="sale-price">{{ formatPrice(variant.discountedPrice) }}</span>
-                  </td>
-                  <td class="discounted-price-cell" v-else>
-                    <span class="no-discount">—</span>
-                  </td>
-                  <td class="discount-percent-cell" v-if="variant.discountedPrice && variant.discountedPrice < variant.price">
-                    <span class="discount-badge-table">-{{ calculateDiscountPercent(variant.price, variant.discountedPrice) }}%</span>
-                  </td>
-                  <td class="discount-percent-cell" v-else>
-                    <span class="no-discount">0%</span>
-                  </td>
-                  <td :class="{ 'out-of-stock-text': variant.quantity === 0 }">
-                    {{ variant.quantity > 0 ? variant.quantity + ' sản phẩm' : 'Hết hàng' }}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+          <!-- ✅ PHẦN ĐÁNH GIÁ SẢN PHẨM -->
+          <div class="product-reviews-section">
+            <div class="reviews-header">
+              <h3 class="section-title">Đánh giá sản phẩm</h3>
+              <div class="rating-summary" v-if="ratingStats">
+                <div class="average-rating">
+                  <span class="rating-number">{{ ratingStats.averageRating?.toFixed(1) || 0 }}</span>
+                  <div class="stars">
+                    <i 
+                      v-for="star in 5" 
+                      :key="star"
+                      :class="star <= Math.round(ratingStats.averageRating || 0) ? 'fas fa-star active' : 'far fa-star'"
+                    ></i>
+                  </div>
+                  <span class="total-reviews">({{ ratingStats.totalReviews || 0 }} đánh giá)</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Loading reviews -->
+            <div v-if="reviewsLoading" class="loading-reviews">
+              <i class="fas fa-spinner fa-spin"></i>
+              <span>Đang tải đánh giá...</span>
+            </div>
+
+            <!-- No reviews -->
+            <div v-else-if="reviews.length === 0" class="no-reviews">
+              <i class="fas fa-comment-slash"></i>
+              <p>Chưa có đánh giá nào cho sản phẩm này</p>
+              <p class="hint">Hãy là người đầu tiên đánh giá sản phẩm!</p>
+            </div>
+
+            <!-- Reviews list -->
+            <div v-else class="reviews-list">
+              <div 
+                v-for="review in reviews" 
+                :key="review.reviewId" 
+                class="review-item"
+              >
+                <div class="review-header">
+                  <div class="reviewer-info">
+                    <div class="reviewer-avatar">
+                      <i class="fas fa-user-circle"></i>
+                    </div>
+                    <div>
+                      <div class="reviewer-name">{{ review.customerName || 'Khách hàng' }}</div>
+                      <div class="reviewer-email">{{ review.customerEmail || '' }}</div>
+                    </div>
+                  </div>
+                  <div class="review-rating">
+                    <div class="stars">
+                      <i 
+                        v-for="star in 5" 
+                        :key="star"
+                        :class="star <= review.rating ? 'fas fa-star active' : 'far fa-star'"
+                      ></i>
+                    </div>
+                    <span class="review-date">{{ formatDate(review.createdAt) }}</span>
+                  </div>
+                </div>
+                <div class="review-body">
+                  <p>{{ review.comment || 'Không có nhận xét' }}</p>
+                  
+                  <!-- ✅ HIỂN THỊ ẢNH REVIEW -->
+                  <div v-if="review.images && review.images.length > 0" class="review-images">
+                    <img 
+                      v-for="(img, idx) in review.images" 
+                      :key="idx"
+                      :src="getImageUrl(img)"
+                      :alt="'Hình ảnh đánh giá ' + (idx + 1)"
+                      class="review-image-thumb"
+                      @click="viewReviewImage(img)"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Load more -->
+              <div v-if="reviewsTotalPages > 1 && reviewsPage + 1 < reviewsTotalPages" class="load-more">
+                <button 
+                  class="btn btn-outline" 
+                  @click="loadMoreReviews"
+                  :disabled="reviewsLoadingMore"
+                >
+                  <i v-if="reviewsLoadingMore" class="fas fa-spinner fa-spin"></i>
+                  {{ reviewsLoadingMore ? 'Đang tải...' : 'Xem thêm đánh giá' }}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Variants Table -->
+          <div class="variants-table" v-if="product?.variants && product.variants.length > 0">
+            <h3>Bảng thông số kỹ thuật</h3>
+            <div class="table-wrapper">
+              <table class="variant-table">
+                <thead>
+                  <tr>
+                    <th>Màu sắc</th>
+                    <th>Kích thước</th>
+                    <th>SKU</th>
+                    <th>Giá gốc</th>
+                    <th>Giá khuyến mãi</th>
+                    <th>Giảm giá</th>
+                    <th>Tồn kho</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="variant in product.variants" :key="variant.productDetailId">
+                    <td>
+                      <span class="color-dot" :style="{ backgroundColor: variant.hexCode || '#CCCCCC' }"></span>
+                      {{ variant.colorName }}
+                    </td>
+                    <td>{{ variant.sizeName }}</td>
+                    <td>{{ variant.sku || '---' }}</td>
+                    <td class="price-cell">
+                      {{ formatPrice(variant.price) }}
+                    </td>
+                    <td class="discounted-price-cell" v-if="variant.discountedPrice && variant.discountedPrice < variant.price">
+                      <span class="sale-price">{{ formatPrice(variant.discountedPrice) }}</span>
+                    </td>
+                    <td class="discounted-price-cell" v-else>
+                      <span class="no-discount">—</span>
+                    </td>
+                    <td class="discount-percent-cell" v-if="variant.discountedPrice && variant.discountedPrice < variant.price">
+                      <span class="discount-badge-table">-{{ calculateDiscountPercent(variant.price, variant.discountedPrice) }}%</span>
+                    </td>
+                    <td class="discount-percent-cell" v-else>
+                      <span class="no-discount">0%</span>
+                    </td>
+                    <td :class="{ 'out-of-stock-text': variant.quantity === 0 }">
+                      {{ variant.quantity > 0 ? variant.quantity + ' sản phẩm' : 'Hết hàng' }}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
@@ -213,12 +314,19 @@
     <ClientFooter />
     <CartModal />
     
-    <!-- ✅ POPUP CART -->
     <CartPopup 
       :visible="showCartPopup" 
       :product="lastAddedProduct"
       @close="showCartPopup = false"
     />
+
+    <!-- ✅ Image Viewer Modal -->
+    <div v-if="showImageViewer" class="modal-overlay" @click.self="closeImageViewer">
+      <div class="image-viewer-container">
+        <img :src="viewingImage" alt="Review image" />
+        <button class="close-btn" @click="closeImageViewer">✕</button>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -238,6 +346,7 @@ const router = useRouter()
 const cartStore = useCartStore()
 const { showNotification } = useNotification()
 const API_BASE = "http://localhost:8080/api"
+const IMAGE_BASE = "http://localhost:8080"
 
 const loading = ref(true)
 const product = ref(null)
@@ -250,12 +359,34 @@ const selectedSizeId = ref(null)
 const showCartPopup = ref(false)
 const lastAddedProduct = ref({})
 
+// ✅ State cho đánh giá
+const reviews = ref([])
+const reviewsLoading = ref(false)
+const reviewsLoadingMore = ref(false)
+const reviewsPage = ref(0)
+const reviewsTotalPages = ref(0)
+const reviewsTotalElements = ref(0)
+const ratingStats = ref(null)
+
+// ✅ State cho image viewer
+const showImageViewer = ref(false)
+const viewingImage = ref('')
+
 // Format price
 const formatPrice = (price) => {
   if (!price && price !== 0) return '0đ'
   const numPrice = typeof price === 'string' ? parseFloat(price) : price
   if (isNaN(numPrice) || numPrice === 0) return '0đ'
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(numPrice)
+}
+
+// Format date
+const formatDate = (dateString) => {
+  if (!dateString) return '---'
+  const date = new Date(dateString)
+  if (isNaN(date.getTime())) return '---'
+  return date.toLocaleDateString('vi-VN') + ' ' + 
+         date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
 }
 
 // Tính phần trăm giảm giá
@@ -416,7 +547,29 @@ const selectSize = (sizeId) => {
   }
 }
 
-// Load product detail
+// ✅ Lấy URL ảnh
+const getImageUrl = (imagePath) => {
+  if (!imagePath) return ''
+  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+    return imagePath
+  }
+  const cleanPath = imagePath.startsWith('/') ? imagePath : '/' + imagePath
+  return IMAGE_BASE + cleanPath
+}
+
+// ✅ View review image
+const viewReviewImage = (imageUrl) => {
+  viewingImage.value = getImageUrl(imageUrl)
+  showImageViewer.value = true
+}
+
+// ✅ Close image viewer
+const closeImageViewer = () => {
+  showImageViewer.value = false
+  viewingImage.value = ''
+}
+
+// ✅ Load product detail
 const loadProductDetail = async () => {
   loading.value = true
   try {
@@ -440,6 +593,12 @@ const loadProductDetail = async () => {
       selectedSizeId.value = product.value.variants[0].sizeId
     }
     
+    // ✅ Sau khi load product, load đánh giá
+    if (productId) {
+      await loadReviews(productId)
+      await loadRatingStats(productId)
+    }
+    
   } catch (error) {
     console.error("❌ Lỗi:", error)
     product.value = null
@@ -449,8 +608,106 @@ const loadProductDetail = async () => {
   }
 }
 
-// ✅ Add to cart với popup - SỬA LỖI STOCK
-// ProductDetailPage.vue
+// ✅ Load đánh giá sản phẩm - SỬA LẠI ĐÚNG API
+const loadReviews = async (productId, reset = true) => {
+  if (reset) {
+    reviewsPage.value = 0
+    reviews.value = []
+  }
+  
+  reviewsLoading.value = reset
+  reviewsLoadingMore.value = !reset
+  
+  try {
+    // ✅ Lấy productDetailId từ variants
+    let productDetailId = null
+    if (product.value && product.value.variants && product.value.variants.length > 0) {
+      productDetailId = product.value.variants[0].productDetailId
+    }
+    
+    if (!productDetailId) {
+      console.warn('Không tìm thấy productDetailId')
+      reviewsLoading.value = false
+      reviewsLoadingMore.value = false
+      return
+    }
+    
+    // ✅ Gọi API đúng endpoint: /api/reviews/product/{productDetailId}
+    const response = await axios.get(`${API_BASE}/reviews/product/${productDetailId}`, {
+      params: {
+        page: reviewsPage.value,
+        size: 5
+      }
+    })
+    
+    console.log('✅ Reviews response:', response.data)
+    
+    if (response.data && response.data.content) {
+      if (reset) {
+        reviews.value = response.data.content || []
+      } else {
+        reviews.value = [...reviews.value, ...(response.data.content || [])]
+      }
+      reviewsTotalPages.value = response.data.totalPages || 0
+      reviewsTotalElements.value = response.data.totalElements || 0
+    }
+  } catch (error) {
+    console.error('❌ Lỗi tải đánh giá:', error)
+    // Thử gọi API khác nếu productDetailId không có
+    if (error.response?.status === 404) {
+      try {
+        // Thử gọi API với productId trực tiếp
+        const response2 = await axios.get(`${API_BASE}/reviews/product/${productId}/all`, {
+          params: {
+            page: reviewsPage.value,
+            size: 5
+          }
+        })
+        if (response2.data && response2.data.content) {
+          if (reset) {
+            reviews.value = response2.data.content || []
+          } else {
+            reviews.value = [...reviews.value, ...(response2.data.content || [])]
+          }
+          reviewsTotalPages.value = response2.data.totalPages || 0
+          reviewsTotalElements.value = response2.data.totalElements || 0
+        }
+      } catch (err2) {
+        console.error('❌ Lỗi tải đánh giá (cách 2):', err2)
+      }
+    }
+  } finally {
+    reviewsLoading.value = false
+    reviewsLoadingMore.value = false
+  }
+}
+
+// ✅ Load thống kê rating
+const loadRatingStats = async (productId) => {
+  try {
+    let productDetailId = null
+    if (product.value && product.value.variants && product.value.variants.length > 0) {
+      productDetailId = product.value.variants[0].productDetailId
+    }
+    
+    if (!productDetailId) return
+    
+    const response = await axios.get(`${API_BASE}/reviews/product/${productDetailId}/rating`)
+    ratingStats.value = response.data
+  } catch (error) {
+    console.error('❌ Lỗi tải thống kê rating:', error)
+  }
+}
+
+// ✅ Load more reviews
+const loadMoreReviews = () => {
+  if (reviewsPage.value + 1 < reviewsTotalPages.value) {
+    reviewsPage.value++
+    loadReviews(product.value?.productId, false)
+  }
+}
+
+// Add to cart
 const addToCart = async () => {
   if (!selectedVariant.value) {
     showNotification('Vui lòng chọn màu sắc và kích thước!', 'error')
@@ -474,7 +731,7 @@ const addToCart = async () => {
   const stockQuantity = selectedVariant.value.quantity || 0
   
   const productData = {
-    productDetailId: selectedVariant.value.productDetailId, // ✅ QUAN TRỌNG: dùng đúng key này
+    productDetailId: selectedVariant.value.productDetailId,
     productId: product.value.productId,
     productName: product.value.productName,
     name: product.value.productName,
@@ -491,10 +748,8 @@ const addToCart = async () => {
   }
   
   try {
-    // ✅ AWAIT để đợi API trả về
     await cartStore.addToCart(productData)
     
-    // ✅ Lưu thông tin để hiển thị popup
     lastAddedProduct.value = {
       name: product.value.productName,
       price: finalPrice,
@@ -505,10 +760,7 @@ const addToCart = async () => {
       stock: stockQuantity
     }
     
-    // ✅ Hiển thị popup
     showCartPopup.value = true
-    
-    // ✅ Reset quantity về 1 sau khi thêm thành công
     quantity.value = 1
     
   } catch (error) {
@@ -593,7 +845,8 @@ main {
   100% { transform: rotate(360deg); }
 }
 
-.product-detail {
+/* HÀNG TRÊN: ẢNH + THÔNG TIN */
+.product-detail-top {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 50px;
@@ -674,12 +927,6 @@ main {
   font-size: 32px;
   color: #2c3e50;
   margin-bottom: 15px;
-}
-
-.product-description {
-  color: #666;
-  line-height: 1.6;
-  margin-bottom: 20px;
 }
 
 /* Price Styles */
@@ -982,12 +1229,309 @@ main {
   transform: translateY(-2px);
 }
 
+/* HÀNG DƯỚI: MÔ TẢ SẢN PHẨM */
+.product-description-section {
+  background: white;
+  border-radius: 20px;
+  padding: 40px;
+  margin-bottom: 40px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.section-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #2c3e50;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 2px solid #e63946;
+  position: relative;
+}
+
+.section-title::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 50px;
+  height: 2px;
+  background: #e63946;
+}
+
+.product-description-content {
+  line-height: 1.8;
+  color: #555;
+  font-size: 16px;
+}
+
+.product-description-content p {
+  margin-bottom: 15px;
+}
+
+/* ✅ PHẦN ĐÁNH GIÁ SẢN PHẨM */
+.product-reviews-section {
+  background: white;
+  border-radius: 20px;
+  padding: 40px;
+  margin-bottom: 40px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.reviews-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 25px;
+  flex-wrap: wrap;
+  gap: 15px;
+}
+
+.rating-summary {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.average-rating {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.rating-number {
+  font-size: 28px;
+  font-weight: 700;
+  color: #2c3e50;
+}
+
+.average-rating .stars {
+  display: flex;
+  gap: 2px;
+}
+
+.average-rating .stars i {
+  font-size: 18px;
+  color: #ddd;
+}
+
+.average-rating .stars i.active {
+  color: #f5c842;
+}
+
+.total-reviews {
+  font-size: 14px;
+  color: #999;
+}
+
+.loading-reviews {
+  text-align: center;
+  padding: 40px;
+  color: #999;
+}
+
+.loading-reviews i {
+  margin-right: 10px;
+}
+
+.no-reviews {
+  text-align: center;
+  padding: 40px;
+  color: #999;
+}
+
+.no-reviews i {
+  font-size: 48px;
+  color: #ddd;
+  margin-bottom: 15px;
+}
+
+.no-reviews .hint {
+  font-size: 13px;
+  color: #ccc;
+  margin-top: 5px;
+}
+
+.reviews-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.review-item {
+  border: 1px solid #e9ecef;
+  border-radius: 12px;
+  padding: 20px;
+  transition: all 0.3s;
+}
+
+.review-item:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.review-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.reviewer-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.reviewer-avatar {
+  width: 40px;
+  height: 40px;
+  background: #f0f0f0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #999;
+  font-size: 30px;
+}
+
+.reviewer-name {
+  font-weight: 600;
+  color: #2c3e50;
+  font-size: 15px;
+}
+
+.reviewer-email {
+  font-size: 13px;
+  color: #999;
+}
+
+.review-rating {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.review-rating .stars {
+  display: flex;
+  gap: 2px;
+}
+
+.review-rating .stars i {
+  font-size: 16px;
+  color: #ddd;
+}
+
+.review-rating .stars i.active {
+  color: #f5c842;
+}
+
+.review-date {
+  font-size: 12px;
+  color: #ccc;
+}
+
+.review-body {
+  padding-left: 52px;
+}
+
+.review-body p {
+  color: #555;
+  line-height: 1.6;
+  font-size: 15px;
+  margin: 0;
+}
+
+/* ✅ REVIEW IMAGES */
+.review-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.review-image-thumb {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+  border: 1px solid #e9ecef;
+}
+
+.review-image-thumb:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* ✅ IMAGE VIEWER MODAL */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+  backdrop-filter: blur(5px);
+}
+
+.image-viewer-container {
+  max-width: 90vw;
+  max-height: 90vh;
+  position: relative;
+  background: transparent;
+}
+
+.image-viewer-container img {
+  max-width: 100%;
+  max-height: 85vh;
+  object-fit: contain;
+  border-radius: 8px;
+}
+
+.image-viewer-container .close-btn {
+  position: absolute;
+  top: -40px;
+  right: -40px;
+  background: white;
+  color: #333;
+  border: none;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  font-size: 20px;
+  cursor: pointer;
+  transition: all 0.3s;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+}
+
+.image-viewer-container .close-btn:hover {
+  transform: rotate(90deg);
+  background: #e63946;
+  color: white;
+}
+
+.load-more {
+  text-align: center;
+  margin-top: 20px;
+}
+
+.load-more .btn {
+  padding: 10px 30px;
+}
+
 /* Variants Table */
 .variants-table {
   background: white;
   border-radius: 20px;
   padding: 30px;
-  margin-top: 30px;
+  margin-top: 0;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
   overflow-x: auto;
 }
@@ -1076,12 +1620,29 @@ main {
   transform: translateY(-2px);
 }
 
+.btn-outline {
+  padding: 8px 20px;
+  background: transparent;
+  border: 2px solid #ddd;
+  color: #666;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.3s;
+}
+
+.btn-outline:hover {
+  border-color: #e63946;
+  color: #e63946;
+}
+
+/* Responsive */
 @media (max-width: 768px) {
   main {
     margin-top: 200px;
   }
 
-  .product-detail {
+  .product-detail-top {
     grid-template-columns: 1fr;
     padding: 20px;
   }
@@ -1125,6 +1686,46 @@ main {
     min-width: 45px;
     height: 36px;
     font-size: 13px;
+  }
+
+  .product-description-section {
+    padding: 20px;
+  }
+
+  .section-title {
+    font-size: 18px;
+  }
+
+  .product-reviews-section {
+    padding: 20px;
+  }
+
+  .reviews-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .review-header {
+    flex-direction: column;
+  }
+
+  .review-rating {
+    align-items: flex-start;
+  }
+
+  .review-body {
+    padding-left: 0;
+    padding-top: 10px;
+  }
+
+  .review-image-thumb {
+    width: 60px;
+    height: 60px;
+  }
+
+  .image-viewer-container .close-btn {
+    top: 10px;
+    right: 10px;
   }
 }
 </style>

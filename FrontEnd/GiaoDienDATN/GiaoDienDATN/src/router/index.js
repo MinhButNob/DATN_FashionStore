@@ -18,6 +18,7 @@ import AboutPage from "../views/client/AboutPage.vue";
 import ContactPage from "../views/client/ContactPage.vue";
 import BlogDetailPage from "../views/client/BlogDetailPage.vue";
 import NotFoundPage from "../views/client/NotFoundPage.vue";
+import PaymentResultPage from "../views/client/PaymentResultPage.vue";
 
 // Admin views
 import AdminLayout from "../views/admin/AdminLayout.vue";
@@ -36,6 +37,7 @@ import AdminColors from "../views/admin/AdminColors.vue";
 import AdminPromotions from "../views/admin/AdminPromotions.vue";
 import AdminVouchers from "../views/admin/AdminVouchers.vue";
 import AdminBanners from "../views/admin/AdminBanners.vue";
+import AdminReviews from "../views/admin/AdminReviews.vue";
 
 // Staff views
 import StaffLayout from "../views/staff/StaffLayout.vue";
@@ -107,6 +109,7 @@ const routes = [
   { path: "/about", name: "about", component: AboutPage },
   { path: "/contact", name: "contact", component: ContactPage },
   { path: "/blog/:id", name: "blog-detail", component: BlogDetailPage },
+  { path: "/payment-result", name: "payment-result", component: PaymentResultPage },
   {
     path: "/admin/login",
     name: "admin-login",
@@ -132,6 +135,7 @@ const routes = [
       { path: "employees", name: "admin-employees", component: AdminEmployees },
       { path: "roles", name: "admin-roles", component: AdminRoles },
       { path: "colors", name: "admin-colors", component: AdminColors },
+      { path: "reviews", name: "admin-reviews", component: AdminReviews  },
       {
         path: "promotions",
         name: "admin-promotions",

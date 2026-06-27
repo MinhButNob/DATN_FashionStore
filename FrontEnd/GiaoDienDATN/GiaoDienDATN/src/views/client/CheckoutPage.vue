@@ -79,6 +79,25 @@
 
             <!-- Form đặt hàng -->
             <form @submit.prevent="placeOrder">
+              <!-- Phương thức thanh toán -->
+              <div class="form-group payment-methods">
+                <label>Phương thức thanh toán <span class="required">*</span></label>
+                <div class="payment-options">
+                  <label class="payment-option">
+                    <input type="radio" v-model="orderData.paymentMethod" value="COD" />
+                    <span class="option-content">
+                      <i class="fas fa-money-bill-wave"></i> Thanh toán khi nhận hàng (COD)
+                    </span>
+                  </label>
+                  <label class="payment-option">
+                    <input type="radio" v-model="orderData.paymentMethod" value="VNPAY" />
+                    <span class="option-content">
+                      <i class="fas fa-credit-card"></i> Thanh toán qua VNPay
+                    </span>
+                  </label>
+                </div>
+              </div>
+
               <div class="form-group">
                 <label>Ghi chú cho đơn hàng</label>
                 <textarea v-model="orderData.notes" rows="3" placeholder="Ghi chú (không bắt buộc)..."></textarea>
@@ -98,7 +117,7 @@
             <div class="summary-items">
               <div v-for="item in cartStore.items" :key="item.id" class="summary-item">
                 <div class="item-image">
-                  <img v-if="item.image && item.image !== 'tshirt'" :src="item.image" :alt="item.name" />
+                  <img v-if="item.image && item.image !== 'tshirt'" :src="getImageUrl(item.image)" :alt="item.name" />
                   <i v-else class="fas fa-tshirt"></i>
                 </div>
                 <div class="item-details">
@@ -170,6 +189,7 @@ const cartStore = useCartStore()
 const authStore = useAuthStore()
 
 const API_BASE = "http://localhost:8080/api"
+const IMAGE_BASE = "http://localhost:8080"
 const SHIPPING_FEE = 30000
 
 const placingOrder = ref(false)
@@ -201,12 +221,22 @@ const editForm = reactive({
 })
 
 const orderData = ref({
-  notes: ''
+  notes: '',
+  paymentMethod: 'COD'
 })
+
+// ✅ HÀM LẤY URL ẢNH ĐẦY ĐỦ
+const getImageUrl = (imagePath) => {
+  if (!imagePath) return ''
+  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+    return imagePath
+  }
+  const cleanPath = imagePath.startsWith('/') ? imagePath : '/' + imagePath
+  return IMAGE_BASE + cleanPath
+}
 
 // ✅ Computed: Tính tổng tiền với voucher
 const shippingFee = computed(() => {
-  // Miễn phí ship nếu đơn hàng >= 500,000
   const subtotal = cartStore.subtotal || 0
   return subtotal >= 500000 ? 0 : SHIPPING_FEE
 })
@@ -345,14 +375,13 @@ const saveProfileInfo = async () => {
   }
 }
 
-// ✅ Đặt hàng - có voucher
+// ✅ Đặt hàng - chuyển về Profile Page
 const placeOrder = async () => {
   if (!profile.address || profile.address.trim() === '') {
     showNotification('Vui lòng cập nhật địa chỉ trước khi đặt hàng!', 'error')
     return
   }
 
-  // ✅ Lấy voucherId từ cartStore
   const voucherId = cartStore.voucherId || null
   
   console.log('📋 Place order with voucherId:', voucherId)
@@ -373,8 +402,8 @@ const placeOrder = async () => {
     shippingWard: profile.ward || '',
     notes: orderData.value.notes || '',
     items: orderItems,
-    paymentMethod: 'COD',
-    voucherId: voucherId  // ✅ TRUYỀN VOUCHER ID
+    paymentMethod: orderData.value.paymentMethod || 'COD',
+    voucherId: voucherId
   }
 
   console.log('📦 Order payload:', orderPayload)
@@ -388,10 +417,28 @@ const placeOrder = async () => {
     // ✅ Clear cart (cả voucher)
     await cartStore.clearCart()
     
+    // Xử lý nếu chọn VNPay
+    if (orderData.value.paymentMethod === 'VNPAY' && response.data && response.data.orderId) {
+      showNotification('Đang chuyển hướng sang cổng thanh toán VNPay...', 'success')
+      const token = localStorage.getItem('token')
+      const paymentRes = await axios.post(`${API_BASE}/payment/vnpay/create/${response.data.orderId}`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      
+      if (paymentRes.data && paymentRes.data.paymentUrl) {
+        window.location.href = paymentRes.data.paymentUrl
+        return
+      }
+    }
+    
     showNotification('Đặt hàng thành công!', 'success')
     
+    // ✅ CHUYỂN HƯỚNG VỀ PROFILE PAGE VỚI TAB ORDERS
     setTimeout(() => {
-      router.push('/orders')
+      router.push({ 
+        path: '/profile', 
+        query: { tab: 'orders' } 
+      })
     }, 1500)
 
   } catch (error) {
@@ -653,6 +700,39 @@ main {
 .btn-place-order:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+/* Payment Methods */
+.payment-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.payment-option {
+  cursor: pointer;
+}
+
+.payment-option input {
+  display: none;
+}
+
+.option-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 15px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  transition: all 0.3s;
+  color: #666;
+}
+
+.payment-option input:checked + .option-content {
+  border-color: #e63946;
+  background: #fff0f0;
+  color: #e63946;
+  font-weight: 600;
 }
 
 /* Order Summary */
