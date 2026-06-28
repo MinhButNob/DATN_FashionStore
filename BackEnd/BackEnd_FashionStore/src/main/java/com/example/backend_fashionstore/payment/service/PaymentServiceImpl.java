@@ -33,6 +33,11 @@ public class PaymentServiceImpl implements PaymentService {
     private final PaymentTransactionRepository paymentTransactionRepository;
     private final PaymentMethodRepository paymentMethodRepository;
     private final VNPayConfig vnPayConfig;
+    private final com.example.backend_fashionstore.QuanLyDonHang.repository.OrderDetailRepository orderDetailRepository;
+    private final com.example.backend_fashionstore.QuanLySanPham.repository.ProductDetail.ProductDetailRepository productDetailRepository;
+    private final com.example.backend_fashionstore.quanLyVoucher.repository.VoucherRepository voucherRepository;
+    private final com.example.backend_fashionstore.customer.order.repository.OrderHistoryRepository orderHistoryRepository;
+
 
     @Override
     @Transactional
@@ -173,19 +178,26 @@ public class PaymentServiceImpl implements PaymentService {
         Payment payment = paymentRepository.findByTxnRef(txnRef)
                 .orElseThrow(() -> new RuntimeException("Payment not found"));
 
+        if (payment.getPaymentStatus() == PaymentStatus.SUCCESS || payment.getPaymentStatus() == PaymentStatus.FAILED) {
+            return;
+        }
+
         if (signValue.equals(vnp_SecureHash)) {
             if ("00".equals(responseCode)) {
                 payment.setPaymentStatus(PaymentStatus.SUCCESS);
                 Order order = payment.getOrder();
                 if(order != null) {
                     order.setOrderStatus(OrderStatus.CONFIRMED); // Update order status on success
+                    order.setPaymentStatus(PaymentStatus.SUCCESS);
                     orderRepository.save(order);
                 }
             } else {
                 payment.setPaymentStatus(PaymentStatus.FAILED);
+                cancelOrderOnPaymentFail(payment.getOrder());
             }
         } else {
             payment.setPaymentStatus(PaymentStatus.FAILED);
+            cancelOrderOnPaymentFail(payment.getOrder());
         }
         
         paymentRepository.save(payment);
@@ -207,6 +219,40 @@ public class PaymentServiceImpl implements PaymentService {
         paymentTransactionRepository.save(paymentTransaction);
     }
     
+    private void cancelOrderOnPaymentFail(Order order) {
+        if (order == null || order.getOrderStatus() != OrderStatus.PENDING_PAYMENT) {
+            return;
+        }
+        order.setOrderStatus(OrderStatus.CANCELLED);
+        order.setPaymentStatus(PaymentStatus.FAILED);
+        order.setUpdatedAt(java.time.LocalDateTime.now());
+        orderRepository.save(order);
+
+        java.util.List<com.example.backend_fashionstore.entity.OrderDetail> details = orderDetailRepository.findByOrder_OrderId(order.getOrderId());
+        for (com.example.backend_fashionstore.entity.OrderDetail detail : details) {
+            com.example.backend_fashionstore.entity.ProductDetail pd = detail.getProductDetail();
+            if (pd != null) {
+                pd.setQuantity(pd.getQuantity() + detail.getQuantity());
+                productDetailRepository.save(pd);
+            }
+        }
+
+        if (order.getVoucher() != null) {
+            com.example.backend_fashionstore.entity.Voucher voucher = order.getVoucher();
+            voucher.setVoucherUsedCount(Math.max(0, voucher.getVoucherUsedCount() - 1));
+            voucherRepository.save(voucher);
+        }
+
+        com.example.backend_fashionstore.entity.OrderHistory history = new com.example.backend_fashionstore.entity.OrderHistory();
+        history.setOrder(order);
+        history.setOrderStatus(OrderStatus.CANCELLED.name());
+        history.setNote("Đơn hàng bị hủy do thanh toán VNPay thất bại");
+        history.setTimestamp(java.time.LocalDateTime.now());
+        orderHistoryRepository.save(history);
+
+        System.out.println("Order " + order.getOrderId() + " cancelled due to VNPay payment failure");
+    }
+
     private String hashAllFields(Map<String, String> fields) {
         List<String> fieldNames = new ArrayList<>(fields.keySet());
         Collections.sort(fieldNames);

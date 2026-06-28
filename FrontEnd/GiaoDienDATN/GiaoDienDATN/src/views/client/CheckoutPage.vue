@@ -414,9 +414,6 @@ const placeOrder = async () => {
     const response = await orderService.createOrder(orderPayload)
     console.log('✅ Order created:', response.data)
 
-    // ✅ Clear cart (cả voucher)
-    await cartStore.clearCart()
-    
     // Xử lý nếu chọn VNPay
     if (orderData.value.paymentMethod === 'VNPAY' && response.data && response.data.orderId) {
       showNotification('Đang chuyển hướng sang cổng thanh toán VNPay...', 'success')
@@ -430,6 +427,10 @@ const placeOrder = async () => {
         return
       }
     }
+    
+    // Xử lý cho COD hoặc VNPay lỗi lấy URL
+    // ✅ Clear cart (cả voucher)
+    await cartStore.clearCart()
     
     showNotification('Đặt hàng thành công!', 'success')
     

@@ -41,6 +41,12 @@ public class AuthServiceImpl implements AuthService {
             throw new RuntimeException("Email already exists");
         }
 
+        if (request.getPhone() != null && !request.getPhone().isBlank()) {
+            if (customerRepository.existsByPhone(request.getPhone())) {
+                throw new RuntimeException("Số điện thoại đã được sử dụng bởi tài khoản khác");
+            }
+        }
+
         User user = User.builder()
                 .username(request.getName())
                 .email(request.getEmail())
@@ -53,7 +59,7 @@ public class AuthServiceImpl implements AuthService {
         user = userRepository.save(user);
 
         // create CUSTOMER + CART
-        ensureCustomerAccount(user, request.getName());
+        ensureCustomerAccount(user, request.getName(), request.getPhone());
 
         // reload user with roles
         User savedUser = userRepository
@@ -205,7 +211,7 @@ public class AuthServiceImpl implements AuthService {
         return buildAuthResponse(user);
     }
 
-    private void ensureCustomerAccount(User user, String customerName) {
+    private void ensureCustomerAccount(User user, String customerName, String phone) {
 
         // 1. Role CUSTOMER
         Role customerRole = roleRepository.findByRoleName("CUSTOMER")
@@ -236,6 +242,7 @@ public class AuthServiceImpl implements AuthService {
             customer = Customer.builder()
                     .user(user)
                     .customerName(customerName)
+                    .phone(phone)
                     .build();
             customer = customerRepository.save(customer);
         }
@@ -261,7 +268,7 @@ public class AuthServiceImpl implements AuthService {
 
         userRepository.save(user);
 
-        ensureCustomerAccount(user, user.getUsername());
+        ensureCustomerAccount(user, user.getUsername(), null);
     }
 
     private AuthResponse buildAuthResponse(User user) {

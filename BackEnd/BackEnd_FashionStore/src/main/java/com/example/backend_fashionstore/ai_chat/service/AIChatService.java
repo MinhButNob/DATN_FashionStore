@@ -32,7 +32,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class AIChatService {
 
-    @Value("${openrouter.api.key}")
+//    @Value("${openrouter.api.key}")
+    @Value("${groq.api.key}")
     private String openRouterApiKey;
 
     private final ProductRecommendationService productRecommendationService;
@@ -42,9 +43,15 @@ public class AIChatService {
 
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
+//  Link truy cap a.i model
+    private static final String OPENROUTER_URL = "https://api.groq.com/openai/v1/chat/completions";
+    private static final String OPENROUTER_MODEL = "llama-3.3-70b-versatile";
 
-    private static final String OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
-    private static final String OPENROUTER_MODEL = "openrouter/free";
+//    private static final String OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
+//    private static final String OPENROUTER_MODEL = "openrouter/free";
+
+//    // Đổi sang model cụ thể không có thinking/reasoning để tránh lộ nội dung suy luận nội tâm ra UI
+//    private static final String OPENROUTER_MODEL = "mistralai/mistral-7b-instruct:free";
 
     // Số lượng tin nhắn lịch sử tối đa đưa vào context (mỗi bên)
     private static final int MAX_HISTORY_MESSAGES = 10;
@@ -352,7 +359,10 @@ public class AIChatService {
                 if (choices != null && !choices.isEmpty()) {
                     Map<String, Object> message = (Map<String, Object>) choices.get(0).get("message");
                     if (message != null) {
-                        return (String) message.get("content");
+                        String raw = (String) message.get("content");
+                        // FIX: Lọc phần thinking/reasoning nội tâm mà một số model (DeepSeek-R1, Qwen-thinking...)
+                        // trả về trong content. Nếu không lọc, toàn bộ quá trình suy luận sẽ hiện ra UI.
+                        return stripThinking(raw);
                     }
                 }
             }
@@ -399,6 +409,20 @@ public class AIChatService {
         }
 
         return keywords.stream().limit(8).collect(Collectors.toList());
+    }
+
+    /**
+     * Loại bỏ phần "thinking" nội tâm mà một số model AI (DeepSeek-R1, Qwen-thinking, v.v.)
+     * trả về bên trong thẻ <think>...</think> hoặc <thinking>...</thinking>.
+     * Nếu không lọc, toàn bộ quá trình suy luận sẽ bị hiển thị thẳng ra giao diện chat.
+     */
+    private String stripThinking(String text) {
+        if (text == null) return null;
+        // Xử lý <think>...</think>
+        text = text.replaceAll("(?s)<think>.*?</think>", "").trim();
+        // Xử lý <thinking>...</thinking>
+        text = text.replaceAll("(?s)<thinking>.*?</thinking>", "").trim();
+        return text;
     }
 
     /**

@@ -8,4 +8,6 @@ public class PosPaymentRequest {
     private Integer paymentMethodId;  // 1: COD, 2: VNPAY, 3: MOMO
     private BigDecimal amount;
     private String referenceNumber;
+    /** Chỉ dùng cho VNPay tại quầy: URL quầy thu ngân chờ callback */
+    private String returnUrl;
 }

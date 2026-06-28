@@ -73,17 +73,20 @@
               </div>
 
               <div class="form-group">
-                <label>Số điện thoại</label>
+                <label>Số điện thoại <span class="required">*</span></label>
                 <div class="input-wrapper">
                   <i class="fas fa-phone"></i>
                   <input
                     type="tel"
                     v-model="form.phone"
-                    placeholder="Nhập số điện thoại"
+                    placeholder="Nhập số điện thoại (VD: 0912345678)"
+                    maxlength="10"
                     required
                     :disabled="loading"
+                    @input="errors.phone = ''"
                   />
                 </div>
+                <span v-if="errors.phone" class="error-text">{{ errors.phone }}</span>
               </div>
 
               <div class="form-group">
@@ -323,6 +326,10 @@ const success = ref("");
 const showPassword = ref(false);
 const showConfirmPassword = ref(false);
 
+const errors = ref({
+  phone: ''
+});
+
 // Computed
 const fullName = computed(() => {
   return `${form.value.firstName} ${form.value.lastName}`.trim();
@@ -386,18 +393,27 @@ const handleRegister = async () => {
   success.value = "";
   loading.value = true;
 
-  try {
-    // Validate phone number (Vietnam format)
-    const phoneRegex = /(84|0[3|5|7|8|9])+([0-9]{8})\b/;
-    if (!phoneRegex.test(form.value.phone)) {
-      throw new Error("Số điện thoại không hợp lệ");
-    }
+  // Required check
+  if (!form.value.phone || form.value.phone.trim() === '') {
+    errors.value.phone = 'Vui lòng nhập số điện thoại'
+    loading.value = false
+    return
+  }
+  // Format check - Vietnamese phone numbers
+  else if (!/^(0[3|5|7|8|9])+([0-9]{8})$/.test(form.value.phone.trim())) {
+    errors.value.phone = 'Số điện thoại không hợp lệ (VD: 0912345678)'
+    loading.value = false
+    return
+  } else {
+    errors.value.phone = ''
+  }
 
+  try {
     // Register
     await authStore.register({
       name: fullName.value,
       email: form.value.email,
-      phone: form.value.phone,
+      phone: form.value.phone.trim(),
       password: form.value.password,
     });
 
@@ -409,7 +425,10 @@ const handleRegister = async () => {
       router.push("/login");
     }, 2000);
   } catch (err) {
-    error.value = err.message || "Đăng ký thất bại. Vui lòng thử lại.";
+    if (err.response?.data?.message?.includes('Số điện thoại')) {
+      errors.value.phone = err.response.data.message;
+    }
+    error.value = err.response?.data?.message || err.message || "Đăng ký thất bại. Vui lòng thử lại.";
     showNotification(error.value, "error");
   } finally {
     loading.value = false;
