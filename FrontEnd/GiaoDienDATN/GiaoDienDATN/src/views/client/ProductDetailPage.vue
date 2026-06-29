@@ -619,21 +619,15 @@ const loadReviews = async (productId, reset = true) => {
   reviewsLoadingMore.value = !reset
   
   try {
-    // ✅ Lấy productDetailId từ variants
-    let productDetailId = null
-    if (product.value && product.value.variants && product.value.variants.length > 0) {
-      productDetailId = product.value.variants[0].productDetailId
-    }
-    
-    if (!productDetailId) {
-      console.warn('Không tìm thấy productDetailId')
+    if (!productId) {
+      console.warn('Không tìm thấy productId')
       reviewsLoading.value = false
       reviewsLoadingMore.value = false
       return
     }
-    
-    // ✅ Gọi API đúng endpoint: /api/reviews/product/{productDetailId}
-    const response = await axios.get(`${API_BASE}/reviews/product/${productDetailId}`, {
+
+    // ✅ Gọi API gộp theo productId (tất cả biến thể màu/size): /api/reviews/product-all/{productId}
+    const response = await axios.get(`${API_BASE}/reviews/product-all/${productId}`, {
       params: {
         page: reviewsPage.value,
         size: 5
@@ -653,29 +647,6 @@ const loadReviews = async (productId, reset = true) => {
     }
   } catch (error) {
     console.error('❌ Lỗi tải đánh giá:', error)
-    // Thử gọi API khác nếu productDetailId không có
-    if (error.response?.status === 404) {
-      try {
-        // Thử gọi API với productId trực tiếp
-        const response2 = await axios.get(`${API_BASE}/reviews/product/${productId}/all`, {
-          params: {
-            page: reviewsPage.value,
-            size: 5
-          }
-        })
-        if (response2.data && response2.data.content) {
-          if (reset) {
-            reviews.value = response2.data.content || []
-          } else {
-            reviews.value = [...reviews.value, ...(response2.data.content || [])]
-          }
-          reviewsTotalPages.value = response2.data.totalPages || 0
-          reviewsTotalElements.value = response2.data.totalElements || 0
-        }
-      } catch (err2) {
-        console.error('❌ Lỗi tải đánh giá (cách 2):', err2)
-      }
-    }
   } finally {
     reviewsLoading.value = false
     reviewsLoadingMore.value = false
@@ -685,14 +656,9 @@ const loadReviews = async (productId, reset = true) => {
 // ✅ Load thống kê rating
 const loadRatingStats = async (productId) => {
   try {
-    let productDetailId = null
-    if (product.value && product.value.variants && product.value.variants.length > 0) {
-      productDetailId = product.value.variants[0].productDetailId
-    }
-    
-    if (!productDetailId) return
-    
-    const response = await axios.get(`${API_BASE}/reviews/product/${productDetailId}/rating`)
+    if (!productId) return
+
+    const response = await axios.get(`${API_BASE}/reviews/product-all/${productId}/rating`)
     ratingStats.value = response.data
   } catch (error) {
     console.error('❌ Lỗi tải thống kê rating:', error)

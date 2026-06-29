@@ -74,6 +74,25 @@ public class ReviewController {
         return ResponseEntity.ok(rating);
     }
 
+    // ✅ Lấy review theo productId (gộp tất cả biến thể màu/size của 1 sản phẩm)
+    @GetMapping("/product-all/{productId}")
+    public ResponseEntity<Page<ReviewResponseDTO>> getAllReviewsByProduct(
+            @PathVariable Integer productId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        Page<ReviewResponseDTO> reviews = reviewService.getProductReviewsByProductId(productId, pageable);
+        return ResponseEntity.ok(reviews);
+    }
+
+    // ✅ Lấy thống kê rating theo productId (gộp tất cả biến thể màu/size)
+    @GetMapping("/product-all/{productId}/rating")
+    public ResponseEntity<ProductRatingDTO> getProductRatingByProduct(@PathVariable Integer productId) {
+        ProductRatingDTO rating = reviewService.getProductRatingByProductId(productId);
+        return ResponseEntity.ok(rating);
+    }
+
     @GetMapping("/my-reviews")
     public ResponseEntity<Page<ReviewResponseDTO>> getMyReviews(
             @AuthenticationPrincipal UserDetails userDetails,

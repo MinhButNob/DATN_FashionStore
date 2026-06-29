@@ -55,6 +55,25 @@ public interface ReviewRepository extends JpaRepository<Review, Integer> {
             @Param("productDetailId") Integer productDetailId
     );
 
+    // ===== LẤY REVIEW THEO PRODUCT (TẤT CẢ BIẾN THỂ MÀU/SIZE) =====
+
+    @Query("SELECT r FROM Review r JOIN ProductDetail pd ON r.productDetailId = pd.productDetailId " +
+            "WHERE pd.product.productId = :productId AND r.reviewStatus = 'APPROVED' AND r.deletedAt IS NULL " +
+            "ORDER BY r.createdAt DESC")
+    Page<Review> findApprovedByProductId(@Param("productId") Integer productId, Pageable pageable);
+
+    @Query("SELECT COALESCE(AVG(r.rating), 0) FROM Review r JOIN ProductDetail pd ON r.productDetailId = pd.productDetailId " +
+            "WHERE pd.product.productId = :productId AND r.reviewStatus = 'APPROVED' AND r.deletedAt IS NULL")
+    Double getAverageRatingByProductId(@Param("productId") Integer productId);
+
+    @Query("SELECT COUNT(r) FROM Review r JOIN ProductDetail pd ON r.productDetailId = pd.productDetailId " +
+            "WHERE pd.product.productId = :productId AND r.reviewStatus = 'APPROVED' AND r.deletedAt IS NULL")
+    Integer getTotalReviewsByProductId(@Param("productId") Integer productId);
+
+    @Query("SELECT r.rating, COUNT(r) FROM Review r JOIN ProductDetail pd ON r.productDetailId = pd.productDetailId " +
+            "WHERE pd.product.productId = :productId AND r.reviewStatus = 'APPROVED' AND r.deletedAt IS NULL GROUP BY r.rating")
+    List<Object[]> getRatingCountsByProductId(@Param("productId") Integer productId);
+
     // ===== ADMIN METHODS =====
 
     @Query("SELECT r FROM Review r WHERE r.deletedAt IS NULL ORDER BY r.createdAt DESC")

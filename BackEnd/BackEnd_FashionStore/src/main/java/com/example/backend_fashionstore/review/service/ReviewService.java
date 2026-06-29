@@ -100,6 +100,46 @@ public class ReviewService {
                 });
     }
 
+    // ✅ Lấy tất cả review của một sản phẩm (gộp mọi biến thể màu/size)
+    public Page<ReviewResponseDTO> getProductReviewsByProductId(Integer productId, Pageable pageable) {
+        return reviewRepository.findApprovedByProductId(productId, pageable)
+                .map(review -> {
+                    ProductDetail pd = productDetailRepository.findById(review.getProductDetailId()).orElse(null);
+                    Customer customer = customerRepository.findById(review.getCustomerId()).orElse(null);
+                    return convertToResponse(review, pd, customer);
+                });
+    }
+
+    // ✅ Lấy thống kê rating của một sản phẩm (gộp mọi biến thể màu/size)
+    public ProductRatingDTO getProductRatingByProductId(Integer productId) {
+        Double avgRating = reviewRepository.getAverageRatingByProductId(productId);
+        Integer totalReviews = reviewRepository.getTotalReviewsByProductId(productId);
+
+        List<Object[]> ratingCounts = reviewRepository.getRatingCountsByProductId(productId);
+        int rating1 = 0, rating2 = 0, rating3 = 0, rating4 = 0, rating5 = 0;
+
+        for (Object[] count : ratingCounts) {
+            Integer rating = (Integer) count[0];
+            Long total = (Long) count[1];
+            if (rating == 1) rating1 = total.intValue();
+            else if (rating == 2) rating2 = total.intValue();
+            else if (rating == 3) rating3 = total.intValue();
+            else if (rating == 4) rating4 = total.intValue();
+            else if (rating == 5) rating5 = total.intValue();
+        }
+
+        return ProductRatingDTO.builder()
+                .productDetailId(productId)
+                .averageRating(avgRating != null ? avgRating : 0.0)
+                .totalReviews(totalReviews != null ? totalReviews : 0)
+                .rating1Count(rating1)
+                .rating2Count(rating2)
+                .rating3Count(rating3)
+                .rating4Count(rating4)
+                .rating5Count(rating5)
+                .build();
+    }
+
     public ProductRatingDTO getProductRating(Integer productDetailId) {
         Double avgRating = reviewRepository.getAverageRatingByProductDetailId(productDetailId);
         Integer totalReviews = reviewRepository.getTotalReviewsByProductDetailId(productDetailId);
