@@ -53,4 +53,19 @@ public interface ProductRepository extends JpaRepository<Product, Integer>, JpaS
 
     @Query("SELECT p FROM Product p WHERE LOWER(p.productName) LIKE LOWER(CONCAT('%', :keyword, '%')) AND p.status = 'ACTIVE' AND p.deletedAt IS NULL")
     List<Product> searchActiveProductsByKeyword(@Param("keyword") String keyword);
+
+    @Query("SELECT p FROM Product p WHERE p.status = 'ACTIVE' AND p.deletedAt IS NULL")
+    List<Product> findAllActiveProducts();
+
+    @Query("SELECT p FROM Product p WHERE p.category.categoryId = :categoryId AND p.status = 'ACTIVE' AND p.deletedAt IS NULL")
+    List<Product> findActiveProductsByCategory(@Param("categoryId") Integer categoryId);
+
+    @Query("SELECT DISTINCT p FROM Product p JOIN p.productDetails pd WHERE pd.color.colorId = :colorId AND p.status = 'ACTIVE' AND p.deletedAt IS NULL AND pd.status = 'ACTIVE' AND pd.deletedAt IS NULL")
+    List<Product> findActiveProductsByColor(@Param("colorId") Integer colorId);
+
+    @Query("SELECT DISTINCT p FROM Product p JOIN p.productDetails pd WHERE pd.size.sizeId = :sizeId AND p.status = 'ACTIVE' AND p.deletedAt IS NULL AND pd.status = 'ACTIVE' AND pd.deletedAt IS NULL")
+    List<Product> findActiveProductsBySize(@Param("sizeId") Integer sizeId);
+
+    @Query("SELECT DISTINCT p FROM Product p JOIN p.productDetails pd WHERE pd.price >= :minPrice AND pd.price <= :maxPrice AND p.status = 'ACTIVE' AND p.deletedAt IS NULL AND pd.status = 'ACTIVE' AND pd.deletedAt IS NULL")
+    List<Product> findActiveProductsByPriceRange(@Param("minPrice") java.math.BigDecimal minPrice, @Param("maxPrice") java.math.BigDecimal maxPrice);
 }

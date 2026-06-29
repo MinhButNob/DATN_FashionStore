@@ -146,4 +146,12 @@ public interface VoucherRepository extends JpaRepository<Voucher, Integer> {
             "AND v.voucherEndDate >= :now " +
             "ORDER BY v.voucherCreatedAt DESC")
     List<Voucher> findLatestVouchers(@Param("now") LocalDateTime now, Pageable pageable);
+
+    // ✅ Lấy voucher theo status và hạn sử dụng
+    @Query("SELECT v FROM Voucher v WHERE v.voucherStatus = :status AND v.voucherEndDate >= :now AND v.voucherDeletedAt IS NULL")
+    List<Voucher> findByStatusAndExpiryDateAfter(@Param("status") String status, @Param("now") LocalDateTime now);
+
+    // ✅ Lấy voucher customer chưa sử dụng
+    @Query("SELECT v FROM Voucher v WHERE v.voucherStatus = 'ACTIVE' AND v.voucherDeletedAt IS NULL AND v.voucherEndDate >= CURRENT_TIMESTAMP AND v.voucherId NOT IN (SELECT vu.voucher.voucherId FROM VoucherUsage vu WHERE vu.customer.customerId = :customerId)")
+    List<Voucher> findUnusedVouchersByCustomer(@Param("customerId") Integer customerId);
 }

@@ -6,12 +6,15 @@ import com.example.backend_fashionstore.entity.Chat;
 import com.example.backend_fashionstore.entity.Customer;
 import com.example.backend_fashionstore.entity.Message;
 import com.example.backend_fashionstore.auth.repository.CustomerRepository;
+import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 @RequiredArgsConstructor
@@ -21,13 +24,22 @@ public class ChatHistoryService {
     private final MessageRepository messageRepository;
     private final CustomerRepository customerRepository;
 
+    @Data
+    public static class UserContext {
+        private String gender; // MALE, FEMALE, UNKNOWN
+        private Double height;
+        private Double weight;
+        private String lastCategory;
+    }
+
+    private final Map<Integer, UserContext> userContexts = new ConcurrentHashMap<>();
+
     @Transactional
     public Chat getOrCreateActiveChat(Integer userId) {
         if (userId == null) {
             throw new RuntimeException("userId là null, không thể tạo/lấy phiên chat.");
         }
 
-        // Tìm Customer theo user_id (user_id là ID đăng nhập của người dùng)
         Customer customer = customerRepository.findByUser_UserId(userId)
                 .orElseThrow(() -> new RuntimeException(
                         "Không tìm thấy khách hàng (Customer) liên kết với userId=" + userId +
@@ -35,6 +47,15 @@ public class ChatHistoryService {
 
         if (customer.getUser() == null) {
             throw new RuntimeException("Customer (customerId=" + customer.getCustomerId() + ") không có liên kết User hợp lệ (customer.getUser() == null).");
+        }
+
+        // Khởi tạo UserContext nếu chưa có
+        if (!userContexts.containsKey(userId)) {
+            UserContext ctx = new UserContext();
+            // Có thể load giới tính từ Customer nếu có trường giới tính trong DB
+            // ctx.setGender(customer.getGender() != null ? customer.getGender() : "UNKNOWN");
+            ctx.setGender("UNKNOWN");
+            userContexts.put(userId, ctx);
         }
 
         Optional<Chat> activeChatOpt = chatRepository.findByCustomer_CustomerIdAndStatus(customer.getCustomerId(), "ACTIVE");
@@ -46,7 +67,6 @@ public class ChatHistoryService {
         Chat newChat = new Chat();
         newChat.setCustomer(customer);
         newChat.setStatus("ACTIVE");
-        // admin = null indicates AI/unassigned chat
 
         return chatRepository.save(newChat);
     }
@@ -55,30 +75,18 @@ public class ChatHistoryService {
     public Message saveUserMessage(Chat chat, String content) {
         Message message = new Message();
         message.setChat(chat);
-        message.setUser(chat.getCustomer().getUser()); // Tin nhắn của khách hàng
+        message.setUser(chat.getCustomer().getUser());
         message.setMessageContent(content);
         message.setIsAi(false);
         message.setIsRead(true);
         return messageRepository.save(message);
     }
 
-//    @Transactional
-//    public Message saveAIMessage(Chat chat, String content) {
-//        Message message = new Message();
-//        message.setChat(chat);
-//        message.setUser(null); // Không có user cho tin nhắn AI
-//        message.setMessageContent(content);
-//        message.setIsAi(true);
-//        message.setIsRead(false); // Khách hàng chưa đọc
-//        return messageRepository.save(message);
-//    }
-
     @Transactional
     public Message saveAIMessage(Chat chat, String content) {
         Message message = new Message();
         message.setChat(chat);
         message.setUser(chat.getCustomer().getUser());
-        // Truncate content to avoid DB column overflow (most TEXT columns ~65535, but varchar may be smaller)
         String safeContent = (content != null && content.length() > 2000)
                 ? content.substring(0, 2000) : content;
         message.setMessageContent(safeContent);
@@ -87,9 +95,26 @@ public class ChatHistoryService {
         return messageRepository.save(message);
     }
 
-
     public List<Message> getChatHistory(Integer userId) {
-        Chat chat = getOrCreateActiveChat(userId); // userId (không phải customerId)
+        Chat chat = getOrCreateActiveChat(userId);
         return messageRepository.findByChat_ChatIdOrderBySentDateAsc(chat.getChatId());
+    }
+
+    public UserContext getUserContext(Integer userId) {
+        if (userId == null) return null;
+        if (!userContexts.containsKey(userId)) {
+            getOrCreateActiveChat(userId);
+        }
+        return userContexts.get(userId);
+    }
+
+    public void updateUserContext(Integer userId, String gender, Double height, Double weight) {
+        if (userId == null) return;
+        UserContext ctx = getUserContext(userId);
+        if (ctx != null) {
+            if (gender != null && !gender.isEmpty()) ctx.setGender(gender);
+            if (height != null) ctx.setHeight(height);
+            if (weight != null) ctx.setWeight(weight);
+        }
     }
 }
