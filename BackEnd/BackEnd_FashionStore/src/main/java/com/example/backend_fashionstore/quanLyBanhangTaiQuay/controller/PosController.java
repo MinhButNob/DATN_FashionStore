@@ -3,6 +3,7 @@ package com.example.backend_fashionstore.quanLyBanhangTaiQuay.controller;
 import com.example.backend_fashionstore.quanLyBanhangTaiQuay.dto.*;
 import com.example.backend_fashionstore.quanLyBanhangTaiQuay.service.PosService;
 import com.example.backend_fashionstore.quanLyBanhangTaiQuay.service.PosSessionService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -158,5 +159,43 @@ public class PosController {
             @PathVariable Integer orderId,
             @RequestParam(required = false, defaultValue = "1") Integer copies) {
         return ResponseEntity.ok(posService.printReceiptAsResponse(orderId, copies));
+    }
+
+    // ===================================================
+    // VNPAY TẠI QUẦY
+    // ===================================================
+
+    /**
+     * Bước 1 – Tạo link thanh toán VNPay cho đơn POS.
+     * Nhân viên mở URL / hiển thị QR để khách quét.
+     *
+     * POST /api/pos/orders/{orderId}/vnpay/create-payment
+     * Body: { "amount": ..., "returnUrl": "http://pos-terminal/callback" }
+     */
+    @PreAuthorize("hasAnyRole('ADMIN','STAFF')")
+    @PostMapping("/orders/{orderId}/vnpay/create-payment")
+    public ResponseEntity<PosPaymentResponse> createVnpayPayment(
+            @PathVariable Integer orderId,
+            @RequestBody PosPaymentRequest request,
+            HttpServletRequest httpRequest) {
+        String clientIp = httpRequest.getHeader("X-FORWARDED-FOR");
+        if (clientIp == null) clientIp = httpRequest.getRemoteAddr();
+        return ResponseEntity.ok(
+                posService.createVnpayPaymentForPos(orderId, request.getReturnUrl(), clientIp));
+    }
+
+    /**
+     * Bước 2 – Xác nhận kết quả VNPay sau khi khách quét xong.
+     * Frontend quầy thu gom toàn bộ query-string callback VNPay thành JSON rồi POST lên.
+     *
+     * POST /api/pos/orders/{orderId}/vnpay/confirm
+     * Body: { "vnp_TxnRef": "...", "vnp_ResponseCode": "00", "vnp_SecureHash": "...", ... }
+     */
+    @PreAuthorize("hasAnyRole('ADMIN','STAFF')")
+    @PostMapping("/orders/{orderId}/vnpay/confirm")
+    public ResponseEntity<PosPaymentResponse> confirmVnpayPayment(
+            @PathVariable Integer orderId,
+            @RequestBody java.util.Map<String, String> params) {
+        return ResponseEntity.ok(posService.confirmVnpayForPos(orderId, params));
     }
 }

@@ -70,4 +70,27 @@ public interface PromotionRepository extends JpaRepository<Promotion, Integer> {
             "p.promotionStartDate <= :now AND " +
             "p.promotionEndDate >= :now")
     java.util.List<Promotion> findCurrentlyActivePromotions(@Param("now") java.time.LocalDateTime now);
+
+    // Lấy tất cả khuyến mãi đang diễn ra và sắp diễn ra
+    @Query("SELECT p FROM Promotion p WHERE " +
+            "p.promotionStatus = 'ACTIVE' AND " +
+            "p.promotionDeletedAt IS NULL AND " +
+            "p.promotionEndDate >= :now")
+    java.util.List<Promotion> findAllActivePromotions(@Param("now") java.time.LocalDateTime now);
+
+    // Lấy khuyến mãi theo sản phẩm
+    @Query("SELECT DISTINCT pp.promotion FROM ProductPromotion pp WHERE " +
+            "pp.productDetail.product.productId = :productId AND " +
+            "pp.promotion.promotionStatus = 'ACTIVE' AND " +
+            "pp.promotion.promotionDeletedAt IS NULL AND " +
+            "pp.promotion.promotionEndDate >= :now")
+    java.util.List<Promotion> findPromotionsByProduct(@Param("productId") Integer productId, @Param("now") java.time.LocalDateTime now);
+
+    // Lấy khuyến mãi theo danh mục
+    @Query("SELECT DISTINCT pp.promotion FROM ProductPromotion pp WHERE " +
+            "pp.productDetail.product.category.categoryId = :categoryId AND " +
+            "pp.promotion.promotionStatus = 'ACTIVE' AND " +
+            "pp.promotion.promotionDeletedAt IS NULL AND " +
+            "pp.promotion.promotionEndDate >= :now")
+    java.util.List<Promotion> findPromotionsByCategory(@Param("categoryId") Integer categoryId, @Param("now") java.time.LocalDateTime now);
 }

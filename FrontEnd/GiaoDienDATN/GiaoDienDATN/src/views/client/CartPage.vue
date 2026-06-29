@@ -674,6 +674,16 @@ watch(() => cartStore.subtotal, (newSubtotal) => {
 
 onMounted(async () => {
   console.log("🚀 Cart page mounted")
+
+  const urlParams = new URLSearchParams(window.location.search)
+  if (urlParams.get('payment') === 'failed') {
+    showNotification(
+      'Thanh toán VNPay thất bại. Đơn hàng đã bị hủy, sản phẩm vẫn còn trong giỏ hàng.',
+      'error'
+    )
+    router.replace({ path: '/cart' })
+  }
+
   await cartStore.fetchCart()
   await fetchAvailableVouchers()
   await fetchSuggestedProducts()

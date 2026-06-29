@@ -9,5 +9,8 @@ public interface CustomerRepository
     boolean existsByUser_UserId(Integer userId);
 
     java.util.Optional<Customer> findByUser_UserId(Integer userId);
-}
 
+    boolean existsByPhone(String phone);
+
+    java.util.Optional<Customer> findByPhone(String phone);
+}

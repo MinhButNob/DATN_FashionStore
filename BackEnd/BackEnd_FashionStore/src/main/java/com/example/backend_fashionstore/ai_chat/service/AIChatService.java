@@ -9,7 +9,14 @@ import com.example.backend_fashionstore.entity.Message;
 import com.example.backend_fashionstore.entity.Product;
 import com.example.backend_fashionstore.entity.ProductDetail;
 import com.example.backend_fashionstore.entity.Promotion;
+import com.example.backend_fashionstore.entity.Voucher;
+import com.example.backend_fashionstore.entity.Category;
+import com.example.backend_fashionstore.entity.Color;
 import com.example.backend_fashionstore.quanLyKhuyenMai.repository.PromotionRepository;
+import com.example.backend_fashionstore.QuanLyDanhMuc.repository.CategoryRepository;
+import com.example.backend_fashionstore.QuanLyMauSac.repository.ColorRepository;
+import com.example.backend_fashionstore.QuanLySize.repository.SizeRepository;
+import com.example.backend_fashionstore.quanLyVoucher.repository.VoucherRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -32,22 +39,37 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class AIChatService {
 
-    @Value("${openrouter.api.key}")
+    //    @Value("${openrouter.api.key}")
+    @Value("${groq.api.key}")
     private String openRouterApiKey;
 
     private final ProductRecommendationService productRecommendationService;
     private final ChatHistoryService chatHistoryService;
     private final ProductRepository productRepository;
     private final PromotionRepository promotionRepository;
+    private final CategoryRepository categoryRepository;
+    private final ColorRepository colorRepository;
+    private final SizeRepository sizeRepository;
+    private final VoucherRepository voucherRepository;
+    private final SizeGuideService sizeGuideService;
 
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
+    //  Link truy cap a.i model
+    private static final String OPENROUTER_URL = "https://api.groq.com/openai/v1/chat/completions";
+    private static final String OPENROUTER_MODEL = "llama-3.3-70b-versatile";
 
-    private static final String OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
-    private static final String OPENROUTER_MODEL = "openrouter/free";
+//    private static final String OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
+//    private static final String OPENROUTER_MODEL = "openrouter/free";
+
+//    // Đổi sang model cụ thể không có thinking/reasoning để tránh lộ nội dung suy luận nội tâm ra UI
+//    private static final String OPENROUTER_MODEL = "mistralai/mistral-7b-instruct:free";
 
     // Số lượng tin nhắn lịch sử tối đa đưa vào context (mỗi bên)
     private static final int MAX_HISTORY_MESSAGES = 10;
+
+    // Ngưỡng tồn kho được coi là "sắp hết hàng" để Haru chủ động nhắc khách đặt sớm
+    private static final int LOW_STOCK_THRESHOLD = 5;
 
     private static final String HARU_SYSTEM_PROMPT =
             "Bạn là Haru, nữ trợ lý tư vấn thời trang AI của Fashion Store.\n\n" +
@@ -63,30 +85,43 @@ public class AIChatService {
                     "- Gọi khách hàng là 'bạn'.\n" +
                     "- Trả lời lịch sự, thân thiện và dễ hiểu.\n" +
                     "- Ưu tiên những câu trả lời ngắn gọn nhưng hữu ích.\n\n" +
-                    "NHIỆM VỤ CHÍNH\n" +
-                    "- Tư vấn quần áo, giày dép và phụ kiện.\n" +
-                    "- Gợi ý outfit phù hợp với nhu cầu khách hàng.\n" +
-                    "- Hỗ trợ lựa chọn size phù hợp.\n" +
-                    "- Hỗ trợ tìm kiếm sản phẩm trong cửa hàng.\n" +
-                    "- Gợi ý phối đồ và màu sắc phù hợp.\n\n" +
+                    "QUY TẮC VỀ GIỚI TÍNH\n" +
+                    "- Luôn nhớ giới tính của khách hàng (được cung cấp trong phần THÔNG TIN KHÁCH HÀNG).\n" +
+                    "- Nếu giới tính là CHƯA BIẾT, PHẢI HỎI KHÁCH 'Bạn là nam hay nữ ạ?' trước khi tư vấn sản phẩm.\n" +
+                    "- Chỉ đề xuất sản phẩm phù hợp với giới tính của khách.\n\n" +
+                    "QUY TẮC TƯ VẤN SIZE THÔNG MINH\n" +
+                    "- Bạn được cung cấp kết quả phân tích size chuẩn từ hệ thống trong mục HƯỚNG DẪN CHỌN SIZE.\n" +
+                    "- LUÔN LUÔN phân tích dựa trên kết quả gợi ý đó. Nếu chiều cao khớp size A nhưng cân nặng khớp size B, BẠN PHẢI GIẢI THÍCH RÕ RÀNG ưu nhược điểm của từng size và đưa ra gợi ý cuối cùng như hệ thống đề xuất.\n" +
+                    "- Tuyệt đối KHÔNG TỰ SUY DIỄN bảng size trái ngược với thông tin được cung cấp.\n" +
+                    "- LUÔN giải thích lý do: 'Vì bạn cao X (size A), nặng Y (size B), nên Haru chọn size Z vì...'\n\n" +
+                    "VÍ DỤ TƯ VẤN TỐT\n" +
+                    "Khách: Tôi là nam, cao 1m6, nặng 61kg, tư vấn áo sơ mi\n" +
+                    "Haru: 📏 Với nam, cao 160cm, nặng 61kg:\n" +
+                    "🔍 Phân tích:\n" +
+                    "- Size S: 155-165cm, 50-60kg → HỢP CHIỀU CAO (160cm), HƠI NẶNG (61kg > 60kg)\n" +
+                    "- Size M: 165-175cm, 58-70kg → HỢP CÂN NẶNG (61kg), HƠI THẤP (160cm < 165cm)\n\n" +
+                    "🎯 Haru gợi ý: SIZE M\n\n" +
+                    "💡 Lý do: Bạn nặng 61kg nên size S có thể bị chật ở vai và ngực. Size M sẽ thoải mái hơn, dù có thể hơi dài tay một chút.\n" +
+                    "📌 Lời khuyên: Nếu bạn thích mặc ôm, thử size S. Nếu thích thoải mái, chọn size M.\n\n" +
+                    "QUY TẮC TƯ VẤN THEO TỒN KHO\n" +
+                    "- Mỗi sản phẩm trong danh sách hệ thống cung cấp đều có thông tin 'Tồn kho' và 'Trạng thái kho'.\n" +
+                    "- TUYỆT ĐỐI không giới thiệu hoặc mời khách mua sản phẩm có trạng thái 'HẾT HÀNG' (tồn kho = 0). Nếu khách hỏi đúng sản phẩm đó, hãy báo hết hàng và chủ động gợi ý sản phẩm tương tự còn hàng trong danh sách.\n" +
+                    "- Với sản phẩm có trạng thái 'SẮP HẾT HÀNG' (tồn kho thấp), khi giới thiệu hãy khéo léo nhắc khách rằng sản phẩm này sắp hết hàng nên đặt sớm, tạo cảm giác cấp bách nhưng không nói dối hay phóng đại.\n" +
+                    "- Khi đề xuất danh sách sản phẩm (Bước 3), ƯU TIÊN sản phẩm còn nhiều hàng hơn nếu các sản phẩm có mức độ phù hợp tương đương nhau.\n" +
+                    "- KHÔNG tự đọc to số tồn kho cụ thể (ví dụ 'còn 7 cái') trừ khi khách hỏi trực tiếp số lượng còn lại; bình thường chỉ cần nói chung là 'còn hàng' / 'sắp hết hàng' / 'hết hàng'.\n\n" +
                     "QUY TRÌNH TƯ VẤN\n" +
-                    "Bước 1 - Tìm hiểu nhu cầu: Thu thập thông tin giới tính, độ tuổi, chiều cao, cân nặng, mục đích sử dụng, ngân sách, màu sắc và phong cách yêu thích. Không hỏi quá nhiều câu cùng lúc.\n" +
-                    "Bước 2 - Tư vấn size: Xác định size phù hợp dựa trên giới tính, chiều cao, cân nặng, dáng người và bảng size hệ thống cung cấp. Không khẳng định size tuyệt đối.\n" +
-                    "Bước 3 - Đề xuất sản phẩm: Chỉ đề xuất sản phẩm có trong dữ liệu hệ thống cung cấp. Không tự tạo tên sản phẩm. Chọn tối đa 5 sản phẩm phù hợp nhất và giải thích lý do.\n" +
-                    "Bước 4 - Gợi ý phối đồ: Đề xuất quần, giày, phụ kiện và màu sắc đi kèm khi phù hợp.\n\n" +
+                    "Bước 1 - Tìm hiểu nhu cầu: Thu thập thông tin giới tính, độ tuổi, chiều cao, cân nặng, mục đích sử dụng. Không hỏi quá nhiều câu cùng lúc.\n" +
+                    "Bước 2 - Tư vấn size: Dựa trên phân tích từ hệ thống, đưa ra lời khuyên. Không khẳng định tuyệt đối.\n" +
+                    "Bước 3 - Đề xuất sản phẩm: Chỉ đề xuất sản phẩm có trong dữ liệu hệ thống cung cấp. Chọn tối đa 5 sản phẩm phù hợp nhất và giải thích lý do.\n" +
+                    "Bước 4 - Gợi ý phối đồ: Đề xuất quần, giày, phụ kiện khi phù hợp.\n\n" +
                     "QUY TẮC QUAN TRỌNG\n" +
                     "1. Chỉ đề xuất sản phẩm tồn tại trong hệ thống.\n" +
                     "2. Không bịa thông tin sản phẩm, giá, tồn kho nếu hệ thống chưa cung cấp.\n" +
                     "3. Luôn giải thích lý do đề xuất.\n" +
-                    "4. Nếu chưa đủ thông tin, hỏi thêm trước khi tư vấn.\n" +
-                    "5. Không trả lời lan man.\n" +
-                    "6. Luôn giữ vai trò là Haru, nhân viên tư vấn thời trang của Fashion Store.\n" +
-                    "7. Nhớ ngữ cảnh hội thoại: nếu khách hỏi về 'mẫu đó', 'sản phẩm vừa giới thiệu', 'size của nó'... " +
-                    "hãy dựa vào lịch sử trò chuyện để xác định đang đề cập đến sản phẩm nào.\n" +
-                    "8. KHÔNG dùng markdown (không dùng **chữ đậm**, không dùng dấu *, #, -, hay bất kỳ ký tự định dạng nào). " +
-                    "Chỉ viết văn bản thuần (plain text) tự nhiên như tin nhắn nhắn thật.\n" +
-                    "9. KHÔNG nhắc đến ID sản phẩm (ID, mã sản phẩm, productId, số thứ tự...) trong câu trả lời với khách. " +
-                    "ID chỉ dùng nội bộ trong tag [INTENT:...], khách không cần và không nên thấy ID.\n\n" +
+                    "4. KHÔNG dùng markdown (không dùng **chữ đậm**, không dùng dấu *, #, -, hay bất kỳ ký tự định dạng nào). Chỉ viết văn bản thuần (plain text).\n" +
+                    "5. KHÔNG nhắc đến ID sản phẩm trong câu trả lời với khách. ID chỉ dùng nội bộ trong tag.\n" +
+                    "6. Khi khách hỏi về sản phẩm, ưu tiên tra cứu trong danh sách sản phẩm được cung cấp.\n" +
+                    "7. Nếu thông tin không có trong database, nói rõ 'Hiện tại Haru chưa có thông tin này'.\n\n" +
                     "KHI KHÁCH HỎI NGOÀI PHẠM VI THỜI TRANG\n" +
                     "Vẫn trả lời lịch sự, ngắn gọn, sau đó điều hướng trở lại tư vấn mua sắm.\n\n" +
                     "INTENT TAGS - Ở CUỐI mỗi câu trả lời, LUÔN thêm đúng 1 tag:\n" +
@@ -96,10 +131,7 @@ public class AIChatService {
                     "  [INTENT:SUPPORT] - khi cần hỗ trợ\n" +
                     "  [INTENT:GREETING] - khi chào hỏi\n" +
                     "  [INTENT:GENERAL] - các trường hợp khác\n" +
-                    "  [INTENT:OPEN_PRODUCT:productId] - khi khách muốn xem chi tiết, hỏi kỹ thông tin (giá/màu/size/tồn kho), " +
-                    "hoặc đồng ý mua một sản phẩm CỤ THỂ đã được giới thiệu trước đó. Thay productId bằng ID số nguyên của sản phẩm đó. " +
-                    "Khi dùng tag này, KHÔNG cần liệt kê lại đầy đủ thông tin sản phẩm trong câu trả lời (vì frontend sẽ tự hiển thị thẻ sản phẩm), " +
-                    "chỉ cần trả lời ngắn gọn và tiếp tục tư vấn (ví dụ: hỏi size, gợi ý phối đồ).";
+                    "  [INTENT:OPEN_PRODUCT:productId] - khi khách muốn xem chi tiết hoặc đồng ý mua một sản phẩm CỤ THỂ đã được giới thiệu.";
 
     public ChatResponseDTO processChat(ChatRequestDTO request) {
         String userMessage = request.getMessage();
@@ -117,6 +149,12 @@ public class AIChatService {
         // 3. Save user message
         chatHistoryService.saveUserMessage(chat, userMessage);
 
+        // 3b. Trích xuất thông tin khách hàng từ tin nhắn
+        extractUserInfoFromMessage(userId, userMessage);
+
+        // 3c. Lấy context khách hàng (đã lưu)
+        ChatHistoryService.UserContext userContext = chatHistoryService.getUserContext(userId);
+
         // 4. Trích xuất keyword từ câu của user để search sản phẩm liên quan
         List<String> candidateKeywords = extractCandidateKeywords(userMessage);
 
@@ -132,19 +170,25 @@ public class AIChatService {
             if (relatedProducts.size() >= 10) break;
         }
 
-        // Nếu không tìm thấy sản phẩm liên quan, lấy 5 sản phẩm bất kỳ để AI biết cửa hàng có gì
+        // Nếu không tìm thấy sản phẩm liên quan, lấy tối đa 50 sản phẩm active để AI biết cửa hàng có gì
         if (relatedProducts.isEmpty()) {
-            relatedProducts = productRepository.findAll().stream()
-                    .filter(p -> "ACTIVE".equals(p.getStatus()) && p.getDeletedAt() == null)
-                    .limit(5)
+            relatedProducts = productRepository.findAllActiveProducts().stream()
+                    .limit(50)
                     .collect(Collectors.toList());
         }
 
         // 6. Query DB lấy khuyến mãi đang diễn ra
-        List<Promotion> activePromotions = promotionRepository.findCurrentlyActivePromotions(LocalDateTime.now());
+        List<Promotion> activePromotions = promotionRepository.findAllActivePromotions(LocalDateTime.now());
 
-        // 7. Build data context (sản phẩm + khuyến mãi từ DB)
-        String dataContext = buildDataContext(relatedProducts, activePromotions);
+        // Lấy voucher customer chưa sử dụng
+        List<Voucher> availableVouchers = voucherRepository.findUnusedVouchersByCustomer(userId);
+
+        // Lấy danh mục, màu sắc (có thể caching ở thực tế nhưng ở đây query trực tiếp)
+        List<Category> categories = categoryRepository.findAll();
+        List<Color> colors = colorRepository.findAll();
+
+        // 7. Build data context (sản phẩm + khuyến mãi + voucher + size guide)
+        String dataContext = buildDataContext(relatedProducts, activePromotions, availableVouchers, categories, colors, userContext);
 
         // 8. Call OpenRouter API với đầy đủ lịch sử hội thoại
         String aiResponseText = callAIApiWithHistory(history, userMessage, dataContext);
@@ -207,10 +251,48 @@ public class AIChatService {
      * Chỉ build phần dữ liệu DB (sản phẩm + khuyến mãi).
      * Đây là nội dung được inject vào system message mỗi lượt, không nằm trong history.
      */
-    private String buildDataContext(List<Product> relatedProducts, List<Promotion> activePromotions) {
+    private String buildDataContext(List<Product> relatedProducts, List<Promotion> activePromotions, List<Voucher> availableVouchers, List<Category> categories, List<Color> colors, ChatHistoryService.UserContext userContext) {
         StringBuilder prompt = new StringBuilder();
 
-        prompt.append("===== SẢN PHẨM CỬA HÀNG (DỮ LIỆU THỰC TỪ DATABASE) =====\n");
+        prompt.append("===== THÔNG TIN KHÁCH HÀNG =====\n");
+        if (userContext.getGender() == null || userContext.getGender().equalsIgnoreCase("UNKNOWN")) {
+            prompt.append("- Giới tính: CHƯA BIẾT (Hãy hỏi khách 'Bạn là nam hay nữ ạ?')\n");
+        } else {
+            prompt.append("- Giới tính: ").append(userContext.getGender().equalsIgnoreCase("MALE") ? "Nam" : "Nữ").append("\n");
+        }
+        if (userContext.getHeight() != null) {
+            prompt.append("- Chiều cao: ").append(userContext.getHeight().intValue()).append("cm\n");
+        } else {
+            prompt.append("- Chiều cao: CHƯA BIẾT\n");
+        }
+        if (userContext.getWeight() != null) {
+            prompt.append("- Cân nặng: ").append(userContext.getWeight().intValue()).append("kg\n");
+        } else {
+            prompt.append("- Cân nặng: CHƯA BIẾT\n");
+        }
+        prompt.append("\n");
+
+        prompt.append("===== HƯỚNG DẪN CHỌN SIZE TỪ HỆ THỐNG =====\n");
+        prompt.append(sizeGuideService.getSizeGuide(userContext.getGender()));
+        prompt.append("\n");
+
+        prompt.append("===== DANH MỤC SẢN PHẨM =====\n");
+        if (categories.isEmpty()) prompt.append("(Trống)\n");
+        else {
+            String cats = categories.stream().map(Category::getCategoryName).collect(Collectors.joining(", "));
+            prompt.append(cats).append("\n");
+        }
+        prompt.append("\n");
+
+        prompt.append("===== MÀU SẮC CÓ SẴN =====\n");
+        if (colors.isEmpty()) prompt.append("(Trống)\n");
+        else {
+            String cols = colors.stream().map(Color::getColorName).collect(Collectors.joining(", "));
+            prompt.append(cols).append("\n");
+        }
+        prompt.append("\n");
+
+        prompt.append("===== SẢN PHẨM CỬA HÀNG (TỐI ĐA 50 SẢN PHẨM) =====\n");
         if (relatedProducts.isEmpty()) {
             prompt.append("(Hiện không có sản phẩm nào khớp yêu cầu)\n");
         } else {
@@ -243,13 +325,13 @@ public class AIChatService {
                             }
                         }
 
-                        String colors = activeDetails.stream()
+                        String colorsStr = activeDetails.stream()
                                 .filter(d -> d.getColor() != null)
                                 .map(d -> d.getColor().getColorName())
                                 .distinct()
                                 .collect(Collectors.joining(", "));
-                        if (!colors.isEmpty()) {
-                            prompt.append(" | Màu: ").append(colors);
+                        if (!colorsStr.isEmpty()) {
+                            prompt.append(" | Màu: ").append(colorsStr);
                         }
 
                         String sizes = activeDetails.stream()
@@ -264,7 +346,10 @@ public class AIChatService {
                         int totalQty = activeDetails.stream()
                                 .mapToInt(d -> d.getQuantity() != null ? d.getQuantity() : 0)
                                 .sum();
-                        prompt.append(" | Tồn kho: ").append(totalQty);
+                        String stockStatus = totalQty <= 0 ? "HẾT HÀNG"
+                                : (totalQty <= LOW_STOCK_THRESHOLD ? "SẮP HẾT HÀNG" : "CÒN NHIỀU HÀNG");
+                        prompt.append(" | Tồn kho: ").append(totalQty)
+                                .append(" | Trạng thái kho: ").append(stockStatus);
                     }
                 }
                 prompt.append("\n");
@@ -291,6 +376,29 @@ public class AIChatService {
                 prompt.append("\n");
             }
         }
+
+        prompt.append("\n===== VOUCHER KHÁCH HÀNG CÓ THỂ SỬ DỤNG =====\n");
+        if (availableVouchers == null || availableVouchers.isEmpty()) {
+            prompt.append("(Khách hàng chưa có voucher nào chưa sử dụng)\n");
+        } else {
+            DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+            for (Voucher voucher : availableVouchers) {
+                prompt.append("- Mã: ").append(voucher.getVoucherCode());
+                if (voucher.getVoucherDiscountAmount() != null && voucher.getVoucherDiscountAmount().compareTo(BigDecimal.ZERO) > 0) {
+                    prompt.append(" | Giảm giá: ").append(formatPrice(voucher.getVoucherDiscountAmount())).append("đ");
+                } else if (voucher.getVoucherDiscountPercent() != null && voucher.getVoucherDiscountPercent().compareTo(BigDecimal.ZERO) > 0) {
+                    prompt.append(" | Giảm giá: ").append(voucher.getVoucherDiscountPercent()).append("%");
+                }
+                if (voucher.getVoucherMinOrderValue() != null && voucher.getVoucherMinOrderValue().compareTo(BigDecimal.ZERO) > 0) {
+                    prompt.append(" | Đơn tối thiểu: ").append(formatPrice(voucher.getVoucherMinOrderValue())).append("đ");
+                }
+                if (voucher.getVoucherEndDate() != null) {
+                    prompt.append(" | Hạn SD: ").append(voucher.getVoucherEndDate().format(fmt));
+                }
+                prompt.append("\n");
+            }
+        }
+
         prompt.append("=============================================\n");
 
         return prompt.toString();
@@ -352,7 +460,10 @@ public class AIChatService {
                 if (choices != null && !choices.isEmpty()) {
                     Map<String, Object> message = (Map<String, Object>) choices.get(0).get("message");
                     if (message != null) {
-                        return (String) message.get("content");
+                        String raw = (String) message.get("content");
+                        // FIX: Lọc phần thinking/reasoning nội tâm mà một số model (DeepSeek-R1, Qwen-thinking...)
+                        // trả về trong content. Nếu không lọc, toàn bộ quá trình suy luận sẽ hiện ra UI.
+                        return stripThinking(raw);
                     }
                 }
             }
@@ -361,6 +472,60 @@ public class AIChatService {
             e.printStackTrace();
             return "Xin lỗi, Haru không thể kết nối được với máy chủ AI lúc này 😢";
         }
+    }
+
+    private void extractUserInfoFromMessage(Integer userId, String message) {
+        if (message == null || message.trim().isEmpty()) return;
+        String lowerMsg = message.toLowerCase();
+
+        String gender = null;
+        Double height = null;
+        Double weight = null;
+
+        // Trích xuất giới tính
+        if (lowerMsg.matches(".*\\b(nam|trai|con trai)\\b.*")) {
+            gender = "MALE";
+        } else if (lowerMsg.matches(".*\\b(nữ|gái|con gái)\\b.*")) {
+            gender = "FEMALE";
+        }
+
+        // Trích xuất chiều cao
+        // Các pattern: cao 1m6, 1m65, 1m70, 165cm, 165 cm, chiều cao 160
+        Pattern heightPattern1 = Pattern.compile("1m(\\d{1,2})"); // 1m6, 1m65
+        Matcher mHeight1 = heightPattern1.matcher(lowerMsg);
+        if (mHeight1.find()) {
+            String cmStr = mHeight1.group(1);
+            if (cmStr.length() == 1) cmStr += "0"; // 1m6 -> 160
+            height = 100.0 + Double.parseDouble(cmStr);
+        } else {
+            Pattern heightPattern2 = Pattern.compile("(\\d{3})\\s*cm"); // 165cm, 165 cm
+            Matcher mHeight2 = heightPattern2.matcher(lowerMsg);
+            if (mHeight2.find()) {
+                height = Double.parseDouble(mHeight2.group(1));
+            } else {
+                Pattern heightPattern3 = Pattern.compile("cao\\s+(\\d{3})"); // cao 160
+                Matcher mHeight3 = heightPattern3.matcher(lowerMsg);
+                if (mHeight3.find()) {
+                    height = Double.parseDouble(mHeight3.group(1));
+                }
+            }
+        }
+
+        // Trích xuất cân nặng
+        // Các pattern: nặng 61kg, 61 kg, 61kg, 61 kí, 61 cân
+        Pattern weightPattern = Pattern.compile("(\\d{2,3})\\s*(kg|kí|cân)");
+        Matcher mWeight = weightPattern.matcher(lowerMsg);
+        if (mWeight.find()) {
+            weight = Double.parseDouble(mWeight.group(1));
+        } else {
+            Pattern weightPattern2 = Pattern.compile("nặng\\s+(\\d{2,3})");
+            Matcher mWeight2 = weightPattern2.matcher(lowerMsg);
+            if (mWeight2.find()) {
+                weight = Double.parseDouble(mWeight2.group(1));
+            }
+        }
+
+        chatHistoryService.updateUserContext(userId, gender, height, weight);
     }
 
     /**
@@ -399,6 +564,20 @@ public class AIChatService {
         }
 
         return keywords.stream().limit(8).collect(Collectors.toList());
+    }
+
+    /**
+     * Loại bỏ phần "thinking" nội tâm mà một số model AI (DeepSeek-R1, Qwen-thinking, v.v.)
+     * trả về bên trong thẻ <think>...</think> hoặc <thinking>...</thinking>.
+     * Nếu không lọc, toàn bộ quá trình suy luận sẽ bị hiển thị thẳng ra giao diện chat.
+     */
+    private String stripThinking(String text) {
+        if (text == null) return null;
+        // Xử lý <think>...</think>
+        text = text.replaceAll("(?s)<think>.*?</think>", "").trim();
+        // Xử lý <thinking>...</thinking>
+        text = text.replaceAll("(?s)<thinking>.*?</thinking>", "").trim();
+        return text;
     }
 
     /**

@@ -40,7 +40,7 @@ public class PosInvoiceService {
     private final PosSessionRepository posSessionRepository;
     private final EmployeeRepository employeeRepository;
     private final ProductDetailRepository productDetailRepository;
-    private final PosInvoiceRepository posInvoiceRepository;  
+    private final PosInvoiceRepository posInvoiceRepository;
     // =====================================================
     // TÌM KIẾM HÓA ĐƠN
     // =====================================================
@@ -201,13 +201,17 @@ public class PosInvoiceService {
     // =====================================================
 
     private void updateSessionOnCancel(PosOrder order) {
+        if (order.getPosOrderSessionId() == null) return;
         PosSession session = posSessionRepository.findById(order.getPosOrderSessionId()).orElse(null);
         if (session != null) {
-            // Trừ doanh thu đã hủy khỏi session
-            BigDecimal newCashSales = session.getPosSessionCashSales().subtract(order.getPosOrderTotalAmount());
-            if (newCashSales.compareTo(BigDecimal.ZERO) < 0) {
-                newCashSales = BigDecimal.ZERO;
-            }
+            // Tính total runtime (tránh null nếu không có DB trigger)
+            BigDecimal subtotal = order.getPosOrderSubtotal()      != null ? order.getPosOrderSubtotal()      : BigDecimal.ZERO;
+            BigDecimal discount = order.getPosOrderDiscountAmount() != null ? order.getPosOrderDiscountAmount() : BigDecimal.ZERO;
+            BigDecimal tax      = order.getPosOrderTaxAmount()      != null ? order.getPosOrderTaxAmount()      : BigDecimal.ZERO;
+            BigDecimal orderTotal = subtotal.subtract(discount).add(tax);
+
+            BigDecimal newCashSales = session.getPosSessionCashSales().subtract(orderTotal);
+            if (newCashSales.compareTo(BigDecimal.ZERO) < 0) newCashSales = BigDecimal.ZERO;
             session.setPosSessionCashSales(newCashSales);
             posSessionRepository.save(session);
         }
@@ -220,11 +224,18 @@ public class PosInvoiceService {
         dto.setOrderType(order.getPosOrderType());
         dto.setCustomerName(order.getPosOrderCustomerName());
         dto.setCustomerPhone(order.getPosOrderCustomerPhone());
-        dto.setSubtotal(order.getPosOrderSubtotal());
-        dto.setDiscount(order.getPosOrderDiscountAmount());
-        dto.setTax(order.getPosOrderTaxAmount());
-        dto.setTotal(order.getPosOrderTotalAmount());
-        dto.setPaidAmount(order.getPosOrderPaidAmount());
+
+        BigDecimal subtotal  = order.getPosOrderSubtotal()       != null ? order.getPosOrderSubtotal()       : BigDecimal.ZERO;
+        BigDecimal discount  = order.getPosOrderDiscountAmount()  != null ? order.getPosOrderDiscountAmount()  : BigDecimal.ZERO;
+        BigDecimal tax       = order.getPosOrderTaxAmount()       != null ? order.getPosOrderTaxAmount()       : BigDecimal.ZERO;
+        // Tính total tại runtime thay vì dùng posOrderTotalAmount (có thể null nếu không có DB trigger)
+        BigDecimal total = subtotal.subtract(discount).add(tax);
+
+        dto.setSubtotal(subtotal);
+        dto.setDiscount(discount);
+        dto.setTax(tax);
+        dto.setTotal(total);
+        dto.setPaidAmount(order.getPosOrderPaidAmount() != null ? order.getPosOrderPaidAmount() : BigDecimal.ZERO);
         dto.setChangeAmount(order.getPosOrderChangeAmount());
         dto.setOrderStatus(order.getPosOrderStatus());
         dto.setPaymentStatus(order.getPosOrderPaymentStatus());
@@ -246,15 +257,18 @@ public class PosInvoiceService {
         List<PosOrderItem> items = posOrderItemRepository.findByPosOrderItemOrderId(order.getPosOrderId());
         dto.setItems(items.stream().map(this::convertItemToDTO).collect(Collectors.toList()));
 
-        // Lấy payments
-        List<PosPayment> payments = posPaymentRepository.findByPosPaymentOrderId(order.getPosOrderId());
+        // Lấy payments — chỉ lấy COMPLETED, bỏ qua PENDING/FAILED (VNPay chưa xác nhận)
+        List<PosPayment> payments = posPaymentRepository.findByPosPaymentOrderId(order.getPosOrderId())
+                .stream()
+                .filter(p -> "COMPLETED".equals(p.getPosPaymentStatus()))
+                .collect(Collectors.toList());
         dto.setPayments(payments.stream().map(this::convertPaymentToDTO).collect(Collectors.toList()));
 
         return dto;
     }
 
     private PosInvoiceItemDTO convertItemToDTO(PosOrderItem item) {
-        
+
         PosInvoiceItemDTO dto = new PosInvoiceItemDTO();
         dto.setProductDetailId(item.getPosOrderItemProductDetailId());
         dto.setQuantity(item.getPosOrderItemQuantity());

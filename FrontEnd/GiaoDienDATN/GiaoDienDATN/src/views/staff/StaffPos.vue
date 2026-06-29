@@ -161,24 +161,116 @@
 
         <div class="payment-methods">
           <button :class="{ active: paymentMethod === 'CASH' }" @click="paymentMethod = 'CASH'">
-            <i class="fas fa-money-bill"></i> Tiền mặt
+            <i class="fas fa-money-bill-wave"></i> Tiền mặt
           </button>
-          <button :class="{ active: paymentMethod === 'BANK_TRANSFER' }" @click="paymentMethod = 'BANK_TRANSFER'">
-            <i class="fas fa-qrcode"></i> Chuyển khoản
+          <button :class="{ active: paymentMethod === 'VNPAY' }" @click="paymentMethod = 'VNPAY'" class="vnpay-btn">
+            <i class="fas fa-link"></i> VNPay
           </button>
         </div>
 
-        <button class="checkout-btn" :disabled="cart.length === 0" @click="checkout">
-          <i class="fas fa-receipt"></i> Tạo hóa đơn &amp; In
+        <!-- Cash input for CASH method -->
+        <div v-if="paymentMethod === 'CASH'" class="cash-input-group">
+          <label>Khách đưa:</label>
+          <div class="cash-input-row">
+            <input v-model="cashGiven" type="number" min="0" placeholder="Nhập số tiền" />
+            <span class="change-badge" v-if="cashGiven">
+              Trả lại: <strong>{{ formatPrice(Math.max(0, cashGiven - total)) }}</strong>
+            </span>
+          </div>
+          <div class="quick-cash">
+            <button v-for="amt in quickAmounts" :key="amt" @click="cashGiven = amt" :class="{ sel: cashGiven === amt }">
+              {{ formatPrice(amt) }}
+            </button>
+          </div>
+        </div>
+
+        <!-- VNPay info block -->
+        <div v-if="paymentMethod === 'VNPAY'" class="vnpay-info-block">
+          <i class="fas fa-info-circle"></i>
+          <span>Nhấn thanh toán để chuyển đến trang VNPay. Sau khi hoàn tất sẽ tự quay lại.</span>
+        </div>
+
+        <button class="checkout-btn" :class="{ 'vnpay-checkout': paymentMethod === 'VNPAY' }" :disabled="cart.length === 0 || isProcessing" @click="checkout">
+          <span v-if="!isProcessing">
+            <i :class="paymentMethod === 'VNPAY' ? 'fas fa-external-link-alt' : 'fas fa-receipt'"></i>
+            {{ paymentMethod === 'VNPAY' ? 'Thanh toán qua VNPay' : 'Thanh toán & In HĐ' }}
+          </span>
+          <span v-else><i class="fas fa-spinner fa-spin"></i> Đang xử lý...</span>
         </button>
       </aside>
+
+      <!-- ===== VNPAY REDIRECT LOADING OVERLAY ===== -->
+      <transition name="modal-fade">
+        <div v-if="vnpayRedirecting" class="modal-overlay">
+          <div class="vnpay-redirect-card">
+            <div class="vnpay-redirect-header">
+              <i class="fas fa-shield-alt"></i>
+              <span>Chuyển hướng VNPay</span>
+            </div>
+            <div class="vnpay-redirect-body">
+              <div class="redirect-spinner">
+                <i class="fas fa-spinner fa-spin"></i>
+              </div>
+              <p class="redirect-amount">{{ formatPrice(total) }}</p>
+              <p class="redirect-hint">Đang kết nối đến cổng thanh toán VNPay...</p>
+              <p class="redirect-sub">Trình duyệt sẽ tự chuyển hướng trong giây lát</p>
+            </div>
+          </div>
+        </div>
+      </transition>
+
+      <!-- ===== VNPAY CALLBACK RESULT MODAL ===== -->
+      <transition name="modal-fade">
+        <div v-if="vnpayResult.show" class="modal-overlay">
+          <div class="vnpay-result-card">
+            <!-- Success -->
+            <div v-if="vnpayResult.success" class="result-content success">
+              <div class="result-icon success-icon">
+                <i class="fas fa-check-circle"></i>
+              </div>
+              <h3>Thanh toán thành công!</h3>
+              <p class="result-amount">{{ formatPrice(vnpayResult.amount) }}</p>
+              <div class="result-meta">
+                <div class="meta-row">
+                  <span>Mã giao dịch</span>
+                  <code>{{ vnpayResult.txnRef }}</code>
+                </div>
+                <div class="meta-row">
+                  <span>Thời gian</span>
+                  <strong>{{ vnpayResult.paidAt }}</strong>
+                </div>
+              </div>
+              <button class="btn-print-receipt" @click="finishAfterVnpay">
+                <i class="fas fa-receipt"></i> Đóng & In hóa đơn
+              </button>
+            </div>
+
+            <!-- Failed -->
+            <div v-else class="result-content failed">
+              <div class="result-icon failed-icon">
+                <i class="fas fa-times-circle"></i>
+              </div>
+              <h3>Thanh toán thất bại</h3>
+              <p class="result-error-msg">{{ vnpayResult.errorMsg || 'Giao dịch không thành công hoặc đã bị hủy.' }}</p>
+              <div class="failed-actions">
+                <button class="btn-retry-vnpay" @click="retryVnpay">
+                  <i class="fas fa-redo"></i> Thử lại
+                </button>
+                <button class="btn-cancel-vnpay" @click="cancelVnpayOrder">
+                  <i class="fas fa-times"></i> Hủy đơn
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </transition>
 
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed, ref, onMounted } from "vue";
+import { computed, ref, onMounted, reactive } from "vue";
 import { useNotification } from "../../composables/useNotification";
 import { createPosOrder, printPosReceipt } from "../../services/posService";
 import api from "@/api/axios.js";
@@ -191,6 +283,40 @@ const category = ref("all");
 const customerIdInput = ref("");
 const voucherCodeInput = ref("");
 const paymentMethod = ref("CASH");
+const isProcessing = ref(false);
+const cashGiven = ref(0);
+const quickAmounts = computed(() => {
+  const t = total.value;
+  return [
+    Math.ceil(t / 100000) * 100000,
+    Math.ceil(t / 200000) * 200000,
+    Math.ceil(t / 500000) * 500000,
+  ].filter((v, i, a) => a.indexOf(v) === i).slice(0, 4);
+});
+
+// --- VNPay redirect state ---
+const vnpayRedirecting = ref(false);
+
+// Lưu trạng thái đơn VNPay đang chờ (để xử lý callback)
+const pendingVnpayOrder = reactive({
+  orderId: null,
+  txnRef: null,
+  snapshotItems: [],
+  snapshotSubtotal: 0,
+  snapshotDiscount: 0,
+  snapshotTotal: 0,
+  snapshotCustomer: '',
+});
+
+// Kết quả sau callback VNPay
+const vnpayResult = reactive({
+  show: false,
+  success: false,
+  txnRef: null,
+  amount: 0,
+  paidAt: null,
+  errorMsg: null,
+});
 
 // --- State dữ liệu ---
 const currentOrder = ref(null);
@@ -236,7 +362,6 @@ const loadProducts = async () => {
     }
 
     products.value = productArray.map(p => {
-      // Get main image
       let mainImageUrl = null;
       if (p.mainImageUrl) {
         mainImageUrl = p.mainImageUrl;
@@ -295,7 +420,6 @@ const loadProducts = async () => {
   }
 };
 
-// Các hàm tính toán cho giao diện Card
 const getVariantPrice = (product) => {
   if (!product.selectedSize || !product.selectedColor) {
     if (product.minPrice === product.maxPrice) return formatPrice(product.minPrice);
@@ -360,14 +484,10 @@ const addSelectedVariantToCart = (product) => {
     return;
   }
   addVariantToCart(product, v);
-  
-  // Tự động reset lựa chọn để nhân viên chọn món khác dễ dàng
   product.selectedSize = '';
   product.selectedColor = '';
 };
 
-
-// Lọc sản phẩm theo keyword + danh mục
 const filteredProducts = computed(() => {
   const search = keyword.value.toLowerCase().trim();
   return products.value.filter(p => {
@@ -385,7 +505,6 @@ const filteredProducts = computed(() => {
   });
 });
 
-// Khởi tạo đơn hàng
 const initPOSOrder = async () => {
   currentOrder.value = {
     orderId: "TEMP_" + Date.now(),
@@ -398,7 +517,6 @@ const initPOSOrder = async () => {
   };
 };
 
-// Tính lại giỏ hàng
 const recalculateCart = () => {
   if (!currentOrder.value) return;
   let sub = 0;
@@ -409,7 +527,6 @@ const recalculateCart = () => {
   currentOrder.value.totalAmount = Math.max(0, sub - (currentOrder.value.discountAmount || 0));
 };
 
-// Thêm variant vào giỏ hàng
 const addVariantToCart = (product, variant) => {
   if (!currentOrder.value) return;
 
@@ -436,24 +553,23 @@ const addVariantToCart = (product, variant) => {
         product: { name: product.name }
       },
       quantity: 1,
-      unitPrice: variant.discountedPrice || variant.price
+      unitPrice: variant.discountedPrice || variant.price,
+      originalPrice: variant.price,
+      itemDiscount: variant.price - (variant.discountedPrice || variant.price)
     });
     showNotification(`Đã thêm ${product.name} (${variant.size} - ${variant.color})`, "success");
   }
   recalculateCart();
 };
 
-// Computed giỏ hàng
 const cart = computed(() => currentOrder.value?.orderDetails || []);
 const subtotal = computed(() => currentOrder.value?.subtotalAmount || 0);
 const discount = computed(() => currentOrder.value?.discountAmount || 0);
 const total = computed(() => currentOrder.value ? Math.max(subtotal.value - discount.value, 0) : 0);
 
-// Format tiền tệ
 const formatPrice = value =>
   new Intl.NumberFormat("vi-VN").format(Number(value) || 0) + "₫";
 
-// Cập nhật số lượng trong giỏ
 const updateQty = (item, newQty) => {
   if (!currentOrder.value) return;
   
@@ -469,7 +585,6 @@ const updateQty = (item, newQty) => {
   recalculateCart();
 };
 
-// Gắn khách hàng
 const attachCustomer = () => {
   if (!currentOrder.value || !customerIdInput.value) {
     showNotification("Vui lòng nhập mã khách hàng!", "warning");
@@ -479,7 +594,6 @@ const attachCustomer = () => {
   showNotification("Đã gắn khách hàng vào đơn hàng!", "success");
 };
 
-// Voucher
 const applyVoucherCode = () => {
   if (!currentOrder.value || !voucherCodeInput.value) {
     showNotification("Vui lòng nhập mã giảm giá!", "warning");
@@ -500,7 +614,6 @@ const removeVoucherCode = () => {
   showNotification("Đã xóa mã giảm giá!", "success");
 };
 
-// Xóa giỏ hàng
 const clearCurrentCart = async () => {
   if (!currentOrder.value) return;
   voucherCodeInput.value = "";
@@ -509,14 +622,27 @@ const clearCurrentCart = async () => {
   showNotification("Đã xóa giỏ hàng!", "success");
 };
 
-// Thanh toán
+// ===== CHECKOUT =====
 const checkout = async () => {
   if (!currentOrder.value || cart.value.length === 0) {
     showNotification("Giỏ hàng trống!", "warning");
     return;
   }
 
+  if (paymentMethod.value === 'VNPAY') {
+    await checkoutVnpay();
+    return;
+  }
+
+  // Tiền mặt
+  isProcessing.value = true;
   try {
+    const orderTotal = total.value;
+    if (cashGiven.value > 0 && cashGiven.value < orderTotal) {
+      showNotification(`Khách đưa thiếu ${formatPrice(orderTotal - cashGiven.value)}!`, 'warning');
+      isProcessing.value = false;
+      return;
+    }
     const request = {
       posOrderCustomerId: customerIdInput.value ? parseInt(customerIdInput.value) : null,
       posOrderCustomerName: customerIdInput.value ? null : "Khách lẻ",
@@ -528,13 +654,13 @@ const checkout = async () => {
       items: currentOrder.value.orderDetails.map(item => ({
         productDetailId: item.productDetailId,
         quantity: item.quantity,
-        unitPrice: item.unitPrice || 0,
-        discount: 0,
+        unitPrice: item.unitPrice || 0,  // discountedPrice — giá thực thu, khớp với paidAmount
+        discount: 0,                      // promotion discount đã nhúng vào unitPrice
         notes: null
       })),
       payments: [{
-        paymentMethodId: paymentMethod.value === "CASH" ? 1 : 2,
-        amount: total.value || 0,
+        paymentMethodId: 1, // CASH
+        amount: orderTotal,
         referenceNumber: null,
         notes: null
       }]
@@ -567,6 +693,7 @@ const checkout = async () => {
 
       voucherCodeInput.value = "";
       customerIdInput.value = "";
+      cashGiven.value = 0;
       await initPOSOrder();
     } else {
       showNotification("Thanh toán thất bại!", "error");
@@ -574,7 +701,210 @@ const checkout = async () => {
   } catch (error) {
     console.error("Lỗi thanh toán:", error);
     showNotification("Thanh toán thất bại: " + (error.response?.data?.message || error.message), "error");
+  } finally {
+    isProcessing.value = false;
   }
+};
+
+// ===== VNPAY FLOW: Tạo đơn → lấy link → redirect =====
+const checkoutVnpay = async () => {
+  isProcessing.value = true;
+  try {
+    const returnUrl = window.location.origin + window.location.pathname + '?vnpay_return=1';
+
+    // Bước 1: Tạo đơn POS KHÔNG kèm payment — backend sẽ set PENDING/UNPAID
+    const snapshotTotal = total.value;
+    const request = {
+      posOrderCustomerId: customerIdInput.value ? parseInt(customerIdInput.value) : null,
+      posOrderCustomerName: customerIdInput.value ? null : "Khách lẻ",
+      posOrderCustomerPhone: null,
+      posOrderType: "AT_COUNTER",
+      posOrderDiscountAmount: discount.value || 0,
+      posOrderTaxAmount: 0,
+      posOrderNotes: "VNPay tại quầy",
+      items: currentOrder.value.orderDetails.map(item => ({
+        productDetailId: item.productDetailId,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice || 0,  // discountedPrice — nhất quán với totalAmount
+        discount: 0,
+        notes: null
+      })),
+      payments: [] // Không có payment — backend nhận diện đây là đơn VNPay pending
+    };
+
+    const res = await createPosOrder(request);
+    const orderId = res?.posOrderId || res?.data?.posOrderId;
+    if (!orderId) throw new Error("Không tạo được đơn hàng");
+
+    // Bước 2: Gọi riêng API tạo link VNPay cho đơn vừa tạo
+    const vnpRes = await api.post(`/pos/orders/${orderId}/vnpay/create-payment`, {
+      paymentMethodId: 2,
+      amount: total.value,
+      returnUrl
+    });
+
+    const vnpData = vnpRes.data?.data || vnpRes.data;
+    const paymentUrl = vnpData?.paymentUrl;
+    const txnRef = vnpData?.txnRef;
+
+    if (!paymentUrl) throw new Error("Backend không trả về paymentUrl");
+
+    // 3. Lưu snapshot đơn hàng vào sessionStorage để dùng sau khi VNPay callback về
+    const snapshot = {
+      orderId,
+      txnRef,
+      customerName: customerIdInput.value || "Khách lẻ",
+      items: currentOrder.value.orderDetails.map(i => ({
+        productDetail: i.productDetail,
+        quantity: i.quantity,
+        finalAmount: i.quantity * i.unitPrice
+      })),
+      subtotalAmount: currentOrder.value.subtotalAmount,
+      discountAmount: currentOrder.value.discountAmount,
+      finalAmount: snapshotTotal  // snapshot trước khi redirect để tránh mất state
+    };
+    sessionStorage.setItem('pos_vnpay_pending', JSON.stringify(snapshot));
+
+    // 4. Hiện loading overlay rồi redirect
+    vnpayRedirecting.value = true;
+
+    setTimeout(() => {
+      window.location.href = paymentUrl;
+    }, 800);
+
+  } catch (err) {
+    showNotification("Lỗi tạo thanh toán VNPay: " + (err.response?.data?.message || err.message), "error");
+    isProcessing.value = false;
+  }
+  // Không finally isProcessing ở đây vì đang redirect
+};
+
+// ===== Xử lý callback sau khi VNPay redirect về =====
+const handleVnpayReturn = async () => {
+  const params = new URLSearchParams(window.location.search);
+  if (!params.get('vnpay_return')) return;
+
+  // Xóa query string khỏi URL (tránh re-process khi reload)
+  window.history.replaceState({}, '', window.location.pathname);
+
+  const raw = sessionStorage.getItem('pos_vnpay_pending');
+  if (!raw) return;
+  const snapshot = JSON.parse(raw);
+  sessionStorage.removeItem('pos_vnpay_pending');
+
+  const responseCode = params.get('vnp_ResponseCode');
+  const txnRef = params.get('vnp_TxnRef') || snapshot.txnRef;
+  const vnpAmount = params.get('vnp_Amount');
+  const paidAt = params.get('vnp_PayDate')
+    ? formatVnpDate(params.get('vnp_PayDate'))
+    : new Date().toLocaleString('vi-VN');
+
+  // Luôn gọi backend confirm để lưu trạng thái cuối (kể cả thất bại)
+  let confirmSuccess = false;
+  try {
+    const confirmPayload = {};
+    params.forEach((v, k) => {
+      if (k.startsWith('vnp_')) {
+        confirmPayload[k] = v;
+      }
+    });
+    await api.post(`/pos/orders/${snapshot.orderId}/vnpay/confirm`, confirmPayload);
+    confirmSuccess = true;
+  } catch (e) {
+    console.warn('Confirm VNPay lỗi:', e);
+    showNotification("Lỗi đồng bộ thanh toán với máy chủ. Vui lòng tải lại trang hoặc kiểm tra đơn hàng.", "error");
+  }
+
+  if (responseCode === '00' && confirmSuccess) {
+    // Thành công
+    vnpayResult.show = true;
+    vnpayResult.success = true;
+    vnpayResult.txnRef = txnRef;
+    vnpayResult.amount = snapshot.finalAmount;
+    vnpayResult.paidAt = paidAt;
+    vnpayResult.errorMsg = null;
+
+    // Lưu snapshot để in hóa đơn sau khi bấm nút
+    Object.assign(pendingVnpayOrder, snapshot);
+
+  } else {
+    // Thất bại
+    vnpayResult.show = true;
+    vnpayResult.success = false;
+    vnpayResult.txnRef = txnRef;
+    vnpayResult.errorMsg = vnpayErrorMsg(responseCode);
+
+    // Khôi phục giỏ hàng từ snapshot để nhân viên có thể thử lại
+    Object.assign(pendingVnpayOrder, snapshot);
+    await restoreCartFromSnapshot(snapshot);
+  }
+};
+
+const formatVnpDate = (str) => {
+  // VNPay format: yyyyMMddHHmmss
+  if (!str || str.length < 14) return str;
+  return `${str.slice(6,8)}/${str.slice(4,6)}/${str.slice(0,4)} ${str.slice(8,10)}:${str.slice(10,12)}:${str.slice(12,14)}`;
+};
+
+const vnpayErrorMsg = (code) => {
+  const msgs = {
+    '07': 'Trừ tiền thành công nhưng giao dịch bị nghi ngờ gian lận.',
+    '09': 'Thẻ/Tài khoản chưa đăng ký dịch vụ Internet Banking.',
+    '10': 'Xác thực thẻ/tài khoản quá 3 lần sai. Tài khoản bị khóa.',
+    '11': 'Đã hết hạn chờ thanh toán. Vui lòng thực hiện lại.',
+    '12': 'Thẻ/Tài khoản bị khóa.',
+    '13': 'Mã OTP nhập sai. Vui lòng thực hiện lại.',
+    '24': 'Khách hàng hủy giao dịch.',
+    '51': 'Tài khoản không đủ số dư.',
+    '65': 'Vượt hạn mức giao dịch trong ngày.',
+    '75': 'Ngân hàng đang bảo trì.',
+    '79': 'Sai mật khẩu quá số lần quy định.',
+  };
+  return msgs[code] || `Giao dịch thất bại (mã: ${code}).`;
+};
+
+const restoreCartFromSnapshot = async (snapshot) => {
+  // Không khôi phục giỏ hàng sản phẩm chi tiết vì snapshot chỉ lưu tóm tắt
+  // Nhân viên sẽ thêm lại sản phẩm hoặc thử lại đơn cũ
+  showNotification("Đơn VNPay thất bại. Vui lòng thử lại.", "warning");
+};
+
+const finishAfterVnpay = async () => {
+  const snap = pendingVnpayOrder;
+  vnpayResult.show = false;
+
+  try { await printPosReceipt(snap.orderId, 1); } catch { /* silent */ }
+
+  printInvoiceHandle({
+    storeName: "Fashion Store",
+    storeAddress: "Hệ thống thời trang nam",
+    storePhone: "0123.456.789",
+    orderId: snap.orderId,
+    orderDate: new Date().toLocaleString("vi-VN"),
+    customerName: snap.customerName,
+    items: snap.items,
+    subtotalAmount: snap.subtotalAmount,
+    discountAmount: snap.discountAmount,
+    finalAmount: snap.finalAmount
+  });
+
+  showNotification("Đã hoàn tất đơn VNPay!", "success");
+  voucherCodeInput.value = "";
+  customerIdInput.value = "";
+  cashGiven.value = 0;
+  await initPOSOrder();
+};
+
+const retryVnpay = async () => {
+  vnpayResult.show = false;
+  paymentMethod.value = 'VNPAY';
+  // Giỏ hàng đã trống vì redirect; nhân viên cần thêm lại sản phẩm
+  showNotification("Vui lòng thêm lại sản phẩm và thử thanh toán VNPay.", "info");
+};
+
+const cancelVnpayOrder = () => {
+  vnpayResult.show = false;
+  showNotification("Đã hủy thanh toán VNPay.", "info");
 };
 
 // In hóa đơn
@@ -620,6 +950,8 @@ onMounted(() => {
   loadCategories();
   loadProducts();
   initPOSOrder();
+  // Kiểm tra nếu vừa redirect về từ VNPay
+  handleVnpayReturn();
 });
 </script>
 
@@ -646,7 +978,6 @@ onMounted(() => {
   min-height: 80vh;
 }
 
-/* Toolbar */
 .toolbar {
   display: flex;
   flex-direction: column;
@@ -671,7 +1002,6 @@ onMounted(() => {
   font-size: 14px;
 }
 
-/* Category tabs */
 .category-tabs {
   display: flex;
   gap: 8px;
@@ -696,7 +1026,6 @@ onMounted(() => {
   font-weight: 600;
 }
 
-/* Loading */
 .loading-state {
   text-align: center;
   padding: 60px 20px;
@@ -705,7 +1034,6 @@ onMounted(() => {
 }
 .loading-state i { margin-right: 8px; }
 
-/* ===== PRODUCT GRID & CARDS ===== */
 .product-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
@@ -729,7 +1057,7 @@ onMounted(() => {
 .pc-img-wrapper {
   position: relative;
   width: 100%;
-  padding-top: 100%; /* 1:1 aspect ratio */
+  padding-top: 100%;
   background: #f4f4f6;
 }
 .pc-img-wrapper img {
@@ -781,7 +1109,6 @@ onMounted(() => {
   font-size: 16px;
 }
 
-/* Attributes picker */
 .attr-group {
   display: flex;
   flex-direction: column;
@@ -807,9 +1134,7 @@ onMounted(() => {
   transition: 0.15s;
   user-select: none;
 }
-.chip:hover:not(.disabled) {
-  border-color: #aaa;
-}
+.chip:hover:not(.disabled) { border-color: #aaa; }
 .chip.active {
   border-color: #e63946;
   color: #e63946;
@@ -824,7 +1149,6 @@ onMounted(() => {
   text-decoration: line-through;
 }
 
-/* Action row */
 .action-row {
   margin-top: auto;
   display: flex;
@@ -838,9 +1162,7 @@ onMounted(() => {
   color: #2a9d8f;
   font-weight: 600;
 }
-.stock-info.out-of-stock {
-  color: #e63946;
-}
+.stock-info.out-of-stock { color: #e63946; }
 
 .add-btn {
   background: #e63946;
@@ -860,13 +1182,7 @@ onMounted(() => {
   transform: translateY(-1px);
   box-shadow: 0 4px 10px rgba(230,57,70,0.2);
 }
-.add-btn:active:not(:disabled) {
-  transform: translateY(0);
-}
-.add-btn:disabled {
-  background: #d1d1d6;
-  cursor: not-allowed;
-}
+.add-btn:disabled { background: #d1d1d6; cursor: not-allowed; }
 
 .empty-state {
   grid-column: 1 / -1;
@@ -962,8 +1278,7 @@ onMounted(() => {
   background: white;
   border-radius: 6px;
   cursor: pointer;
-  font-size: 14px;
-  font-weight: 700;
+  font-size: 14px; font-weight: 700;
   display: flex; align-items: center; justify-content: center;
   transition: 0.15s;
 }
@@ -978,7 +1293,6 @@ onMounted(() => {
 .empty-cart i { font-size: 30px; margin-bottom: 8px; display: block; }
 .empty-cart p { margin: 0; font-size: 13px; }
 
-/* Summary */
 .summary { border-top: 1px solid #eee; padding-top: 14px; }
 .summary > div {
   display: flex;
@@ -994,23 +1308,56 @@ onMounted(() => {
   background: #2b2b2b; color: white; border: none;
   padding: 0 14px; border-radius: 6px; cursor: pointer; font-size: 13px; white-space: nowrap;
 }
-.discount-display {
-  background: #edf7f5; padding: 8px 10px; border-radius: 6px; font-size: 13px;
-}
+.discount-display { background: #edf7f5; padding: 8px 10px; border-radius: 6px; font-size: 13px; }
 .text-success { color: #2a9d8f; font-weight: 600; display: flex; align-items: center; gap: 6px; }
 .text-success i { cursor: pointer; color: #e63946; }
 .summary .total { font-size: 18px; font-weight: 700; color: #e63946; border-top: 1px dashed #eee; padding-top: 10px; margin-top: 6px; }
 
-/* Payment */
 .payment-methods { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 14px 0; }
 .payment-methods button {
   border: 1.5px solid #e1e1e6;
-  border-radius: 8px; padding: 11px;
+  border-radius: 8px; padding: 10px 6px;
   background: white; cursor: pointer;
-  display: flex; align-items: center; justify-content: center; gap: 8px;
-  font-weight: 600; font-size: 13px; transition: 0.15s;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  font-weight: 600; font-size: 12px; transition: 0.15s;
 }
 .payment-methods button.active { border-color: #e63946; color: #e63946; background: rgba(230,57,70,0.05); }
+.payment-methods button.vnpay-btn.active { border-color: #0064c8; color: #0064c8; background: rgba(0,100,200,0.06); }
+
+.cash-input-group { background: #f8f9fb; border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; }
+.cash-input-group label { font-size: 12px; font-weight: 600; color: #666; margin-bottom: 6px; display: block; }
+.cash-input-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.cash-input-row input {
+  flex: 1; border: 1.5px solid #e1e1e6; border-radius: 8px;
+  padding: 8px 12px; font-size: 14px; outline: none;
+}
+.cash-input-row input:focus { border-color: #e63946; }
+.change-badge { font-size: 12px; color: #28a745; white-space: nowrap; }
+.change-badge strong { font-size: 13px; }
+.quick-cash { display: flex; gap: 6px; flex-wrap: wrap; }
+.quick-cash button {
+  border: 1.5px solid #e1e1e6; background: white; border-radius: 6px;
+  padding: 4px 10px; font-size: 11px; font-weight: 600; cursor: pointer;
+  transition: 0.15s; color: #444;
+}
+.quick-cash button:hover, .quick-cash button.sel { border-color: #e63946; color: #e63946; background: rgba(230,57,70,0.06); }
+
+/* VNPay info hint */
+.vnpay-info-block {
+  background: #f0f6ff;
+  border: 1px solid #cce0ff;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12px;
+  color: #0064c8;
+  line-height: 1.5;
+}
+.vnpay-info-block i { margin-top: 2px; flex-shrink: 0; }
+
 .checkout-btn {
   width: 100%;
   background: linear-gradient(135deg, #e63946, #f36872);
@@ -1020,8 +1367,124 @@ onMounted(() => {
   display: flex; align-items: center; justify-content: center; gap: 8px;
   transition: 0.2s;
 }
+.checkout-btn.vnpay-checkout {
+  background: linear-gradient(135deg, #0064c8, #0084ff);
+}
 .checkout-btn:hover:not(:disabled) { opacity: 0.92; transform: translateY(-1px); }
 .checkout-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
+/* ===== VNPAY REDIRECT OVERLAY ===== */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 9999; backdrop-filter: blur(6px);
+}
+
+.vnpay-redirect-card {
+  background: white;
+  border-radius: 20px;
+  width: 360px;
+  overflow: hidden;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.3);
+  animation: modalPop 0.3s cubic-bezier(.34,1.56,.64,1);
+}
+.vnpay-redirect-header {
+  background: linear-gradient(135deg, #0064c8, #0084ff);
+  padding: 18px 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: white;
+  font-size: 16px;
+  font-weight: 700;
+}
+.vnpay-redirect-header i { font-size: 22px; }
+.vnpay-redirect-body {
+  padding: 32px 24px;
+  text-align: center;
+}
+.redirect-spinner { font-size: 44px; color: #0064c8; margin-bottom: 16px; }
+.redirect-amount { font-size: 28px; font-weight: 800; color: #1a1a2e; margin: 0 0 12px; }
+.redirect-hint { font-size: 14px; color: #555; margin: 0 0 6px; }
+.redirect-sub { font-size: 12px; color: #aaa; margin: 0; }
+
+/* ===== VNPAY RESULT MODAL ===== */
+.vnpay-result-card {
+  background: white;
+  border-radius: 20px;
+  width: 400px;
+  max-width: 95vw;
+  overflow: hidden;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.3);
+  animation: modalPop 0.3s cubic-bezier(.34,1.56,.64,1);
+}
+.result-content {
+  padding: 36px 28px;
+  text-align: center;
+}
+.result-icon { font-size: 64px; margin-bottom: 14px; animation: popIn 0.4s cubic-bezier(.34,1.56,.64,1); }
+.success-icon { color: #28a745; }
+.failed-icon { color: #e63946; }
+
+.result-content h3 { font-size: 20px; font-weight: 800; color: #1a1a2e; margin: 0 0 8px; }
+.result-amount { font-size: 28px; font-weight: 800; color: #0064c8; margin: 0 0 20px; }
+.result-error-msg { font-size: 14px; color: #666; margin: 0 0 24px; line-height: 1.5; }
+
+.result-meta {
+  background: #f8f9fb;
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 22px;
+  text-align: left;
+}
+.meta-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  padding: 4px 0;
+}
+.meta-row span { color: #888; }
+.meta-row code { background: #e8f5e9; color: #28a745; border-radius: 4px; padding: 2px 8px; font-size: 12px; }
+.meta-row strong { color: #1a1a2e; font-weight: 600; }
+
+.btn-print-receipt {
+  width: 100%;
+  background: linear-gradient(135deg, #e63946, #f36872);
+  color: white; border: none;
+  border-radius: 10px; padding: 14px;
+  font-size: 15px; font-weight: 700;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  transition: 0.2s;
+}
+.btn-print-receipt:hover { opacity: 0.9; transform: translateY(-1px); }
+
+.failed-actions { display: flex; flex-direction: column; gap: 10px; }
+.btn-retry-vnpay {
+  background: linear-gradient(135deg, #0064c8, #0084ff);
+  color: white; border: none;
+  border-radius: 10px; padding: 13px;
+  font-size: 14px; font-weight: 700;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  transition: 0.15s;
+}
+.btn-retry-vnpay:hover { opacity: 0.9; }
+.btn-cancel-vnpay {
+  background: white; border: 1.5px solid #e1e1e6; color: #666;
+  border-radius: 10px; padding: 11px;
+  font-size: 14px; font-weight: 600; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  transition: 0.15s;
+}
+.btn-cancel-vnpay:hover { border-color: #aaa; }
+
+/* Animations */
+@keyframes modalPop { from { opacity:0; transform: scale(0.88) translateY(20px); } to { opacity:1; transform: none; } }
+@keyframes popIn { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+.modal-fade-enter-active, .modal-fade-leave-active { transition: opacity 0.2s; }
+.modal-fade-enter-from, .modal-fade-leave-to { opacity: 0; }
 </style>

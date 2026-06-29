@@ -26,8 +26,38 @@ public class ProductRecommendationService {
 
         List<Product> products = productRepository.searchActiveProductsByKeyword(keyword.trim());
 
+        // Filter for active and in-stock products
+        products = products.stream()
+                .filter(p -> p.getProductDetails().stream()
+                        .anyMatch(pd -> "ACTIVE".equals(pd.getStatus()) && pd.getDeletedAt() == null && pd.getQuantity() != null && pd.getQuantity() > 0))
+                .collect(Collectors.toList());
+
         // Take top 5 recommendations
         return products.stream()
+                .limit(5)
+                .map(this::mapToDTO)
+                .collect(Collectors.toList());
+    }
+
+    public List<ProductRecommendationDTO> recommendByFilters(Integer categoryId, Integer colorId, Integer sizeId, java.math.BigDecimal minPrice, java.math.BigDecimal maxPrice) {
+        // Here we could implement dynamic filtering by using a JPA Specification or similar.
+        // For simplicity, we can fetch active products and filter in memory, or use multiple repository methods.
+        // Given we added specific repository methods, we can combine them or just fetch all active and filter.
+        List<Product> products = productRepository.findAllActiveProducts();
+
+        return products.stream()
+                .filter(p -> {
+                    if (categoryId != null && (p.getCategory() == null || !categoryId.equals(p.getCategory().getCategoryId()))) return false;
+                    boolean hasMatchingDetail = p.getProductDetails().stream().anyMatch(pd -> {
+                        if (!"ACTIVE".equals(pd.getStatus()) || pd.getDeletedAt() != null || pd.getQuantity() == null || pd.getQuantity() <= 0) return false;
+                        if (colorId != null && (pd.getColor() == null || !colorId.equals(pd.getColor().getColorId()))) return false;
+                        if (sizeId != null && (pd.getSize() == null || !sizeId.equals(pd.getSize().getSizeId()))) return false;
+                        if (minPrice != null && (pd.getPrice() == null || pd.getPrice().compareTo(minPrice) < 0)) return false;
+                        if (maxPrice != null && (pd.getPrice() == null || pd.getPrice().compareTo(maxPrice) > 0)) return false;
+                        return true;
+                    });
+                    return hasMatchingDetail;
+                })
                 .limit(5)
                 .map(this::mapToDTO)
                 .collect(Collectors.toList());

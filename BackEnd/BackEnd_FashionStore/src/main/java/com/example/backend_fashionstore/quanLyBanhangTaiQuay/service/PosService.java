@@ -2,6 +2,7 @@ package com.example.backend_fashionstore.quanLyBanhangTaiQuay.service;
 
 import com.example.backend_fashionstore.entity.*;
 import com.example.backend_fashionstore.QuanLySanPham.repository.ProductDetail.ProductDetailRepository;
+import com.example.backend_fashionstore.config.VNPayConfig;
 import com.example.backend_fashionstore.exception.BusinessException;
 import com.example.backend_fashionstore.quanLyBanhangTaiQuay.dto.*;
 import com.example.backend_fashionstore.quanLyBanhangTaiQuay.repository.*;
@@ -10,14 +11,19 @@ import com.example.backend_fashionstore.security.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import lombok.extern.slf4j.Slf4j;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class PosService {
@@ -31,6 +37,8 @@ public class PosService {
     private final ProductDetailRepository productDetailRepository;
     private final CashRegisterRepository cashRegisterRepository;
     private final EmployeeService employeeService;
+    // Tái sử dụng VNPayConfig từ luồng online — không tạo lại
+    private final VNPayConfig vnPayConfig;
     private static final DateTimeFormatter INVOICE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
 
     private Integer getCurrentEmployeeId() {
@@ -67,12 +75,25 @@ public class PosService {
         BigDecimal discountAmount = request.getPosOrderDiscountAmount() != null ? request.getPosOrderDiscountAmount() : BigDecimal.ZERO;
         BigDecimal taxAmount = request.getPosOrderTaxAmount() != null ? request.getPosOrderTaxAmount() : BigDecimal.ZERO;
         BigDecimal totalAmount = subtotal.subtract(discountAmount).add(taxAmount);
-        BigDecimal paidAmount = calculatePaidAmount(request.getPayments());
-        BigDecimal changeAmount = paidAmount.subtract(totalAmount);
 
-        if (changeAmount.compareTo(BigDecimal.ZERO) < 0) {
-            throw new BusinessException("Số tiền thanh toán không đủ. Thiếu: " + changeAmount.abs() + "đ");
+        boolean hasPayments = request.getPayments() != null && !request.getPayments().isEmpty();
+        BigDecimal paidAmount = hasPayments ? calculatePaidAmount(request.getPayments()) : BigDecimal.ZERO;
+
+        // Chỉ validate số tiền khi có payment (tiền mặt).
+        // Đơn VNPay gửi payments=[] là hợp lệ — chưa thanh toán, chờ xác nhận từ cổng.
+        if (hasPayments) {
+            BigDecimal changeAmount = paidAmount.subtract(totalAmount);
+            if (changeAmount.compareTo(BigDecimal.ZERO) < 0) {
+                throw new BusinessException(
+                        "Số tiền thanh toán không đủ. Thiếu: " + changeAmount.abs() + "đ" +
+                                " (subtotal=" + subtotal + ", discount=" + discountAmount + ", total=" + totalAmount + ", paid=" + paidAmount + ")"
+                );
+            }
         }
+
+        // Xác định trạng thái đơn: PENDING nếu chưa có payment (VNPay), COMPLETED nếu đã có
+        String orderStatus = hasPayments ? "COMPLETED" : "PENDING";
+        String paymentStatus = hasPayments ? "PAID" : "UNPAID";
 
         // Tạo mã hóa đơn
         String invoiceNumber = generateInvoiceNumber();
@@ -89,8 +110,9 @@ public class PosService {
                 .posOrderDiscountAmount(discountAmount)
                 .posOrderTaxAmount(taxAmount)
                 .posOrderPaidAmount(paidAmount)
-                .posOrderStatus("COMPLETED")
-                .posOrderPaymentStatus("PAID")
+                .posOrderTotalAmount(totalAmount)   // lưu vào DB để query/sort đúng
+                .posOrderStatus(orderStatus)
+                .posOrderPaymentStatus(paymentStatus)
                 .posOrderNotes(request.getPosOrderNotes())
                 .build();
 
@@ -138,8 +160,8 @@ public class PosService {
             posPaymentRepository.save(payment);
         }
 
-        // Cập nhật doanh số cho session (chỉ khi tìm được session)
-        if (session != null) {
+        // Cập nhật doanh số cho session (chỉ khi tìm được session VÀ có payment thực)
+        if (session != null && hasPayments) {
             updateSessionSales(session, totalAmount, request.getPayments());
         }
 
@@ -366,6 +388,223 @@ public class PosService {
     // PRIVATE METHODS
     // =====================================================
 
+    // =====================================================
+    // VNPAY TẠI QUẦY (POS)
+    // =====================================================
+
+    /**
+     * Bước 1: Tạo link thanh toán VNPay cho đơn POS.
+     * txnRef = "POS-" + invoiceNumber + "-" + random(6) — phân biệt với đơn online.
+     * returnUrl lấy từ request (quầy thu ngân tự cung cấp), fallback về vnPayConfig.
+     *
+     * Καλών: Tái sử dụng VNPayConfig.hmacSHA512() và VNPayConfig.getRandomNumber()
+     * đã có trong luồng online, không duplicate logic.
+     */
+    @Transactional
+    public PosPaymentResponse createVnpayPaymentForPos(Integer orderId, String returnUrl, String clientIp) {
+        PosOrder order = posOrderRepository.findById(orderId)
+                .orElseThrow(() -> new BusinessException("Không tìm thấy đơn hàng POS: " + orderId));
+
+        if ("PAID".equals(order.getPosOrderPaymentStatus()) || "REFUNDED".equals(order.getPosOrderPaymentStatus())) {
+            throw new BusinessException("Đơn hàng đã được thanh toán hoặc đã hoàn tiền, không thể tạo link VNPay");
+        }
+
+        // txnRef riêng cho POS — prefix POS- để phân biệt trên dashboard VNPay
+        String txnRef = "POS-" + order.getPosOrderInvoiceNumber() + "-" + VNPayConfig.getRandomNumber(4);
+
+        // Tính tổng đơn hàng để tạo link VNPay
+        BigDecimal orderTotal = order.getPosOrderSubtotal()
+                .subtract(order.getPosOrderDiscountAmount())
+                .add(order.getPosOrderTaxAmount());
+        BigDecimal vnpayAmount = orderTotal.compareTo(BigDecimal.ZERO) > 0 ? orderTotal : BigDecimal.ZERO;
+
+        if (vnpayAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessException("Tổng đơn hàng không hợp lệ để tạo link VNPay");
+        }
+
+
+        long amountVnd = vnpayAmount.longValue() * 100; // VNPay nhân 100
+
+        // Dùng returnUrl do quầy gửi lên; fallback về config nếu thiếu
+        String effectiveReturnUrl = (returnUrl != null && !returnUrl.isBlank())
+                ? returnUrl
+                : vnPayConfig.getVnp_ReturnUrl();
+
+        Map<String, String> vnpParams = new HashMap<>();
+        vnpParams.put("vnp_Version", vnPayConfig.getVnp_Version());
+        vnpParams.put("vnp_Command", vnPayConfig.getVnp_Command());
+        vnpParams.put("vnp_TmnCode", vnPayConfig.getVnp_TmnCode());
+        vnpParams.put("vnp_Amount", String.valueOf(amountVnd));
+        vnpParams.put("vnp_CurrCode", "VND");
+        vnpParams.put("vnp_TxnRef", txnRef);
+        vnpParams.put("vnp_OrderInfo", "POS thanh toan tai quay:" + txnRef);
+        vnpParams.put("vnp_OrderType", vnPayConfig.getOrderType());
+        vnpParams.put("vnp_Locale", "vn");
+        vnpParams.put("vnp_ReturnUrl", effectiveReturnUrl);
+        vnpParams.put("vnp_IpAddr", clientIp != null ? clientIp : "127.0.0.1");
+
+        Calendar cld = Calendar.getInstance(TimeZone.getTimeZone("Asia/Ho_Chi_Minh"));
+        SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMddHHmmss");
+        vnpParams.put("vnp_CreateDate", formatter.format(cld.getTime()));
+        cld.add(Calendar.MINUTE, 15);
+        vnpParams.put("vnp_ExpireDate", formatter.format(cld.getTime()));
+
+        // Ký hash — dùng lại VNPayConfig.hmacSHA512() đã có sẵn
+        List<String> fieldNames = new ArrayList<>(vnpParams.keySet());
+        Collections.sort(fieldNames);
+        StringBuilder hashData = new StringBuilder();
+        StringBuilder query = new StringBuilder();
+        Iterator<String> itr = fieldNames.iterator();
+        while (itr.hasNext()) {
+            String fieldName = itr.next();
+            String fieldValue = vnpParams.get(fieldName);
+            if (fieldValue != null && !fieldValue.isEmpty()) {
+                try {
+                    hashData.append(fieldName).append('=')
+                            .append(URLEncoder.encode(fieldValue, StandardCharsets.UTF_8.toString()));
+                    query.append(URLEncoder.encode(fieldName, StandardCharsets.UTF_8.toString()))
+                            .append('=').append(URLEncoder.encode(fieldValue, StandardCharsets.UTF_8.toString()));
+                } catch (Exception e) { /* ignore */ }
+                if (itr.hasNext()) { query.append('&'); hashData.append('&'); }
+            }
+        }
+        String secureHash = VNPayConfig.hmacSHA512(vnPayConfig.getSecretKey().trim(), hashData.toString());
+        String paymentUrl = vnPayConfig.getVnp_PayUrl().trim() + "?" + query + "&vnp_SecureHash=" + secureHash;
+
+        // Lưu bản ghi pos_payment với trạng thái PENDING, referenceNumber = txnRef
+        PosPayment pending = PosPayment.builder()
+                .posPaymentOrderId(orderId)
+                .posPaymentMethodId(2) // 2 = VNPAY
+                .posPaymentAmount(vnpayAmount)
+                .posPaymentReferenceNumber(txnRef)
+                .posPaymentStatus("PENDING")
+                .posPaymentProcessedAt(LocalDateTime.now())
+                .build();
+        PosPayment saved = posPaymentRepository.save(pending);
+
+        PosPaymentResponse response = convertPaymentToResponse(saved);
+        response.setPaymentUrl(paymentUrl);
+        response.setTxnRef(txnRef);
+        return response;
+    }
+
+    /**
+     * Bước 2: Xác nhận kết quả VNPay cho đơn POS.
+     * Verify chữ ký, cập nhật PosPayment + PosOrder nếu thành công.
+     */
+    @Transactional
+    public PosPaymentResponse confirmVnpayForPos(Integer orderId, Map<String, String> params) {
+        PosOrder order = posOrderRepository.findById(orderId)
+                .orElseThrow(() -> new BusinessException("Không tìm thấy đơn hàng POS: " + orderId));
+
+        log.info("--- [DEBUG VNPAY POS] Start confirmVnpayForPos ---");
+        log.info("orderId: {}", orderId);
+        String txnRef = params.get("vnp_TxnRef");
+        String responseCode = params.get("vnp_ResponseCode");
+        log.info("txnRef: {}, responseCode: {}", txnRef, responseCode);
+        log.info("paymentStatus trước update: {}", order.getPosOrderPaymentStatus());
+        log.info("orderStatus trước update: {}", order.getPosOrderStatus());
+
+        // Verify chữ ký — lấy toàn bộ fields bắt đầu bằng vnp_
+        Map<String, String> fields = new LinkedHashMap<>();
+        for (Map.Entry<String, String> entry : params.entrySet()) {
+            if (entry.getKey().startsWith("vnp_")) {
+                fields.put(entry.getKey(), entry.getValue());
+            }
+        }
+        String receivedHash = fields.remove("vnp_SecureHash");
+        fields.remove("vnp_SecureHashType");
+        String computedHash = hashAllFieldsPos(fields);
+
+        if (!computedHash.equalsIgnoreCase(receivedHash)) {
+            throw new BusinessException("Chữ ký VNPay không hợp lệ");
+        }
+
+//        String txnRef = params.getVnp_TxnRef();
+//        String responseCode = params.getVnp_ResponseCode();
+
+        // Tìm pos_payment tương ứng
+        PosPayment payment = posPaymentRepository.findByPosPaymentOrderId(orderId)
+                .stream()
+                .filter(p -> txnRef.equals(p.getPosPaymentReferenceNumber()))
+                .findFirst()
+                .orElseThrow(() -> new BusinessException("Không tìm thấy bản ghi thanh toán VNPay cho đơn " + orderId));
+
+        if ("COMPLETED".equals(payment.getPosPaymentStatus())) {
+            // Idempotency: đã xử lý rồi, trả về luôn
+            return convertPaymentToResponse(payment);
+        }
+
+        if ("00".equals(responseCode)) {
+            // Thành công
+            payment.setPosPaymentStatus("COMPLETED");
+            payment.setPosPaymentProcessedAt(LocalDateTime.now());
+            posPaymentRepository.save(payment);
+
+            // Cập nhật đơn hàng: cộng paidAmount, kiểm tra đã đủ chưa
+            BigDecimal orderTotal = order.getPosOrderSubtotal()
+                    .subtract(order.getPosOrderDiscountAmount())
+                    .add(order.getPosOrderTaxAmount());
+            BigDecimal newPaid = (order.getPosOrderPaidAmount() != null ? order.getPosOrderPaidAmount() : BigDecimal.ZERO)
+                    .add(payment.getPosPaymentAmount());
+            order.setPosOrderPaidAmount(newPaid);
+
+            if (newPaid.compareTo(orderTotal) >= 0 || "00".equals(responseCode)) {
+                order.setPosOrderPaymentStatus("PAID");
+                order.setPosOrderStatus("COMPLETED");
+            }
+            posOrderRepository.save(order);
+            
+            log.info("paymentStatus sau update: {}", order.getPosOrderPaymentStatus());
+            log.info("orderStatus sau update: {}", order.getPosOrderStatus());
+
+            // Cập nhật doanh số session
+            if (order.getPosOrderSessionId() != null) {
+                posSessionRepository.findById(order.getPosOrderSessionId()).ifPresent(session -> {
+                    BigDecimal transfer = session.getPosSessionTransferSales().add(payment.getPosPaymentAmount());
+                    session.setPosSessionTransferSales(transfer);
+                    posSessionRepository.save(session);
+                });
+            }
+        } else {
+            // Thất bại — giữ nguyên đơn, cho phép tạo lại link
+            payment.setPosPaymentStatus("FAILED");
+            payment.setPosPaymentProcessedAt(LocalDateTime.now());
+            posPaymentRepository.save(payment);
+            
+            order.setPosOrderPaymentStatus("UNPAID");
+            order.setPosOrderStatus("PENDING");
+            posOrderRepository.save(order);
+            
+            log.info("paymentStatus sau update (Thất bại): {}", order.getPosOrderPaymentStatus());
+            log.info("orderStatus sau update (Thất bại): {}", order.getPosOrderStatus());
+            log.info("--- [DEBUG VNPAY POS] End confirmVnpayForPos (Failed) ---");
+            return convertPaymentToResponse(payment);
+        }
+
+        log.info("--- [DEBUG VNPAY POS] End confirmVnpayForPos ---");
+        return convertPaymentToResponse(payment);
+    }
+
+    /** Hash các field — cùng thuật toán với PaymentServiceImpl.hashAllFields() */
+    private String hashAllFieldsPos(Map<String, String> fields) {
+        List<String> fieldNames = new ArrayList<>(fields.keySet());
+        Collections.sort(fieldNames);
+        StringBuilder sb = new StringBuilder();
+        Iterator<String> itr = fieldNames.iterator();
+        while (itr.hasNext()) {
+            String name = itr.next();
+            String val  = fields.get(name);
+            if (val != null && !val.isEmpty()) {
+                try { sb.append(name).append("=")
+                        .append(URLEncoder.encode(val, StandardCharsets.UTF_8.toString())); }
+                catch (Exception e) { /* ignore */ }
+                if (itr.hasNext()) sb.append("&");
+            }
+        }
+        return VNPayConfig.hmacSHA512(vnPayConfig.getSecretKey().trim(), sb.toString());
+    }
+
     private String generateInvoiceNumber() {
         String datePart = LocalDateTime.now().format(INVOICE_FORMATTER);
         long count = posOrderRepository.count() + 1;
@@ -498,7 +737,7 @@ public class PosService {
      * Đảm bảo luôn trả về session hợp lệ (không bao giờ null).
      */
     @Transactional
-    private PosSession getOrCreateActiveSession() {
+    protected PosSession getOrCreateActiveSession() {
         // Bước 1: tìm session ACTIVE của nhân viên đang đăng nhập
         try {
             Integer employeeId = getCurrentEmployeeId();
@@ -543,4 +782,4 @@ public class PosService {
 
         return posSessionRepository.save(defaultSession);
     }
-}
+}

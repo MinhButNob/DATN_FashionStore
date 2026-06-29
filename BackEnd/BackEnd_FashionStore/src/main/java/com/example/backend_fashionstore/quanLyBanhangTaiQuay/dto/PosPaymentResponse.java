@@ -13,4 +13,8 @@ public class PosPaymentResponse {
     private String referenceNumber;
     private String status;
     private LocalDateTime processedAt;
+    /** Trả về khi tạo link VNPay tại quầy; null với tiền mặt */
+    private String paymentUrl;
+    /** Mã txnRef VNPay của phiên này; null với tiền mặt */
+    private String txnRef;
 }
