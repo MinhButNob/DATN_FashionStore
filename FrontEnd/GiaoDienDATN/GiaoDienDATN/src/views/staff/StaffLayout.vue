@@ -9,6 +9,10 @@
         <router-view />
       </div>
     </div>
+
+    <!-- ===== THÊM MỚI: Notification Container cho nhân viên ===== -->
+    <NotificationContainerNhanVien />
+    <!-- ===== KẾT THÚC THÊM MỚI ===== -->
   </div>
 </template>
 
@@ -16,6 +20,10 @@
 import { ref } from "vue";
 import StaffHeader from "../../components/staff/StaffHeader.vue";
 import StaffSidebar from "../../components/staff/StaffSidebar.vue";
+
+// ===== THÊM MỚI: Import notification =====
+import { NotificationContainerNhanVien } from "../../composables/useNotificationNhanVien";
+// ===== KẾT THÚC THÊM MỚI =====
 
 const sidebarCollapsed = ref(false);
 

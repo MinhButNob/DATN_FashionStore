@@ -6,7 +6,7 @@
       <BannerSlider />
 
       <!-- Category Section -->
-      <section class="category-section">
+      <section v-if="categories.length > 0" class="category-section">
         <div class="container">
           <div class="section-title">
             <h2>DANH MỤC NỔI BẬT</h2>
@@ -88,10 +88,10 @@
       <div v-else-if="!loading && latestProducts.length === 0" class="empty-state">
         <div class="empty-icon">📦</div>
         <h3>Chưa có sản phẩm nào</h3>
-        <p>Hãy thêm sản phẩm đầu tiên trong Admin Panel</p>
-        <router-link to="/admin/products" class="btn-primary">
-          Đến Admin
-        </router-link>
+        <p>Hiện tại cửa hàng chưa có sản phẩm. Vui lòng quay lại sau!</p>
+        <button class="btn-reload" @click="reloadPage">
+          <i class="fas fa-sync-alt"></i> Tải lại trang
+        </button>
       </div>
 
       <!-- Newsletter -->
@@ -115,29 +115,41 @@
 
     <ClientFooter />
     <CartModal />
+    
+    <!-- Chat Bubble -->
+    <ChatBubble :customerId="customerId" />
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, computed } from "vue";
 import { useRouter } from "vue-router";
 import { useNotification } from "../../composables/useNotification";
 import ClientHeader from "../../components/client/ClientHeader.vue";
 import ClientFooter from "../../components/client/ClientFooter.vue";
 import BannerSlider from "../../components/client/BannerSlider.vue";
 import CartModal from "../../components/client/CartModal.vue";
+import ChatBubble from "../../components/client/ChatBubble.vue";
 import { useCartStore } from "../../stores/cartStore";
+import { useAuthStore } from "../../stores/authStore";
 import axios from "axios";
 
 const router = useRouter();
 const { showNotification } = useNotification();
 const cartStore = useCartStore();
+const authStore = useAuthStore();
 const API_BASE = "http://localhost:8080/api";
 
 const loading = ref(true);
 const latestProducts = ref([]);
 const categories = ref([]);
 const newsletterEmail = ref("");
+
+// Lấy customerId từ auth store
+const customerId = computed(() => {
+  const user = authStore.user || JSON.parse(localStorage.getItem('userInfo') || '{}');
+  return user.customerId || user.userId || null;
+});
 
 const formatPriceVND = (price) => {
   if (price === undefined || price === null) return '0₫'
@@ -153,6 +165,7 @@ const handleImageError = (event) => {
 }
 
 const getCategoryIcon = (categoryName) => {
+  if (!categoryName) return "fas fa-tag";
   const icons = {
     "Áo thun": "fas fa-tshirt",
     "Áo Polo": "fas fa-tshirt",
@@ -169,8 +182,9 @@ const goToCategory = (categoryId) => {
 };
 
 const goToProductDetail = (productId) => {
-  console.log("Chuyển đến chi tiết sản phẩm:", productId);
-  router.push(`/product/${productId}`);
+  if (productId) {
+    router.push(`/product/${productId}`);
+  }
 };
 
 const addToCartDirect = (product) => {
@@ -191,10 +205,30 @@ const addToCartDirect = (product) => {
   showNotification('Đã thêm sản phẩm vào giỏ hàng!', 'success');
 };
 
+const reloadPage = () => {
+  showNotification('Đang tải lại dữ liệu...', 'info');
+  loadProducts();
+  loadCategories();
+};
+
 const loadCategories = async () => {
   try {
     const response = await axios.get(`${API_BASE}/categories/active`);
-    const categoriesData = response.data || [];
+    let categoriesData = response.data || [];
+    
+    if (categoriesData.data && Array.isArray(categoriesData.data)) {
+      categoriesData = categoriesData.data;
+    }
+    
+    if (!Array.isArray(categoriesData) && categoriesData.content) {
+      categoriesData = categoriesData.content;
+    }
+    
+    if (!Array.isArray(categoriesData)) {
+      categoriesData = [];
+    }
+    
+    console.log("✅ Categories loaded:", categoriesData);
     
     const productsResponse = await axios.get(`${API_BASE}/products`, {
       params: { page: 0, size: 1000 }
@@ -217,12 +251,14 @@ const loadCategories = async () => {
       }
     });
     
-    categories.value = categoriesData.map(cat => ({
-      ...cat,
-      productCount: productCountByCategory[cat.categoryId] || 0
-    }));
+    categories.value = categoriesData
+      .filter(cat => cat && cat.categoryId)
+      .map(cat => ({
+        ...cat,
+        productCount: productCountByCategory[cat.categoryId] || 0
+      }));
     
-    console.log("✅ Categories loaded with counts:", categories.value);
+    console.log("✅ Categories with counts:", categories.value);
   } catch (error) {
     console.error("Lỗi tải danh mục:", error);
     categories.value = [];
@@ -243,7 +279,21 @@ const loadProducts = async () => {
     
     console.log("🔍 Response:", response.data);
     
-    let products = response.data?.products || [];
+    let products = [];
+    
+    if (response.data?.products) {
+      products = response.data.products;
+    } else if (response.data?.data?.products) {
+      products = response.data.data.products;
+    } else if (Array.isArray(response.data)) {
+      products = response.data;
+    } else if (response.data?.content) {
+      products = response.data.content;
+    }
+    
+    if (!Array.isArray(products)) {
+      products = [];
+    }
     
     products = products.map(p => ({
       ...p,
@@ -253,7 +303,6 @@ const loadProducts = async () => {
     }));
     
     console.log(`✅ Đã tải ${products.length} sản phẩm`);
-    console.log("📦 Sản phẩm đầu tiên:", products[0]);
     
     latestProducts.value = products;
     
@@ -280,6 +329,7 @@ onMounted(() => {
 });
 </script>
 
+
 <style scoped>
 .home-page {
   min-height: 100vh;
@@ -291,12 +341,87 @@ onMounted(() => {
   padding: 0 20px;
 }
 
+/* ===== CATEGORY SECTION ===== */
+.category-section {
+  padding: 60px 0;
+  background: #f8f9fa;
+}
+
+.section-title {
+  text-align: center;
+  margin-bottom: 50px;
+  position: relative;
+}
+
+.section-title h2 {
+  font-size: 36px;
+  color: #2c3e50;
+  display: inline-block;
+  padding: 0 20px;
+  background: #f8f9fa;
+  position: relative;
+  z-index: 1;
+}
+
+.section-title::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #e63946, transparent);
+}
+
+.category-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 25px;
+}
+
+.category-card {
+  background: white;
+  border-radius: 15px;
+  padding: 30px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.category-card:hover {
+  transform: translateY(-10px);
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
+}
+
+.category-icon {
+  width: 80px;
+  height: 80px;
+  background: linear-gradient(135deg, #e63946, #ff6b6b);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+}
+
+.category-icon i {
+  font-size: 40px;
+  color: white;
+}
+
+/* ===== PRODUCT SECTION ===== */
+.product-section {
+  padding: 60px 0;
+}
+
 .product-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 30px;
 }
 
+/* ===== PRODUCT CARD ===== */
 .product-card-direct {
   background: white;
   border-radius: 15px;
@@ -420,74 +545,7 @@ onMounted(() => {
   cursor: not-allowed;
 }
 
-.category-section {
-  padding: 60px 0;
-  background: #f8f9fa;
-}
-
-.section-title {
-  text-align: center;
-  margin-bottom: 50px;
-  position: relative;
-}
-
-.section-title h2 {
-  font-size: 36px;
-  color: #2c3e50;
-  display: inline-block;
-  padding: 0 20px;
-  background: #f8f9fa;
-  position: relative;
-  z-index: 1;
-}
-
-.section-title::before {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, #e63946, transparent);
-}
-
-.category-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 25px;
-}
-
-.category-card {
-  background: white;
-  border-radius: 15px;
-  padding: 30px;
-  text-align: center;
-  cursor: pointer;
-  transition: all 0.3s;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-}
-
-.category-card:hover {
-  transform: translateY(-10px);
-  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
-}
-
-.category-icon {
-  width: 80px;
-  height: 80px;
-  background: linear-gradient(135deg, #e63946, #ff6b6b);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0 auto 20px;
-}
-
-.category-icon i {
-  font-size: 40px;
-  color: white;
-}
-
+/* ===== LOADING STATE ===== */
 .loading-state {
   text-align: center;
   padding: 80px;
@@ -508,23 +566,64 @@ onMounted(() => {
   100% { transform: rotate(360deg); }
 }
 
-.product-section {
-  padding: 60px 0;
-}
-
+/* ===== EMPTY STATE - CHỈ CÒN NÚT TẢI LẠI ===== */
 .empty-state {
   text-align: center;
-  padding: 80px;
+  padding: 80px 40px;
   background: white;
-  border-radius: 15px;
-  margin: 40px;
+  border-radius: 20px;
+  margin: 40px 0;
+  box-shadow: 0 2px 20px rgba(0, 0, 0, 0.05);
 }
 
+.empty-icon {
+  font-size: 80px;
+  margin-bottom: 20px;
+}
+
+.empty-state h3 {
+  font-size: 28px;
+  color: #2c3e50;
+  margin-bottom: 10px;
+}
+
+.empty-state p {
+  color: #666;
+  font-size: 16px;
+  margin-bottom: 30px;
+}
+
+.btn-reload {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: linear-gradient(135deg, #e63946, #ff6b6b);
+  color: white;
+  border: none;
+  padding: 14px 32px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.btn-reload:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 5px 20px rgba(230, 57, 70, 0.3);
+}
+
+.btn-reload i {
+  font-size: 18px;
+}
+
+/* ===== NEWSLETTER ===== */
 .newsletter {
   background: linear-gradient(135deg, #2c3e50, #1a252f);
   padding: 80px 0;
   text-align: center;
   color: white;
+  margin-top: 40px;
 }
 
 .newsletter h2 {
@@ -571,6 +670,7 @@ onMounted(() => {
   transform: translateY(-2px);
 }
 
+/* ===== RESPONSIVE ===== */
 @media (max-width: 768px) {
   .product-grid {
     grid-template-columns: 1fr;
@@ -587,6 +687,38 @@ onMounted(() => {
   
   .current-price-direct {
     font-size: 16px;
+  }
+
+  .empty-state {
+    padding: 40px 20px;
+  }
+
+  .empty-state h3 {
+    font-size: 22px;
+  }
+
+  .btn-reload {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .category-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .newsletter-form {
+    flex-direction: column;
+    padding: 0 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .category-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .section-title h2 {
+    font-size: 24px;
   }
 }
 </style>
