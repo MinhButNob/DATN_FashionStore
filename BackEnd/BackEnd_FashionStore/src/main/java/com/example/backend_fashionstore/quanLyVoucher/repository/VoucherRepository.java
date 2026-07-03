@@ -57,8 +57,8 @@ public interface VoucherRepository extends JpaRepository<Voucher, Integer> {
     @Query("SELECT COUNT(v) FROM Voucher v WHERE v.voucherStatus = 'ACTIVE' AND v.voucherDeletedAt IS NULL")
     long countByStatusActive();
 
-    // Thống kê số đã dừng (chưa xóa)
-    @Query("SELECT COUNT(v) FROM Voucher v WHERE v.voucherStatus = 'INACTIVE' AND v.voucherDeletedAt IS NULL")
+    // Thống kê số đã dừng/hết hạn (chưa xóa)
+    @Query("SELECT COUNT(v) FROM Voucher v WHERE v.voucherStatus IN ('DISABLED', 'EXPIRED') AND v.voucherDeletedAt IS NULL")
     long countByStatusInactive();
 
     // Tổng số lần đã sử dụng (tất cả voucher chưa xóa)
@@ -154,4 +154,18 @@ public interface VoucherRepository extends JpaRepository<Voucher, Integer> {
     // ✅ Lấy voucher customer chưa sử dụng
     @Query("SELECT v FROM Voucher v WHERE v.voucherStatus = 'ACTIVE' AND v.voucherDeletedAt IS NULL AND v.voucherEndDate >= CURRENT_TIMESTAMP AND v.voucherId NOT IN (SELECT vu.voucher.voucherId FROM VoucherUsage vu WHERE vu.customer.customerId = :customerId)")
     List<Voucher> findUnusedVouchersByCustomer(@Param("customerId") Integer customerId);
+
+    // ✅ Tự động hủy/dừng các voucher đã hết hạn
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.transaction.annotation.Transactional
+    @Query("UPDATE Voucher v SET v.voucherStatus = 'EXPIRED' WHERE v.voucherStatus = 'ACTIVE' AND v.voucherEndDate < :now AND v.voucherDeletedAt IS NULL")
+    int deactivateExpiredVouchers(@Param("now") LocalDateTime now);
+
+    // ✅ Lọc theo tập hợp các trạng thái
+    @Query("SELECT v FROM Voucher v WHERE v.voucherStatus IN :statuses AND v.voucherDeletedAt IS NULL")
+    Page<Voucher> findByVoucherStatusIn(@Param("statuses") List<String> statuses, Pageable pageable);
+
+    // ✅ Lọc + tìm kiếm theo tập hợp các trạng thái
+    @Query("SELECT v FROM Voucher v WHERE v.voucherStatus IN :statuses AND LOWER(v.voucherCode) LIKE LOWER(CONCAT('%', :keyword, '%')) AND v.voucherDeletedAt IS NULL")
+    Page<Voucher> searchByVoucherStatusInAndCode(@Param("statuses") List<String> statuses, @Param("keyword") String keyword, Pageable pageable);
 }

@@ -93,4 +93,10 @@ public interface PromotionRepository extends JpaRepository<Promotion, Integer> {
             "pp.promotion.promotionDeletedAt IS NULL AND " +
             "pp.promotion.promotionEndDate >= :now")
     java.util.List<Promotion> findPromotionsByCategory(@Param("categoryId") Integer categoryId, @Param("now") java.time.LocalDateTime now);
+
+    // ✅ Tự động hủy/dừng các khuyến mãi đã hết hạn
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.transaction.annotation.Transactional
+    @Query("UPDATE Promotion p SET p.promotionStatus = 'INACTIVE' WHERE p.promotionStatus = 'ACTIVE' AND p.promotionEndDate < :now AND p.promotionDeletedAt IS NULL")
+    int deactivateExpiredPromotions(@Param("now") java.time.LocalDateTime now);
 }

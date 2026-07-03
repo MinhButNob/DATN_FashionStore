@@ -63,6 +63,16 @@ public class ColorServiceImpl implements ColorService {
             throw new RuntimeException("Mã màu '" + request.getColorCode() + "' đã tồn tại");
         }
 
+        if (colorRepository.existsByColorNameAndDeletedAtIsNull(request.getColorName())) {
+            throw new RuntimeException("Tên màu '" + request.getColorName() + "' đã tồn tại");
+        }
+
+        if (request.getHexCode() != null && !request.getHexCode().trim().isEmpty()) {
+            if (colorRepository.existsByHexCodeAndDeletedAtIsNull(request.getHexCode().trim())) {
+                throw new RuntimeException("Mã HEX '" + request.getHexCode() + "' đã tồn tại");
+            }
+        }
+
         String status = request.getStatus() != null ? request.getStatus() : "ACTIVE";
         if (!status.matches("ACTIVE|INACTIVE")) {
             status = "ACTIVE";
@@ -91,6 +101,18 @@ public class ColorServiceImpl implements ColorService {
         if (!color.getColorCode().equals(request.getColorCode())
                 && colorRepository.existsByColorCodeAndDeletedAtIsNull(request.getColorCode())) {
             throw new RuntimeException("Mã màu '" + request.getColorCode() + "' đã tồn tại");
+        }
+
+        if (!color.getColorName().equalsIgnoreCase(request.getColorName())
+                && colorRepository.existsByColorNameAndDeletedAtIsNull(request.getColorName())) {
+            throw new RuntimeException("Tên màu '" + request.getColorName() + "' đã tồn tại");
+        }
+
+        if (request.getHexCode() != null && !request.getHexCode().trim().isEmpty()) {
+            if (!request.getHexCode().trim().equalsIgnoreCase(color.getHexCode())
+                    && colorRepository.existsByHexCodeAndDeletedAtIsNull(request.getHexCode().trim())) {
+                throw new RuntimeException("Mã HEX '" + request.getHexCode() + "' đã tồn tại");
+            }
         }
 
         color.setColorCode(request.getColorCode().toUpperCase());

@@ -14,7 +14,7 @@
               v-model="form.promotionName"
               class="form-control"
               required
-              maxlength="20"
+              maxlength="100"
             />
           </div>
           <div class="form-group">
@@ -23,7 +23,7 @@
               v-model="form.promotionDescription"
               class="form-control"
               rows="2"
-              maxlength="20"
+              maxlength="255"
             ></textarea>
           </div>
           <div class="form-group">
@@ -76,6 +76,7 @@
 
 <script setup>
 import { ref, watch } from "vue";
+import { useNotification } from "../../composables/useNotification";
 
 const props = defineProps({
   visible: Boolean,
@@ -84,6 +85,7 @@ const props = defineProps({
 });
 
 const emit = defineEmits(["close", "submit"]);
+const { showNotification } = useNotification();
 
 const formatDateTime = (dateStr) => {
   if (!dateStr) return "";
@@ -136,9 +138,44 @@ watch(
 const close = () => emit("close");
 
 const handleSubmit = async () => {
+  // Trim inputs
+  const nameClean = form.value.promotionName ? form.value.promotionName.trim() : "";
+  const descClean = form.value.promotionDescription ? form.value.promotionDescription.trim() : "";
+  
+  if (!nameClean) {
+    showNotification("Tên khuyến mãi không được để trống hoặc chỉ chứa khoảng trắng!", "error");
+    return;
+  }
+
+  // Validate discount percentage
+  const discount = parseFloat(form.value.promotionDiscountPercent);
+  if (isNaN(discount) || discount <= 0 || discount > 100) {
+    showNotification("Phần trăm giảm phải lớn hơn 0 và nhỏ hơn hoặc bằng 100!", "error");
+    return;
+  }
+
+  // Validate dates
+  if (!form.value.promotionStartDate || !form.value.promotionEndDate) {
+    showNotification("Vui lòng chọn đầy đủ ngày bắt đầu và kết thúc!", "error");
+    return;
+  }
+
+  const start = new Date(form.value.promotionStartDate);
+  const end = new Date(form.value.promotionEndDate);
+  if (end <= start) {
+    showNotification("Ngày kết thúc phải sau ngày bắt đầu!", "error");
+    return;
+  }
+
   submitting.value = true;
   try {
-    await emit("submit", { ...form.value });
+    const submitData = {
+      ...form.value,
+      promotionName: nameClean,
+      promotionDescription: descClean,
+      promotionDiscountPercent: discount
+    };
+    await emit("submit", submitData);
     close();
   } catch (error) {
     console.error("Submit error:", error);

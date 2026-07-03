@@ -63,7 +63,7 @@ public class SizeServiceImpl implements SizeService {
 
     @Override
     public SizeResponseDTO create(SizeRequestDTO request) {
-        if (sizeRepository.existsBySizeCode(request.getSizeCode())) {
+        if (sizeRepository.existsActiveBySizeCode(request.getSizeCode())) {
             throw new RuntimeException("Mã size đã tồn tại");
         }
 
@@ -99,6 +99,10 @@ public class SizeServiceImpl implements SizeService {
         // ✅ Không cho sửa size đã xóa
         if (size.getStatus() == SizeStatus.DELETED) {
             throw new RuntimeException("Không thể cập nhật size đã bị xóa");
+        }
+
+        if (sizeRepository.existsActiveBySizeCodeAndIdNot(request.getSizeCode(), id)) {
+            throw new RuntimeException("Mã size đã tồn tại");
         }
 
         size.setSizeCode(request.getSizeCode());

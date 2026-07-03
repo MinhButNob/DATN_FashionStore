@@ -39,8 +39,9 @@
               type="number"
               v-model="form.voucherDiscountAmount"
               class="form-control"
-              min="0"
+              min="1000"
               step="1000"
+              required
               placeholder="VD: 50000"
             />
           </div>
@@ -51,9 +52,10 @@
               type="number"
               v-model="form.voucherDiscountPercent"
               class="form-control"
-              min="0"
+              min="1"
               max="100"
               step="1"
+              required
               placeholder="VD: 10"
             />
           </div>
@@ -121,6 +123,7 @@
 
 <script setup>
 import { ref, watch, computed } from "vue";
+import { useNotification } from "../../composables/useNotification";
 
 const props = defineProps({
   visible: Boolean,
@@ -129,6 +132,7 @@ const props = defineProps({
 });
 
 const emit = defineEmits(["close", "submit"]);
+const { showNotification } = useNotification();
 
 const formatDateTime = (dateStr) => {
   if (!dateStr) return "";
@@ -201,15 +205,81 @@ watch(
 const close = () => emit("close");
 
 const handleSubmit = async () => {
-  submitting.value = true;
+  const codeClean = form.value.voucherCode ? form.value.voucherCode.trim().toUpperCase() : "";
+  if (!codeClean) {
+    showNotification("Mã voucher không được để trống hoặc chỉ chứa khoảng trắng!", "error");
+    return;
+  }
 
-  const submitData = { ...form.value };
+  // Validate discount value
+  let discountAmount = null;
+  let discountPercent = null;
 
   if (discountType.value === "amount") {
-    submitData.voucherDiscountPercent = null;
+    if (form.value.voucherDiscountAmount === null || form.value.voucherDiscountAmount === "") {
+      showNotification("Vui lòng nhập số tiền giảm!", "error");
+      return;
+    }
+    discountAmount = parseFloat(form.value.voucherDiscountAmount);
+    if (isNaN(discountAmount) || discountAmount <= 0) {
+      showNotification("Số tiền giảm phải lớn hơn 0!", "error");
+      return;
+    }
   } else {
-    submitData.voucherDiscountAmount = null;
+    if (form.value.voucherDiscountPercent === null || form.value.voucherDiscountPercent === "") {
+      showNotification("Vui lòng nhập phần trăm giảm!", "error");
+      return;
+    }
+    discountPercent = parseFloat(form.value.voucherDiscountPercent);
+    if (isNaN(discountPercent) || discountPercent <= 0 || discountPercent > 100) {
+      showNotification("Phần trăm giảm phải lớn hơn 0 và nhỏ hơn hoặc bằng 100!", "error");
+      return;
+    }
   }
+
+  // Validate dates
+  if (!form.value.voucherStartDate || !form.value.voucherEndDate) {
+    showNotification("Vui lòng chọn đầy đủ ngày bắt đầu và kết thúc!", "error");
+    return;
+  }
+
+  const start = new Date(form.value.voucherStartDate);
+  const end = new Date(form.value.voucherEndDate);
+  if (end <= start) {
+    showNotification("Ngày kết thúc phải sau ngày bắt đầu!", "error");
+    return;
+  }
+
+  // Validate usage limit
+  let maxUsage = null;
+  if (form.value.voucherMaxUsage !== null && form.value.voucherMaxUsage !== "") {
+    maxUsage = parseInt(form.value.voucherMaxUsage);
+    if (isNaN(maxUsage) || maxUsage < 1) {
+      showNotification("Số lần sử dụng tối đa phải lớn hơn hoặc bằng 1!", "error");
+      return;
+    }
+  }
+
+  // Validate minimum order value
+  let minOrderValue = 0;
+  if (form.value.voucherMinOrderValue !== null && form.value.voucherMinOrderValue !== "") {
+    minOrderValue = parseFloat(form.value.voucherMinOrderValue);
+    if (isNaN(minOrderValue) || minOrderValue < 0) {
+      showNotification("Giá trị đơn hàng tối thiểu phải lớn hơn hoặc bằng 0!", "error");
+      return;
+    }
+  }
+
+  submitting.value = true;
+  const submitData = {
+    voucherCode: codeClean,
+    voucherDiscountAmount: discountAmount,
+    voucherDiscountPercent: discountPercent,
+    voucherStartDate: form.value.voucherStartDate,
+    voucherEndDate: form.value.voucherEndDate,
+    voucherMaxUsage: maxUsage,
+    voucherMinOrderValue: minOrderValue,
+  };
 
   try {
     await emit("submit", submitData);

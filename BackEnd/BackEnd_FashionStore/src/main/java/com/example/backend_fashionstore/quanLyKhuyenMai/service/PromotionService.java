@@ -19,22 +19,30 @@ public class PromotionService {
     private final PromotionRepository promotionRepository;
 
     // Lấy danh sách (chỉ hiển thị chưa xóa)
+    @Transactional
     public Page<PromotionDTO> getAllPromotions(Pageable pageable) {
+        autoDeactivateExpiredPromotions();
         return promotionRepository.findAllActive(pageable)
                 .map(this::convertToDTO);
     }
 
+    @Transactional
     public Page<PromotionDTO> searchPromotions(String keyword, Pageable pageable) {
+        autoDeactivateExpiredPromotions();
         return promotionRepository.searchByPromotionName(keyword, pageable)
                 .map(this::convertToDTO);
     }
 
+    @Transactional
     public Page<PromotionDTO> filterPromotionsByStatus(String status, Pageable pageable) {
+        autoDeactivateExpiredPromotions();
         return promotionRepository.findByPromotionStatus(status, pageable)
                 .map(this::convertToDTO);
     }
 
+    @Transactional
     public Page<PromotionDTO> filterAndSearchPromotions(String status, String keyword, Pageable pageable) {
+        autoDeactivateExpiredPromotions();
         if (keyword != null && !keyword.isEmpty() && status != null && !status.isEmpty()) {
             return promotionRepository.searchByPromotionStatusAndName(status, keyword, pageable)
                     .map(this::convertToDTO);
@@ -48,7 +56,9 @@ public class PromotionService {
     }
 
     // Lấy danh sách đã xóa (soft delete)
+    @Transactional
     public Page<PromotionDTO> getDeletedPromotions(Pageable pageable) {
+        autoDeactivateExpiredPromotions();
         return promotionRepository.findDeletedPromotions(pageable)
                 .map(this::convertToDTO);
     }
@@ -152,13 +162,18 @@ public class PromotionService {
         if ("ACTIVE".equals(promotion.getPromotionStatus())) {
             promotion.setPromotionStatus("INACTIVE");
         } else {
+            if (promotion.getPromotionEndDate().isBefore(LocalDateTime.now())) {
+                throw new RuntimeException("Khuyến mãi đã hết hạn, không thể kích hoạt. Vui lòng cập nhật lại ngày kết thúc trước.");
+            }
             promotion.setPromotionStatus("ACTIVE");
         }
         promotion.setPromotionUpdatedAt(LocalDateTime.now());
         promotionRepository.save(promotion);
     }
 
+    @Transactional
     public PromotionStatisticsDTO getStatistics() {
+        autoDeactivateExpiredPromotions();
         long total = promotionRepository.countAllActive();
         long active = promotionRepository.countByStatusActive();
         long inactive = promotionRepository.countByStatusInactive();
@@ -179,5 +194,10 @@ public class PromotionService {
         dto.setPromotionUpdatedAt(p.getPromotionUpdatedAt());
         dto.setPromotionDeletedAt(p.getPromotionDeletedAt());
         return dto;
+    }
+
+    @Transactional
+    public void autoDeactivateExpiredPromotions() {
+        promotionRepository.deactivateExpiredPromotions(LocalDateTime.now());
     }
 }

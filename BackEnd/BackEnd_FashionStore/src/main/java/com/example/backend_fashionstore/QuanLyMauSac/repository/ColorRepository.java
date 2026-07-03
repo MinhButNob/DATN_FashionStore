@@ -33,6 +33,14 @@ public interface ColorRepository extends JpaRepository<Color, Integer> {
     @Query("SELECT COUNT(c) > 0 FROM Color c WHERE c.colorCode = :code AND c.deletedAt IS NULL")
     boolean existsByColorCodeAndDeletedAtIsNull(@Param("code") String code);
 
+    // Kiểm tra tồn tại theo tên màu (chưa xóa)
+    @Query("SELECT COUNT(c) > 0 FROM Color c WHERE LOWER(c.colorName) = LOWER(:name) AND c.deletedAt IS NULL")
+    boolean existsByColorNameAndDeletedAtIsNull(@Param("name") String name);
+
+    // Kiểm tra tồn tại theo mã HEX (chưa xóa)
+    @Query("SELECT COUNT(c) > 0 FROM Color c WHERE LOWER(c.hexCode) = LOWER(:hex) AND c.deletedAt IS NULL")
+    boolean existsByHexCodeAndDeletedAtIsNull(@Param("hex") String hex);
+
     // Tìm kiếm theo mã hoặc tên (phân trang, chưa xóa)
     @Query("SELECT c FROM Color c WHERE (LOWER(c.colorCode) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(c.colorName) LIKE LOWER(CONCAT('%', :keyword, '%'))) AND c.deletedAt IS NULL")
     Page<Color> searchByKeyword(@Param("keyword") String keyword, Pageable pageable);
