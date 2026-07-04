@@ -343,6 +343,37 @@ const closeModal = () => {
 
 const saveSize = async () => {
   try {
+    // Trim and format input data
+    formData.value.sizeCode = formData.value.sizeCode ? formData.value.sizeCode.trim().toUpperCase() : "";
+    formData.value.sizeName = formData.value.sizeName ? formData.value.sizeName.trim() : "";
+    formData.value.description = formData.value.description ? formData.value.description.trim() : "";
+
+    // Validate sizeCode
+    if (!formData.value.sizeCode) {
+      showToast("Mã size không được để trống hoặc chỉ chứa khoảng trắng!", "error");
+      return;
+    }
+    if (formData.value.sizeCode.length > 10) {
+      showToast("Mã size không được vượt quá 10 ký tự!", "error");
+      return;
+    }
+
+    // Validate sizeName
+    if (!formData.value.sizeName) {
+      showToast("Tên size không được để trống hoặc chỉ chứa khoảng trắng!", "error");
+      return;
+    }
+    if (formData.value.sizeName.length > 50) {
+      showToast("Tên size không được vượt quá 50 ký tự!", "error");
+      return;
+    }
+
+    // Validate description length
+    if (formData.value.description && formData.value.description.length > 255) {
+      showToast("Mô tả không được vượt quá 255 ký tự!", "error");
+      return;
+    }
+
     if (isEditing.value) {
       await sizeService.updateSize(formData.value.sizeId, formData.value);
       showToast("Cập nhật size thành công!");

@@ -490,17 +490,42 @@ export default {
     },
 
     async saveColor() {
-      if (!this.formData.colorCode || !this.formData.colorName) {
-        this.showNotification('Vui lòng nhập đầy đủ mã và tên màu', 'error');
+      const code = this.formData.colorCode ? this.formData.colorCode.trim().toUpperCase() : "";
+      const name = this.formData.colorName ? this.formData.colorName.trim() : "";
+      const hex = this.formData.hexCode ? this.formData.hexCode.trim() : "";
+
+      if (!code) {
+        this.showNotification('Mã màu không được để trống hoặc chỉ chứa khoảng trắng', 'error');
         return;
+      }
+      if (code.length > 30) {
+        this.showNotification('Mã màu không được vượt quá 30 ký tự', 'error');
+        return;
+      }
+
+      if (!name) {
+        this.showNotification('Tên màu không được để trống hoặc chỉ chứa khoảng trắng', 'error');
+        return;
+      }
+      if (name.length > 50) {
+        this.showNotification('Tên màu không được vượt quá 50 ký tự', 'error');
+        return;
+      }
+
+      if (hex) {
+        const hexRegex = /^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/;
+        if (!hexRegex.test(hex)) {
+          this.showNotification('Mã HEX không hợp lệ (Ví dụ hợp lệ: #FF0000 hoặc #FFF)', 'error');
+          return;
+        }
       }
 
       this.saving = true;
       try {
         const submitData = {
-          colorCode: this.formData.colorCode.toUpperCase(),
-          colorName: this.formData.colorName,
-          hexCode: this.formData.hexCode,
+          colorCode: code,
+          colorName: name,
+          hexCode: hex,
           status: this.formData.status ? 'ACTIVE' : 'INACTIVE'
         };
 
@@ -508,14 +533,7 @@ export default {
           await axios.put(`${API_BASE}/colors/${this.selectedColor.colorId}`, submitData);
           this.showNotification('Cập nhật màu thành công!', 'success');
         } else {
-          const response = await axios.post(`${API_BASE}/colors`, submitData);
-          const newColor = response.data?.data || response.data;
-          if (newColor && newColor.colorId) {
-            this.allColors.push({
-              ...newColor,
-              _deletedAt: null
-            });
-          }
+          await axios.post(`${API_BASE}/colors`, submitData);
           this.showNotification('Thêm màu mới thành công!', 'success');
         }
         
@@ -538,7 +556,13 @@ export default {
       
       try {
         const newStatus = color.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
-        await axios.patch(`${API_BASE}/colors/${color.colorId}/toggle-status`);
+        const submitData = {
+          colorCode: color.colorCode,
+          colorName: color.colorName,
+          hexCode: color.hexCode,
+          status: newStatus
+        };
+        await axios.put(`${API_BASE}/colors/${color.colorId}`, submitData);
         
         const index = this.allColors.findIndex(c => c.colorId === color.colorId);
         if (index !== -1) {

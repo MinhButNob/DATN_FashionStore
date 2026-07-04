@@ -18,33 +18,51 @@ public class VoucherService {
 
     private final VoucherRepository voucherRepository;
 
-    // Lấy danh sách (chưa xóa)
+    // Lấy danh sách (chỉ hiển thị chưa xóa)
+    @Transactional
     public Page<VoucherDTO> getAllVouchers(Pageable pageable) {
+        autoDeactivateExpiredVouchers();
         return voucherRepository.findAllActive(pageable)
                 .map(this::convertToDTO);
     }
 
     // Lấy danh sách đã xóa
+    @Transactional
     public Page<VoucherDTO> getDeletedVouchers(Pageable pageable) {
+        autoDeactivateExpiredVouchers();
         return voucherRepository.findDeletedVouchers(pageable)
                 .map(this::convertToDTO);
     }
 
     // Tìm kiếm theo mã
+    @Transactional
     public Page<VoucherDTO> searchVouchers(String keyword, Pageable pageable) {
+        autoDeactivateExpiredVouchers();
         return voucherRepository.searchByVoucherCode(keyword, pageable)
                 .map(this::convertToDTO);
     }
 
     // Lọc theo trạng thái
+    @Transactional
     public Page<VoucherDTO> filterVouchersByStatus(String status, Pageable pageable) {
+        autoDeactivateExpiredVouchers();
+        if ("INACTIVE".equals(status)) {
+            return voucherRepository.findByVoucherStatusIn(java.util.List.of("DISABLED", "EXPIRED"), pageable)
+                    .map(this::convertToDTO);
+        }
         return voucherRepository.findByVoucherStatus(status, pageable)
                 .map(this::convertToDTO);
     }
 
     // Lọc + tìm kiếm
+    @Transactional
     public Page<VoucherDTO> filterAndSearchVouchers(String status, String keyword, Pageable pageable) {
+        autoDeactivateExpiredVouchers();
         if (keyword != null && !keyword.isEmpty() && status != null && !status.isEmpty()) {
+            if ("INACTIVE".equals(status)) {
+                return voucherRepository.searchByVoucherStatusInAndCode(java.util.List.of("DISABLED", "EXPIRED"), keyword, pageable)
+                        .map(this::convertToDTO);
+            }
             return voucherRepository.searchByVoucherStatusAndCode(status, keyword, pageable)
                     .map(this::convertToDTO);
         } else if (keyword != null && !keyword.isEmpty()) {
@@ -171,15 +189,20 @@ public class VoucherService {
         }
 
         if ("ACTIVE".equals(voucher.getVoucherStatus())) {
-            voucher.setVoucherStatus("INACTIVE");
+            voucher.setVoucherStatus("DISABLED");
         } else {
+            if (voucher.getVoucherEndDate().isBefore(LocalDateTime.now())) {
+                throw new RuntimeException("Voucher đã hết hạn, không thể kích hoạt. Vui lòng cập nhật lại ngày kết thúc trước.");
+            }
             voucher.setVoucherStatus("ACTIVE");
         }
         voucher.setVoucherUpdatedAt(LocalDateTime.now());
         voucherRepository.save(voucher);
     }
 
+    @Transactional
     public VoucherStatisticsDTO getStatistics() {
+        autoDeactivateExpiredVouchers();
         long total = voucherRepository.countAllActive();
         long active = voucherRepository.countByStatusActive();
         long inactive = voucherRepository.countByStatusInactive();
@@ -206,5 +229,8 @@ public class VoucherService {
         return dto;
     }
 
-
+    @Transactional
+    public void autoDeactivateExpiredVouchers() {
+        voucherRepository.deactivateExpiredVouchers(LocalDateTime.now());
+    }
 }

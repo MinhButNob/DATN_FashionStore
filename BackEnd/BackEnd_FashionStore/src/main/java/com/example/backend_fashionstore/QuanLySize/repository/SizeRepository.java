@@ -10,7 +10,11 @@ import org.springframework.data.repository.query.Param;
 
 public interface SizeRepository extends JpaRepository<Size, Integer> {
 
-    boolean existsBySizeCode(String sizeCode);
+    @Query("SELECT COUNT(s) > 0 FROM Size s WHERE s.sizeCode = :sizeCode AND s.status <> 'DELETED'")
+    boolean existsActiveBySizeCode(@Param("sizeCode") String sizeCode);
+
+    @Query("SELECT COUNT(s) > 0 FROM Size s WHERE s.sizeCode = :sizeCode AND s.sizeId <> :id AND s.status <> 'DELETED'")
+    boolean existsActiveBySizeCodeAndIdNot(@Param("sizeCode") String sizeCode, @Param("id") Integer id);
 
     // Tìm kiếm chỉ lấy size chưa xóa
     @Query("SELECT s FROM Size s WHERE s.status <> 'DELETED' AND " +
