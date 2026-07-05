@@ -2,15 +2,16 @@ package com.example.backend_fashionstore.payment.service;
 
 import com.example.backend_fashionstore.QuanLyDonHang.repository.OrderRepository;
 import com.example.backend_fashionstore.config.VNPayConfig;
-import com.example.backend_fashionstore.entity.Order;
-import com.example.backend_fashionstore.entity.Payment;
+import com.example.backend_fashionstore.entity.*;
 import com.example.backend_fashionstore.enums.OrderStatus;
 import com.example.backend_fashionstore.enums.PaymentStatus;
 import com.example.backend_fashionstore.payment.dto.PaymentResponse;
 import com.example.backend_fashionstore.payment.repository.PaymentRepository;
 import com.example.backend_fashionstore.payment.repository.PaymentTransactionRepository;
 import com.example.backend_fashionstore.payment.repository.PaymentMethodRepository;
-import com.example.backend_fashionstore.entity.PaymentMethod;
+
+import com.example.backend_fashionstore.customer.cart.repository.CartItemRepository;
+import com.example.backend_fashionstore.customer.cart.repository.CartRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -37,6 +38,8 @@ public class PaymentServiceImpl implements PaymentService {
     private final com.example.backend_fashionstore.QuanLySanPham.repository.ProductDetail.ProductDetailRepository productDetailRepository;
     private final com.example.backend_fashionstore.quanLyVoucher.repository.VoucherRepository voucherRepository;
     private final com.example.backend_fashionstore.customer.order.repository.OrderHistoryRepository orderHistoryRepository;
+    private final CartRepository cartRepository;
+    private final CartItemRepository cartItemRepository;
 
 
     @Override
@@ -190,6 +193,21 @@ public class PaymentServiceImpl implements PaymentService {
                     order.setOrderStatus(OrderStatus.CONFIRMED); // Update order status on success
                     order.setPaymentStatus(PaymentStatus.SUCCESS);
                     orderRepository.save(order);
+                    
+                    // Clear cart upon successful payment
+                    try {
+                        Integer customerId = order.getCustomer().getCustomerId();
+                        Cart cart = cartRepository.findByCustomerIdAndDeletedAtIsNull(customerId).orElse(null);
+                        if (cart != null) {
+                            java.util.List<CartItem> cartItems = cartItemRepository.findByCart_CartIdAndDeletedAtIsNull(cart.getCartId());
+                            if (cartItems != null && !cartItems.isEmpty()) {
+                                cartItemRepository.deleteAll(cartItems);
+                                cart.getCartItems().clear();
+                            }
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
                 }
             } else {
                 payment.setPaymentStatus(PaymentStatus.FAILED);
@@ -226,6 +244,8 @@ public class PaymentServiceImpl implements PaymentService {
         order.setOrderStatus(OrderStatus.CANCELLED);
         order.setPaymentStatus(PaymentStatus.FAILED);
         order.setUpdatedAt(java.time.LocalDateTime.now());
+        // Soft delete the order so it acts as "not placed" for the user
+        order.setDeletedAt(java.time.LocalDateTime.now());
         orderRepository.save(order);
 
         java.util.List<com.example.backend_fashionstore.entity.OrderDetail> details = orderDetailRepository.findByOrder_OrderId(order.getOrderId());

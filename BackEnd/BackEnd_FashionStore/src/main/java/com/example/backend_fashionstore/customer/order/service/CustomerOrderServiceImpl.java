@@ -183,13 +183,16 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
         orderHistoryRepository.save(history);
 
         try {
-            Cart cart = cartRepository.findByCustomerIdAndDeletedAtIsNull(customerId).orElse(null);
-            if (cart != null) {
-                List<CartItem> cartItems = cartItemRepository.findByCart_CartIdAndDeletedAtIsNull(cart.getCartId());
-                if (cartItems != null && !cartItems.isEmpty()) {
-                    cartItemRepository.deleteAll(cartItems);
-                    cart.getCartItems().clear();
-                    log.info("Cleared {} items from cart for customer: {}", cartItems.size(), customerId);
+            // Không clear giỏ hàng nếu thanh toán bằng VNPAY, sẽ clear sau khi thanh toán thành công
+            if (!"VNPAY".equalsIgnoreCase(request.getPaymentMethod())) {
+                Cart cart = cartRepository.findByCustomerIdAndDeletedAtIsNull(customerId).orElse(null);
+                if (cart != null) {
+                    List<CartItem> cartItems = cartItemRepository.findByCart_CartIdAndDeletedAtIsNull(cart.getCartId());
+                    if (cartItems != null && !cartItems.isEmpty()) {
+                        cartItemRepository.deleteAll(cartItems);
+                        cart.getCartItems().clear();
+                        log.info("Cleared {} items from cart for customer: {}", cartItems.size(), customerId);
+                    }
                 }
             }
         } catch (Exception e) {

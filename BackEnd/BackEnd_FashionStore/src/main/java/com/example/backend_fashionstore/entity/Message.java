@@ -1,9 +1,12 @@
+// Message.java
 package com.example.backend_fashionstore.entity;
 
-import lombok.AllArgsConstructor;
+import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import org.hibernate.annotations.CreationTimestamp;
+
 import java.time.LocalDateTime;
 
 @Entity
@@ -19,29 +22,23 @@ public class Message {
     private Long messageId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "chat_id", nullable = false)
+    @JoinColumn(name = "chat_id")
     private Chat chat;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     private User user;
 
-    @Column(columnDefinition = "TEXT")
+    @Column(name = "message_content")
     private String messageContent;
 
-    @Column(name = "message_sent_date")
+    @CreationTimestamp
+    @Column(name = "sent_date", updatable = false)
     private LocalDateTime sentDate;
 
     @Column(name = "is_read")
-    private Boolean isRead;
+    private Boolean isRead = false;
 
     @Column(name = "is_ai")
-    private Boolean isAi;
-
-    @PrePersist
-    protected void onCreate() {
-        sentDate = LocalDateTime.now();
-        if (isRead == null) isRead = false;
-        if (isAi == null) isAi = false;
-    }
+    private Boolean isAi = false;
 }

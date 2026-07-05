@@ -20,11 +20,14 @@
           <h3>Công việc cần xử lý</h3>
           <router-link to="/staff/orders">Xem đơn hàng</router-link>
         </div>
-        <div v-if="isLoadingTasks" class="loading-state">
-          <i class="fas fa-spinner fa-spin"></i> Đang tải...
-        </div>
-        <div v-else class="task-list">
-          <div v-for="task in tasks" :key="task.id" class="task-item">
+
+        <div class="task-list">
+          <div 
+            v-for="task in tasks" 
+            :key="task.id" 
+            class="task-item" 
+            @click="navigateTo(task.path)"
+          >
             <div class="task-icon" :style="{ color: task.color, background: task.color + '18' }">
               <i :class="task.icon"></i>
             </div>
@@ -55,7 +58,11 @@
     <section class="panel">
       <div class="panel-header">
         <h3>Đơn hàng mới hôm nay</h3>
+<<<<<<< HEAD
         <span v-if="!isLoadingOrders" class="order-count">{{ todayOrders.length }} đơn</span>
+=======
+        <router-link to="/staff/orders">Xem tất cả</router-link>
+>>>>>>> origin/feature-ChatDungChuiNV
       </div>
       <div v-if="isLoadingOrders" class="loading-state">
         <i class="fas fa-spinner fa-spin"></i> Đang tải...
@@ -87,33 +94,80 @@
         </table>
       </div>
     </section>
+
+    <!-- ===== THÔNG BÁO TIN NHẮN MỚI ===== -->
+    <div v-if="showNotification" class="chat-notification" @click="goToChat">
+      <div class="notification-content">
+        <div class="notification-icon">
+          <i class="fas fa-comment-dots"></i>
+        </div>
+        <div class="notification-text">
+          <strong>Tin nhắn mới</strong>
+          <p>{{ notificationMessage }}</p>
+        </div>
+        <button class="notification-close" @click.stop="dismissNotification">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="notification-progress"></div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import api from '../../api/axios.js'
-import { formatPrice } from '../../utils/helpers.js'
-import StatsCard from '../../components/admin/StatsCard.vue'
 
-// ── State ──────────────────────────────────────────────────────────────────
-const isLoadingTasks  = ref(true)
-const isLoadingOrders = ref(true)
+import { ref, onMounted, onUnmounted, watch } from 'vue';
+import { useRouter } from 'vue-router';
+import { storeToRefs } from 'pinia';
+import { useChatStore } from '../../stores/chatStore';
+import { useNotificationNhanVien } from '../../composables/useNotificationNhanVien';
+import StatsCard from '../../components/admin/StatsCard.vue';
+
+const router = useRouter();
+const chatStore = useChatStore();
+const { unreadCount, conversations, messages } = storeToRefs(chatStore);
+const { successWithIcon, showApiError } = useNotificationNhanVien();
 
 const stats = ref([
-  { title: 'Doanh thu hôm nay', value: '–',  change: '',    icon: 'fas fa-coins',         color: '#e63946' },
-  { title: 'Đơn tại quầy',      value: '–',  change: '',    icon: 'fas fa-cash-register',  color: '#28a745' },
-  { title: 'Đơn cần xử lý',     value: '–',  change: '',    icon: 'fas fa-box-open',       color: '#ffc107' },
-  { title: 'Chat đang chờ',      value: 6,    change: '+3',  icon: 'fas fa-comments',       color: '#17a2b8' },
-])
+  { title: "Doanh thu hôm nay", value: "8.45M₫", change: "+12%", icon: "fas fa-coins", color: "#e63946" },
+  { title: "Đơn tại quầy", value: "24", change: "+5", icon: "fas fa-cash-register", color: "#28a745" },
+  { title: "Đơn cần xử lý", value: "9", change: "-2", icon: "fas fa-box-open", color: "#ffc107" },
+  { title: "Tin nhắn chưa đọc", value: "0", change: "+0", icon: "fas fa-comments", color: "#17a2b8" },
+]);
+
+const showNotification = ref(false);
+const notificationMessage = ref('');
+let notificationTimer = null;
 
 const tasks = ref([
-  { id: 1, title: 'Xác nhận đơn online',   description: 'Đơn mới chưa được duyệt',          count: 0, icon: 'fas fa-clipboard-check', color: '#e63946' },
-  { id: 2, title: 'Yêu cầu đổi trả',       description: 'Cần kiểm tra tình trạng sản phẩm', count: 0, icon: 'fas fa-undo-alt',         color: '#ffc107' },
-  { id: 3, title: 'Tin nhắn khách hàng',   description: 'Cuộc trò chuyện chưa phản hồi',    count: 6, icon: 'fas fa-comment-dots',      color: '#17a2b8' },
-])
-
-const todayOrders = ref([])
+  { 
+    id: 1, 
+    title: "Xác nhận đơn online", 
+    description: "Đơn mới chưa được duyệt", 
+    count: 5, 
+    icon: "fas fa-clipboard-check", 
+    color: "#e63946",
+    path: "/staff/orders"
+  },
+  { 
+    id: 2, 
+    title: "Yêu cầu đổi trả", 
+    description: "Cần kiểm tra tình trạng sản phẩm", 
+    count: 3, 
+    icon: "fas fa-undo-alt", 
+    color: "#ffc107",
+    path: "/staff/returns"
+  },
+  { 
+    id: 3, 
+    title: "Tin nhắn khách hàng", 
+    description: "Cuộc trò chuyện chưa phản hồi", 
+    count: 0, 
+    icon: "fas fa-comment-dots", 
+    color: "#17a2b8",
+    path: "/staff/chat"
+  },
+]);
 
 const quickActions = [
   { name: 'Tạo hóa đơn',        path: '/staff/pos',       icon: 'fas fa-plus-circle' },
@@ -214,11 +268,129 @@ onMounted(() => {
   loadOrderCounts()
   loadTodayOrders()
 })
+const todayOrders = [
+  { id: "POS001", customer: "Khách lẻ", total: "698.000₫", status: "Hoàn tất", badge: "badge-success", staff: "Staff" },
+  { id: "DH1024", customer: "Nguyễn Minh Anh", total: "1.248.000₫", status: "Đang xử lý", badge: "badge-info", staff: "Staff" },
+  { id: "DH1025", customer: "Trần Quốc Bảo", total: "399.000₫", status: "Chờ xác nhận", badge: "badge-warning", staff: "Staff" },
+];
+
+const navigateTo = (path) => {
+  if (path) {
+    router.push(path);
+  }
+};
+
+const goToChat = () => {
+  router.push('/staff/chat');
+  dismissNotification();
+};
+
+const dismissNotification = () => {
+  showNotification.value = false;
+  if (notificationTimer) {
+    clearTimeout(notificationTimer);
+    notificationTimer = null;
+  }
+};
+
+const showChatNotification = (message) => {
+  notificationMessage.value = message || 'Có tin nhắn mới từ khách hàng';
+  showNotification.value = true;
+  
+  if (notificationTimer) {
+    clearTimeout(notificationTimer);
+  }
+  notificationTimer = setTimeout(() => {
+    showNotification.value = false;
+  }, 5000);
+};
+
+const updateUnreadCount = () => {
+  const count = unreadCount.value || 0;
+  stats.value[3].value = count.toString();
+  stats.value[3].change = count > 0 ? `+${count}` : '+0';
+  
+  const chatTask = tasks.value.find(t => t.id === 3);
+  if (chatTask) {
+    chatTask.count = count;
+  }
+};
+
+// ===== WATCHES =====
+watch(
+  () => chatStore.messages,
+  (newMessages, oldMessages) => {
+    if (newMessages.length > oldMessages.length) {
+      const lastMessage = newMessages[newMessages.length - 1];
+      if (lastMessage && lastMessage.userRole === 'CUSTOMER' && !lastMessage.isFromUser) {
+        const customerName = chatStore.selectedConversation?.customerName || 'Khách hàng';
+        showChatNotification(`${customerName}: ${lastMessage.messageContent}`);
+      }
+    }
+  },
+  { deep: true }
+);
+
+watch(unreadCount, (newCount) => {
+  updateUnreadCount();
+  if (newCount > 0) {
+    document.title = `(${newCount}) FASHION - Staff`;
+  } else {
+    document.title = 'FASHION - Staff';
+  }
+});
+
+// ===== LOAD UNREAD COUNT =====
+const loadUnreadCount = async () => {
+  try {
+    await chatStore.updateUnreadCount();
+    updateUnreadCount();
+  } catch (err) {
+    console.error('Error loading unread count:', err);
+  }
+};
+
+// ===== WEBSOCKET =====
+const initWebSocket = () => {
+  try {
+    chatStore.initWebSocket();
+  } catch (err) {
+    console.error('Error initializing WebSocket:', err);
+  }
+};
+
+let interval = null;
+let wsInterval = null;
+
+// ===== LIFECYCLE =====
+onMounted(async () => {
+  initWebSocket();
+  await loadUnreadCount();
+  
+  interval = setInterval(loadUnreadCount, 30000);
+  wsInterval = setInterval(updateUnreadCount, 5000);
+  
+  successWithIcon('Chào mừng bạn đến với Dashboard nhân viên', '👋');
+});
+
+onUnmounted(() => {
+  if (interval) {
+    clearInterval(interval);
+  }
+  if (wsInterval) {
+    clearInterval(wsInterval);
+  }
+  if (notificationTimer) {
+    clearTimeout(notificationTimer);
+  }
+  chatStore.resetState();
+});
 </script>
 
 <style scoped>
 .staff-dashboard {
   animation: fadeIn 0.3s;
+  position: relative;
 }
 
 .stats-grid {
@@ -239,7 +411,7 @@ onMounted(() => {
   background: white;
   padding: 25px;
   border-radius: 15px;
-  box-shadow: var(--shadow);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
 }
 
 .panel-header {
@@ -250,14 +422,20 @@ onMounted(() => {
 }
 
 .panel-header h3 {
-  color: var(--dark-gray);
+  color: #1a1a2e;
   font-size: 18px;
+  margin: 0;
 }
 
 .panel-header a {
-  color: var(--primary-red);
+  color: #e63946;
   text-decoration: none;
   font-weight: 500;
+  font-size: 14px;
+}
+
+.panel-header a:hover {
+  text-decoration: underline;
 }
 
 .order-count {
@@ -296,8 +474,16 @@ onMounted(() => {
   align-items: center;
   gap: 14px;
   padding: 14px;
-  border: 1px solid var(--border-color);
+  border: 1px solid #eee;
   border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.task-item:hover {
+  background: #fafafa;
+  border-color: #ddd;
+  transform: translateX(4px);
 }
 
 .task-icon {
@@ -310,18 +496,19 @@ onMounted(() => {
 }
 
 .task-item h4 {
-  color: var(--dark-gray);
+  color: #1a1a2e;
   font-size: 15px;
-  margin-bottom: 4px;
+  margin: 0 0 4px 0;
 }
 
 .task-item p {
-  color: var(--medium-gray);
+  color: #999;
   font-size: 13px;
+  margin: 0;
 }
 
 .task-count {
-  color: var(--primary-red);
+  color: #e63946;
   font-size: 22px;
   font-weight: 700;
 }
@@ -334,27 +521,186 @@ onMounted(() => {
 
 .quick-action {
   min-height: 96px;
-  border: 1px solid var(--border-color);
+  border: 1px solid #eee;
   border-radius: 10px;
-  color: var(--dark-gray);
+  color: #1a1a2e;
   text-decoration: none;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 10px;
-  transition: var(--transition);
+  transition: all 0.2s;
 }
 
 .quick-action i {
-  color: var(--primary-red);
+  color: #e63946;
   font-size: 24px;
 }
 
 .quick-action:hover {
-  border-color: var(--primary-red);
+  border-color: #e63946;
   transform: translateY(-2px);
-  box-shadow: var(--shadow-hover);
+  box-shadow: 0 4px 12px rgba(230, 57, 70, 0.15);
+}
+
+.table-container {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+table th,
+table td {
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+}
+
+table th {
+  color: #666;
+  font-weight: 600;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+table td {
+  font-size: 14px;
+}
+
+.badge {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  display: inline-block;
+}
+
+.badge-success {
+  background: #d4edda;
+  color: #155724;
+}
+
+.badge-info {
+  background: #cce5ff;
+  color: #004085;
+}
+
+.badge-warning {
+  background: #fff3cd;
+  color: #856404;
+}
+
+/* ===== THÔNG BÁO CHAT ===== */
+.chat-notification {
+  position: fixed;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+  max-width: 450px;
+  width: 90%;
+  z-index: 9999;
+  cursor: pointer;
+  animation: slideUpNoti 0.4s ease;
+  overflow: hidden;
+  border-left: 4px solid #e63946;
+}
+
+.chat-notification:hover {
+  transform: translateX(-50%) scale(1.02);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+}
+
+.notification-content {
+  display: flex;
+  align-items: center;
+  padding: 16px 20px;
+  gap: 14px;
+}
+
+.notification-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #fce8e8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.notification-icon i {
+  font-size: 20px;
+  color: #e63946;
+}
+
+.notification-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.notification-text strong {
+  display: block;
+  color: #1a1a2e;
+  font-size: 14px;
+}
+
+.notification-text p {
+  margin: 2px 0 0;
+  color: #666;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.notification-close {
+  background: none;
+  border: none;
+  color: #999;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 50%;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.notification-close:hover {
+  background: #f5f5f5;
+  color: #666;
+}
+
+.notification-progress {
+  height: 3px;
+  background: linear-gradient(90deg, #e63946, #ff6b6b);
+  animation: progressBar 5s linear forwards;
+}
+
+@keyframes slideUpNoti {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+@keyframes progressBar {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
 }
 
 .table-container { overflow-x: auto; }
@@ -394,6 +740,19 @@ tr:hover td { background: var(--light-gray); }
 }
 
 @media (max-width: 640px) {
-  .quick-grid { grid-template-columns: 1fr; }
+
+  .quick-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .stats-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  
+  .chat-notification {
+    bottom: 20px;
+    max-width: 95%;
+  }
+
 }
 </style>
