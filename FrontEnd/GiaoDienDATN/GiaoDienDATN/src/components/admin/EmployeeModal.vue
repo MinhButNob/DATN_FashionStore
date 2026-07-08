@@ -131,7 +131,7 @@
 
         <div class="modal-footer">
           <button type="button" class="btn-cancel" @click="$emit('close')">Hủy</button>
-          <button type="submit" class="btn-submit" :disabled="loadingRoles">{{ isEdit ? 'Cập nhật' : 'Thêm mới' }}</button>
+          <button type="submit" class="btn-submit" :disabled="loadingRoles || isSubmitting">{{ isSubmitting ? 'Đang xử lý...' : (isEdit ? 'Cập nhật' : 'Thêm mới') }}</button>
         </div>
       </form>
     </div>
@@ -145,7 +145,8 @@ export default {
   name: 'EmployeeModal',
   props: {
     isEdit: { type: Boolean, default: false },
-    initialData: { type: Object, default: null }
+    initialData: { type: Object, default: null },
+    isSubmitting: { type: Boolean, default: false } // ✅ Nhận trạng thái đang gửi từ component cha
   },
   data() {
     return {
@@ -258,6 +259,11 @@ export default {
           this.errors.password = 'Mật khẩu phải có ít nhất 6 ký tự'
           isValid = false
         }
+      } else if (this.formData.password && this.formData.password.trim().length > 0
+          && this.formData.password.trim().length < 6) {
+        // ✅ Khi sửa: nếu có nhập mật khẩu mới thì vẫn phải >= 6 ký tự (để trống = giữ nguyên)
+        this.errors.password = 'Mật khẩu phải có ít nhất 6 ký tự'
+        isValid = false
       }
 
       // Validate role

@@ -1,5 +1,6 @@
 package com.example.backend_fashionstore.QuanLySanPham.dto.request;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import lombok.*;
 import java.math.BigDecimal;
@@ -12,7 +13,7 @@ import java.util.List;
 public class ProductCreateRequest {
 
     @NotBlank(message = "Tên sản phẩm không được để trống")
-    @Size(max = 20, message = "Tên sản phẩm không được vượt quá 20 ký tự")
+    @Size(min = 5, max = 20, message = "Tên sản phẩm phải từ 5 đến 20 ký tự")
     private String productName;
 
     @Size(max = 20, message = "Mô tả không được vượt quá 20 ký tự")
@@ -23,10 +24,10 @@ public class ProductCreateRequest {
 
     private String status;
 
-    // ✅ THÊM promotionId cho toàn bộ sản phẩm
     private Integer promotionId;
 
     @NotEmpty(message = "Phải có ít nhất một biến thể")
+    @Valid
     private List<VariantRequest> variants;
 
     @Data
@@ -34,6 +35,11 @@ public class ProductCreateRequest {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class VariantRequest {
+//        @NotBlank(message = "Tên sản phẩm không được để trống")
+        @Size(min = 5, max = 50, message = "Tên sản phẩm phải từ 5 đến 50 ký tự")
+        @Pattern(regexp = "^[a-zA-Z0-9\\sÀ-ỹà-ỹđĐ]+$", message = "Tên sản phẩm không được chứa ký tự đặc biệt")
+        private String productName;
+
         @NotBlank(message = "SKU không được để trống")
         @Size(max = 20, message = "SKU không được vượt quá 20 ký tự")
         private String sku;
@@ -45,13 +51,14 @@ public class ProductCreateRequest {
         private Integer sizeId;
 
         @NotNull(message = "Giá không được để trống")
-        @DecimalMin(value = "0", message = "Giá phải >= 0")
+        @DecimalMin(value = "50000", message = "Giá sản phẩm phải từ 50.000đ trở lên")
         private BigDecimal price;
 
         @NotNull(message = "Số lượng không được để trống")
-        @Min(value = 0, message = "Số lượng phải >= 0")
+        @Min(value = 1, message = "Số lượng sản phẩm tối thiểu là 1")
         private Integer quantity;
 
-        // ❌ ĐÃ XÓA promotionId
+        // ✅ Danh sách khuyến mãi cho từng biến thể
+        private List<Integer> promotionIds;
     }
 }

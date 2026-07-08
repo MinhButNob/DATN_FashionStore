@@ -46,6 +46,7 @@ public class ProductService {
 
     private static final int LOW_STOCK_THRESHOLD = 10;
 
+    // ==================== GET PRODUCTS ====================
     @Transactional(readOnly = true)
     public PageResponse<ProductResponse> getProducts(ProductFilterRequest filter) {
         var pageable = PageRequest.of(filter.getPage(), filter.getSize(),
@@ -68,11 +69,8 @@ public class ProductService {
 
         List<Product> productsWithDetails = productRepository.findAllWithDetailsByIds(productIds);
 
-        // ✅ Lấy promotion cho từng sản phẩm
-        Map<Integer, Promotion> productPromotionMap = getProductPromotions(productIds);
-
         List<ProductResponse> responses = productsWithDetails.stream()
-                .map(p -> toResponse(p, productPromotionMap.get(p.getProductId())))
+                .map(this::toResponse)
                 .collect(Collectors.toList());
 
         return PageResponse.<ProductResponse>builder()
@@ -84,30 +82,7 @@ public class ProductService {
                 .build();
     }
 
-    // ✅ Lấy promotion theo sản phẩm
-    private Map<Integer, Promotion> getProductPromotions(List<Integer> productIds) {
-        // Lấy tất cả product detail thuộc các sản phẩm
-        List<ProductDetail> allDetails = productDetailRepository.findAllByProductIds(productIds);
-        List<Integer> detailIds = allDetails.stream()
-                .map(ProductDetail::getProductDetailId)
-                .collect(Collectors.toList());
-
-        if (detailIds.isEmpty()) return Map.of();
-
-        // Lấy product promotion
-        List<ProductPromotion> productPromotions = productPromotionRepository.findAllByProductDetailIds(detailIds);
-
-        // Map từ productId -> Promotion (lấy promotion đầu tiên tìm thấy)
-        Map<Integer, Promotion> result = new java.util.HashMap<>();
-        for (ProductPromotion pp : productPromotions) {
-            Integer productId = pp.getProductDetail().getProduct().getProductId();
-            if (!result.containsKey(productId)) {
-                result.put(productId, pp.getPromotion());
-            }
-        }
-        return result;
-    }
-
+    // ==================== GET STATISTICS ====================
     @Transactional(readOnly = true)
     public ProductStatsResponse getStatistics() {
         return ProductStatsResponse.builder()
@@ -125,6 +100,7 @@ public class ProductService {
                 .build();
     }
 
+    // ==================== GET PRODUCT BY ID ====================
     @Transactional(readOnly = true)
     public ProductResponse getProductById(Integer id) {
         if (id == null) {
@@ -134,27 +110,10 @@ public class ProductService {
         Product product = productRepository.findByIdWithDetails(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found with id: " + id));
 
-        // ✅ Lấy promotion của sản phẩm
-        Promotion productPromotion = getPromotionForProduct(product);
-
-        return toResponse(product, productPromotion);
+        return toResponse(product);
     }
 
-    // ✅ Lấy promotion cho 1 sản phẩm
-    private Promotion getPromotionForProduct(Product product) {
-        if (product.getProductDetails() == null) return null;
-
-        for (ProductDetail detail : product.getProductDetails()) {
-            if (detail.getDeletedAt() == null && detail.getProductDetailId() != null) {
-                List<ProductPromotion> promotions = productPromotionRepository.findByProductDetailId(detail.getProductDetailId());
-                if (!promotions.isEmpty()) {
-                    return promotions.get(0).getPromotion();
-                }
-            }
-        }
-        return null;
-    }
-
+    // ==================== CREATE PRODUCT ====================
     public ProductResponse createProduct(ProductCreateRequest request) {
         if (request == null) {
             throw new IllegalArgumentException("Request không được để trống");
@@ -197,80 +156,32 @@ public class ProductService {
 
                 ProductDetail savedDetail = productDetailRepository.save(detail);
                 product.getProductDetails().add(savedDetail);
+
+                // ✅ ÁP DỤNG NHIỀU PROMOTION RIÊNG CHO TỪNG VARIANT
+                if (v.getPromotionIds() != null && !v.getPromotionIds().isEmpty()) {
+                    applyPromotionsToVariant(savedDetail, v.getPromotionIds());
+                }
             }
         }
 
-        // ✅ Áp dụng promotion cho TOÀN BỘ sản phẩm (tất cả variants)
+        // ✅ Áp dụng promotion toàn sản phẩm (chỉ variant KHÔNG có KM riêng)
         if (request.getPromotionId() != null) {
-            applyPromotionToAllVariants(product, request.getPromotionId());
+            applyGlobalPromotionToVariants(product, request.getPromotionId());
         }
 
         log.info("Tạo sản phẩm thành công với ID: {}", product.getProductId());
 
-        // ✅ Lấy promotion để trả về response
-        Promotion promotion = null;
-        if (request.getPromotionId() != null) {
-            promotion = promotionRepository.findById(request.getPromotionId()).orElse(null);
-        }
-
-        return toResponse(product, promotion);
+        return toResponse(product);
     }
 
-    // ✅ Áp dụng promotion cho tất cả variants của sản phẩm
-    private void applyPromotionToAllVariants(Product product, Integer promotionId) {
-        if (promotionId == null || product.getProductDetails() == null) return;
-
-        Promotion promotion = promotionRepository.findById(promotionId).orElse(null);
-        if (promotion == null || promotion.getPromotionDeletedAt() != null) return;
-
-        LocalDateTime now = LocalDateTime.now();
-        boolean isValid = "ACTIVE".equals(promotion.getPromotionStatus()) &&
-                now.isAfter(promotion.getPromotionStartDate()) &&
-                now.isBefore(promotion.getPromotionEndDate());
-
-        if (!isValid) {
-            log.warn("Promotion {} không hợp lệ hoặc đã hết hạn", promotionId);
-            return;
-        }
-
-        for (ProductDetail detail : product.getProductDetails()) {
-            if (detail.getDeletedAt() == null) {
-                // Xóa promotion cũ nếu có
-                productPromotionRepository.deleteByProductDetailId(detail.getProductDetailId());
-
-                // Thêm promotion mới
-                ProductPromotion productPromotion = ProductPromotion.builder()
-                        .productDetail(detail)
-                        .promotion(promotion)
-                        .build();
-                productPromotionRepository.save(productPromotion);
-            }
-        }
-        log.info("Đã áp dụng promotion {} cho tất cả {} variants của sản phẩm {}",
-                promotionId, product.getProductDetails().size(), product.getProductId());
-    }
-
-    // ✅ Xóa promotion khỏi tất cả variants của sản phẩm
-    private void removePromotionFromAllVariants(Product product) {
-        if (product.getProductDetails() == null) return;
-
-        for (ProductDetail detail : product.getProductDetails()) {
-            if (detail.getDeletedAt() == null) {
-                productPromotionRepository.deleteByProductDetailId(detail.getProductDetailId());
-            }
-        }
-        log.info("Đã xóa promotion khỏi tất cả variants của sản phẩm {}", product.getProductId());
-    }
-
+    // ==================== UPDATE PRODUCT ====================
     @Transactional
     public ProductResponse updateProduct(Integer id, ProductCreateRequest request) {
         log.info("Updating product with id: {}", id);
 
         if (id == null) {
-            log.error("Product ID is null in updateProduct method");
             throw new IllegalArgumentException("ID sản phẩm không được để trống");
         }
-
         if (request == null) {
             throw new IllegalArgumentException("Request không được để trống");
         }
@@ -313,6 +224,9 @@ public class ProductService {
                     existing.setDeletedAt(null);
                     existing.setStatus("ACTIVE");
 
+                    // ✅ CẬP NHẬT PROMOTIONS RIÊNG CHO VARIANT
+                    updateVariantPromotions(existing, v.getPromotionIds());
+
                     updatedDetails.add(existing);
                     existingMap.remove(key);
                 } else {
@@ -332,11 +246,18 @@ public class ProductService {
                             .build();
 
                     ProductDetail savedDetail = productDetailRepository.save(newDetail);
+
+                    // ✅ ÁP DỤNG PROMOTIONS RIÊNG CHO VARIANT MỚI
+                    if (v.getPromotionIds() != null && !v.getPromotionIds().isEmpty()) {
+                        applyPromotionsToVariant(savedDetail, v.getPromotionIds());
+                    }
+
                     updatedDetails.add(savedDetail);
                 }
             }
         }
 
+        // Xóa variant cũ
         for (ProductDetail oldDetail : existingMap.values()) {
             oldDetail.setDeletedAt(LocalDateTime.now());
             oldDetail.setStatus("DELETED");
@@ -346,33 +267,30 @@ public class ProductService {
 
         product.setProductDetails(updatedDetails);
 
-        // ✅ Xóa promotion cũ và áp dụng promotion mới (nếu có)
-        removePromotionFromAllVariants(product);
+        // ⚠️ ĐÃ BỎ: gọi removeGlobalPromotionFromAllVariants(product) tại đây trước làm XÓA MẤT
+        // các khuyến mãi riêng vừa gán cho biến thể ở trên (vì hàm đó chỉ đoán "biến thể có đúng 1
+        // khuyến mãi" là khuyến mãi toàn sản phẩm rồi xóa đi, kể cả khi đó là khuyến mãi riêng vừa lưu).
+        // Tính năng "khuyến mãi áp cho toàn sản phẩm" hiện chưa có UI để chọn (form.promotionId luôn null),
+        // nên request.getPromotionId() luôn null và đoạn dưới sẽ không chạy - giữ lại để tương thích tương lai.
         if (request.getPromotionId() != null) {
-            applyPromotionToAllVariants(product, request.getPromotionId());
+            applyGlobalPromotionToVariants(product, request.getPromotionId());
         }
 
         Product updated = productRepository.save(product);
         log.info("Cập nhật sản phẩm thành công với ID: {}", id);
 
-        // ✅ Lấy promotion để trả về response
-        Promotion promotion = null;
-        if (request.getPromotionId() != null) {
-            promotion = promotionRepository.findById(request.getPromotionId()).orElse(null);
-        }
-
-        return toResponse(updated, promotion);
+        return toResponse(updated);
     }
 
+    // ==================== DELETE PRODUCT ====================
     public void deleteProduct(Integer id) {
         if (id == null) {
             throw new IllegalArgumentException("ID sản phẩm không được để trống");
         }
 
-        // Xóa promotion trước khi xóa sản phẩm
         Product product = productRepository.findByIdAndNotDeleted(id).orElse(null);
         if (product != null) {
-            removePromotionFromAllVariants(product);
+            removeAllPromotionsFromProduct(product);
         }
 
         int deletedCount = productRepository.softDelete(id, LocalDateTime.now());
@@ -383,6 +301,7 @@ public class ProductService {
         log.info("Xóa mềm sản phẩm thành công với ID: {}", id);
     }
 
+    // ==================== TOGGLE STATUS ====================
     public ProductResponse toggleStatus(Integer id) {
         if (id == null) {
             throw new IllegalArgumentException("ID sản phẩm không được để trống");
@@ -397,24 +316,207 @@ public class ProductService {
         Product saved = productRepository.save(product);
         log.info("Chuyển trạng thái sản phẩm ID: {} thành: {}", id, newStatus);
 
-        // ✅ Lấy promotion hiện tại
-        Promotion promotion = getPromotionForProduct(saved);
-
-        return toResponse(saved, promotion);
+        return toResponse(saved);
     }
 
-    // ✅ Tính giá sau khuyến mãi
-    private BigDecimal calculateDiscountedPrice(BigDecimal originalPrice, Promotion promotion) {
-        if (promotion == null || originalPrice == null) return originalPrice;
-        BigDecimal discountPercent = promotion.getPromotionDiscountPercent();
-        if (discountPercent == null) return originalPrice;
-        return originalPrice.multiply(BigDecimal.ONE.subtract(discountPercent.divide(BigDecimal.valueOf(100))));
-    }
-
-    private ProductResponse toResponse(Product p, Promotion promotion) {
-        if (p == null) {
-            return null;
+    // ==================== RESTORE PRODUCT ====================
+    @Transactional
+    public ProductResponse restoreProduct(Integer id) {
+        if (id == null) {
+            throw new IllegalArgumentException("ID sản phẩm không được để trống");
         }
+
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Product not found with id: " + id));
+
+        if (product.getDeletedAt() == null) {
+            throw new RuntimeException("Sản phẩm chưa bị xóa, không cần khôi phục");
+        }
+
+        product.setStatus("ACTIVE");
+        product.setDeletedAt(null);
+        product = productRepository.save(product);
+
+        for (ProductDetail detail : product.getProductDetails()) {
+            if (detail.getDeletedAt() != null) {
+                detail.setStatus("ACTIVE");
+                detail.setDeletedAt(null);
+                productDetailRepository.save(detail);
+            }
+        }
+
+        log.info("Khôi phục sản phẩm thành công với ID: {}", id);
+
+        return toResponse(product);
+    }
+
+    // ==================== PROMOTION HELPERS ====================
+
+    /**
+     * ✅ Áp dụng nhiều promotion riêng cho 1 variant
+     */
+    private void applyPromotionsToVariant(
+            ProductDetail detail,
+            List<Integer> promotionIds) {
+
+        // hủy toàn bộ KM cũ
+        productPromotionRepository.deleteByProductDetailId(
+                detail.getProductDetailId()
+        );
+
+        // không chọn gì => hủy KM
+        if (promotionIds == null
+                || promotionIds.isEmpty()) {
+
+            log.info(
+                    "Đã hủy khuyến mãi của variant {}",
+                    detail.getProductDetailId()
+            );
+
+            return;
+        }
+
+        // chỉ lấy khuyến mãi cuối cùng
+        Integer promotionId =
+                promotionIds.get(
+                        promotionIds.size() - 1
+                );
+
+        Promotion promotion =
+                promotionRepository
+                        .findById(promotionId)
+                        .orElse(null);
+
+        if (promotion == null) {
+            return;
+        }
+
+        ProductPromotion pp =
+                ProductPromotion.builder()
+                        .productDetail(detail)
+                        .promotion(promotion)
+                        .build();
+
+        productPromotionRepository.save(pp);
+
+        log.info(
+                "Variant {} áp dụng promotion {}",
+                detail.getProductDetailId(),
+                promotionId
+        );
+    }
+
+    /**
+     * ✅ Cập nhật promotions riêng cho variant (giữ nguyên nếu null)
+     */
+    private void updateVariantPromotions(ProductDetail detail,
+                                         List<Integer> newPromotionIds) {
+
+        // null = giữ nguyên
+        if (newPromotionIds == null) {
+            return;
+        }
+
+        // [] = xóa hết
+        applyPromotionsToVariant(
+                detail,
+                newPromotionIds
+        );
+    }
+
+    /**
+     * ✅ Áp dụng promotion toàn sản phẩm CHỈ cho variant KHÔNG có KM riêng
+     */
+    private void applyGlobalPromotionToVariants(Product product, Integer promotionId) {
+        if (promotionId == null || product.getProductDetails() == null) return;
+
+        Promotion promotion = promotionRepository.findById(promotionId).orElse(null);
+        if (promotion == null || promotion.getPromotionDeletedAt() != null) return;
+
+        LocalDateTime now = LocalDateTime.now();
+        boolean statusOk = "ACTIVE".equals(promotion.getPromotionStatus());
+        boolean started = promotion.getPromotionStartDate() == null
+                || !now.isBefore(promotion.getPromotionStartDate());
+        boolean notEnded = promotion.getPromotionEndDate() == null
+                || !now.isAfter(promotion.getPromotionEndDate());
+
+        if (!statusOk || !started || !notEnded) {
+            log.warn("Promotion {} không hợp lệ hoặc đã hết hạn (statusOk={}, started={}, notEnded={}, now={}, start={}, end={})",
+                    promotionId, statusOk, started, notEnded, now,
+                    promotion.getPromotionStartDate(), promotion.getPromotionEndDate());
+            return;
+        }
+
+        int appliedCount = 0;
+        for (ProductDetail detail : product.getProductDetails()) {
+            if (detail.getDeletedAt() == null) {
+                List<ProductPromotion> existingPromos = productPromotionRepository
+                        .findByProductDetailId(detail.getProductDetailId());
+
+                // Chỉ áp dụng nếu variant CHƯA có promotion riêng
+                if (existingPromos.isEmpty()) {
+                    ProductPromotion pp = ProductPromotion.builder()
+                            .productDetail(detail)
+                            .promotion(promotion)
+                            .build();
+                    productPromotionRepository.save(pp);
+                    appliedCount++;
+                }
+            }
+        }
+        log.info("Đã áp dụng promotion toàn SP {} cho {} variants (không có KM riêng)",
+                promotionId, appliedCount);
+    }
+
+    /**
+     * ✅ Xóa tất cả promotion khỏi sản phẩm (khi delete)
+     */
+    private void removeAllPromotionsFromProduct(Product product) {
+        if (product.getProductDetails() == null) return;
+        for (ProductDetail detail : product.getProductDetails()) {
+            if (detail.getDeletedAt() == null) {
+                productPromotionRepository.deleteByProductDetailId(detail.getProductDetailId());
+            }
+        }
+    }
+
+    // ==================== PRICE CALCULATION ====================
+
+    /**
+     * ✅ Tính giá sau khi áp dụng TẤT CẢ khuyến mãi của variant
+     */
+    private BigDecimal calculateVariantDiscountedPrice(ProductDetail detail) {
+        if (detail.getPrice() == null) return BigDecimal.ZERO;
+
+        List<ProductPromotion> promotions = productPromotionRepository
+                .findByProductDetailId(detail.getProductDetailId());
+
+        if (promotions == null || promotions.isEmpty()) return detail.getPrice();
+
+        int totalDiscountPercent = 0;
+        for (ProductPromotion pp : promotions) {
+            if (pp.getPromotion() != null && pp.getPromotion().getPromotionDiscountPercent() != null) {
+                totalDiscountPercent += pp.getPromotion().getPromotionDiscountPercent().intValue();
+            }
+        }
+
+        if (totalDiscountPercent == 0) return detail.getPrice();
+        if (totalDiscountPercent > 100) totalDiscountPercent = 100;
+
+        return detail.getPrice().multiply(
+                BigDecimal.ONE.subtract(
+                        BigDecimal.valueOf(totalDiscountPercent).divide(BigDecimal.valueOf(100))
+                )
+        );
+    }
+
+    // ==================== TO RESPONSE ====================
+
+    /**
+     * ✅ Chuyển đổi Product -> ProductResponse (có promotions cho từng variant)
+     */
+    private ProductResponse toResponse(Product p) {
+        if (p == null) return null;
 
         List<ProductDetail> details = p.getProductDetails();
         if (details == null) details = new ArrayList<>();
@@ -437,63 +539,38 @@ public class ProductService {
                         .categoryName(p.getCategory().getCategoryName())
                         .build()
                         : null)
-                .promotion(promotion != null
-                        ? ProductResponse.PromotionSummary.builder()
-                        .promotionId(promotion.getPromotionId())
-                        .promotionName(promotion.getPromotionName())
-                        .promotionDiscountPercent(promotion.getPromotionDiscountPercent())
-                        .build()
-                        : null)
+                .promotion(null)
                 .variants(details.stream()
                         .filter(d -> d.getDeletedAt() == null)
-                        .map(d -> ProductResponse.VariantSummary.builder()
-                                .productDetailId(d.getProductDetailId())
-                                .sku(d.getSku())
-                                .color(d.getColor() != null ? d.getColor().getColorName() : null)
-                                .size(d.getSize() != null ? d.getSize().getSizeName() : null)
-                                .price(d.getPrice())
-                                .discountedPrice(calculateDiscountedPrice(d.getPrice(), promotion))
-                                .quantity(d.getQuantity())
-                                .status(d.getStatus())
-                                .isLowStock(d.getQuantity() != null && d.getQuantity() <= LOW_STOCK_THRESHOLD)
-                                .build())
+                        .map(d -> {
+                            // ✅ Lấy tất cả promotions của variant
+                            List<ProductPromotion> variantPromos = productPromotionRepository
+                                    .findByProductDetailId(d.getProductDetailId());
+
+                            // ✅ Tính giá sau KM
+                            BigDecimal discountedPrice = calculateVariantDiscountedPrice(d);
+
+                            return ProductResponse.VariantSummary.builder()
+                                    .productDetailId(d.getProductDetailId())
+                                    .sku(d.getSku())
+                                    .color(d.getColor() != null ? d.getColor().getColorName() : null)
+                                    .size(d.getSize() != null ? d.getSize().getSizeName() : null)
+                                    .price(d.getPrice())
+                                    .discountedPrice(discountedPrice)
+                                    .quantity(d.getQuantity())
+                                    .status(d.getStatus())
+                                    .isLowStock(d.getQuantity() != null && d.getQuantity() <= LOW_STOCK_THRESHOLD)
+                                    // ✅ Trả về danh sách promotions của variant
+                                    .promotions(variantPromos.stream()
+                                            .map(pp -> ProductResponse.PromotionSummary.builder()
+                                                    .promotionId(pp.getPromotion().getPromotionId())
+                                                    .promotionName(pp.getPromotion().getPromotionName())
+                                                    .promotionDiscountPercent(pp.getPromotion().getPromotionDiscountPercent())
+                                                    .build())
+                                            .collect(Collectors.toList()))
+                                    .build();
+                        })
                         .collect(Collectors.toList()))
                 .build();
-    }
-
-    @Transactional
-    public ProductResponse restoreProduct(Integer id) {
-        if (id == null) {
-            throw new IllegalArgumentException("ID sản phẩm không được để trống");
-        }
-
-        // Tìm sản phẩm (bao gồm cả đã xóa)
-        Product product = productRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Product not found with id: " + id));
-
-        // Kiểm tra sản phẩm đã bị xóa chưa
-        if (product.getDeletedAt() == null) {
-            throw new RuntimeException("Sản phẩm chưa bị xóa, không cần khôi phục");
-        }
-
-        // Khôi phục sản phẩm
-        product.setStatus("ACTIVE");
-        product.setDeletedAt(null);
-        product = productRepository.save(product);
-
-        // Khôi phục tất cả variants
-        for (ProductDetail detail : product.getProductDetails()) {
-            if (detail.getDeletedAt() != null) {
-                detail.setStatus("ACTIVE");
-                detail.setDeletedAt(null);
-                productDetailRepository.save(detail);
-            }
-        }
-
-        log.info("Khôi phục sản phẩm thành công với ID: {}", id);
-
-        // Lấy promotion để trả về response
-        Promotion promotion = getPromotionForProduct(product);
-        return toResponse(product, promotion);
     }
 }

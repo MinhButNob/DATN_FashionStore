@@ -17,16 +17,43 @@ public interface EmployeeRepository extends JpaRepository<Employee, Integer> {
     // ✅ Tìm kiếm nhân viên (có lọc theo status của User)
     @Query("SELECT e FROM Employee e WHERE " +
             "(:keyword IS NULL OR " +
-            "LOWER(e.employeeFullname) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
-            "LOWER(e.employeePhone) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
-            "LOWER(e.employeePosition) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
-            "LOWER(e.employeeEmail) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
-            "LOWER(e.user.email) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
-            "LOWER(e.user.username) LIKE LOWER(CONCAT('%', :keyword, '%'))) AND " +
+            "LOWER(e.employeeFullname) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) OR " +
+            "LOWER(e.employeePhone) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) OR " +
+            "LOWER(e.employeePosition) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) OR " +
+            "LOWER(e.employeeEmail) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) OR " +
+            "LOWER(e.user.email) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) OR " +
+            "LOWER(e.user.username) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%'))) AND " +
             "(:status IS NULL OR e.employeeStatus = :status)")
     Page<Employee> searchEmployees(@Param("keyword") String keyword,
                                    @Param("status") String status,
                                    Pageable pageable);
+
+    // ✅ Tìm kiếm theo keyword, KHÔNG lọc trạng thái (dùng khi người dùng để "Tất cả trạng thái")
+    // ⚠️ TRƯỚC ĐÂY khi không chọn trạng thái, code gọi findAllWithDeleted() bỏ qua hoàn toàn keyword,
+    // nên gõ gì vào ô tìm kiếm cũng không lọc được (kể cả tên không tồn tại vẫn hiện hết).
+    @Query("SELECT e FROM Employee e WHERE " +
+            "(:keyword IS NULL OR " +
+            "LOWER(e.employeeFullname) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) OR " +
+            "LOWER(e.employeePhone) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) OR " +
+            "LOWER(e.employeePosition) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) OR " +
+            "LOWER(e.employeeEmail) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) OR " +
+            "LOWER(e.user.email) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) OR " +
+            "LOWER(e.user.username) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')))")
+    Page<Employee> searchEmployeesNoStatus(@Param("keyword") String keyword, Pageable pageable);
+
+    // ✅ Tìm kiếm theo keyword KẾT HỢP với lọc theo user.status (ACTIVE/BANNED/DELETED)
+    // ⚠️ TRƯỚC ĐÂY khi chọn 1 trạng thái, code gọi findByUserStatus() bỏ qua hoàn toàn keyword.
+    @Query("SELECT e FROM Employee e WHERE e.user.status = :userStatus AND (" +
+            ":keyword IS NULL OR " +
+            "LOWER(e.employeeFullname) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) OR " +
+            "LOWER(e.employeePhone) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) OR " +
+            "LOWER(e.employeePosition) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) OR " +
+            "LOWER(e.employeeEmail) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) OR " +
+            "LOWER(e.user.email) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) OR " +
+            "LOWER(e.user.username) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')))")
+    Page<Employee> searchEmployeesByUserStatus(@Param("keyword") String keyword,
+                                               @Param("userStatus") UserStatus userStatus,
+                                               Pageable pageable);
 
     // ✅ Lấy tất cả nhân viên (kể cả đã xóa)
     @Query("SELECT e FROM Employee e")
@@ -48,8 +75,11 @@ public interface EmployeeRepository extends JpaRepository<Employee, Integer> {
     @Query("SELECT COUNT(e) FROM Employee e")
     long countTotalEmployees();
 
-    // ✅ Đếm nhân viên theo employeeStatus (ACTIVE, INACTIVE...)
-    @Query("SELECT COUNT(e) FROM Employee e WHERE e.employeeStatus = 'ACTIVE'")
+    // ✅ Đếm nhân viên đang hoạt động - dựa theo user.status (được cập nhật khi khóa/xóa/khôi phục)
+    // ⚠️ TRƯỚC ĐÂY dùng e.employeeStatus = 'ACTIVE', nhưng field này KHÔNG bao giờ được
+    // cập nhật khi khóa/mở khóa/xóa/khôi phục (những thao tác đó chỉ đổi user.status),
+    // nên số "Đang hoạt động" luôn đứng yên dù Tạm khóa/Đã xóa đã thay đổi.
+    @Query("SELECT COUNT(e) FROM Employee e WHERE e.user.status = 'ACTIVE'")
     long countActiveEmployees();
 
     // Các method cũ giữ nguyên

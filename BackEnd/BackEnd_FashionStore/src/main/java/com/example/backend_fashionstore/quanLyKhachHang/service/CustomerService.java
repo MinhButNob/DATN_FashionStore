@@ -58,6 +58,14 @@ public class CustomerService {
             throw new RuntimeException("Khách hàng đã bị xóa");
         }
 
+        // ✅ Đảm bảo tài khoản này thực sự có role CUSTOMER (đồng nhất với danh sách)
+        boolean isCustomerRole = customer.getUser().getUserRoles() != null &&
+                customer.getUser().getUserRoles().stream()
+                        .anyMatch(ur -> "CUSTOMER".equals(ur.getRole().getRoleName()));
+        if (!isCustomerRole) {
+            throw new RuntimeException("Tài khoản này không có role khách hàng");
+        }
+
         return convertToDTO(customer);
     }
 
