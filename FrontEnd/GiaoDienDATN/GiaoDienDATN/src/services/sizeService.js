@@ -3,8 +3,9 @@ import { sizeApi } from "../api/sizeApi";
 export const sizeService = {
   async getSizes(page = 0, size = 10, keyword = "", status = null) {
     let response;
-    if (keyword) {
-      response = await sizeApi.search(keyword, page, size);
+    const trimmedKeyword = keyword ? keyword.trim() : "";
+    if (trimmedKeyword) {
+      response = await sizeApi.search(trimmedKeyword, page, size);
     } else {
       response = await sizeApi.getAll(page, size, status);
     }

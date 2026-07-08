@@ -12,10 +12,16 @@
     <div class="product-detail-selector">
       <div class="input-group">
         <label>📦 Chọn sản phẩm:</label>
+        <input 
+          type="text" 
+          v-model="productSearchKeyword" 
+          placeholder="🔍 Tìm nhanh sản phẩm..." 
+          class="product-search-input"
+        />
         <select v-model="selectedProductId" @change="loadProductDetails" class="detail-select">
           <option :value="null">-- Chọn sản phẩm --</option>
           <option 
-            v-for="product in productList" 
+            v-for="product in filteredProductList" 
             :key="product.productId" 
             :value="product.productId"
           >
@@ -272,6 +278,7 @@ export default {
       productDetailsList: [],
       selectedProductDetailId: null,
       loadingProducts: false,
+      productSearchKeyword: '',
       
       allImages: [],
       images: [],
@@ -296,6 +303,15 @@ export default {
     };
   },
   computed: {
+    filteredProductList() {
+      if (!this.productSearchKeyword || !this.productSearchKeyword.trim()) {
+        return this.productList;
+      }
+      const kw = this.productSearchKeyword.trim().toLowerCase();
+      return this.productList.filter(product => 
+        product.productName?.toLowerCase().includes(kw)
+      );
+    },
     mainImageCount() {
       return this.images.filter(img => img.isMain === true && !img._deletedAt).length;
     },
@@ -768,6 +784,22 @@ export default {
 .detail-select:focus {
   outline: none;
   border-color: #3498db;
+}
+
+.product-search-input {
+  width: 250px;
+  padding: 10px 12px;
+  border: 1px solid #e0e6ed;
+  border-radius: 8px;
+  font-size: 14px;
+  background: white;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.product-search-input:focus {
+  outline: none;
+  border-color: #3498db;
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
 }
 
 .info-note {

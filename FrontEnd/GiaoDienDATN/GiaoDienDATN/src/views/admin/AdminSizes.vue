@@ -292,7 +292,7 @@ const fetchSizes = async () => {
     const data = await sizeService.getSizes(
       currentPage.value,
       pageSize.value,
-      searchQuery.value,
+      searchQuery.value.trim(),
       filterStatus.value || null,
     );
     sizes.value = data.content || [];

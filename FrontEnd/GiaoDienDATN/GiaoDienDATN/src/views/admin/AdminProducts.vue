@@ -426,8 +426,8 @@ const form = ref({
 const filteredProducts = computed(() => {
   let filtered = [...allProducts.value];
   
-  if (searchKeyword.value) {
-    const kw = searchKeyword.value.toLowerCase();
+  if (searchKeyword.value && searchKeyword.value.trim()) {
+    const kw = searchKeyword.value.trim().toLowerCase();
     filtered = filtered.filter(p => 
       p.productName?.toLowerCase().includes(kw)
     );

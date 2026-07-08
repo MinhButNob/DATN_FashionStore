@@ -333,8 +333,8 @@ export default {
     filterCategories() {
       let filtered = [...this.allCategories];
       
-      if (this.searchKeyword) {
-        const kw = this.searchKeyword.toLowerCase();
+      if (this.searchKeyword && this.searchKeyword.trim()) {
+        const kw = this.searchKeyword.trim().toLowerCase();
         filtered = filtered.filter(c =>
           c.categoryName?.toLowerCase().includes(kw) ||
           c.categoryDescription?.toLowerCase().includes(kw)
