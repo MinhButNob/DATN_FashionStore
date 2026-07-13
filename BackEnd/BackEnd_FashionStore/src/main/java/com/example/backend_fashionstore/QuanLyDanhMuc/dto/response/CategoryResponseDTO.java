@@ -10,4 +10,8 @@ public class CategoryResponseDTO {
     private String categoryName;
     private String categoryDescription;
     private String status;
+
+    // (Thêm mới) trả kèm parentCategoryId để FE biết danh mục này có đang
+    // thuộc 1 trong 3 danh mục lớn hay không (null = độc lập).
+    private Integer parentCategoryId;
 }

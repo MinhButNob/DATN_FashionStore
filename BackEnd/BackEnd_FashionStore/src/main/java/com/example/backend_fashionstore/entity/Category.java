@@ -30,6 +30,11 @@ public class Category {
     @Column(name = "category_status", nullable = false, length = 20)
     private String status;
 
+    // Danh mục cha (dùng cho tính năng Phân cấp danh mục 2 cấp).
+    // null = danh mục cấp 1 (không có cha) | có giá trị = là con của danh mục đó
+    @Column(name = "parent_category_id")
+    private Integer parentCategoryId;
+
     @CreationTimestamp
     @Column(name = "category_created_at", updatable = false)
     private LocalDateTime createdAt;

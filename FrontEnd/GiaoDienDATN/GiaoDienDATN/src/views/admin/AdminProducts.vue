@@ -212,14 +212,31 @@
                 <input v-model="form.productName" type="text" placeholder="Nhập tên sản phẩm" required />
               </div>
 
-              <div class="form-group">
+              <div class="form-group category-search-group">
                 <label>Danh mục <span class="required">*</span></label>
-                <select v-model="form.categoryId" required>
-                  <option :value="null">Chọn danh mục</option>
-                  <option v-for="cat in categoryList" :key="cat.categoryId" :value="cat.categoryId">
-                    {{ cat.categoryName }}
-                  </option>
-                </select>
+                <div class="category-search-box">
+                  <input
+                    type="text"
+                    v-model="categorySearchQuery"
+                    placeholder="Gõ để tìm danh mục..."
+                    autocomplete="off"
+                    @focus="showCategorySuggestions = true"
+                    @input="showCategorySuggestions = true"
+                    @blur="onCategorySearchBlur"
+                  />
+                  <ul v-if="showCategorySuggestions" class="category-suggestions">
+                    <li v-if="filteredCategorySuggestions.length === 0" class="no-result">
+                      Không tìm thấy danh mục phù hợp
+                    </li>
+                    <li
+                      v-for="cat in filteredCategorySuggestions"
+                      :key="cat.categoryId"
+                      @mousedown.prevent="selectCategorySuggestion(cat)"
+                    >
+                      {{ cat.categoryName }}
+                    </li>
+                  </ul>
+                </div>
               </div>
 
               <div class="form-group">
@@ -377,6 +394,9 @@ const API_BASE = 'http://localhost:8080/api';
 // State
 const allProducts = ref([]);
 const categoryList = ref([]);
+// Tìm kiếm/gợi ý danh mục khi thêm/sửa sản phẩm (thay cho combobox)
+const categorySearchQuery = ref('');
+const showCategorySuggestions = ref(false);
 const colorList = ref([]);
 const sizeList = ref([]);
 const promotionList = ref([]);
@@ -548,8 +568,12 @@ const fetchCategories = async () => {
       categories = response.data;
     }
     
+    // Không cho thêm sản phẩm trực tiếp vào 3 danh mục lớn mặc định
+    // (Áo/Quần/Phụ kiện) - chỉ được chọn các danh mục khác (danh mục con, v.v...)
+    const DEFAULT_LOCKED_NAMES = ['Áo', 'Quần', 'Phụ kiện'];
     categoryList.value = categories.filter(c => 
-      c.status === 'ACTIVE' && !c.deletedAt && c.categoryStatus !== 'DELETED'
+      c.status === 'ACTIVE' && !c.deletedAt && c.categoryStatus !== 'DELETED' &&
+      !DEFAULT_LOCKED_NAMES.includes(c.categoryName)
     );
   } catch (error) {
     console.error('Lỗi tải danh mục:', error);
@@ -631,6 +655,34 @@ const fetchPromotions = async () => {
   }
 };
 
+// Gợi ý danh mục khi thêm/sửa sản phẩm (không cho gợi ý 3 danh mục lớn - đã bị loại ở fetchCategories)
+const filteredCategorySuggestions = computed(() => {
+  const query = categorySearchQuery.value.trim().toLowerCase();
+  if (!query) {
+    // Chưa gõ gì -> hiện danh sách danh mục tiêu biểu (tối đa 8 cái đầu)
+    return categoryList.value.slice(0, 8);
+  }
+  return categoryList.value.filter(c =>
+    (c.categoryName || '').toLowerCase().includes(query)
+  );
+});
+
+const selectCategorySuggestion = (cat) => {
+  form.value.categoryId = cat.categoryId;
+  categorySearchQuery.value = cat.categoryName;
+  showCategorySuggestions.value = false;
+};
+
+const onCategorySearchBlur = () => {
+  // Delay nhỏ để @mousedown.prevent trên item kịp chạy trước khi đóng dropdown
+  setTimeout(() => {
+    showCategorySuggestions.value = false;
+    // Nếu người dùng gõ nhưng không chọn danh mục nào khớp -> khôi phục lại tên đang chọn (nếu có)
+    const current = categoryList.value.find(c => c.categoryId === form.value.categoryId);
+    categorySearchQuery.value = current?.categoryName || '';
+  }, 150);
+};
+
 // Filter actions
 const resetFilters = () => {
   searchKeyword.value = '';
@@ -672,6 +724,7 @@ const openCreateModal = () => {
     promotionId: null,
     variants: []
   };
+  categorySearchQuery.value = '';
   showModal.value = true;
 };
 
@@ -732,6 +785,9 @@ const openEditModal = async (product) => {
     variants: variants
   };
   
+  const currentCategory = categoryList.value.find(c => c.categoryId === categoryId);
+  categorySearchQuery.value = currentCategory?.categoryName || product.category?.categoryName || '';
+  
   showModal.value = true;
 };
 
@@ -747,6 +803,8 @@ const closeModal = () => {
     promotionId: null,
     variants: []
   };
+  categorySearchQuery.value = '';
+  showCategorySuggestions.value = false;
 };
 
 // Submit form
@@ -1582,6 +1640,68 @@ onMounted(async () => {
   outline: none;
   border-color: #667eea;
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.category-search-group {
+  position: relative;
+}
+
+.category-search-box {
+  position: relative;
+}
+
+.category-search-box input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 14px;
+  transition: all 0.3s;
+}
+
+.category-search-box input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.category-suggestions {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+}
+
+.category-suggestions li {
+  padding: 9px 14px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #333;
+}
+
+.category-suggestions li:hover {
+  background: #f0f1ff;
+  color: #667eea;
+}
+
+.category-suggestions li.no-result {
+  color: #999;
+  cursor: default;
+}
+
+.category-suggestions li.no-result:hover {
+  background: transparent;
+  color: #999;
 }
 
 .required {

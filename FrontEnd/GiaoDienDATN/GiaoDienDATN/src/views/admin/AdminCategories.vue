@@ -178,6 +178,16 @@
                 <option value="INACTIVE">Tạm dừng</option>
               </select>
             </div>
+            <div class="form-group">
+              <label>Thuộc danh mục lớn</label>
+              <select v-model="form.parentCategoryId">
+                <option :value="null">-- Không thuộc danh mục lớn nào --</option>
+                <option v-for="p in parentCategoryOptions" :key="p.categoryId" :value="p.categoryId">
+                  {{ p.categoryName }}
+                </option>
+              </select>
+              <small class="hint-text">Chọn Áo / Quần / Phụ kiện nếu muốn danh mục này nằm trong 1 trong 3 danh mục lớn ở trang Phân cấp danh mục.</small>
+            </div>
           </div>
           <div class="modal-footer">
             <button type="button" class="btn-cancel" @click="closeModal">Hủy</button>
@@ -263,11 +273,14 @@ export default {
       restoreCategoryName: '',
       checkingProducts: false,
       checkingCategoryId: null,
+      // (Thêm mới) danh sách 3 danh mục lớn mặc định để chọn khi thêm/sửa
+      parentCategoryOptions: [],
       form: {
         categoryId: null,
         categoryName: '',
         categoryDescription: '',
-        status: 'ACTIVE'
+        status: 'ACTIVE',
+        parentCategoryId: null
       },
       showToast: false,
       toastMessage: '',
@@ -376,7 +389,8 @@ export default {
         categoryId: null,
         categoryName: '',
         categoryDescription: '',
-        status: 'ACTIVE'
+        status: 'ACTIVE',
+        parentCategoryId: null
       };
       this.showModal = true;
     },
@@ -387,7 +401,7 @@ export default {
         return;
       }
       this.isEdit = true;
-      this.form = { ...cat };
+      this.form = { ...cat, parentCategoryId: cat.parentCategoryId ?? null };
       this.showModal = true;
     },
 
@@ -405,7 +419,8 @@ export default {
         const data = {
           categoryName: this.form.categoryName,
           categoryDescription: this.form.categoryDescription || '',
-          status: this.form.status
+          status: this.form.status,
+          parentCategoryId: this.form.parentCategoryId ?? null
         };
         
         if (this.isEdit) {
@@ -455,7 +470,8 @@ export default {
         const response = await categoryService.updateCategory(cat.categoryId, {
           categoryName: cat.categoryName,
           categoryDescription: cat.categoryDescription,
-          status: newStatus
+          status: newStatus,
+          parentCategoryId: cat.parentCategoryId ?? null
         });
         
         const updatedCategory = response.data?.data || response.data;
@@ -590,10 +606,20 @@ export default {
       } finally {
         this.saving = false;
       }
+    },
+    // (Thêm mới) Lấy danh sách 3 danh mục lớn mặc định từ module Phân cấp danh mục (chỉ đọc, không ảnh hưởng gì)
+    async loadParentCategoryOptions() {
+      try {
+        const response = await axios.get(`${API_BASE}/category-hierarchy/parents`);
+        this.parentCategoryOptions = response?.data || [];
+      } catch (error) {
+        console.error('Lỗi tải danh sách danh mục lớn:', error);
+      }
     }
   },
   mounted() {
     this.loadCategories();
+    this.loadParentCategoryOptions();
   }
 };
 </script>
@@ -1115,6 +1141,13 @@ export default {
 
 .required {
   color: #e74c3c;
+}
+
+.hint-text {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  color: #7f8c8d;
 }
 
 .btn-cancel, .btn-save, .btn-danger {
