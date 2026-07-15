@@ -311,7 +311,7 @@ import { useCartStore } from '../../stores/cartStore'
 import { useNotification } from '../../composables/useNotification'
 import ClientHeader from '../../components/client/ClientHeader.vue'
 import ClientFooter from '../../components/client/ClientFooter.vue'
-import ProductCard from '../../components/client/ProductCard.vue'
+import ProductCard from './ProductCard.vue'
 import { cartService } from '../../services/cartService'
 import axios from 'axios'
 

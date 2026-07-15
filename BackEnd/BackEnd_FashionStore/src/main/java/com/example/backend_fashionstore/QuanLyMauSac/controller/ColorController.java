@@ -14,7 +14,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/colors")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "http://localhost:5173")
 public class ColorController {
 
     private final ColorService colorService;

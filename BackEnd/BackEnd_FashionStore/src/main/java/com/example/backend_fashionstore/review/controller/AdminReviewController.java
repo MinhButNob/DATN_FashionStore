@@ -19,7 +19,6 @@ import java.util.Map;
 @RequestMapping("/api/admin/reviews")
 @RequiredArgsConstructor
 @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
-@CrossOrigin(origins = "http://localhost:5173")
 public class AdminReviewController {
 
     private final AdminReviewService adminReviewService;

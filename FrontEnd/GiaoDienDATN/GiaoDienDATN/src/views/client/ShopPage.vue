@@ -188,6 +188,13 @@
                     <div v-if="product.discountPercent > 0" class="discount-flag">
                       -{{ product.discountPercent }}%
                     </div>
+                    <div
+                      class="product-wishlist-direct"
+                      :class="{ active: isProductInWishlist(product) }"
+                      @click.stop="toggleWishlistDirect(product)"
+                    >
+                      <i :class="[isProductInWishlist(product) ? 'fas' : 'far', 'fa-heart']"></i>
+                    </div>
                   </div>
                   <div class="product-info-direct">
                     <div class="product-category-direct">{{ product.categoryName || 'Sản phẩm' }}</div>
@@ -270,12 +277,16 @@ import ClientHeader from '../../components/client/ClientHeader.vue'
 import ClientFooter from '../../components/client/ClientFooter.vue'
 import CartModal from '../../components/client/CartModal.vue'
 import { useCartStore } from '../../stores/cartStore'
+import { useAuthStore } from '../../stores/authStore'
+import { useWishlistStore } from '../../stores/wishlistStore'
 import { useNotification } from '../../composables/useNotification'
 import axios from 'axios'
 
 const route = useRoute()
 const router = useRouter()
 const cartStore = useCartStore()
+const authStore = useAuthStore()
+const wishlistStore = useWishlistStore()
 const { showNotification } = useNotification()
 const API_BASE = "http://localhost:8080/api"
 
@@ -730,7 +741,50 @@ watch(() => route.query.categoryId, (newCategoryId) => {
 onMounted(async () => {
   await fetchSizes()
   await fetchProducts()
+  if (authStore.isAuthenticated && !wishlistStore.loaded) {
+    wishlistStore.fetchWishlist()
+  }
 })
+
+// ✅ Wishlist trên trang Shop
+const getWishlistProductDetailId = (product) => {
+  let id = product.productDetailId || product.id
+  if (product.variants && product.variants.length > 0) {
+    id = product.variants[0].productDetailId || id
+  }
+  return id
+}
+
+const isProductInWishlist = (product) => {
+  return wishlistStore.isInWishlist(getWishlistProductDetailId(product))
+}
+
+const toggleWishlistDirect = async (product) => {
+  if (!authStore.isAuthenticated) {
+    window.dispatchEvent(new CustomEvent('open-auth-modal', { detail: 'login' }))
+    return
+  }
+
+  const productDetailId = getWishlistProductDetailId(product)
+  if (!productDetailId) {
+    showNotification('Không thể xác định sản phẩm!', 'error')
+    return
+  }
+
+  try {
+    const added = await wishlistStore.toggleWishlist(productDetailId)
+    showNotification(
+      added ? 'Đã thêm vào danh sách yêu thích' : 'Đã xoá khỏi danh sách yêu thích',
+      'success'
+    )
+  } catch (error) {
+    console.error('Toggle wishlist error:', error)
+    showNotification(
+      error?.response?.data?.message || 'Thao tác thất bại, vui lòng thử lại!',
+      'error'
+    )
+  }
+}
 </script>
 
 <style scoped>
@@ -1064,6 +1118,37 @@ main {
   border-radius: 20px;
   font-size: 12px;
   font-weight: bold;
+}
+
+.product-wishlist-direct {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+  transition: all 0.2s;
+  z-index: 2;
+}
+
+.product-wishlist-direct:hover {
+  transform: scale(1.1);
+}
+
+.product-wishlist-direct i {
+  font-size: 16px;
+  color: #999;
+}
+
+.product-wishlist-direct.active i,
+.product-wishlist-direct i.fas {
+  color: #e63946;
 }
 
 .product-info-direct {

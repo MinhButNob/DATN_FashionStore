@@ -50,14 +50,22 @@
       </button>
     </div>
   </div>
+
+  <CartPopup 
+    :visible="showCartPopup" 
+    :product="lastAddedProduct"
+    @close="showCartPopup = false"
+  />
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCartStore } from '../../stores/cartStore'
 import { useAuthStore } from '../../stores/authStore'
+import { useWishlistStore } from '../../stores/wishlistStore'
 import { useNotification } from '../../composables/useNotification'
+import CartPopup from '../../components/client/CartPopup.vue'
 
 const props = defineProps({
   product: {
@@ -69,18 +77,15 @@ const props = defineProps({
 const router = useRouter()
 const cartStore = useCartStore()
 const authStore = useAuthStore()
+const wishlistStore = useWishlistStore()
 const { showNotification } = useNotification()
 
-// ✅ HÀM FORMAT GIÁ ĐÚNG - QUAN TRỌNG
+const showCartPopup = ref(false)
+const lastAddedProduct = ref({})
+
 const formatPriceVND = (price) => {
-  // Nếu price là undefined hoặc null
-  if (price === undefined || price === null) {
-    return '0₫'
-  }
-  
-  // Chuyển đổi sang số
+  if (price === undefined || price === null) return '0₫'
   let numPrice = 0
-  
   if (typeof price === 'number') {
     numPrice = price
   } else if (typeof price === 'string') {
@@ -88,13 +93,7 @@ const formatPriceVND = (price) => {
   } else {
     numPrice = Number(price)
   }
-  
-  // Kiểm tra NaN
-  if (isNaN(numPrice) || numPrice === 0) {
-    return '0₫'
-  }
-  
-  // Format theo VND
+  if (isNaN(numPrice) || numPrice === 0) return '0₫'
   return numPrice.toLocaleString('vi-VN') + '₫'
 }
 
@@ -102,7 +101,6 @@ const getColorHex = (colorName) => {
   const colorMap = {
     'Đỏ': '#FF0000',
     'Đen': '#000000',
-    'Trắ': '#FFFFFF',
     'Trắng': '#FFFFFF',
     'Xanh': '#0000FF',
     'Navy': '#1B2951',
@@ -122,21 +120,32 @@ const handleImageError = (event) => {
   if (noImageDiv) noImageDiv.style.display = 'flex'
 }
 
-const isInWishlist = computed(() => false)
+const wishlistProductDetailId = computed(() => {
+  let id = props.product.productDetailId || props.product.id
+  if (props.product.variants && props.product.variants.length > 0) {
+    id = props.product.variants[0].productDetailId || id
+  }
+  return id
+})
+
+const isInWishlist = computed(() => wishlistStore.isInWishlist(wishlistProductDetailId.value))
+
+onMounted(() => {
+  if (authStore.isAuthenticated && !wishlistStore.loaded) {
+    wishlistStore.fetchWishlist()
+  }
+})
 
 const goToDetail = () => {
   const productId = props.product.productId
-  console.log('🟡 Chuyển đến chi tiết sản phẩm ID:', productId)
-  
   if (productId && productId !== 'undefined') {
     router.push(`/product/${productId}`)
   } else {
-    console.error('❌ Không có productId hợp lệ:', props.product)
     showNotification('Không thể xem chi tiết sản phẩm!', 'error')
   }
 }
 
-const addToCart = (event) => {
+const addToCart = async (event) => {
   event.stopPropagation()
   
   const stock = props.product.totalStock || 0
@@ -148,30 +157,79 @@ const addToCart = (event) => {
   const price = props.product.minPrice || 0
   const numericPrice = typeof price === 'number' ? price : Number(price)
   
-  cartStore.addToCart({
+  let productDetailId = props.product.productDetailId || props.product.id
+  let size = null
+  let color = null
+  
+  if (props.product.variants && props.product.variants.length > 0) {
+    const firstVariant = props.product.variants[0]
+    size = firstVariant.sizeName || null
+    color = firstVariant.colorName || null
+    productDetailId = firstVariant.productDetailId || productDetailId
+  }
+  
+  const productData = {
+    id: productDetailId,
     productId: props.product.productId,
     productName: props.product.productName,
+    name: props.product.productName,
     price: numericPrice,
     quantity: 1,
-    image: props.product.mainImageUrl
-  })
-  showNotification('Đã thêm sản phẩm vào giỏ hàng!', 'success')
+    image: props.product.mainImageUrl,
+    imageUrl: props.product.mainImageUrl,
+    size: size,
+    color: color,
+    stock: stock
+  }
+  
+  try {
+    await cartStore.addToCart(productData)
+    
+    lastAddedProduct.value = {
+      name: props.product.productName,
+      price: numericPrice,
+      quantity: 1,
+      image: props.product.mainImageUrl,
+      size: size,
+      color: color,
+      stock: stock
+    }
+    
+    showCartPopup.value = true
+    
+  } catch (error) {
+    console.error('Add to cart error:', error)
+    showNotification('Thêm vào giỏ thất bại!', 'error')
+  }
 }
 
-const toggleWishlist = (event) => {
+const toggleWishlist = async (event) => {
   event.stopPropagation()
   if (!authStore.isAuthenticated) {
     window.dispatchEvent(new CustomEvent('open-auth-modal', { detail: 'login' }))
     return
   }
-  showNotification('Chức năng đang phát triển', 'info')
-}
 
-// ✅ Log để debug
-console.log('ProductCard component loaded')
-console.log('Product data:', props.product)
-console.log('minPrice:', props.product.minPrice)
-console.log('Formatted price:', formatPriceVND(props.product.minPrice))
+  const productDetailId = wishlistProductDetailId.value
+  if (!productDetailId) {
+    showNotification('Không thể xác định sản phẩm!', 'error')
+    return
+  }
+
+  try {
+    const added = await wishlistStore.toggleWishlist(productDetailId)
+    showNotification(
+      added ? 'Đã thêm vào danh sách yêu thích' : 'Đã xoá khỏi danh sách yêu thích',
+      'success'
+    )
+  } catch (error) {
+    console.error('Toggle wishlist error:', error)
+    showNotification(
+      error?.response?.data?.message || 'Thao tác thất bại, vui lòng thử lại!',
+      'error'
+    )
+  }
+}
 </script>
 
 <style scoped>

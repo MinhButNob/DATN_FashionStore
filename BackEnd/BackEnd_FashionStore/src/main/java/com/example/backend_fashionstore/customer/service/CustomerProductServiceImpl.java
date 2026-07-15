@@ -318,6 +318,11 @@ public class CustomerProductServiceImpl implements CustomerProductService {
                 .totalStock(totalStock)
                 .categoryName(product.getCategory() != null ? product.getCategory().getCategoryName() : null)
                 .categoryId(product.getCategory() != null ? product.getCategory().getCategoryId() : null)
+                .variants(variants != null
+                        ? variants.stream()
+                        .map(v -> convertToVariantResponse(v, productPromotion))
+                        .collect(Collectors.toList())
+                        : Collections.emptyList())
                 .build();
     }
 

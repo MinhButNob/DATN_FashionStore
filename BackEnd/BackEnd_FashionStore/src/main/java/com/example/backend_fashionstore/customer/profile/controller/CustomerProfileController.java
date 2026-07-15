@@ -17,7 +17,6 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/customers")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "http://localhost:5173")
 public class CustomerProfileController {
 
     private final CustomerProfileService customerProfileService;

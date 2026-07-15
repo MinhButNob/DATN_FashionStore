@@ -13,4 +13,6 @@ public interface CustomerRepository
     boolean existsByPhone(String phone);
 
     java.util.Optional<Customer> findByPhone(String phone);
+
+    java.util.Optional<Customer> findByUser_Email(String email);
 }
