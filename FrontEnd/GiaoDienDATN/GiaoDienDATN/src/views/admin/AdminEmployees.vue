@@ -195,6 +195,7 @@
       v-if="showModal"
       :isEdit="isEdit"
       :initialData="selectedEmployee"
+      :isSubmitting="isSubmitting"
       @close="closeModal"
       @submit="handleSubmit"
     />
@@ -257,6 +258,7 @@ export default {
       sortByField: 'employeeId',
       sortDirection: 'desc',
       showModal: false,
+      isSubmitting: false,
       showDetailModal: false,
       showConfirmDialog: false,
       isEdit: false,
@@ -380,6 +382,7 @@ export default {
     },
 
     openCreateModal() {
+      useEmployeeStore().error = null // ✅ Xoá banner lỗi cũ (vd: từ lần tìm kiếm/tải danh sách trước đó)
       this.isEdit = false
       this.selectedEmployee = null
       this.showModal = true
@@ -436,16 +439,22 @@ openEditModal(employee) {
     },
 
     async handleSubmit(formData) {
+      if (this.isSubmitting) return // ✅ Chặn bấm submit nhiều lần liên tiếp
+      this.isSubmitting = true
       useEmployeeStore().error = null
       const wasEdit = this.isEdit
 
       let result
-      if (wasEdit) {
-        const id = this.selectedEmployee?.employeeId
-        if (!id) return
-        result = await useEmployeeStore().updateEmployee(id, formData)
-      } else {
-        result = await useEmployeeStore().createEmployee(formData)
+      try {
+        if (wasEdit) {
+          const id = this.selectedEmployee?.employeeId
+          if (!id) return
+          result = await useEmployeeStore().updateEmployee(id, formData)
+        } else {
+          result = await useEmployeeStore().createEmployee(formData)
+        }
+      } finally {
+        this.isSubmitting = false
       }
 
       if (result.success) {

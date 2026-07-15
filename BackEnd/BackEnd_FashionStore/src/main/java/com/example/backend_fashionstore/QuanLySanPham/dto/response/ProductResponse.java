@@ -17,11 +17,8 @@ public class ProductResponse {
     private String status;
     private Integer totalStock;
     private LocalDateTime createdAt;
-
     private CategorySummary category;
     private List<VariantSummary> variants;
-
-    // ✅ THÊM promotion summary
     private PromotionSummary promotion;
 
     @Data
@@ -58,5 +55,6 @@ public class ProductResponse {
         private String status;
         private Boolean isLowStock;
         private BigDecimal discountedPrice; // ✅ THÊM giá sau khuyến mãi
+        private List<PromotionSummary> promotions;
     }
 }

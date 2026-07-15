@@ -22,21 +22,21 @@ public class PageServiceEmployee {
                 : Sort.by(sortBy).descending();
         Pageable pageable = PageRequest.of(page, size, sort);
 
+        String kw = (keyword != null && keyword.isBlank()) ? null : keyword;
+
         // ✅ Xử lý filter theo user.status
         if (status != null && !status.isBlank()) {
-            // Nếu filter theo DELETED, ACTIVE, BANNED - lọc theo user.status
+            // Nếu filter theo DELETED, ACTIVE, BANNED - lọc theo user.status VÀ áp dụng keyword
             try {
                 UserStatus userStatus = UserStatus.valueOf(status);
-                return employeeRepository.findByUserStatus(userStatus, pageable);
+                return employeeRepository.searchEmployeesByUserStatus(kw, userStatus, pageable);
             } catch (IllegalArgumentException e) {
-                // Nếu không phải user status, lọc theo employeeStatus
-                String st = status.isBlank() ? null : status;
-                String kw = (keyword != null && keyword.isBlank()) ? null : keyword;
-                return employeeRepository.searchEmployees(kw, st, pageable);
+                // Nếu không phải user status, lọc theo employeeStatus (vẫn áp dụng keyword)
+                return employeeRepository.searchEmployees(kw, status, pageable);
             }
         } else {
-            // Không filter, lấy tất cả (bao gồm cả đã xóa) để hiển thị chế độ chỉ xem
-            return employeeRepository.findAllWithDeleted(pageable);
+            // Không filter trạng thái (bao gồm cả đã xóa) - vẫn áp dụng keyword nếu có
+            return employeeRepository.searchEmployeesNoStatus(kw, pageable);
         }
     }
 }

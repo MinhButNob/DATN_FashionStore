@@ -47,12 +47,8 @@
     <div class="filter-bar">
       <div class="search-box">
         <span class="search-icon">🔍</span>
-        <input
-          v-model="searchKeyword"
-          @keyup.enter="searchCategories"
-          placeholder="Tìm kiếm danh mục..."
-          autocomplete="off"
-        />
+        <input v-model="searchKeyword" @keyup.enter="searchCategories" placeholder="Tìm kiếm danh mục..."
+          autocomplete="off" />
         <button v-if="searchKeyword" class="clear-search" @click="searchKeyword = ''; searchCategories()">✕</button>
       </div>
       <select v-model="statusFilter" @change="filterCategories" class="filter-select">
@@ -86,7 +82,8 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="(item, index) in paginatedCategories" :key="item.categoryId" class="table-row" :class="{ 'row-deleted': item._deletedAt }">
+          <tr v-for="(item, index) in paginatedCategories" :key="item.categoryId" class="table-row"
+            :class="{ 'row-deleted': item._deletedAt }">
             <td class="stt-cell">{{ getSTT(index) }}</td>
             <td>
               <div class="category-name">
@@ -118,11 +115,14 @@
                   <button class="action-btn edit-btn" @click="openEditModal(item)" title="Sửa">
                     ✏️
                   </button>
-                  <button class="action-btn toggle-btn" @click="toggleStatus(item)" :title="item.status === 'ACTIVE' ? 'Tạm dừng' : 'Kích hoạt'">
+                  <button class="action-btn toggle-btn" @click="toggleStatus(item)"
+                    :title="item.status === 'ACTIVE' ? 'Tạm dừng' : 'Kích hoạt'">
                     {{ item.status === 'ACTIVE' ? '⏸️' : '▶️' }}
                   </button>
-                  <button class="action-btn delete-btn" @click="confirmDelete(item)" title="Xóa" :disabled="checkingProducts">
-                    <span v-if="checkingProducts && checkingCategoryId === item.categoryId" class="loading-spinner-small"></span>
+                  <button class="action-btn delete-btn" @click="confirmDelete(item)" title="Xóa"
+                    :disabled="checkingProducts">
+                    <span v-if="checkingProducts && checkingCategoryId === item.categoryId"
+                      class="loading-spinner-small"></span>
                     <span v-else>🗑️</span>
                   </button>
                 </template>
@@ -165,11 +165,11 @@
           <div class="modal-body">
             <div class="form-group">
               <label>Tên danh mục <span class="required">*</span></label>
-              <input v-model="form.categoryName" required placeholder="Nhập tên danh mục" maxlength="20"/>
+              <input v-model="form.categoryName" placeholder="Nhập tên danh mục" maxlength="100" />
             </div>
             <div class="form-group">
               <label>Mô tả</label>
-              <textarea v-model="form.categoryDescription" rows="3" placeholder="Nhập mô tả" maxlength="20"></textarea>
+              <textarea v-model="form.categoryDescription" rows="3" placeholder="Nhập mô tả" maxlength="100"></textarea>
             </div>
             <div class="form-group">
               <label>Trạng thái</label>
@@ -313,13 +313,13 @@ export default {
       try {
         const response = await categoryService.getCategories();
         let categories = response?.data || [];
-        
+
         // ✅ GIỮ TẤT CẢ DANH MỤC, KHÔNG LỌC BỎ
         this.allCategories = categories.map(c => ({
           ...c,
           _deletedAt: c.status === 'DELETED' ? new Date().toISOString() : null
         }));
-        
+
         console.log('📋 All categories loaded:', this.allCategories.length);
         this.filterCategories();
       } catch (error) {
@@ -332,7 +332,7 @@ export default {
 
     filterCategories() {
       let filtered = [...this.allCategories];
-      
+
       if (this.searchKeyword) {
         const kw = this.searchKeyword.toLowerCase();
         filtered = filtered.filter(c =>
@@ -340,7 +340,7 @@ export default {
           c.categoryDescription?.toLowerCase().includes(kw)
         );
       }
-      
+
       if (this.statusFilter !== 'all') {
         if (this.statusFilter === 'DELETED') {
           filtered = filtered.filter(c => c._deletedAt !== null);
@@ -348,7 +348,7 @@ export default {
           filtered = filtered.filter(c => !c._deletedAt && c.status === this.statusFilter);
         }
       }
-      
+
       this.filteredCategories = filtered;
       this.totalPages = Math.ceil(filtered.length / this.pageSize);
       this.currentPage = 0;
@@ -396,10 +396,38 @@ export default {
     },
 
     async saveCategory() {
-      if (!this.form.categoryName) {
-        this.showNotification('Vui lòng nhập tên danh mục', 'error');
+
+      const categoryName = (this.form.categoryName || "").trim();
+
+      if (!categoryName) {
+        this.showNotification(
+          "Tên danh mục không được để trống",
+          "error"
+        );
         return;
       }
+
+      if (categoryName.length > 100) {
+        this.showNotification(
+          "Tên danh mục tối đa 100 ký tự",
+          "error"
+        );
+        return;
+      }
+
+      // Chỉ cho phép chữ cái, số và khoảng trắng
+      const regex = /^[\p{L}\p{N}\s]+$/u;
+
+      if (!regex.test(categoryName)) {
+        this.showNotification(
+          "Tên danh mục chỉ được chứa chữ cái và số",
+          "error"
+        );
+        return;
+      }
+
+      this.form.categoryName = categoryName;
+
       this.saving = true;
       try {
         const data = {
@@ -407,11 +435,11 @@ export default {
           categoryDescription: this.form.categoryDescription || '',
           status: this.form.status
         };
-        
+
         if (this.isEdit) {
           const response = await categoryService.updateCategory(this.form.categoryId, data);
           const updatedCategory = response.data?.data || response.data;
-          
+
           const index = this.allCategories.findIndex(c => c.categoryId === this.form.categoryId);
           if (index !== -1) {
             this.allCategories[index] = {
@@ -447,19 +475,19 @@ export default {
         this.showNotification('Không thể thay đổi trạng thái danh mục đã xóa!', 'error');
         return;
       }
-      
+
       this.saving = true;
       try {
         const newStatus = cat.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
-        
+
         const response = await categoryService.updateCategory(cat.categoryId, {
           categoryName: cat.categoryName,
           categoryDescription: cat.categoryDescription,
           status: newStatus
         });
-        
+
         const updatedCategory = response.data?.data || response.data;
-        
+
         const index = this.allCategories.findIndex(c => c.categoryId === cat.categoryId);
         if (index !== -1) {
           this.allCategories[index] = {
@@ -478,48 +506,48 @@ export default {
     },
 
     // ✅ XÓA MỀM - KHÔNG XÓA KHỎI DANH SÁCH
-   async confirmDelete(cat) {
-  this.checkingProducts = true;
-  this.checkingCategoryId = cat.categoryId;
-  this.deleteCategoryId = cat.categoryId;
-  this.deleteCategoryName = cat.categoryName;
-  
-  try {
-    // ✅ Gọi API kiểm tra sản phẩm trong danh mục
-    const response = await axios.get(`${API_BASE}/products/category/${cat.categoryId}/count`);
-    const productCount = response.data?.data || response.data || 0;
-    
-    if (productCount > 0) {
-      this.showNotification(
-        `❌ Không thể xóa danh mục "${cat.categoryName}" vì đang có ${productCount} sản phẩm! Vui lòng chuyển hoặc xóa sản phẩm trước.`,
-        'error'
-      );
-      this.checkingProducts = false;
-      this.checkingCategoryId = null;
-      return;
-    }
-    
-    this.showDeleteModal = true;
-    this.checkingProducts = false;
-    this.checkingCategoryId = null;
-    
-  } catch (error) {
-    console.error('Lỗi kiểm tra sản phẩm:', error);
-    
-    // ✅ Nếu API bị lỗi (500, 404) thì vẫn cho xóa (bỏ qua kiểm tra)
-    if (error.response?.status === 404 || error.response?.status === 500) {
-      // API chưa có hoặc lỗi, vẫn cho xóa
-      console.log('⚠️ API kiểm tra sản phẩm chưa có hoặc lỗi, vẫn cho xóa danh mục');
-      this.showDeleteModal = true;
-      this.checkingProducts = false;
-      this.checkingCategoryId = null;
-    } else {
-      this.showNotification('Không thể kiểm tra sản phẩm! Vui lòng thử lại sau.', 'error');
-      this.checkingProducts = false;
-      this.checkingCategoryId = null;
-    }
-  }
-},
+    async confirmDelete(cat) {
+      this.checkingProducts = true;
+      this.checkingCategoryId = cat.categoryId;
+      this.deleteCategoryId = cat.categoryId;
+      this.deleteCategoryName = cat.categoryName;
+
+      try {
+        // ✅ Gọi API kiểm tra sản phẩm trong danh mục
+        const response = await axios.get(`${API_BASE}/products/category/${cat.categoryId}/count`);
+        const productCount = response.data?.data || response.data || 0;
+
+        if (productCount > 0) {
+          this.showNotification(
+            `❌ Không thể xóa danh mục "${cat.categoryName}" vì đang có ${productCount} sản phẩm! Vui lòng chuyển hoặc xóa sản phẩm trước.`,
+            'error'
+          );
+          this.checkingProducts = false;
+          this.checkingCategoryId = null;
+          return;
+        }
+
+        this.showDeleteModal = true;
+        this.checkingProducts = false;
+        this.checkingCategoryId = null;
+
+      } catch (error) {
+        console.error('Lỗi kiểm tra sản phẩm:', error);
+
+        // ✅ Nếu API bị lỗi (500, 404) thì vẫn cho xóa (bỏ qua kiểm tra)
+        if (error.response?.status === 404 || error.response?.status === 500) {
+          // API chưa có hoặc lỗi, vẫn cho xóa
+          console.log('⚠️ API kiểm tra sản phẩm chưa có hoặc lỗi, vẫn cho xóa danh mục');
+          this.showDeleteModal = true;
+          this.checkingProducts = false;
+          this.checkingCategoryId = null;
+        } else {
+          this.showNotification('Không thể kiểm tra sản phẩm! Vui lòng thử lại sau.', 'error');
+          this.checkingProducts = false;
+          this.checkingCategoryId = null;
+        }
+      }
+    },
 
     closeDeleteModal() {
       this.showDeleteModal = false;
@@ -532,7 +560,7 @@ export default {
       try {
         // ✅ GỌI API XÓA MỀM
         await categoryService.deleteCategory(this.deleteCategoryId);
-        
+
         // ✅ CẬP NHẬT TRẠNG THÁI (KHÔNG XÓA KHỎI DANH SÁCH)
         const index = this.allCategories.findIndex(c => c.categoryId === this.deleteCategoryId);
         if (index !== -1) {
@@ -542,7 +570,7 @@ export default {
             status: 'DELETED'
           };
         }
-        
+
         this.filterCategories();
         this.showNotification('Xóa danh mục thành công! Danh mục đã chuyển sang trạng thái đã xóa.', 'success');
         this.closeDeleteModal();
@@ -570,7 +598,7 @@ export default {
       this.saving = true;
       try {
         await categoryService.restoreCategory(this.restoreCategoryId);
-        
+
         const index = this.allCategories.findIndex(c => c.categoryId === this.restoreCategoryId);
         if (index !== -1) {
           this.allCategories[index] = {
@@ -579,7 +607,7 @@ export default {
             status: 'ACTIVE'
           };
         }
-        
+
         this.filterCategories();
         this.showNotification('Khôi phục danh mục thành công!', 'success');
         this.closeRestoreModal();
@@ -607,8 +635,15 @@ export default {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .page-header {
@@ -668,14 +703,37 @@ export default {
   border-left: 4px solid;
 }
 
-.stat-total { border-left-color: #3b82f6; }
-.stat-active { border-left-color: #10b981; }
-.stat-inactive { border-left-color: #f59e0b; }
-.stat-deleted { border-left-color: #ef4444; }
+.stat-total {
+  border-left-color: #3b82f6;
+}
 
-.stat-icon { font-size: 32px; }
-.stat-value { font-size: 28px; font-weight: 700; color: #1a1a2e; }
-.stat-label { font-size: 12px; color: #6b7280; margin-top: 4px; }
+.stat-active {
+  border-left-color: #10b981;
+}
+
+.stat-inactive {
+  border-left-color: #f59e0b;
+}
+
+.stat-deleted {
+  border-left-color: #ef4444;
+}
+
+.stat-icon {
+  font-size: 32px;
+}
+
+.stat-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: #1a1a2e;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 4px;
+}
 
 .filter-bar {
   display: flex;
@@ -777,7 +835,8 @@ export default {
   border-collapse: collapse;
 }
 
-.data-table th, .data-table td {
+.data-table th,
+.data-table td {
   padding: 15px;
   text-align: left;
   border-bottom: 1px solid #f1f4f8;
@@ -839,9 +898,20 @@ export default {
   display: inline-block;
 }
 
-.status-active { background-color: #e8f8f5; color: #27ae60; }
-.status-inactive { background-color: #fdf2e9; color: #f39c12; }
-.status-deleted { background-color: #f3f4f6; color: #6b7280; }
+.status-active {
+  background-color: #e8f8f5;
+  color: #27ae60;
+}
+
+.status-inactive {
+  background-color: #fdf2e9;
+  color: #f39c12;
+}
+
+.status-deleted {
+  background-color: #f3f4f6;
+  color: #6b7280;
+}
 
 .action-buttons {
   display: flex;
@@ -862,10 +932,22 @@ export default {
   justify-content: center;
 }
 
-.edit-btn:hover { background-color: #fef3c7; }
-.toggle-btn:hover { background-color: #e8f4f8; }
-.delete-btn:hover { background-color: #fde8e8; }
-.delete-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.edit-btn:hover {
+  background-color: #fef3c7;
+}
+
+.toggle-btn:hover {
+  background-color: #e8f4f8;
+}
+
+.delete-btn:hover {
+  background-color: #fde8e8;
+}
+
+.delete-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 
 .restore-btn {
   background: #10b981;
@@ -968,7 +1050,9 @@ export default {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .loading-spinner-small {
@@ -1042,8 +1126,15 @@ export default {
 }
 
 @keyframes slideIn {
-  from { transform: translateY(-30px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
+  from {
+    transform: translateY(-30px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 .modal-header {
@@ -1117,7 +1208,9 @@ export default {
   color: #e74c3c;
 }
 
-.btn-cancel, .btn-save, .btn-danger {
+.btn-cancel,
+.btn-save,
+.btn-danger {
   padding: 8px 20px;
   border: none;
   border-radius: 8px;
@@ -1193,15 +1286,50 @@ export default {
 }
 
 @media (max-width: 768px) {
-  .admin-categories { padding: 15px; }
-  .page-header { flex-direction: column; align-items: stretch; gap: 12px; }
-  .btn-add { justify-content: center; }
-  .stats-row { grid-template-columns: 1fr 1fr; gap: 12px; }
-  .filter-bar { flex-direction: column; align-items: stretch; }
-  .search-box { min-width: auto; }
-  .btn-search, .btn-reset { justify-content: center; }
-  .table-container { overflow-x: auto; }
-  .data-table { min-width: 600px; }
-  .pagination { flex-direction: column; gap: 12px; }
+  .admin-categories {
+    padding: 15px;
+  }
+
+  .page-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .btn-add {
+    justify-content: center;
+  }
+
+  .stats-row {
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .filter-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .search-box {
+    min-width: auto;
+  }
+
+  .btn-search,
+  .btn-reset {
+    justify-content: center;
+  }
+
+  .table-container {
+    overflow-x: auto;
+  }
+
+  .data-table {
+    min-width: 600px;
+  }
+
+  .pagination {
+    flex-direction: column;
+    gap: 12px;
+  }
 }
 </style>
