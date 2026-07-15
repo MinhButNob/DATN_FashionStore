@@ -5,7 +5,7 @@
     <AuthModal />
     
     <!-- Haru AI Chatbot -->
-    <HaruChatbot />
+    <HaruChatbot v-if="!authStore.isAdmin && !authStore.isStaff" />
   </div>
 </template>
 
@@ -13,6 +13,9 @@
 import NotificationContainer from "./components/NotificationContainer.vue";
 import AuthModal from "./components/client/AuthModal.vue";
 import HaruChatbot from "./components/chatbot/HaruChatbot.vue";
+import { useAuthStore } from "./stores/authStore";
+
+const authStore = useAuthStore();
 </script>
 
 <style>

@@ -103,11 +103,11 @@ const chatService = {
   },
 
   /**
-   * Tạo conversation mới
+   * Yêu cầu chat với nhân viên (tạo mới hoặc lấy chat WAITING/ACTIVE)
    * POST /api/chat/customer/create
    * Body: { customerId, message, isAi }
    */
-  createConversation: async (customerId, firstMessage = null) => {
+  requestStaffChat: async (customerId, firstMessage = null) => {
     try {
       if (!customerId) throw new Error('customerId is required');
 

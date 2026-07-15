@@ -2,9 +2,12 @@
 import api from './api';
 
 const chatStaffService = {
+  // FIX: StaffChat.vue gọi hàm này nhưng bản cũ chưa có -> throw lỗi mỗi lần load dashboard.
+  // Trả về TẤT CẢ chat đang ACTIVE (mọi staff), dùng cho màn hình danh sách hội thoại
+  // kiểu admin/dashboard. BE cần thêm endpoint GET /api/chat/staff/active tương ứng.
   getAllActiveChats: async () => {
     try {
-      const response = await api.get('/chat-nhan-vien/active');
+      const response = await api.get('/chat/staff/active');
       return response || [];
     } catch (error) {
       console.error('getAllActiveChats error:', error);
@@ -12,13 +15,23 @@ const chatStaffService = {
     }
   },
 
-  getChatsByAdmin: async (adminId) => {
+  getWaitingCount: async () => {
     try {
-      if (!adminId) return [];
-      const response = await api.get(`/chat-nhan-vien/admin/${adminId}`);
+      const response = await api.get('/chat/staff/queue/count');
+      return response?.waitingCount ?? 0;
+    } catch (error) {
+      console.error('getWaitingCount error:', error);
+      return 0;
+    }
+  },
+
+  getChatsByStaff: async (staffUserId) => {
+    try {
+      if (!staffUserId) return [];
+      const response = await api.get(`/chat/staff/${staffUserId}/chats`);
       return response || [];
     } catch (error) {
-      console.error('getChatsByAdmin error:', error);
+      console.error('getChatsByStaff error:', error);
       throw error;
     }
   },
@@ -26,7 +39,7 @@ const chatStaffService = {
   getMessages: async (chatId) => {
     try {
       if (!chatId) return [];
-      const response = await api.get(`/chat-nhan-vien/${chatId}/messages`);
+      const response = await api.get(`/chat/staff/${chatId}/messages`);
       return response || [];
     } catch (error) {
       console.error('getMessages error:', error);
@@ -36,29 +49,16 @@ const chatStaffService = {
 
   sendMessage: async (chatId, userId, content) => {
     try {
-      console.log('📤 Staff sendMessage called:', { chatId, userId, content });
-      
-      if (!chatId) throw new Error('chatId is required');
-      if (!userId) throw new Error('userId is required');
-      if (!content || !content.trim()) throw new Error('content is required');
-
+      if (!chatId || !userId || !content || !content.trim()) throw new Error('Missing required fields');
       const payload = {
         chatId: Number(chatId),
         userId: Number(userId),
         message: content.trim(),
         isAi: false
       };
-      
-      console.log('📤 Staff sendMessage payload:', payload);
-      
-      const response = await api.post('/chat-nhan-vien/messages', payload);
-      console.log('✅ Staff sendMessage response:', response);
-      return response;
+      return await api.post('/chat/staff/messages', payload);
     } catch (error) {
       console.error('sendMessage error:', error);
-      if (error.response) {
-        console.error('Response data:', error.response.data);
-      }
       throw error;
     }
   },
@@ -66,43 +66,39 @@ const chatStaffService = {
   markAsRead: async (chatId, userId) => {
     try {
       if (!chatId || !userId) return;
-      const response = await api.put(`/chat-nhan-vien/${chatId}/read/${userId}`);
-      return response;
+      return await api.put(`/chat/staff/${chatId}/read/${userId}`);
     } catch (error) {
       console.error('markAsRead error:', error);
       throw error;
     }
   },
 
-  assignAdmin: async (chatId, adminId) => {
+  acceptChat: async (chatId, staffUserId) => {
     try {
-      const response = await api.put(`/chat-nhan-vien/${chatId}/assign/${adminId}`);
-      return response;
+      return await api.post(`/chat/staff/${chatId}/accept/${staffUserId}`);
     } catch (error) {
-      console.error('assignAdmin error:', error);
+      console.error('acceptChat error:', error);
       throw error;
     }
   },
 
-  closeChat: async (chatId) => {
+  closeChat: async (chatId, staffUserId) => {
     try {
-      const response = await api.put(`/chat-nhan-vien/${chatId}/close`);
-      return response;
+      return await api.post(`/chat/staff/${chatId}/close/${staffUserId}`);
     } catch (error) {
       console.error('closeChat error:', error);
       throw error;
     }
   },
-
-  countUnreadMessages: async (chatId, userId) => {
+  
+  reopenChat: async (chatId, staffUserId) => {
     try {
-      const response = await api.get(`/chat-nhan-vien/${chatId}/unread/${userId}`);
-      return response || 0;
+      return await api.post(`/chat/staff/${chatId}/reopen/${staffUserId}`);
     } catch (error) {
-      console.error('countUnreadMessages error:', error);
-      return 0;
+      console.error('reopenChat error:', error);
+      throw error;
     }
-  },
+  }
 };
 
 export default chatStaffService;

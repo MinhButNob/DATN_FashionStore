@@ -29,8 +29,12 @@ public class Message {
     @JoinColumn(name = "user_id")
     private User user;
 
-    @Column(name = "message_content")
+
+    @Column(name = "message_content", columnDefinition = "TEXT")
     private String messageContent;
+
+//    @Column(name = "message_content")
+//    private String messageContent;
 
     @CreationTimestamp
     @Column(name = "sent_date", updatable = false)
