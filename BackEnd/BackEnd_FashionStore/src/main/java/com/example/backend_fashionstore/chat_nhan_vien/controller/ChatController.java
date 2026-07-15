@@ -69,18 +69,18 @@ public class ChatController {
         List<ChatDTO> chats = chatService.getAllActiveChats();
         return ResponseEntity.ok(chats);
     }
-
-    @GetMapping("/admin/{adminId}")
-    public ResponseEntity<List<ChatDTO>> getChatsByAdmin(@PathVariable Long adminId) {
-        List<ChatDTO> chats = chatService.getChatsByAdmin(adminId);
-        return ResponseEntity.ok(chats);
-    }
-
-    @PutMapping("/{chatId}/assign/{adminId}")
-    public ResponseEntity<ChatDTO> assignAdmin(@PathVariable Long chatId, @PathVariable Long adminId) {
-        ChatDTO chat = chatService.assignAdmin(chatId, adminId);
-        return ResponseEntity.ok(chat);
-    }
+//
+//    @GetMapping("/admin/{adminId}")
+//    public ResponseEntity<List<ChatDTO>> getChatsByAdmin(@PathVariable Long adminId) {
+//        List<ChatDTO> chats = chatService.getChatsByAdmin(adminId);
+//        return ResponseEntity.ok(chats);
+//    }
+//
+//    @PutMapping("/{chatId}/assign/{adminId}")
+//    public ResponseEntity<ChatDTO> assignAdmin(@PathVariable Long chatId, @PathVariable Long adminId) {
+//        ChatDTO chat = chatService.assignAdmin(chatId, adminId);
+//        return ResponseEntity.ok(chat);
+//    }
 
     @PutMapping("/{chatId}/close")
     public ResponseEntity<Void> closeChat(@PathVariable Long chatId) {
@@ -100,11 +100,11 @@ public class ChatController {
         return ResponseEntity.ok().build();
     }
 
-    @GetMapping("/{chatId}/unread/{userId}")
-    public ResponseEntity<Long> countUnreadMessages(@PathVariable Long chatId, @PathVariable Long userId) {
-        Long count = chatService.countUnreadMessages(chatId, userId);
-        return ResponseEntity.ok(count);
-    }
+//    @GetMapping("/{chatId}/unread/{userId}")
+//    public ResponseEntity<Long> countUnreadMessages(@PathVariable Long chatId, @PathVariable Long userId) {
+//        Long count = chatService.countUnreadMessages(chatId, userId);
+//        return ResponseEntity.ok(count);
+//    }
 
     @GetMapping("/customer/{customerId}/unread/total")
     public ResponseEntity<Long> countTotalUnreadMessages(@PathVariable Long customerId) {

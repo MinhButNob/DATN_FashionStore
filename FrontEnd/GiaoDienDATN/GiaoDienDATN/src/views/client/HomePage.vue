@@ -115,9 +115,6 @@
 
     <ClientFooter />
     <CartModal />
-    
-    <!-- Chat Bubble -->
-    <ChatBubble :customerId="customerId" />
   </div>
 </template>
 
@@ -129,7 +126,6 @@ import ClientHeader from "../../components/client/ClientHeader.vue";
 import ClientFooter from "../../components/client/ClientFooter.vue";
 import BannerSlider from "../../components/client/BannerSlider.vue";
 import CartModal from "../../components/client/CartModal.vue";
-import ChatBubble from "../../components/client/ChatBubble.vue";
 import { useCartStore } from "../../stores/cartStore";
 import { useAuthStore } from "../../stores/authStore";
 import axios from "axios";

@@ -10,17 +10,14 @@
           @input="handleSearch"
         />
       </div>
-
       <div v-if="loadingConversations" class="loading-state">
         <i class="fas fa-spinner fa-spin"></i>
         <p>Đang tải danh sách...</p>
       </div>
-
       <div v-else-if="filteredConversations.length === 0" class="empty-state">
         <i class="fas fa-comments"></i>
         <p>{{ search ? 'Không tìm thấy' : 'Không có cuộc trò chuyện nào' }}</p>
       </div>
-
       <button
         v-for="conversation in filteredConversations"
         :key="conversation.chatId"
@@ -39,13 +36,17 @@
             <span>{{ formatTime(conversation.createdAt) }}</span>
           </div>
           <p>{{ conversation.lastMessage?.messageContent || 'Chưa có tin nhắn' }}</p>
+          <!-- FIX: hiện rõ ai đang phụ trách - tránh nhân viên khác tưởng nhầm mình
+               nhắn được vào chat này -->
+          <p v-if="conversation.status === 'ACTIVE' && conversation.adminName" class="assigned-label">
+            👤 {{ conversation.adminName }} đang phụ trách
+          </p>
         </div>
         <span v-if="conversation.unreadCount > 0" class="unread-dot">
           {{ conversation.unreadCount > 99 ? '99+' : conversation.unreadCount }}
         </span>
       </button>
     </aside>
-
     <section class="chat-panel" v-if="selectedConversation">
       <div class="chat-header">
         <div class="avatar">{{ getInitial(selectedConversation.customerName) }}</div>
@@ -59,7 +60,7 @@
         </div>
         <div class="header-actions">
           <button 
-            v-if="selectedConversation.status === 'ACTIVE'" 
+            v-if="selectedConversation.status === 'ACTIVE' && isOwnChat" 
             class="close-chat-btn" 
             @click="closeConversation"
             title="Đóng cuộc trò chuyện"
@@ -76,7 +77,6 @@
           </button>
         </div>
       </div>
-
       <div class="messages" ref="messagesContainer">
         <div v-if="loadingMessages" class="loading-state">
           <i class="fas fa-spinner fa-spin"></i>
@@ -87,7 +87,6 @@
           <i class="fas fa-comment-dots"></i>
           <p>Chưa có tin nhắn nào</p>
         </div>
-
         <div 
           v-for="message in messages" 
           :key="message.messageId" 
@@ -105,8 +104,11 @@
           </div>
         </div>
       </div>
-
-      <div class="reply-box" v-if="selectedConversation.status === 'ACTIVE'">
+      <!-- FIX: banner cảnh báo khi chat đang được nhân viên KHÁC phụ trách -->
+      <div v-if="selectedConversation.status === 'ACTIVE' && !isOwnChat" class="assigned-banner">
+        🔒 Cuộc trò chuyện này đang được <strong>{{ selectedConversation.adminName || 'nhân viên khác' }}</strong> phụ trách. Bạn chỉ có thể xem, không thể trả lời.
+      </div>
+      <div class="reply-box" v-if="selectedConversation.status === 'ACTIVE' && isOwnChat">
         <input 
           v-model="reply" 
           type="text" 
@@ -133,7 +135,6 @@
         </button>
       </div>
     </section>
-
     <section class="customer-panel" v-if="selectedConversation">
       <div class="customer-info">
         <h3>Thông tin khách hàng</h3>
@@ -154,7 +155,6 @@
           <strong>{{ formatTime(selectedConversation.createdAt) }}</strong>
         </div>
       </div>
-
       <div class="quick-templates">
         <h3>Gợi ý phản hồi</h3>
         <button 
@@ -171,7 +171,6 @@
     </section>
   </div>
 </template>
-
 <!-- components/staff/StaffChat.vue -->
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
@@ -180,11 +179,9 @@ import { useChatStore } from '../../stores/chatStore';
 import chatStaffService from '../../services/chatStaffService';
 import { useNotificationNhanVien } from '../../composables/useNotificationNhanVien';
 import { useAuthStore } from '../../stores/authStore';
-
 const chatStore = useChatStore();
 const authStore = useAuthStore();
 const { successWithIcon, showApiError, error } = useNotificationNhanVien();
-
 const {
   conversations,
   selectedConversation,
@@ -193,7 +190,6 @@ const {
   searchKeyword,
   unreadCount,
 } = storeToRefs(chatStore);
-
 const reply = ref('');
 const search = ref('');
 const messagesContainer = ref(null);
@@ -202,7 +198,6 @@ const refreshing = ref(false);
 const sending = ref(false);
 const loadingConversations = ref(false);
 const loadingMessages = ref(false);
-
 const templates = [
   "Dạ shop đang kiểm tra và phản hồi mình ngay ạ.",
   "Dạ sản phẩm này hiện còn hàng tại cửa hàng.",
@@ -210,7 +205,6 @@ const templates = [
   "Dạ shop xin lỗi vì sự chậm trễ ạ.",
   "Dạ mình vui lòng cung cấp thêm thông tin để shop hỗ trợ tốt hơn ạ.",
 ];
-
 const filteredConversations = computed(() => {
   const keyword = search.value.toLowerCase().trim();
   if (!keyword) return conversations.value;
@@ -220,11 +214,9 @@ const filteredConversations = computed(() => {
     item.phone?.includes(keyword)
   );
 });
-
 const getInitial = (name) => {
   return name ? name.charAt(0).toUpperCase() : '?';
 };
-
 const formatTime = (timestamp) => {
   if (!timestamp) return '';
   const date = new Date(timestamp);
@@ -237,7 +229,6 @@ const formatTime = (timestamp) => {
   }
   return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
 };
-
 const scrollToBottom = () => {
   nextTick(() => {
     if (messagesContainer.value) {
@@ -245,7 +236,6 @@ const scrollToBottom = () => {
     }
   });
 };
-
 const focusReply = () => {
   nextTick(() => {
     if (replyInput.value) {
@@ -253,7 +243,6 @@ const focusReply = () => {
     }
   });
 };
-
 // ===== LOAD CONVERSATIONS =====
 const loadConversations = async () => {
   loadingConversations.value = true;
@@ -274,7 +263,6 @@ const loadConversations = async () => {
     loadingConversations.value = false;
   }
 };
-
 // ===== SELECT CONVERSATION =====
 const selectConversation = async (conversation) => {
   if (!conversation) return;
@@ -307,30 +295,44 @@ const selectConversation = async (conversation) => {
     loadingMessages.value = false;
   }
 };
-
+// Helper dùng chung: lấy đúng userId của staff đang đăng nhập (user.userId)
+const getStaffId = () => {
+  let staffId = authStore.user?.userId || authStore.user?.id || authStore.user?.user_id;
+  if (!staffId) {
+    const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+    staffId = userInfo.userId || userInfo.id || userInfo.user_id || userInfo.staffId;
+  }
+  if (!staffId) {
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    staffId = user.userId || user.id || user.user_id;
+  }
+  return staffId ? Number(staffId) : null;
+};
+// FIX: chat có thuộc về staff đang đăng nhập hay không - dùng để khoá ô nhập
+// và hiện banner cảnh báo NGAY trên UI, thay vì để staff gõ xong mới bị BE từ
+// chối (bug "2 nhân viên tưởng nhắn được vào cùng 1 chat" trước đây).
+// selectedConversation.adminId = chat.admin.userId (đã xác nhận đúng là user.userId).
+const isOwnChat = computed(() => {
+  const conv = selectedConversation.value;
+  if (!conv) return false;
+  if (conv.status !== 'ACTIVE') return true; // chat WAITING/CLOSED không áp dụng khoá này
+  const staffId = getStaffId();
+  return !staffId || !conv.adminId || Number(conv.adminId) === Number(staffId);
+});
 // ===== SEND REPLY =====
 const sendReply = async () => {
   if (!reply.value.trim() || sending.value || selectedConversation.value?.status !== 'ACTIVE') return;
-  
+  // FIX: chặn gửi ngay từ UI nếu chat này không phải của mình, tránh gọi API
+  // rồi mới nhận lỗi 400 khó hiểu.
+  if (!isOwnChat.value) {
+    error(`Chat này đang được nhân viên ${selectedConversation.value?.adminName || 'khác'} phụ trách, bạn không thể trả lời.`);
+    return;
+  }
   const content = reply.value.trim();
   reply.value = '';
   sending.value = true;
-  
   try {
-    let staffId = null;
-    
-    if (authStore.user) {
-      staffId = authStore.user.userId || authStore.user.id || authStore.user.user_id;
-    }
-    if (!staffId) {
-      const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
-      staffId = userInfo.userId || userInfo.id || userInfo.user_id || userInfo.staffId;
-    }
-    if (!staffId) {
-      const user = JSON.parse(localStorage.getItem('user') || '{}');
-      staffId = user.userId || user.id || user.user_id;
-    }
-    
+    const staffId = getStaffId();
     if (!staffId) {
       error('Không tìm thấy thông tin nhân viên. Vui lòng đăng nhập lại!');
       reply.value = content;
@@ -383,14 +385,18 @@ const sendReply = async () => {
     sending.value = false;
   }
 };
-
 // ===== CLOSE CONVERSATION =====
 const closeConversation = async () => {
   if (!selectedConversation.value) return;
-  
+  const staffId = getStaffId();
+  if (!staffId) {
+    error('Không tìm thấy thông tin nhân viên. Vui lòng đăng nhập lại!');
+    return;
+  }
   if (confirm('Bạn có chắc muốn đóng cuộc trò chuyện này?')) {
     try {
-      await chatStaffService.closeChat(selectedConversation.value.chatId);
+      // FIX: bản cũ thiếu staffUserId -> URL bị lỗi /close/undefined
+      await chatStaffService.closeChat(selectedConversation.value.chatId, staffId);
       successWithIcon('Đã đóng cuộc trò chuyện', '🔒');
       await loadConversations();
     } catch (error) {
@@ -399,20 +405,23 @@ const closeConversation = async () => {
     }
   }
 };
-
 // ===== REOPEN CONVERSATION =====
 const reopenConversation = async () => {
-  if (selectedConversation.value) {
-    try {
-      await chatStaffService.closeChat(selectedConversation.value.chatId);
-      await loadConversations();
-      successWithIcon('Đã mở lại cuộc trò chuyện', '🔓');
-    } catch (error) {
-      showApiError(error, 'Không thể mở lại cuộc trò chuyện');
-    }
+  if (!selectedConversation.value) return;
+  const staffId = getStaffId();
+  if (!staffId) {
+    error('Không tìm thấy thông tin nhân viên. Vui lòng đăng nhập lại!');
+    return;
+  }
+  try {
+    // FIX: bản cũ gọi nhầm closeChat() thay vì reopenChat(), và thiếu staffUserId
+    await chatStaffService.reopenChat(selectedConversation.value.chatId, staffId);
+    await loadConversations();
+    successWithIcon('Đã mở lại cuộc trò chuyện', '🔓');
+  } catch (error) {
+    showApiError(error, 'Không thể mở lại cuộc trò chuyện');
   }
 };
-
 // ===== REFRESH MESSAGES =====
 const refreshMessages = async () => {
   if (refreshing.value || !selectedConversation.value) return;
@@ -437,12 +446,10 @@ const refreshMessages = async () => {
     refreshing.value = false;
   }
 };
-
 // ===== SEARCH =====
 const handleSearch = () => {
   chatStore.searchKeyword = search.value;
 };
-
 // ===== WATCHES =====
 watch(
   () => chatStore.messages,
@@ -454,40 +461,32 @@ watch(
   },
   { deep: true, immediate: true }
 );
-
 watch(unreadCount, (newCount) => {
   console.log('📊 Unread count updated:', newCount);
 });
-
 watch(selectedConversation, (newVal) => {
   if (newVal) {
     refreshMessages();
   }
 });
-
 // ===== LIFECYCLE =====
 onMounted(async () => {
   console.log('🔄 StaffChat mounted');
-  
-  chatStore.initWebSocket();
-  await loadConversations();
-  
-  const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
-  console.log('👤 User info on mount:', userInfo);
-  
-  if (!userInfo.userId && !userInfo.id) {
+  const staffId = getStaffId();
+  if (!staffId) {
     error('⚠️ Không tìm thấy thông tin nhân viên. Vui lòng đăng nhập lại!');
   }
-  
+  // FIX: bản cũ gọi initWebSocket() không có staffUserId -> WS connect được
+  // nhưng không bao giờ register -> không nhận được sự kiện nào cả
+  chatStore.initWebSocket(staffId);
+  await loadConversations();
   successWithIcon('Chào mừng đến với Chat hỗ trợ khách hàng', '💬');
 });
-
 onUnmounted(() => {
   console.log('🔄 StaffChat unmounted');
   chatStore.disconnectWebSocket();
 });
 </script>
-
 <style scoped>
 /* ===== CSS giữ nguyên ===== */
 .staff-chat {
@@ -497,7 +496,6 @@ onUnmounted(() => {
   min-height: calc(100vh - 130px);
   animation: fadeIn 0.3s;
 }
-
 .conversation-list,
 .chat-panel,
 .customer-panel {
@@ -506,11 +504,9 @@ onUnmounted(() => {
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
   overflow: hidden;
 }
-
 .conversation-list {
   padding: 16px;
 }
-
 .search-box {
   display: flex;
   align-items: center;
@@ -522,12 +518,10 @@ onUnmounted(() => {
   border: 1px solid transparent;
   transition: all 0.3s;
 }
-
 .search-box:focus-within {
   border-color: #e63946;
   background: white;
 }
-
 .search-box input {
   width: 100%;
   border: none;
@@ -536,7 +530,6 @@ onUnmounted(() => {
   padding: 12px 0;
   font-size: 14px;
 }
-
 .loading-state,
 .empty-state {
   display: flex;
@@ -546,13 +539,11 @@ onUnmounted(() => {
   padding: 40px 20px;
   color: #999;
 }
-
 .loading-state i,
 .empty-state i {
   font-size: 32px;
   margin-bottom: 12px;
 }
-
 .conversation-item {
   width: 100%;
   border: none;
@@ -568,27 +559,21 @@ onUnmounted(() => {
   transition: all 0.2s;
   margin-bottom: 2px;
 }
-
 .conversation-item:hover {
   background: #f8f0f0;
 }
-
 .conversation-item.active {
   background: #fce8e8;
 }
-
 .conversation-item.closed {
   opacity: 0.6;
 }
-
 .conversation-item.closed .avatar {
   background: #999;
 }
-
 .conversation-item.has-unread {
   border-left: 3px solid #e63946;
 }
-
 .avatar {
   width: 42px;
   height: 42px;
@@ -601,24 +586,20 @@ onUnmounted(() => {
   font-weight: 700;
   flex-shrink: 0;
 }
-
 .conversation-top {
   display: flex;
   justify-content: space-between;
   gap: 8px;
   margin-bottom: 4px;
 }
-
 .conversation-top strong {
   color: #1a1a2e;
   font-size: 14px;
 }
-
 .conversation-top span {
   color: #999;
   font-size: 12px;
 }
-
 .conversation-info p {
   color: #999;
   font-size: 12px;
@@ -628,7 +609,6 @@ onUnmounted(() => {
   max-width: 180px;
   margin: 0;
 }
-
 .unread-dot {
   min-width: 20px;
   height: 20px;
@@ -641,12 +621,10 @@ onUnmounted(() => {
   justify-content: center;
   font-weight: 600;
 }
-
 .chat-panel {
   display: flex;
   flex-direction: column;
 }
-
 .chat-header {
   padding: 18px 22px;
   border-bottom: 1px solid #eee;
@@ -654,39 +632,48 @@ onUnmounted(() => {
   align-items: center;
   gap: 12px;
 }
-
 .header-info {
   flex: 1;
 }
-
 .header-info h3 {
   color: #1a1a2e;
   font-size: 17px;
   margin: 0;
 }
-
 .header-info p {
   margin: 2px 0 0;
 }
-
 .status-dot {
   display: inline-block;
   font-size: 13px;
 }
-
 .status-dot.online {
   color: #28a745;
 }
-
 .status-dot.offline {
   color: #dc3545;
 }
-
+/* FIX: nhãn "đang phụ trách" trong danh sách hội thoại */
+.assigned-label {
+  font-size: 11px;
+  color: #6c5ce7;
+  margin-top: 2px;
+  font-style: italic;
+}
+/* FIX: banner cảnh báo chat thuộc nhân viên khác */
+.assigned-banner {
+  background: #fff3cd;
+  color: #856404;
+  padding: 10px 16px;
+  font-size: 13px;
+  border-top: 1px solid #ffeeba;
+  border-bottom: 1px solid #ffeeba;
+  text-align: center;
+}
 .header-actions {
   display: flex;
   gap: 8px;
 }
-
 .close-chat-btn,
 .refresh-btn {
   background: none;
@@ -697,22 +684,18 @@ onUnmounted(() => {
   border-radius: 50%;
   transition: all 0.2s;
 }
-
 .close-chat-btn:hover {
   background: #f5f5f5;
   color: #e63946;
 }
-
 .refresh-btn:hover:not(:disabled) {
   background: #f5f5f5;
   color: #17a2b8;
 }
-
 .refresh-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
-
 .messages {
   flex: 1;
   padding: 22px;
@@ -720,21 +703,17 @@ onUnmounted(() => {
   overflow-y: auto;
   max-height: 500px;
 }
-
 .message-row {
   display: flex;
   margin-bottom: 16px;
   animation: slideIn 0.3s ease;
 }
-
 .message-row.staff {
   justify-content: flex-end;
 }
-
 .message-row.customer {
   justify-content: flex-start;
 }
-
 .message-bubble {
   max-width: 70%;
   padding: 12px 16px;
@@ -742,23 +721,19 @@ onUnmounted(() => {
   background: white;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
-
 .message-row.staff .message-bubble {
   background: #e63946;
   color: white;
 }
-
 .message-row.customer .message-bubble {
   background: white;
   color: #1a1a2e;
 }
-
 .message-content p {
   margin: 0;
   word-wrap: break-word;
   line-height: 1.5;
 }
-
 .message-footer {
   display: flex;
   justify-content: flex-end;
@@ -766,17 +741,14 @@ onUnmounted(() => {
   gap: 6px;
   margin-top: 4px;
 }
-
 .message-footer span {
   font-size: 11px;
   opacity: 0.7;
 }
-
 .message-row.staff .message-footer span,
 .message-row.staff .message-footer i {
   color: rgba(255, 255, 255, 0.8);
 }
-
 .reply-box {
   padding: 16px;
   display: grid;
@@ -785,7 +757,6 @@ onUnmounted(() => {
   border-top: 1px solid #eee;
   background: white;
 }
-
 .reply-box input {
   padding: 10px 14px;
   border: 1px solid #ddd;
@@ -794,11 +765,9 @@ onUnmounted(() => {
   font-size: 14px;
   transition: all 0.2s;
 }
-
 .reply-box input:focus {
   border-color: #e63946;
 }
-
 .reply-box .send-btn {
   background: #e63946;
   color: white;
@@ -810,29 +779,24 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
 }
-
 .reply-box .send-btn:hover:not(:disabled) {
   background: #c62828;
 }
-
 .reply-box .send-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
-
 .chat-closed-message {
   padding: 20px;
   text-align: center;
   color: #999;
   background: #f5f5f5;
 }
-
 .chat-closed-message i {
   font-size: 24px;
   display: block;
   margin-bottom: 8px;
 }
-
 .reopen-btn {
   margin-top: 12px;
   padding: 8px 20px;
@@ -843,25 +807,20 @@ onUnmounted(() => {
   cursor: pointer;
   transition: all 0.2s;
 }
-
 .reopen-btn:hover {
   background: #c62828;
 }
-
 .customer-panel {
   padding: 22px;
 }
-
 .customer-panel h3 {
   color: #1a1a2e;
   font-size: 16px;
   margin-bottom: 16px;
 }
-
 .customer-info {
   margin-bottom: 24px;
 }
-
 .info-row {
   display: flex;
   justify-content: space-between;
@@ -869,21 +828,17 @@ onUnmounted(() => {
   padding: 12px 0;
   border-bottom: 1px solid #eee;
 }
-
 .info-row span i {
   width: 20px;
   color: #e63946;
 }
-
 .info-row strong {
   color: #1a1a2e;
   text-align: right;
 }
-
 .quick-templates {
   margin-top: 24px;
 }
-
 .template-btn {
   width: 100%;
   border: 1px solid #eee;
@@ -900,32 +855,26 @@ onUnmounted(() => {
   align-items: center;
   gap: 8px;
 }
-
 .template-btn i {
   color: #e63946;
   font-size: 14px;
 }
-
 .template-btn:hover:not(:disabled) {
   border-color: #e63946;
   background: #fef5f5;
 }
-
 .template-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
-
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
 }
-
 @keyframes slideIn {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 }
-
 @media (max-width: 1200px) {
   .staff-chat {
     grid-template-columns: 280px 1fr;
@@ -934,7 +883,6 @@ onUnmounted(() => {
     display: none;
   }
 }
-
 @media (max-width: 850px) {
   .staff-chat {
     grid-template-columns: 1fr;

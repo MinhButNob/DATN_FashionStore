@@ -1,3 +1,5 @@
+// ChatCustomerController.java
+// VỊ TRÍ: com/example/backend_fashionstore/chat_nhan_vien/controller/ChatCustomerController.java (THAY THẾ file cũ)
 package com.example.backend_fashionstore.chat_nhan_vien.controller;
 
 import com.example.backend_fashionstore.chat_nhan_vien.dto.ChatDTO;
@@ -5,7 +7,6 @@ import com.example.backend_fashionstore.chat_nhan_vien.dto.ChatRequest;
 import com.example.backend_fashionstore.chat_nhan_vien.dto.MessageDTO;
 import com.example.backend_fashionstore.chat_nhan_vien.dto.MessageRequest;
 import com.example.backend_fashionstore.chat_nhan_vien.service.ChatNhanVienService;
-import com.example.backend_fashionstore.chat_nhan_vien.websocket.ChatWebSocketHandler;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -24,86 +25,50 @@ import java.util.Map;
 public class ChatCustomerController {
 
     private final ChatNhanVienService chatService;
-    private final ChatWebSocketHandler webSocketHandler;
 
     @PostMapping("/create")
     public ResponseEntity<?> createChat(@Valid @RequestBody ChatRequest request) {
         try {
-            System.out.println("Creating chat for customerId: " + request.getCustomerId());
             ChatDTO chat = chatService.createChat(request);
             return new ResponseEntity<>(chat, HttpStatus.CREATED);
         } catch (RuntimeException e) {
-            Map<String, Object> errorResponse = new HashMap<>();
-            errorResponse.put("message", e.getMessage());
-            errorResponse.put("status", HttpStatus.BAD_REQUEST.value());
-            errorResponse.put("customerId", request.getCustomerId());
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+            return errorResponse(e, HttpStatus.BAD_REQUEST);
         } catch (Exception e) {
-            Map<String, Object> errorResponse = new HashMap<>();
-            errorResponse.put("message", "Lỗi server: " + e.getMessage());
-            errorResponse.put("status", HttpStatus.INTERNAL_SERVER_ERROR.value());
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+            return errorResponse(e, HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
     @GetMapping("/conversations")
     public ResponseEntity<List<ChatDTO>> getCustomerConversations(@RequestParam Long customerId) {
-        System.out.println("Getting conversations for customerId: " + customerId);
-        List<ChatDTO> chats = chatService.getChatsByCustomer(customerId);
-        System.out.println("Found " + chats.size() + " conversations");
-        return ResponseEntity.ok(chats);
+        return ResponseEntity.ok(chatService.getChatsByCustomer(customerId));
     }
 
     @GetMapping("/{chatId}/messages")
     public ResponseEntity<List<MessageDTO>> getMessages(@PathVariable Long chatId) {
-        List<MessageDTO> messages = chatService.getMessagesByChat(chatId);
-        return ResponseEntity.ok(messages);
+        return ResponseEntity.ok(chatService.getMessagesByChat(chatId));
     }
 
-    // ===== SỬA: Gửi WebSocket từ Controller =====
+    // Không tự bắn WebSocket ở đây nữa - chatService.sendMessage() đã lo việc đó
+    // cho MỌI nơi gọi tới nó (customer, staff, admin controller), tránh sót.
     @PostMapping("/{chatId}/messages")
-    public ResponseEntity<?> sendMessage(
-            @PathVariable Long chatId,
-            @Valid @RequestBody MessageRequest request,
-            BindingResult bindingResult) {
-
+    public ResponseEntity<?> sendMessage(@PathVariable Long chatId,
+                                         @Valid @RequestBody MessageRequest request,
+                                         BindingResult bindingResult) {
         if (bindingResult.hasErrors()) {
             Map<String, String> errors = new HashMap<>();
-            bindingResult.getFieldErrors().forEach(error ->
-                    errors.put(error.getField(), error.getDefaultMessage())
-            );
+            bindingResult.getFieldErrors().forEach(e -> errors.put(e.getField(), e.getDefaultMessage()));
             return ResponseEntity.badRequest().body(errors);
         }
-
         try {
-            System.out.println("Sending message for chatId: " + chatId + ", userId: " + request.getUserId());
             request.setChatId(chatId);
-
             MessageDTO message = chatService.sendMessage(request);
-
-            // ===== Gửi WebSocket notification =====
-            Map<String, Object> messageData = new HashMap<>();
-            messageData.put("chatId", chatId);
-            messageData.put("message", message);
-            messageData.put("senderType", message.getUserRole());
-            webSocketHandler.notifyStaffNewMessage(messageData);
-
             return new ResponseEntity<>(message, HttpStatus.CREATED);
         } catch (RuntimeException e) {
-            Map<String, Object> errorResponse = new HashMap<>();
-            errorResponse.put("message", e.getMessage());
-            errorResponse.put("status", HttpStatus.BAD_REQUEST.value());
-            errorResponse.put("chatId", chatId);
-            errorResponse.put("userId", request.getUserId());
-            e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+            return errorResponse(e, HttpStatus.BAD_REQUEST);
         } catch (Exception e) {
-            Map<String, Object> errorResponse = new HashMap<>();
-            errorResponse.put("message", "Lỗi server: " + e.getMessage());
-            errorResponse.put("status", HttpStatus.INTERNAL_SERVER_ERROR.value());
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+            return errorResponse(e, HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -115,15 +80,19 @@ public class ChatCustomerController {
 
     @GetMapping("/unread-count")
     public ResponseEntity<Map<String, Long>> getUnreadCount(@RequestParam Long customerId) {
-        Long count = chatService.countTotalUnreadMessages(customerId);
-        Map<String, Long> response = new HashMap<>();
-        response.put("unreadCount", count);
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(Map.of("unreadCount", chatService.countTotalUnreadMessages(customerId)));
     }
 
     @PutMapping("/{chatId}/close")
     public ResponseEntity<Void> closeConversation(@PathVariable Long chatId) {
         chatService.closeChat(chatId);
         return ResponseEntity.ok().build();
+    }
+
+    private ResponseEntity<?> errorResponse(Exception e, HttpStatus status) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("message", e.getMessage());
+        body.put("status", status.value());
+        return ResponseEntity.status(status).body(body);
     }
 }
