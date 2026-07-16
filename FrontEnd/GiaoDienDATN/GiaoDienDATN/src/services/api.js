@@ -99,8 +99,9 @@ export const getPromotions = (
   sortBy = "promotionId",
   sortDir = "asc",
 ) => {
+  const trimmedKeyword = keyword ? keyword.trim() : "";
   return api.get("/admin/promotions", {
-    params: { page, size, status, keyword, sortBy, sortDir },
+    params: { page, size, status, keyword: trimmedKeyword, sortBy, sortDir },
   });
 };
 
@@ -147,8 +148,9 @@ export const getVouchers = (
   sortBy = "voucherId",
   sortDir = "asc",
 ) => {
+  const trimmedKeyword = keyword ? keyword.trim() : "";
   return api.get("/admin/vouchers", {
-    params: { page, size, status, keyword, sortBy, sortDir },
+    params: { page, size, status, keyword: trimmedKeyword, sortBy, sortDir },
   });
 };
 

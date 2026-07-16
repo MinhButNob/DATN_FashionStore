@@ -32,8 +32,16 @@
                 <span class="value">{{ profile.phone || 'Chưa cập nhật' }}</span>
               </div>
               <div class="info-row">
+                <span class="label">Email:</span>
+                <span class="value">{{ profile.email || 'Chưa cập nhật' }}</span>
+              </div>
+              <div class="info-row">
                 <span class="label">Địa chỉ:</span>
-                <span class="value">{{ profile.address || 'Chưa cập nhật' }}</span>
+                <span class="value">
+                  {{ profile.address || 'Chưa cập nhật' }}
+                  <span v-if="profile.district">, {{ profile.district }}</span>
+                  <span v-if="profile.city">, {{ profile.city }}</span>
+                </span>
               </div>
               <!-- ✅ Hiển thị voucher đang áp dụng -->
               <div v-if="cartStore.voucherCode" class="info-row voucher-info">
@@ -46,25 +54,35 @@
             <!-- Form chỉnh sửa thông tin -->
             <div v-if="isEditing" class="edit-form">
               <h3>Chỉnh sửa thông tin giao hàng</h3>
-              <div class="form-group">
+              <div class="form-group" :class="{ 'has-error': errors.fullName }">
                 <label>Họ và tên <span class="required">*</span></label>
-                <input type="text" v-model="editForm.fullName" required placeholder="Nhập họ và tên" />
+                <input type="text" v-model="editForm.fullName" @input="errors.fullName = ''" placeholder="Nhập họ và tên" />
+                <span v-if="errors.fullName" class="error-message">{{ errors.fullName }}</span>
               </div>
-              <div class="form-group">
+              <div class="form-group" :class="{ 'has-error': errors.phone }">
                 <label>Số điện thoại <span class="required">*</span></label>
-                <input type="tel" v-model="editForm.phone" required placeholder="Nhập số điện thoại" />
+                <input type="tel" v-model="editForm.phone" @input="handlePhoneInput" placeholder="Nhập số điện thoại" />
+                <span v-if="errors.phone" class="error-message">{{ errors.phone }}</span>
               </div>
-              <div class="form-group">
+              <div class="form-group" :class="{ 'has-error': errors.email }">
+                <label>Email <span class="required">*</span></label>
+                <input type="email" v-model="editForm.email" @input="errors.email = ''" placeholder="Nhập email" />
+                <span v-if="errors.email" class="error-message">{{ errors.email }}</span>
+              </div>
+              <div class="form-group" :class="{ 'has-error': errors.address }">
                 <label>Địa chỉ <span class="required">*</span></label>
-                <input type="text" v-model="editForm.address" required placeholder="Số nhà, tên đường" />
+                <input type="text" v-model="editForm.address" @input="errors.address = ''" placeholder="Số nhà, tên đường" />
+                <span v-if="errors.address" class="error-message">{{ errors.address }}</span>
               </div>
-              <div class="form-group">
-                <label>Thành phố/Tỉnh</label>
-                <input type="text" v-model="editForm.city" placeholder="Thành phố" />
+              <div class="form-group" :class="{ 'has-error': errors.city }">
+                <label>Thành phố/Tỉnh <span class="required">*</span></label>
+                <input type="text" v-model="editForm.city" @input="errors.city = ''" placeholder="Thành phố/Tỉnh" />
+                <span v-if="errors.city" class="error-message">{{ errors.city }}</span>
               </div>
-              <div class="form-group">
-                <label>Quận/Huyện</label>
-                <input type="text" v-model="editForm.district" placeholder="Quận/Huyện" />
+              <div class="form-group" :class="{ 'has-error': errors.district }">
+                <label>Quận/Huyện <span class="required">*</span></label>
+                <input type="text" v-model="editForm.district" @input="errors.district = ''" placeholder="Quận/Huyện" />
+                <span v-if="errors.district" class="error-message">{{ errors.district }}</span>
               </div>
               <div class="form-actions">
                 <button type="button" class="btn-save-info" @click="saveProfileInfo" :disabled="saving">
@@ -217,7 +235,17 @@ const editForm = reactive({
   address: '',
   city: '',
   district: '',
-  ward: ''
+  ward: '',
+  email: ''
+})
+
+const errors = reactive({
+  fullName: '',
+  phone: '',
+  email: '',
+  address: '',
+  city: '',
+  district: ''
 })
 
 const orderData = ref({
@@ -293,6 +321,7 @@ const fetchProfile = async () => {
     editForm.city = profile.city
     editForm.district = profile.district
     editForm.ward = profile.ward
+    editForm.email = profile.email
 
   } catch (error) {
     console.error('Error fetching profile:', error)
@@ -307,21 +336,113 @@ const toggleEdit = () => {
     editForm.city = profile.city
     editForm.district = profile.district
     editForm.ward = profile.ward
+    editForm.email = profile.email
+    
+    // Clear errors when cancelling
+    errors.fullName = ''
+    errors.phone = ''
+    errors.email = ''
+    errors.address = ''
+    errors.city = ''
+    errors.district = ''
   }
   isEditing.value = !isEditing.value
 }
 
+const handlePhoneInput = () => {
+  editForm.phone = editForm.phone.replace(/\D/g, '')
+  errors.phone = ''
+  if (editForm.phone.length === 10) {
+    validatePhone()
+  }
+}
+
+const validatePhone = () => {
+  const phoneVal = editForm.phone?.trim() || ''
+  if (!phoneVal) {
+    errors.phone = 'Số điện thoại không được để trống'
+  } else if (!/^(0[3|5|7|8|9])+([0-9]{8})$/.test(phoneVal)) {
+    errors.phone = 'Số điện thoại không hợp lệ (VD: 0912345678)'
+  } else {
+    errors.phone = ''
+  }
+}
+
+const validateForm = () => {
+  let isValid = true
+
+  // Validate Full Name
+  const name = editForm.fullName?.trim() || ''
+  if (!name) {
+    errors.fullName = 'Họ và tên không được để trống'
+    isValid = false
+  } else if (/[^\p{L}\s]/u.test(name)) {
+    errors.fullName = 'Họ và tên không được chứa số hoặc ký tự đặc biệt'
+    isValid = false
+  } else if (name.length < 2) {
+    errors.fullName = 'Họ và tên phải có ít nhất 2 ký tự'
+    isValid = false
+  } else {
+    errors.fullName = ''
+  }
+
+  // Validate Phone
+  const phoneVal = editForm.phone?.trim() || ''
+  if (!phoneVal) {
+    errors.phone = 'Số điện thoại không được để trống'
+    isValid = false
+  } else if (!/^(0[3|5|7|8|9])+([0-9]{8})$/.test(phoneVal)) {
+    errors.phone = 'Số điện thoại không hợp lệ (VD: 0912345678)'
+    isValid = false
+  } else {
+    errors.phone = ''
+  }
+
+  // Validate Email
+  const emailVal = editForm.email?.trim() || ''
+  if (!emailVal) {
+    errors.email = 'Email không được để trống'
+    isValid = false
+  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal)) {
+    errors.email = 'Email không đúng định dạng (VD: example@gmail.com)'
+    isValid = false
+  } else {
+    errors.email = ''
+  }
+
+  // Validate Address
+  const addressVal = editForm.address?.trim() || ''
+  if (!addressVal) {
+    errors.address = 'Địa chỉ không được để trống'
+    isValid = false
+  } else {
+    errors.address = ''
+  }
+
+  // Validate City
+  const cityVal = editForm.city?.trim() || ''
+  if (!cityVal) {
+    errors.city = 'Thành phố/Tỉnh không được để trống'
+    isValid = false
+  } else {
+    errors.city = ''
+  }
+
+  // Validate District
+  const districtVal = editForm.district?.trim() || ''
+  if (!districtVal) {
+    errors.district = 'Quận/Huyện không được để trống'
+    isValid = false
+  } else {
+    errors.district = ''
+  }
+
+  return isValid
+}
+
 const saveProfileInfo = async () => {
-  if (!editForm.fullName || editForm.fullName.trim() === '') {
-    showNotification('Vui lòng nhập họ và tên', 'error')
-    return
-  }
-  if (!editForm.phone || editForm.phone.trim() === '') {
-    showNotification('Vui lòng nhập số điện thoại', 'error')
-    return
-  }
-  if (!editForm.address || editForm.address.trim() === '') {
-    showNotification('Vui lòng nhập địa chỉ', 'error')
+  if (!validateForm()) {
+    showNotification('Vui lòng kiểm tra lại thông tin giao hàng!', 'error')
     return
   }
 
@@ -336,6 +457,7 @@ const saveProfileInfo = async () => {
 
     const payload = {
       fullName: editForm.fullName.trim(),
+      email: editForm.email.trim(),
       phone: editForm.phone.trim(),
       address: editForm.address.trim(),
       city: editForm.city?.trim() || '',
@@ -358,6 +480,7 @@ const saveProfileInfo = async () => {
     profile.city = data.city || editForm.city
     profile.district = data.district || editForm.district
     profile.ward = data.ward || editForm.ward
+    profile.email = data.email || editForm.email
 
     if (authStore.user) {
       authStore.user.username = profile.fullName
@@ -377,8 +500,47 @@ const saveProfileInfo = async () => {
 
 // ✅ Đặt hàng - chuyển về Profile Page
 const placeOrder = async () => {
-  if (!profile.address || profile.address.trim() === '') {
-    showNotification('Vui lòng cập nhật địa chỉ trước khi đặt hàng!', 'error')
+  // Validate before place order to ensure we have valid and complete info
+  const name = profile.fullName?.trim() || profile.customerName?.trim() || ''
+  const phone = profile.phone?.trim() || ''
+  const email = profile.email?.trim() || ''
+  const address = profile.address?.trim() || ''
+  const city = profile.city?.trim() || ''
+  const district = profile.district?.trim() || ''
+
+  if (!name || name.length < 2 || /[^\p{L}\s]/u.test(name)) {
+    showNotification('Vui lòng cập nhật họ và tên hợp lệ trước khi đặt hàng!', 'error')
+    isEditing.value = true
+    return
+  }
+
+  if (!phone || !/^(0[3|5|7|8|9])+([0-9]{8})$/.test(phone)) {
+    showNotification('Vui lòng cập nhật số điện thoại hợp lệ trước khi đặt hàng!', 'error')
+    isEditing.value = true
+    return
+  }
+
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    showNotification('Vui lòng cập nhật email hợp lệ trước khi đặt hàng!', 'error')
+    isEditing.value = true
+    return
+  }
+
+  if (!address) {
+    showNotification('Vui lòng cập nhật địa chỉ giao hàng trước khi đặt hàng!', 'error')
+    isEditing.value = true
+    return
+  }
+
+  if (!city) {
+    showNotification('Vui lòng cập nhật Thành phố/Tỉnh trước khi đặt hàng!', 'error')
+    isEditing.value = true
+    return
+  }
+
+  if (!district) {
+    showNotification('Vui lòng cập nhật Quận/Huyện trước khi đặt hàng!', 'error')
+    isEditing.value = true
     return
   }
 
@@ -394,9 +556,9 @@ const placeOrder = async () => {
   }))
 
   const orderPayload = {
-    shippingFullName: profile.fullName || 'Khách hàng',
-    shippingPhone: profile.phone || '',
-    shippingAddress: profile.address || '',
+    shippingFullName: name,
+    shippingPhone: phone,
+    shippingAddress: address,
     shippingCity: profile.city || 'Hà Nội',
     shippingDistrict: profile.district || '',
     shippingWard: profile.ward || '',
@@ -460,9 +622,19 @@ onMounted(async () => {
   await fetchProfile()
   await cartStore.fetchCart()
   
-  if (!profile.address) {
+  const name = profile.fullName?.trim() || profile.customerName?.trim() || ''
+  const phone = profile.phone?.trim() || ''
+  const email = profile.email?.trim() || ''
+  const address = profile.address?.trim() || ''
+  const city = profile.city?.trim() || ''
+  const district = profile.district?.trim() || ''
+
+  if (!address || !name || !phone || !email || !city || !district || 
+      /[^\p{L}\s]/u.test(name) || name.length < 2 || 
+      !/^(0[3|5|7|8|9])+([0-9]{8})$/.test(phone) || 
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     isEditing.value = true
-    showNotification('Vui lòng cập nhật thông tin giao hàng!', 'warning')
+    showNotification('Vui lòng cập nhật đầy đủ và chính xác thông tin giao hàng!', 'warning')
   }
 })
 </script>
@@ -924,5 +1096,16 @@ main {
   .form-actions button {
     width: 100%;
   }
+}
+
+.error-message {
+  color: #e63946;
+  font-size: 12px;
+  margin-top: 5px;
+  display: block;
+}
+
+.form-group.has-error input {
+  border-color: #e63946;
 }
 </style>

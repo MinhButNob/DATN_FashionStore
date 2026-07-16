@@ -38,7 +38,7 @@ public class AuthServiceImpl implements AuthService {
     public AuthResponse register(RegisterRequest request) {
 
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("Email already exists");
+            throw new RuntimeException("Email đã được sử dụng bởi tài khoản khác");
         }
 
         if (request.getPhone() != null && !request.getPhone().isBlank()) {

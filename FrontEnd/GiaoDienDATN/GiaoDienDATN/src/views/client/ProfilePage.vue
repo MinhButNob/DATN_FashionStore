@@ -384,7 +384,8 @@
                       class="wishlist-card"
                     >
                       <div class="product-image" @click="goToProduct(product.id)">
-                        <i :class="['fas', `fa-${product.image || 'tshirt'}`]"></i>
+                        <img v-if="product.image && product.image.startsWith('http')" :src="product.image" :alt="product.name" class="wishlist-img" />
+                        <i v-else :class="['fas', `fa-${product.image || 'tshirt'}`]"></i>
                         <button
                           class="remove-btn"
                           @click.stop="removeFromWishlist(product.id)"
@@ -707,6 +708,7 @@ import { ref, reactive, computed, onMounted, watch } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { useAuthStore } from "../../stores/authStore";
 import { useCartStore } from "../../stores/cartStore";
+import { useWishlistStore } from "../../stores/wishlistStore";
 import { useNotification } from "../../composables/useNotification";
 import ClientHeader from "../../components/client/ClientHeader.vue";
 import ClientFooter from "../../components/client/ClientFooter.vue";
@@ -720,6 +722,7 @@ const router = useRouter();
 const route = useRoute();
 const authStore = useAuthStore();
 const cartStore = useCartStore();
+const wishlistStore = useWishlistStore();
 const { showNotification } = useNotification();
 
 // ✅ BASE URL CHO ẢNH
@@ -798,7 +801,7 @@ const displayEmail = computed(() => {
 const orders = ref([]);
 
 // Wishlist data
-const wishlist = ref([]);
+const wishlist = computed(() => wishlistStore.wishlistItems);
 
 // Toast
 const showToast = ref(false);
@@ -1442,10 +1445,7 @@ const closeImageViewer = () => {
 const fetchWishlist = async () => {
   wishlistLoading.value = true;
   try {
-    wishlist.value = [
-      { id: 1, name: "Áo thun nam", price: 199000, image: "tshirt" },
-      { id: 2, name: "Đầm nữ công sở", price: 399000, image: "dress" },
-    ];
+    await wishlistStore.fetchWishlist();
   } catch (error) {
     console.error("Error fetching wishlist:", error);
   } finally {
@@ -1458,13 +1458,23 @@ const goToProduct = (id) => {
 };
 
 const addToCart = (product) => {
-  cartStore.addToCart(product);
+  cartStore.addToCart({
+    productId: product.id,
+    productName: product.name,
+    price: product.price,
+    quantity: 1,
+    image: product.image
+  });
   showNotificationMsg("Đã thêm vào giỏ hàng", "success");
 };
 
-const removeFromWishlist = (id) => {
-  wishlist.value = wishlist.value.filter((p) => p.id !== id);
-  showNotificationMsg("Đã xóa khỏi danh sách yêu thích", "info");
+const removeFromWishlist = async (id) => {
+  const success = await wishlistStore.toggleWishlist(id);
+  if (success) {
+    showNotificationMsg("Đã xóa khỏi danh sách yêu thích", "info");
+  } else {
+    showNotificationMsg("Không thể xóa sản phẩm, vui lòng thử lại", "error");
+  }
 };
 
 // ===== PASSWORD FUNCTIONS =====
@@ -2891,6 +2901,17 @@ main {
 }
 
 /* ===== WISHLIST ===== */
+.wishlist-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s;
+}
+
+.wishlist-card:hover .wishlist-img {
+  transform: scale(1.05);
+}
+
 .wishlist-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));

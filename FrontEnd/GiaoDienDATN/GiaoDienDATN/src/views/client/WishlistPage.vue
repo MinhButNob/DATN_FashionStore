@@ -18,7 +18,8 @@
         <div v-else class="wishlist-grid">
           <div v-for="item in wishlistItems" :key="item.id" class="wishlist-card">
             <div class="product-image" @click="goToProduct(item.id)">
-              <i :class="['fas', `fa-${item.image}`]"></i>
+              <img v-if="item.image && item.image.startsWith('http')" :src="item.image" :alt="item.name" class="wishlist-img" />
+              <i v-else :class="['fas', `fa-${item.image || 'tshirt'}`]"></i>
               <button class="remove-btn" @click.stop="removeFromWishlist(item.id)">
                 <i class="fas fa-times"></i>
               </button>
@@ -75,10 +76,12 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCartStore } from '../../stores/cartStore'
 import { useProductStore } from '../../stores/productStore'
+import { useWishlistStore } from '../../stores/wishlistStore'
+import { useAuthStore } from '../../stores/authStore'
 import { useNotification } from '../../composables/useNotification'
 import ClientHeader from '../../components/client/ClientHeader.vue'
 import ClientFooter from '../../components/client/ClientFooter.vue'
@@ -89,46 +92,22 @@ import { formatPrice, getStarClass } from '../../utils/helpers'
 const router = useRouter()
 const cartStore = useCartStore()
 const productStore = useProductStore()
+const wishlistStore = useWishlistStore()
+const authStore = useAuthStore()
 const { showNotification } = useNotification()
 
-// Mock wishlist data
-const wishlistItems = ref([
-  { 
-    id: 1, 
-    name: 'Áo thun nam cổ tròn', 
-    price: 199000, 
-    oldPrice: 299000,
-    rating: 4.5,
-    sold: 120,
-    image: 'tshirt',
-    inStock: true
-  },
-  { 
-    id: 2, 
-    name: 'Đầm nữ công sở', 
-    price: 399000, 
-    oldPrice: 599000,
-    rating: 4.8,
-    sold: 85,
-    image: 'dress',
-    inStock: true
-  },
-  { 
-    id: 4, 
-    name: 'Áo khoác nữ', 
-    price: 599000, 
-    oldPrice: 899000,
-    rating: 4.7,
-    sold: 65,
-    image: 'jacket',
-    inStock: false
+const wishlistItems = computed(() => wishlistStore.wishlistItems)
+
+onMounted(async () => {
+  if (authStore.isAuthenticated) {
+    await wishlistStore.fetchWishlist()
   }
-])
+})
 
 const suggestedProducts = computed(() => {
   const wishlistIds = wishlistItems.value.map(item => item.id)
   return productStore.products
-    .filter(p => !wishlistIds.includes(p.id))
+    .filter(p => !wishlistIds.includes(p.productId || p.id))
     .slice(0, 4)
 })
 
@@ -137,13 +116,23 @@ const goToProduct = (id) => {
 }
 
 const addToCart = (product) => {
-  cartStore.addToCart(product)
+  cartStore.addToCart({
+    productId: product.id,
+    productName: product.name,
+    price: product.price,
+    quantity: 1,
+    image: product.image
+  })
   showNotification('Đã thêm vào giỏ hàng', 'success')
 }
 
-const removeFromWishlist = (id) => {
-  wishlistItems.value = wishlistItems.value.filter(item => item.id !== id)
-  showNotification('Đã xóa khỏi danh sách yêu thích', 'info')
+const removeFromWishlist = async (id) => {
+  const success = await wishlistStore.toggleWishlist(id)
+  if (success) {
+    showNotification('Đã xóa khỏi danh sách yêu thích', 'info')
+  } else {
+    showNotification('Không thể xóa sản phẩm, vui lòng thử lại', 'error')
+  }
 }
 
 const shareProduct = (product) => {
@@ -430,5 +419,16 @@ main {
   .share-btn {
     width: 100%;
   }
+}
+
+.wishlist-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s;
+}
+
+.wishlist-card:hover .wishlist-img {
+  transform: scale(1.05);
 }
 </style>

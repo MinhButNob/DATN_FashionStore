@@ -15,67 +15,19 @@
           <!-- Sidebar Filters - BÊN TRÁI -->
           <aside class="sidebar">
             <div class="filter-widget">
-              <h3><i class="fas fa-tshirt"></i> Danh mục sản phẩm</h3>
-              <ul class="category-tree">
-                <!-- Gắn thêm 2 mục giống menu ở ClientHeader: Sản phẩm (tất cả) và Khuyến mãi -->
-                <li class="category-node">
-                  <div class="category-row">
-                    <a
-                      href="#"
-                      class="category-link"
-                      :class="{ active: selectedCategoryIds.length === 0 }"
-                      @click.prevent="selectAllProducts"
+              <h3>📂 Danh mục</h3>
+              <ul>
+                <li v-for="category in categories" :key="category.categoryId">
+                  <label class="checkbox-label">
+                    <input 
+                      type="checkbox" 
+                      :value="category.categoryId"
+                      v-model="selectedCategoryIds"
+                      @change="applyFilters"
                     >
-                      Sản phẩm
-                    </a>
-                  </div>
-                </li>
-                <li class="category-node" v-if="promoCategoryId">
-                  <div class="category-row">
-                    <a
-                      href="#"
-                      class="category-link"
-                      :class="{ active: selectedCategoryIds.includes(promoCategoryId) }"
-                      @click.prevent="selectCategory(promoCategoryId)"
-                    >
-                      Khuyến mãi
-                    </a>
-                  </div>
-                </li>
-                <li v-for="cat in categories" :key="cat.categoryId" class="category-node">
-                  <div class="category-row">
-                    <a
-                      href="#"
-                      class="category-link"
-                      :class="{ active: selectedCategoryIds.includes(cat.categoryId) }"
-                      @click.prevent="selectCategory(cat.categoryId)"
-                    >
-                      {{ cat.categoryName }}
-                    </a>
-                    <button
-                      v-if="cat.children && cat.children.length"
-                      type="button"
-                      class="expand-btn"
-                      @click="toggleExpand(cat.categoryId)"
-                    >
-                      {{ expandedCategoryIds.includes(cat.categoryId) ? '−' : '+' }}
-                    </button>
-                  </div>
-                  <ul
-                    v-if="cat.children && cat.children.length && expandedCategoryIds.includes(cat.categoryId)"
-                    class="category-children"
-                  >
-                    <li v-for="child in cat.children" :key="child.categoryId">
-                      <a
-                        href="#"
-                        class="category-link child"
-                        :class="{ active: selectedCategoryIds.includes(child.categoryId) }"
-                        @click.prevent="selectCategory(child.categoryId)"
-                      >
-                        {{ child.categoryName }}
-                      </a>
-                    </li>
-                  </ul>
+                    <span>{{ category.categoryName }}</span>
+                    <span class="count">({{ category.productCount || 0 }})</span>
+                  </label>
                 </li>
               </ul>
             </div>
@@ -86,32 +38,55 @@
                 <input 
                   type="range" 
                   min="0" 
-                  max="3000000" 
+                  max="10000000" 
                   step="50000"
                   v-model="priceRange"
                   @input="applyFilters"
                 >
                 <div class="price-values">
                   <span>0₫</span>
-                  <span class="price-current">Đến {{ formatPriceVND(priceRange) }}</span>
+                  <span>{{ formatPriceVND(priceRange) }}</span>
+                  <span>10.000.000₫</span>
                 </div>
               </div>
             </div>
 
-            <!-- ✅ BỘ LỌC KÍCH THƯỚC - dạng nút chọn, không checkbox -->
+            <div class="filter-widget">
+              <h3>🎨 Màu sắc</h3>
+              <ul>
+                <li v-for="color in availableColors" :key="color.colorId">
+                  <label class="checkbox-label">
+                    <input 
+                      type="checkbox" 
+                      :value="color.colorId"
+                      v-model="selectedColorIds"
+                      @change="applyFilters"
+                    >
+                    <span 
+                      class="color-dot" 
+                      :style="{ backgroundColor: color.hexCode || '#ccc' }"
+                    ></span>
+                    <span>{{ color.colorName }}</span>
+                  </label>
+                </li>
+              </ul>
+            </div>
+
+            <!-- ✅ BỘ LỌC KÍCH THƯỚC - ĐÃ SỬA -->
             <div class="filter-widget">
               <h3>📏 Kích thước</h3>
-              <ul class="size-chip-list">
+              <ul>
                 <li v-for="size in allSizes" :key="size.sizeId">
-                  <button
-                    type="button"
-                    class="size-chip"
-                    :class="{ active: selectedSizeIds.includes(size.sizeId) }"
-                    @click="toggleSize(size.sizeId)"
-                  >
-                    {{ size.sizeName }}
+                  <label class="checkbox-label">
+                    <input 
+                      type="checkbox" 
+                      :value="size.sizeId"
+                      v-model="selectedSizeIds"
+                      @change="applyFilters"
+                    >
+                    <span>{{ size.sizeName }}</span>
                     <span class="count" v-if="size.productCount > 0">({{ size.productCount }})</span>
-                  </button>
+                  </label>
                 </li>
               </ul>
             </div>
@@ -213,6 +188,9 @@
                     <div v-if="product.discountPercent > 0" class="discount-flag">
                       -{{ product.discountPercent }}%
                     </div>
+                    <div class="product-wishlist-direct" @click.stop="handleWishlistToggle(product.productId)">
+                      <i :class="[wishlistStore.isInWishlist(product.productId) ? 'fas fa-heart' : 'far fa-heart']"></i>
+                    </div>
                   </div>
                   <div class="product-info-direct">
                     <div class="product-category-direct">{{ product.categoryName || 'Sản phẩm' }}</div>
@@ -296,11 +274,15 @@ import ClientFooter from '../../components/client/ClientFooter.vue'
 import CartModal from '../../components/client/CartModal.vue'
 import { useCartStore } from '../../stores/cartStore'
 import { useNotification } from '../../composables/useNotification'
+import { useWishlistStore } from '../../stores/wishlistStore'
+import { useAuthStore } from '../../stores/authStore'
 import axios from 'axios'
 
 const route = useRoute()
 const router = useRouter()
 const cartStore = useCartStore()
+const authStore = useAuthStore()
+const wishlistStore = useWishlistStore()
 const { showNotification } = useNotification()
 const API_BASE = "http://localhost:8080/api"
 
@@ -308,12 +290,11 @@ const API_BASE = "http://localhost:8080/api"
 const loading = ref(false)
 const allProducts = ref([])
 const categories = ref([])
-const expandedCategoryIds = ref([])
 const allSizes = ref([])
 const gridView = ref(true)
 const currentPage = ref(1)
 const itemsPerPage = 12
-const priceRange = ref(3000000)
+const priceRange = ref(10000000)
 const sortBy = ref('newest')
 
 // Filter states
@@ -322,20 +303,10 @@ const selectedColorIds = ref([])
 const selectedSizeIds = ref([])
 
 // Computed
-// Tìm 1 danh mục (cha hoặc con) theo ID trong cây categories
-const findCategoryById = (id) => {
-  for (const cat of categories.value) {
-    if (cat.categoryId === id) return cat
-    const child = (cat.children || []).find(c => c.categoryId === id)
-    if (child) return child
-  }
-  return null
-}
-
 const selectedCategoryName = computed(() => {
   if (selectedCategoryIds.value.length === 1) {
-    const cat = findCategoryById(selectedCategoryIds.value[0])
-    return cat?.categoryName || promoCategoryName.value || 'Cửa hàng'
+    const cat = categories.value.find(c => c.categoryId === selectedCategoryIds.value[0])
+    return cat?.categoryName || 'Cửa hàng'
   }
   return 'Cửa hàng'
 })
@@ -407,16 +378,8 @@ const filteredProducts = computed(() => {
 
   // Lọc theo danh mục
   if (selectedCategoryIds.value.length > 0) {
-    // Nếu chọn 1 danh mục lớn (cha), lọc luôn sản phẩm thuộc các danh mục con của nó
-    const effectiveIds = new Set(selectedCategoryIds.value)
-    selectedCategoryIds.value.forEach(id => {
-      const parent = categories.value.find(cat => cat.categoryId === id)
-      if (parent && parent.children) {
-        parent.children.forEach(child => effectiveIds.add(child.categoryId))
-      }
-    })
     filtered = filtered.filter(p => 
-      effectiveIds.has(p.categoryId)
+      selectedCategoryIds.value.includes(p.categoryId)
     )
     console.log('  - Sau lọc danh mục:', filtered.length)
   }
@@ -518,14 +481,14 @@ const hasActiveFilters = computed(() => {
   return selectedCategoryIds.value.length > 0 ||
          selectedColorIds.value.length > 0 ||
          selectedSizeIds.value.length > 0 ||
-         priceRange.value < 3000000
+         priceRange.value < 10000000
 })
 
 const activeFilters = computed(() => {
   const filters = []
 
   selectedCategoryIds.value.forEach(catId => {
-    const category = findCategoryById(catId)
+    const category = categories.value.find(c => c.categoryId === catId)
     if (category) filters.push({ key: `cat_${catId}`, name: category.categoryName, type: 'category', value: catId })
   })
 
@@ -538,7 +501,7 @@ const activeFilters = computed(() => {
     if (size) filters.push({ key: `size_${sizeId}`, name: size.sizeName, type: 'size', value: sizeId })
   })
   
-  if (priceRange.value < 3000000) {
+  if (priceRange.value < 10000000) {
     filters.push({ key: 'price', name: `Dưới ${formatPriceVND(priceRange.value)}`, type: 'price' })
   }
 
@@ -581,43 +544,6 @@ const applyFilters = () => {
   }
 }
 
-// Bấm dấu +/− để mở/đóng danh sách danh mục con của 1 trong 3 danh mục lớn
-const toggleExpand = (categoryId) => {
-  const idx = expandedCategoryIds.value.indexOf(categoryId)
-  if (idx === -1) {
-    expandedCategoryIds.value.push(categoryId)
-  } else {
-    expandedCategoryIds.value.splice(idx, 1)
-  }
-}
-
-// Bấm "Sản phẩm" trong sidebar - hiển thị tất cả sản phẩm cửa hàng (bỏ mọi lọc danh mục)
-const selectAllProducts = () => {
-  selectedCategoryIds.value = []
-  applyFilters()
-}
-
-// Bấm vào tên danh mục (cha hoặc con) để lọc - bấm lại lần nữa để bỏ lọc (không dùng checkbox)
-const selectCategory = (categoryId) => {
-  if (selectedCategoryIds.value.length === 1 && selectedCategoryIds.value[0] === categoryId) {
-    selectedCategoryIds.value = []
-  } else {
-    selectedCategoryIds.value = [categoryId]
-  }
-  applyFilters()
-}
-
-// Bấm vào 1 kích thước để bật/tắt lọc (không dùng checkbox), vẫn chọn được nhiều size
-const toggleSize = (sizeId) => {
-  const idx = selectedSizeIds.value.indexOf(sizeId)
-  if (idx === -1) {
-    selectedSizeIds.value.push(sizeId)
-  } else {
-    selectedSizeIds.value.splice(idx, 1)
-  }
-  applyFilters()
-}
-
 const removeFilter = (filter) => {
   switch (filter.type) {
     case 'category':
@@ -630,7 +556,7 @@ const removeFilter = (filter) => {
       selectedSizeIds.value = selectedSizeIds.value.filter(id => id !== filter.value)
       break
     case 'price':
-      priceRange.value = 3000000
+      priceRange.value = 10000000
       break
   }
   applyFilters()
@@ -640,7 +566,7 @@ const clearFilters = () => {
   selectedCategoryIds.value = []
   selectedColorIds.value = []
   selectedSizeIds.value = []
-  priceRange.value = 3000000
+  priceRange.value = 10000000
   sortBy.value = 'newest'
   currentPage.value = 1
   showNotification('Đã xóa tất cả bộ lọc', 'success')
@@ -771,30 +697,11 @@ const updateSizeProductCounts = () => {
   console.log('📊 Size counts:', countMap)
 }
 
-// Tên 3 danh mục lớn mặc định - khớp với logic ở categoryHierarchyStores.js / các trang khác
-const DEFAULT_LOCKED_NAMES = ["Áo", "Quần", "Phụ kiện"]
-
-// Danh sách phẳng TẤT CẢ danh mục (kể cả "Khuyến Mãi", "nbvcx"...) - chỉ dùng để
-// tra cứu categoryId theo tên (vd: link "Khuyến mãi" ở menu), KHÔNG dùng để hiển thị sidebar
-const flatCategoriesForLookup = ref([])
-
-// categoryId của danh mục "Khuyến Mãi" (nếu có) - dùng cho mục "Khuyến mãi" trong sidebar,
-// giống hệt link "Khuyến mãi" ở menu ClientHeader
-const promoCategoryId = computed(() => {
-  const found = flatCategoriesForLookup.value.find(
-    c => (c.categoryName || '').trim().toLowerCase() === 'khuyến mãi'
-  )
-  return found ? found.categoryId : null
-})
-
 const fetchCategories = async () => {
   try {
-    // Lấy cây danh mục (chỉ ACTIVE) từ module Phân cấp danh mục, sau đó chỉ giữ lại
-    // đúng 3 danh mục lớn mặc định (Áo/Quần/Phụ kiện) để hiển thị ở sidebar - không
-    // hiện các danh mục khác (vd "Khuyến Mãi") lẫn vào như 1 danh mục chính thứ 4.
-    const response = await axios.get(`${API_BASE}/category-hierarchy/tree/active`)
-    const tree = Array.isArray(response.data) ? response.data : []
-
+    const response = await axios.get(`${API_BASE}/categories/active`)
+    const categoriesData = response.data || []
+    
     const productCountByCategory = {}
     allProducts.value.forEach(product => {
       const catId = product.categoryId
@@ -802,25 +709,11 @@ const fetchCategories = async () => {
         productCountByCategory[catId] = (productCountByCategory[catId] || 0) + 1
       }
     })
-
-    categories.value = tree
-      .filter(cat => DEFAULT_LOCKED_NAMES.includes(cat.categoryName))
-      .map(cat => ({
-        ...cat,
-        productCount: productCountByCategory[cat.categoryId] || 0,
-        children: (cat.children || []).map(child => ({
-          ...child,
-          productCount: productCountByCategory[child.categoryId] || 0
-        }))
-      }))
-
-    // Lấy thêm danh sách phẳng TẤT CẢ danh mục (kể cả Khuyến Mãi) để tra cứu theo tên
-    try {
-      const flatRes = await axios.get(`${API_BASE}/categories/active`)
-      flatCategoriesForLookup.value = Array.isArray(flatRes.data) ? flatRes.data : []
-    } catch (e) {
-      console.error('Lỗi tải danh sách danh mục (tra cứu tên):', e)
-    }
+    
+    categories.value = categoriesData.map(cat => ({
+      ...cat,
+      productCount: productCountByCategory[cat.categoryId] || 0
+    }))
   } catch (error) {
     console.error('Lỗi tải danh mục:', error)
     categories.value = []
@@ -840,44 +733,32 @@ watch(() => route.query.categoryId, (newCategoryId) => {
   }
 }, { immediate: true })
 
-// Link kiểu "/shop?categoryName=Khuyến Mãi" (vd menu "Khuyến mãi") - tra theo TÊN danh mục
-// vì danh mục đó không nằm trong cây 3 danh mục chính hiển thị ở sidebar.
-const promoCategoryName = ref(null)
-watch(
-  [() => route.query.categoryName, flatCategoriesForLookup],
-  ([name, list]) => {
-    if (!name) {
-      promoCategoryName.value = null
-      return
-    }
-    const found = (list || []).find(
-      c => (c.categoryName || '').trim().toLowerCase() === String(name).trim().toLowerCase()
-    )
-    if (found) {
-      promoCategoryName.value = found.categoryName
-      if (!selectedCategoryIds.value.includes(found.categoryId)) {
-        selectedCategoryIds.value = [found.categoryId]
-        currentPage.value = 1
-      }
-    }
-  },
-  { immediate: true }
-)
-
-// Khi 1 danh mục con được chọn (qua URL hoặc bấm tay), tự mở rộng danh mục lớn chứa nó
-watch([selectedCategoryIds, categories], () => {
-  if (selectedCategoryIds.value.length !== 1) return
-  const id = selectedCategoryIds.value[0]
-  const parent = categories.value.find(cat => (cat.children || []).some(c => c.categoryId === id))
-  if (parent && !expandedCategoryIds.value.includes(parent.categoryId)) {
-    expandedCategoryIds.value.push(parent.categoryId)
+// Wishlist Toggle
+const handleWishlistToggle = async (productId) => {
+  if (!authStore.isAuthenticated) {
+    window.dispatchEvent(new CustomEvent('open-auth-modal', { detail: 'login' }))
+    return
   }
-})
+  const isAdded = !wishlistStore.isInWishlist(productId)
+  const success = await wishlistStore.toggleWishlist(productId)
+  if (success) {
+    if (isAdded) {
+      showNotification('Đã thêm sản phẩm vào danh sách yêu thích!', 'success')
+    } else {
+      showNotification('Đã xóa sản phẩm khỏi danh sách yêu thích!', 'info')
+    }
+  } else {
+    showNotification('Có lỗi xảy ra, vui lòng thử lại!', 'error')
+  }
+}
 
 // Lifecycle
 onMounted(async () => {
   await fetchSizes()
   await fetchProducts()
+  if (authStore.isAuthenticated) {
+    await wishlistStore.fetchWishlist()
+  }
 })
 </script>
 
@@ -984,111 +865,6 @@ main {
   font-size: 12px;
 }
 
-/* Cây danh mục (giống Torano): dấu +/- để mở/đóng danh mục con */
-.category-tree {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.category-node {
-  margin-bottom: 8px;
-}
-
-.category-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.expand-btn {
-  width: 22px;
-  height: 22px;
-  flex-shrink: 0;
-  border: 1px solid #ddd;
-  background: #fff;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 15px;
-  line-height: 1;
-  color: #555;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.expand-btn:hover {
-  border-color: #e63946;
-  color: #e63946;
-}
-
-.category-link {
-  flex: 1;
-  color: #333;
-  font-size: 17px;
-  text-decoration: none;
-}
-
-.category-link:hover {
-  color: #e63946;
-}
-
-.category-link.active {
-  color: #e63946;
-  font-weight: 600;
-}
-
-.category-children {
-  list-style: none;
-  margin: 8px 0 0 12px;
-  padding: 0;
-}
-
-.category-children li {
-  margin-bottom: 10px;
-}
-
-.category-children .category-link {
-  font-size: 15px;
-}
-
-/* Kích thước dạng nút chọn - không checkbox */
-.size-chip-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.size-chip {
-  padding: 6px 14px;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  background: #fff;
-  color: #555;
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.size-chip:hover {
-  border-color: #e63946;
-  color: #e63946;
-}
-
-.size-chip.active {
-  border-color: #e63946;
-  background: #e63946;
-  color: #fff;
-}
-
-.size-chip .count {
-  opacity: 0.8;
-  font-size: 11px;
-}
-
 .color-dot {
   width: 16px;
   height: 16px;
@@ -1112,11 +888,6 @@ main {
   justify-content: space-between;
   font-size: 13px;
   color: #999;
-}
-
-.price-current {
-  font-weight: 600;
-  color: #e63946;
 }
 
 .clear-filters {
@@ -1568,5 +1339,41 @@ main {
   .current-price-direct {
     font-size: 16px;
   }
+}
+
+.product-wishlist-direct {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 35px;
+  height: 35px;
+  background: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  z-index: 10;
+}
+
+.product-wishlist-direct:hover {
+  background: #e63946;
+  color: white;
+  transform: scale(1.1);
+}
+
+.product-wishlist-direct i {
+  font-size: 16px;
+  transition: color 0.3s;
+}
+
+.product-wishlist-direct .fas.fa-heart {
+  color: #e63946;
+}
+
+.product-wishlist-direct:hover .fas.fa-heart {
+  color: white;
 }
 </style>

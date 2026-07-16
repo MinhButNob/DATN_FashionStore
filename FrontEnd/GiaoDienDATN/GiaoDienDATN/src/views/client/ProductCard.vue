@@ -57,6 +57,7 @@ import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCartStore } from '../../stores/cartStore'
 import { useAuthStore } from '../../stores/authStore'
+import { useWishlistStore } from '../../stores/wishlistStore'
 import { useNotification } from '../../composables/useNotification'
 
 const props = defineProps({
@@ -69,6 +70,7 @@ const props = defineProps({
 const router = useRouter()
 const cartStore = useCartStore()
 const authStore = useAuthStore()
+const wishlistStore = useWishlistStore()
 const { showNotification } = useNotification()
 
 // ✅ HÀM FORMAT GIÁ ĐÚNG - QUAN TRỌNG
@@ -122,7 +124,7 @@ const handleImageError = (event) => {
   if (noImageDiv) noImageDiv.style.display = 'flex'
 }
 
-const isInWishlist = computed(() => false)
+const isInWishlist = computed(() => wishlistStore.isInWishlist(props.product.productId))
 
 const goToDetail = () => {
   const productId = props.product.productId
@@ -158,13 +160,23 @@ const addToCart = (event) => {
   showNotification('Đã thêm sản phẩm vào giỏ hàng!', 'success')
 }
 
-const toggleWishlist = (event) => {
+const toggleWishlist = async (event) => {
   event.stopPropagation()
   if (!authStore.isAuthenticated) {
     window.dispatchEvent(new CustomEvent('open-auth-modal', { detail: 'login' }))
     return
   }
-  showNotification('Chức năng đang phát triển', 'info')
+  const isAdded = !isInWishlist.value
+  const success = await wishlistStore.toggleWishlist(props.product.productId)
+  if (success) {
+    if (isAdded) {
+      showNotification('Đã thêm sản phẩm vào danh sách yêu thích!', 'success')
+    } else {
+      showNotification('Đã xóa sản phẩm khỏi danh sách yêu thích!', 'info')
+    }
+  } else {
+    showNotification('Có lỗi xảy ra, vui lòng thử lại!', 'error')
+  }
 }
 
 // ✅ Log để debug
