@@ -31,6 +31,7 @@ public class CategoryServiceImpl implements CategoryService {
                 .categoryName(category.getCategoryName())
                 .categoryDescription(category.getCategoryDescription())
                 .status(category.getStatus())
+                .parentCategoryId(category.getParentCategoryId())
                 .build();
     }
 
@@ -64,6 +65,8 @@ public class CategoryServiceImpl implements CategoryService {
             throw new RuntimeException("Tên danh mục '" + request.getCategoryName() + "' đã tồn tại");
         }
 
+        validateParent(request.getParentCategoryId(), null);
+
         String status = request.getStatus() != null ? request.getStatus() : "ACTIVE";
         if (!status.matches("ACTIVE|INACTIVE")) {
             status = "ACTIVE";
@@ -73,6 +76,7 @@ public class CategoryServiceImpl implements CategoryService {
                 .categoryName(request.getCategoryName())
                 .categoryDescription(request.getCategoryDescription())
                 .status(status)
+                .parentCategoryId(request.getParentCategoryId())
                 .build();
 
         return convertToResponse(categoryRepository.save(category));
@@ -90,8 +94,11 @@ public class CategoryServiceImpl implements CategoryService {
             throw new RuntimeException("Tên danh mục '" + request.getCategoryName() + "' đã tồn tại");
         }
 
+        validateParent(request.getParentCategoryId(), id);
+
         category.setCategoryName(request.getCategoryName());
         category.setCategoryDescription(request.getCategoryDescription());
+        category.setParentCategoryId(request.getParentCategoryId());
 
         if (request.getStatus() != null) {
             if (!request.getStatus().matches("ACTIVE|INACTIVE")) {
@@ -133,5 +140,22 @@ public class CategoryServiceImpl implements CategoryService {
     @Override
     public long count() {
         return categoryRepository.countByDeletedAtIsNull();
+    }
+
+    // (Thêm mới) Kiểm tra danh mục cha khi gán trực tiếp ở màn Quản lý danh mục.
+    // Áp dụng đúng luật tối đa 2 cấp giống module Phân cấp danh mục.
+    private void validateParent(Integer parentCategoryId, Integer selfId) {
+        if (parentCategoryId == null) return;
+
+        if (selfId != null && parentCategoryId.equals(selfId)) {
+            throw new RuntimeException("Danh mục không thể là danh mục cha của chính nó");
+        }
+
+        Category parent = categoryRepository.findByCategoryIdAndDeletedAtIsNull(parentCategoryId)
+                .orElseThrow(() -> new RuntimeException("Danh mục cha ID " + parentCategoryId + " không tồn tại"));
+
+        if (parent.getParentCategoryId() != null) {
+            throw new RuntimeException("Danh mục cha đã là danh mục con (cấp 2), không thể tạo thêm cấp 3");
+        }
     }
 }

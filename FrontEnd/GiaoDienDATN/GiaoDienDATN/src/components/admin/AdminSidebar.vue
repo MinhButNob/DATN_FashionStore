@@ -58,6 +58,7 @@ const menuSections = [
     title: "MANAGE",
     items: [
       { name: "Quản lý danh mục", path: "/admin/categories", icon: "fas fa-tags" },
+      { name: "Phân cấp danh mục", path: "/admin/category-hierarchy", icon: "fas fa-sitemap" },
       { name: "Quản lý nhân viên", path: "/admin/employees", icon: "fas fa-user-tie" },
       { name: "Quản lý vai trò", path: "/admin/roles", icon: "fas fa-user-shield" },
       { name: "Quản lý hình ảnh", path: "/admin/images", icon: "fas fa-images" },

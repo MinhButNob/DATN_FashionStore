@@ -5,29 +5,6 @@
     <main>
       <BannerSlider />
 
-      <!-- Category Section -->
-      <section v-if="categories.length > 0" class="category-section">
-        <div class="container">
-          <div class="section-title">
-            <h2>DANH MỤC NỔI BẬT</h2>
-          </div>
-          <div class="category-grid">
-            <div
-              v-for="category in categories"
-              :key="category.categoryId"
-              class="category-card"
-              @click="goToCategory(category.categoryId)"
-            >
-              <div class="category-icon">
-                <i :class="getCategoryIcon(category.categoryName)"></i>
-              </div>
-              <h3>{{ category.categoryName }}</h3>
-              <p>{{ category.productCount || 0 }} sản phẩm</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
       <!-- Loading State -->
       <div v-if="loading" class="loading-state">
         <div class="spinner"></div>
@@ -207,23 +184,26 @@ const reloadPage = () => {
   loadCategories();
 };
 
+// Tên 3 danh mục lớn mặc định - dùng để lọc, khớp với logic ở
+// src/stores/categoryHierarchyStores.js (DEFAULT_LOCKED_NAMES)
+const DEFAULT_LOCKED_NAMES = ["Áo", "Quần", "Phụ kiện"];
+
 const loadCategories = async () => {
   try {
-    const response = await axios.get(`${API_BASE}/categories/active`);
+    // Lấy cây danh mục (chỉ ACTIVE) từ module Phân cấp danh mục, sau đó chỉ giữ
+    // lại đúng 3 danh mục lớn mặc định - KHÔNG hiển thị danh mục con hay bất kỳ
+    // danh mục độc lập nào khác (được tạo ở "Quản lý danh mục" nhưng chưa gán vào 3 danh mục lớn).
+    const response = await axios.get(`${API_BASE}/category-hierarchy/tree/active`);
     let categoriesData = response.data || [];
-    
-    if (categoriesData.data && Array.isArray(categoriesData.data)) {
-      categoriesData = categoriesData.data;
-    }
-    
-    if (!Array.isArray(categoriesData) && categoriesData.content) {
-      categoriesData = categoriesData.content;
-    }
-    
+
     if (!Array.isArray(categoriesData)) {
       categoriesData = [];
     }
-    
+
+    categoriesData = categoriesData.filter(
+      (cat) => cat && cat.categoryId && DEFAULT_LOCKED_NAMES.includes(cat.categoryName)
+    );
+
     console.log("✅ Categories loaded:", categoriesData);
     
     const productsResponse = await axios.get(`${API_BASE}/products`, {
