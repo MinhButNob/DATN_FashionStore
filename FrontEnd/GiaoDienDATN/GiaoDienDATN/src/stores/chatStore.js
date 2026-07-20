@@ -140,14 +140,9 @@ export const useChatStore = defineStore('chat', {
         conv.lastMessage = message.messageContent;
         conv.lastMessageTime = message.sentDate || new Date().toISOString();
 
-        // Nếu tin nhắn từ staff và không phải conversation đang xem
+        // FIX: 2 khối if trước đây cùng điều kiện "khác conversation đang xem"
+        // -> cộng unread 2 LẦN cho 1 tin nhắn từ customer. Gộp lại còn 1 lần.
         if (this.selectedConversation?.chatId !== chatId) {
-          conv.unreadCount = (conv.unreadCount || 0) + 1;
-          this.unreadCount++;
-        }
-
-        // Nếu tin nhắn từ customer và staff đang xem conversation khác
-        if (message.userRole === 'CUSTOMER' && this.selectedConversation?.chatId !== chatId) {
           conv.unreadCount = (conv.unreadCount || 0) + 1;
           this.unreadCount++;
         }

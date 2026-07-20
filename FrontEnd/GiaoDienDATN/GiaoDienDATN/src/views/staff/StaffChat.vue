@@ -77,7 +77,14 @@
           </button>
         </div>
       </div>
-      <div class="messages" ref="messagesContainer">
+      <div
+        class="messages"
+        ref="messagesContainer"
+        @dragover.prevent="isDragging = true"
+        @dragleave="isDragging = false"
+        @drop.prevent="handleDrop"
+        :class="{ 'drag-over': isDragging }"
+      >
         <div v-if="loadingMessages" class="loading-state">
           <i class="fas fa-spinner fa-spin"></i>
           <p>Đang tải tin nhắn...</p>
@@ -95,7 +102,15 @@
         >
           <div class="message-bubble">
             <div class="message-content">
-              <p>{{ message.messageContent }}</p>
+              <template v-if="isImageMessage(message.messageContent)">
+                <img
+                  :src="extractImageSrc(message.messageContent)"
+                  class="chat-image"
+                  @click="openImageModal(extractImageSrc(message.messageContent))"
+                  alt="Ảnh"
+                />
+              </template>
+              <p v-else>{{ message.messageContent }}</p>
             </div>
             <div class="message-footer">
               <span>{{ formatTime(message.sentDate) }}</span>
@@ -103,23 +118,48 @@
             </div>
           </div>
         </div>
+        <!-- Drag overlay -->
+        <div v-if="isDragging" class="drag-overlay">
+          <i class="fas fa-image"></i>
+          <p>Thả ảnh vào đây để gửi</p>
+        </div>
       </div>
       <!-- FIX: banner cảnh báo khi chat đang được nhân viên KHÁC phụ trách -->
       <div v-if="selectedConversation.status === 'ACTIVE' && !isOwnChat" class="assigned-banner">
         🔒 Cuộc trò chuyện này đang được <strong>{{ selectedConversation.adminName || 'nhân viên khác' }}</strong> phụ trách. Bạn chỉ có thể xem, không thể trả lời.
       </div>
+      <!-- Image preview bar -->
+      <div v-if="imagePreview && selectedConversation.status === 'ACTIVE' && isOwnChat" class="image-preview-bar">
+        <img :src="imagePreview" class="preview-thumb" alt="preview" />
+        <span class="preview-label">Ảnh sẽ được gửi cùng tin nhắn</span>
+        <button class="remove-preview-btn" @click="clearImagePreview" title="Bỏ ảnh">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
       <div class="reply-box" v-if="selectedConversation.status === 'ACTIVE' && isOwnChat">
+        <!-- Hidden file input -->
+        <input
+          type="file"
+          ref="fileInputRef"
+          accept="image/*"
+          style="display:none"
+          @change="handleFileSelect"
+        />
+        <button class="attach-btn" @click="fileInputRef.click()" title="Gửi ảnh" :disabled="sending">
+          <i class="fas fa-image"></i>
+        </button>
         <input 
           v-model="reply" 
           type="text" 
-          placeholder="Nhập tin nhắn trả lời..." 
+          placeholder="Nhập tin nhắn hoặc dán ảnh (Ctrl+V)..." 
           @keyup.enter="sendReply"
+          @paste="handlePaste"
           :disabled="sending"
           ref="replyInput"
         />
         <button 
           class="send-btn" 
-          :disabled="sending || !reply.trim()" 
+          :disabled="sending || (!reply.trim() && !imagePreview)" 
           @click="sendReply"
         >
           <i v-if="!sending" class="fas fa-paper-plane"></i>
@@ -170,6 +210,18 @@
       </div>
     </section>
   </div>
+
+  <!-- Full-size image modal -->
+  <Teleport to="body">
+    <div v-if="imageModalSrc" class="staff-image-modal-overlay" @click="closeImageModal">
+      <div class="staff-image-modal-content" @click.stop>
+        <button class="staff-image-modal-close" @click="closeImageModal">
+          <i class="fas fa-times"></i>
+        </button>
+        <img :src="imageModalSrc" alt="Ảnh phóng to" />
+      </div>
+    </div>
+  </Teleport>
 </template>
 <!-- components/staff/StaffChat.vue -->
 <script setup>
@@ -194,10 +246,14 @@ const reply = ref('');
 const search = ref('');
 const messagesContainer = ref(null);
 const replyInput = ref(null);
+const fileInputRef = ref(null);
 const refreshing = ref(false);
 const sending = ref(false);
 const loadingConversations = ref(false);
 const loadingMessages = ref(false);
+const isDragging = ref(false);
+const imagePreview = ref(null);
+const imageModalSrc = ref(null);
 const templates = [
   "Dạ shop đang kiểm tra và phản hồi mình ngay ạ.",
   "Dạ sản phẩm này hiện còn hàng tại cửa hàng.",
@@ -247,8 +303,20 @@ const focusReply = () => {
 const loadConversations = async () => {
   loadingConversations.value = true;
   try {
-    const response = await chatStaffService.getAllActiveChats();
+    const staffId = getStaffId();
+    if (!staffId) {
+      console.warn("Không tìm thấy staffId để load chat");
+      conversations.value = [];
+      return;
+    }
+    const response = await chatStaffService.getChatsByStaff(staffId);
     conversations.value = response || [];
+    
+    // Sắp xếp: có unread lên trước, sau đó theo thời gian mới nhất
+    conversations.value.sort((a, b) => {
+      if (a.unreadCount !== b.unreadCount) return b.unreadCount - a.unreadCount;
+      return new Date(b.lastMessageDate) - new Date(a.lastMessageDate);
+    });
     
     await chatStore.updateUnreadCount();
     
@@ -319,67 +387,169 @@ const isOwnChat = computed(() => {
   const staffId = getStaffId();
   return !staffId || !conv.adminId || Number(conv.adminId) === Number(staffId);
 });
+// ===== IMAGE HELPERS =====
+const IMAGE_PREFIX = '[IMAGE]';
+
+const isImageMessage = (content) => {
+  return content && content.startsWith(IMAGE_PREFIX);
+};
+
+const extractImageSrc = (content) => {
+  return content ? content.slice(IMAGE_PREFIX.length) : '';
+};
+
+const openImageModal = (src) => {
+  imageModalSrc.value = src;
+};
+
+const closeImageModal = () => {
+  imageModalSrc.value = null;
+};
+
+const clearImagePreview = () => {
+  imagePreview.value = null;
+  if (fileInputRef.value) fileInputRef.value.value = '';
+};
+
+/**
+ * Resize & compress image File to Base64, max 800px, quality 0.75
+ */
+const processImageFile = (file) => {
+  return new Promise((resolve, reject) => {
+    if (!file || !file.type.startsWith('image/')) {
+      reject(new Error('Not an image file'));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const maxSize = 800;
+        let { width, height } = img;
+        if (width > maxSize || height > maxSize) {
+          if (width > height) {
+            height = Math.round((height * maxSize) / width);
+            width = maxSize;
+          } else {
+            width = Math.round((width * maxSize) / height);
+            height = maxSize;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', 0.75));
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+};
+
+const handleFileSelect = async (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  try {
+    imagePreview.value = await processImageFile(file);
+  } catch (err) {
+    error('Không thể đọc file ảnh!');
+  }
+};
+
+const handlePaste = async (e) => {
+  const items = e.clipboardData?.items;
+  if (!items) return;
+  for (const item of items) {
+    if (item.type.startsWith('image/')) {
+      e.preventDefault();
+      const file = item.getAsFile();
+      if (file) {
+        try {
+          imagePreview.value = await processImageFile(file);
+        } catch (err) {
+          error('Không thể đọc ảnh từ clipboard!');
+        }
+      }
+      break;
+    }
+  }
+};
+
+const handleDrop = async (e) => {
+  isDragging.value = false;
+  const file = e.dataTransfer?.files?.[0];
+  if (!file || !file.type.startsWith('image/')) return;
+  try {
+    imagePreview.value = await processImageFile(file);
+  } catch (err) {
+    error('Không thể đọc ảnh!');
+  }
+};
+
 // ===== SEND REPLY =====
 const sendReply = async () => {
-  if (!reply.value.trim() || sending.value || selectedConversation.value?.status !== 'ACTIVE') return;
-  // FIX: chặn gửi ngay từ UI nếu chat này không phải của mình, tránh gọi API
-  // rồi mới nhận lỗi 400 khó hiểu.
+  if (sending.value || selectedConversation.value?.status !== 'ACTIVE') return;
   if (!isOwnChat.value) {
     error(`Chat này đang được nhân viên ${selectedConversation.value?.adminName || 'khác'} phụ trách, bạn không thể trả lời.`);
     return;
   }
+
+  const staffId = getStaffId();
+  if (!staffId) {
+    error('Không tìm thấy thông tin nhân viên. Vui lòng đăng nhập lại!');
+    return;
+  }
+
+  // Send image first (if any)
+  if (imagePreview.value) {
+    const imgContent = IMAGE_PREFIX + imagePreview.value;
+    clearImagePreview();
+    sending.value = true;
+    try {
+      await chatStaffService.sendMessage(selectedConversation.value.chatId, Number(staffId), imgContent);
+      await chatStore.fetchMessages(selectedConversation.value.chatId);
+      messages.value = chatStore.messages;
+      scrollToBottom();
+      successWithIcon('Đã gửi ảnh thành công', '🖼️');
+    } catch (err) {
+      showApiError(err, 'Không thể gửi ảnh');
+    } finally {
+      sending.value = false;
+    }
+  }
+
+  // Send text if any
+  if (!reply.value.trim()) return;
   const content = reply.value.trim();
   reply.value = '';
   sending.value = true;
   try {
-    const staffId = getStaffId();
-    if (!staffId) {
-      error('Không tìm thấy thông tin nhân viên. Vui lòng đăng nhập lại!');
-      reply.value = content;
-      return;
-    }
-    
     console.log('📤 Sending message with staffId:', staffId);
-    
     const response = await chatStaffService.sendMessage(
       selectedConversation.value.chatId,
       Number(staffId),
       content
     );
-    
     console.log('✅ Message sent successfully:', response);
-    
-    // Fetch lại messages
     await chatStore.fetchMessages(selectedConversation.value.chatId);
     messages.value = chatStore.messages;
-    
     const conv = conversations.value.find(c => c.chatId === selectedConversation.value.chatId);
     if (conv) {
-      conv.lastMessage = {
-        messageContent: content,
-        sentDate: new Date().toISOString()
-      };
+      conv.lastMessage = { messageContent: content, sentDate: new Date().toISOString() };
       conv.unreadCount = 0;
     }
-    
     scrollToBottom();
     successWithIcon('Đã gửi tin nhắn thành công', '📨');
-  } catch (error) {
-    console.error('❌ sendReply error:', error);
-    
+  } catch (err) {
+    console.error('❌ sendReply error:', err);
     let errorMsg = 'Không thể gửi tin nhắn';
-    if (error.response?.data?.message) {
-      errorMsg = error.response.data.message;
-    } else if (error.response?.data) {
-      const errors = Object.values(error.response.data);
-      if (errors.length > 0) {
-        errorMsg = errors.join(', ');
-      }
-    } else if (error.message) {
-      errorMsg = error.message;
-    }
-    
-    showApiError(error, errorMsg);
+    if (err.response?.data?.message) errorMsg = err.response.data.message;
+    else if (err.message) errorMsg = err.message;
+    showApiError(err, errorMsg);
     reply.value = content;
   } finally {
     sending.value = false;
@@ -506,6 +676,18 @@ onUnmounted(() => {
 }
 .conversation-list {
   padding: 16px;
+  overflow-y: auto;
+  max-height: calc(100vh - 130px);
+}
+.conversation-list::-webkit-scrollbar {
+  width: 6px;
+}
+.conversation-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+.conversation-list::-webkit-scrollbar-thumb {
+  background-color: #ddd;
+  border-radius: 10px;
 }
 .search-box {
   display: flex;
@@ -750,9 +932,9 @@ onUnmounted(() => {
   color: rgba(255, 255, 255, 0.8);
 }
 .reply-box {
-  padding: 16px;
-  display: grid;
-  grid-template-columns: 1fr 44px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
   gap: 10px;
   border-top: 1px solid #eee;
   background: white;
@@ -778,6 +960,9 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
 }
 .reply-box .send-btn:hover:not(:disabled) {
   background: #c62828;
@@ -786,6 +971,147 @@ onUnmounted(() => {
   opacity: 0.5;
   cursor: not-allowed;
 }
+/* Attach image button */
+.attach-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid #ddd;
+  background: #f9f9f9;
+  color: #e63946;
+  font-size: 15px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+.attach-btn:hover:not(:disabled) { background: #e63946; color: white; border-color: #e63946; }
+.attach-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+/* Image preview bar */
+.image-preview-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  background: #fef5f5;
+  border-top: 1px solid #fce4e4;
+  animation: slideDown 0.2s ease;
+}
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.preview-thumb {
+  width: 52px;
+  height: 52px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 2px solid #e63946;
+}
+.preview-label {
+  flex: 1;
+  font-size: 12px;
+  color: #e63946;
+}
+.remove-preview-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  background: #e63946;
+  color: white;
+  font-size: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+.remove-preview-btn:hover { background: #c62828; }
+/* Chat image in message bubble */
+.chat-image {
+  max-width: 200px;
+  max-height: 200px;
+  object-fit: cover;
+  border-radius: 10px;
+  cursor: pointer;
+  display: block;
+  transition: opacity 0.2s;
+}
+.chat-image:hover { opacity: 0.85; }
+/* Drag-and-drop overlay on messages area */
+.messages {
+  position: relative;
+}
+.drag-over {
+  outline: 2px dashed #e63946;
+  outline-offset: -4px;
+}
+.drag-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(230, 57, 70, 0.08);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: #e63946;
+  font-size: 14px;
+  font-weight: 600;
+  pointer-events: none;
+  border-radius: 8px;
+}
+.drag-overlay i { font-size: 36px; }
+/* Full-size image modal */
+.staff-image-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.82);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeInModal 0.2s ease;
+}
+@keyframes fadeInModal {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.staff-image-modal-content {
+  position: relative;
+  max-width: 90vw;
+  max-height: 90vh;
+}
+.staff-image-modal-content img {
+  max-width: 100%;
+  max-height: 90vh;
+  border-radius: 10px;
+  object-fit: contain;
+  display: block;
+}
+.staff-image-modal-close {
+  position: absolute;
+  top: -14px;
+  right: -14px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #e63946;
+  color: white;
+  border: none;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+  transition: background 0.2s;
+}
+.staff-image-modal-close:hover { background: #c62828; }
 .chat-closed-message {
   padding: 20px;
   text-align: center;
