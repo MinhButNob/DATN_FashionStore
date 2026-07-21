@@ -18,14 +18,23 @@ public interface CustomerOrderService {
     // Lấy danh sách đơn hàng của khách hàng
     Page<OrderResponseDTO> getMyOrders(Integer customerId, String status, Pageable pageable);
 
-    // Hủy đơn hàng (chỉ khi PENDING_PAYMENT hoặc PROCESSING)
+    // Hủy đơn hàng
     OrderResponseDTO cancelOrder(Long orderId, Integer customerId, String reason);
 
     // ===== HOÀN HÀNG =====
 
-    // Yêu cầu hoàn hàng (có ảnh và nội dung)
+    // Yêu cầu hoàn hàng (có ảnh và nội dung, hỗ trợ hoàn theo sản phẩm)
     ReturnRequestResponseDTO requestReturn(Long orderId, Integer customerId, ReturnRequestDTO request);
 
     // Lấy danh sách yêu cầu hoàn hàng của khách hàng
     Page<ReturnRequestResponseDTO> getMyReturnRequests(Integer customerId, Pageable pageable);
+
+    // 🆕 Lấy chi tiết yêu cầu hoàn hàng
+    ReturnRequestResponseDTO getReturnRequestDetail(Long orderId, Integer customerId);
+
+    // 🆕 Trừ kho khi chuyển từ PROCESSING sang SHIPPING
+    void deductStockForOrder(Long orderId);
+
+    // 🆕 Hoàn kho khi hủy đơn hoặc hoàn hàng
+    void restoreStockForOrder(Long orderId);
 }

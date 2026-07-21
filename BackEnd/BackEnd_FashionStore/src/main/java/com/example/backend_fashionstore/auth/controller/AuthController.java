@@ -3,6 +3,8 @@ package com.example.backend_fashionstore.auth.controller;
 import com.example.backend_fashionstore.auth.dto.*;
 import com.example.backend_fashionstore.auth.repository.UserRepository;
 import com.example.backend_fashionstore.auth.service.AuthService;
+import com.example.backend_fashionstore.auth.repository.CustomerRepository;
+import com.example.backend_fashionstore.entity.Customer;
 import com.example.backend_fashionstore.entity.User;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -20,15 +22,15 @@ import java.util.Map;
 public class AuthController {
 
     private final AuthService authService;
-    private final UserRepository userRepository;  // THÊM DÒNG NÀY
-    private final PasswordEncoder passwordEncoder;  // THÊM DÒNG NÀY
+    private final UserRepository userRepository;
+    private final CustomerRepository customerRepository;  // ✅ THÊM
+    private final PasswordEncoder passwordEncoder;
 
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> register(
             @Valid
             @RequestBody RegisterRequest request
     ) {
-
         return ResponseEntity.ok(
                 authService.register(request)
         );
@@ -39,7 +41,6 @@ public class AuthController {
             @Valid
             @RequestBody LoginRequest request
     ) {
-
         return ResponseEntity.ok(
                 authService.login(request)
         );
@@ -53,6 +54,38 @@ public class AuthController {
     @PostMapping("/facebook")
     public ResponseEntity<AuthResponse> facebookLogin(@RequestBody FacebookLoginRequest request) {
         return ResponseEntity.ok(authService.facebookLogin(request.getAccessToken()));
+    }
+
+    // ✅ TEST ENDPOINT - Kiểm tra số điện thoại trong Customer
+    @GetMapping("/test/customer-phone")
+    public ResponseEntity<Map<String, Object>> testCustomerPhone(@RequestParam String email) {
+        Map<String, Object> result = new HashMap<>();
+
+        User user = userRepository.findByEmail(email).orElse(null);
+        if (user == null) {
+            result.put("success", false);
+            result.put("message", "User not found: " + email);
+            return ResponseEntity.ok(result);
+        }
+
+        Customer customer = customerRepository.findByUser_UserId(user.getUserId()).orElse(null);
+
+        result.put("success", true);
+        result.put("email", email);
+        result.put("userId", user.getUserId());
+        result.put("username", user.getUsername());
+        result.put("customerId", customer != null ? customer.getCustomerId() : null);
+        result.put("customerName", customer != null ? customer.getCustomerName() : null);
+        result.put("phone", customer != null ? customer.getPhone() : null);
+        result.put("address", customer != null ? customer.getAddress() : null);
+
+        if (customer != null && customer.getPhone() != null && !customer.getPhone().isEmpty()) {
+            result.put("message", "✅ Customer has phone: " + customer.getPhone());
+        } else {
+            result.put("message", "⚠️ Customer does not have phone!");
+        }
+
+        return ResponseEntity.ok(result);
     }
 
     // ========== TEST ENDPOINTS (CHỈ DÙNG ĐỂ DEBUG) ==========

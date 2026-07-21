@@ -8,6 +8,7 @@ import com.example.backend_fashionstore.enums.UserStatus;
 import com.example.backend_fashionstore.security.JwtService;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.AuthenticationException;
@@ -17,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
@@ -36,6 +38,7 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public AuthResponse register(RegisterRequest request) {
+        log.info("📝 Registering user with email: {}", request.getEmail());
 
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new RuntimeException("Email already exists");
@@ -52,13 +55,13 @@ public class AuthServiceImpl implements AuthService {
                 .email(request.getEmail())
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
                 .provider("LOCAL")
-                .status(UserStatus.ACTIVE)  // ✅ Mặc định ACTIVE khi đăng ký
+                .status(UserStatus.ACTIVE)
                 .build();
 
-        // save user
         user = userRepository.save(user);
+        log.info("✅ User saved: {}", user.getUserId());
 
-        // create CUSTOMER + CART
+        // ✅ Tạo CUSTOMER + CART với số điện thoại
         ensureCustomerAccount(user, request.getName(), request.getPhone());
 
         // reload user with roles
@@ -72,30 +75,22 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public AuthResponse login(LoginRequest request) {
-
-        // ✅ Kiểm tra user có tồn tại không
         User user = userRepository.findByEmailWithRoles(request.getEmail())
                 .orElseThrow(() -> new RuntimeException("Email hoặc mật khẩu không đúng"));
 
-        // ✅ KIỂM TRA STATUS TRƯỚC KHI CHO ĐĂNG NHẬP
         if (user.getStatus() == UserStatus.BANNED) {
             throw new RuntimeException("Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.");
         }
-
         if (user.getStatus() == UserStatus.INACTIVE) {
             throw new RuntimeException("Tài khoản của bạn đã bị vô hiệu hóa.");
         }
-
         if (user.getStatus() == UserStatus.DELETED) {
             throw new RuntimeException("Tài khoản đã bị xóa. Không thể đăng nhập.");
         }
-
-        // ✅ Chỉ cho phép đăng nhập khi status = ACTIVE
         if (user.getStatus() != UserStatus.ACTIVE) {
             throw new RuntimeException("Tài khoản chưa được kích hoạt. Vui lòng liên hệ quản trị viên.");
         }
 
-        // Xác thực mật khẩu
         try {
             authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(
@@ -104,8 +99,7 @@ public class AuthServiceImpl implements AuthService {
                     )
             );
         } catch (AuthenticationException e) {
-            System.out.println(e.getClass().getName());
-            System.out.println(e.getMessage());
+            log.error("Authentication failed for email: {}", request.getEmail());
             throw new RuntimeException("Email hoặc mật khẩu không đúng");
         }
 
@@ -115,7 +109,6 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public AuthResponse googleLogin(String idToken) {
-
         GoogleIdToken.Payload payload = googleVerifyService.verify(idToken);
 
         String email = payload.getEmail();
@@ -131,20 +124,10 @@ public class AuthServiceImpl implements AuthService {
                     u.setAvatarUrl(picture);
                     u.setProvider("GOOGLE");
                     u.setProviderId(payload.getSubject());
-                    u.setStatus(UserStatus.ACTIVE);  // ✅ Mặc định ACTIVE
+                    u.setStatus(UserStatus.ACTIVE);
                     return userRepository.save(u);
                 });
 
-        // ✅ KIỂM TRA STATUS CHO GOOGLE LOGIN
-        if (user.getStatus() == UserStatus.BANNED) {
-            throw new RuntimeException("Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.");
-        }
-        if (user.getStatus() == UserStatus.INACTIVE) {
-            throw new RuntimeException("Tài khoản của bạn đã bị vô hiệu hóa.");
-        }
-        if (user.getStatus() == UserStatus.DELETED) {
-            throw new RuntimeException("Tài khoản đã bị xóa. Không thể đăng nhập.");
-        }
         if (user.getStatus() != UserStatus.ACTIVE) {
             throw new RuntimeException("Tài khoản chưa được kích hoạt.");
         }
@@ -157,7 +140,6 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public AuthResponse facebookLogin(String accessToken) {
-
         FacebookUserInfo info = facebookVerifyService.verify(accessToken);
 
         if (info == null || info.getEmail() == null || info.getEmail().isBlank()) {
@@ -183,20 +165,10 @@ public class AuthServiceImpl implements AuthService {
                     u.setAvatarUrl(finalAvatarUrl);
                     u.setProvider("FACEBOOK");
                     u.setProviderId(facebookId);
-                    u.setStatus(UserStatus.ACTIVE);  // ✅ Mặc định ACTIVE
+                    u.setStatus(UserStatus.ACTIVE);
                     return userRepository.save(u);
                 });
 
-        // ✅ KIỂM TRA STATUS CHO FACEBOOK LOGIN
-        if (user.getStatus() == UserStatus.BANNED) {
-            throw new RuntimeException("Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.");
-        }
-        if (user.getStatus() == UserStatus.INACTIVE) {
-            throw new RuntimeException("Tài khoản của bạn đã bị vô hiệu hóa.");
-        }
-        if (user.getStatus() == UserStatus.DELETED) {
-            throw new RuntimeException("Tài khoản đã bị xóa. Không thể đăng nhập.");
-        }
         if (user.getStatus() != UserStatus.ACTIVE) {
             throw new RuntimeException("Tài khoản chưa được kích hoạt.");
         }
@@ -211,7 +183,11 @@ public class AuthServiceImpl implements AuthService {
         return buildAuthResponse(user);
     }
 
+    /**
+     * ✅ ĐẢM BẢO TÀI KHOẢN KHÁCH HÀNG - LƯU SỐ ĐIỆN THOẠI
+     */
     private void ensureCustomerAccount(User user, String customerName, String phone) {
+        log.info("📦 Ensuring customer account for user: {}, phone: {}", user.getUserId(), phone);
 
         // 1. Role CUSTOMER
         Role customerRole = roleRepository.findByRoleName("CUSTOMER")
@@ -231,9 +207,10 @@ public class AuthServiceImpl implements AuthService {
                             .role(customerRole)
                             .build()
             );
+            log.info("✅ Assigned CUSTOMER role to user: {}", user.getUserId());
         }
 
-        // 3. Tạo Customer
+        // 3. Tạo Customer - ✅ LƯU SỐ ĐIỆN THOẠI
         Customer customer = customerRepository
                 .findByUser_UserId(user.getUserId())
                 .orElse(null);
@@ -242,9 +219,18 @@ public class AuthServiceImpl implements AuthService {
             customer = Customer.builder()
                     .user(user)
                     .customerName(customerName)
-                    .phone(phone)
+                    .phone(phone != null && !phone.isBlank() ? phone : null)
                     .build();
             customer = customerRepository.save(customer);
+            log.info("✅ Created new customer with phone: {}", customer.getPhone());
+        } else {
+            // Nếu đã tồn tại nhưng chưa có số điện thoại thì cập nhật
+            if (phone != null && !phone.isBlank() &&
+                    (customer.getPhone() == null || customer.getPhone().isBlank())) {
+                customer.setPhone(phone);
+                customer = customerRepository.save(customer);
+                log.info("✅ Updated existing customer with phone: {}", customer.getPhone());
+            }
         }
 
         // 4. Tạo Cart
@@ -253,11 +239,11 @@ public class AuthServiceImpl implements AuthService {
                     .customer(customer)
                     .build();
             cartRepository.save(cart);
+            log.info("✅ Created cart for customer: {}", customer.getCustomerId());
         }
     }
 
     private void ensureSocialAccount(User user, String displayName, String provider) {
-
         if (user.getProvider() == null || user.getProvider().isBlank()) {
             user.setProvider(provider);
         }
@@ -271,8 +257,10 @@ public class AuthServiceImpl implements AuthService {
         ensureCustomerAccount(user, user.getUsername(), null);
     }
 
+    /**
+     * ✅ BUILD AUTH RESPONSE - THÊM customerId VÀ phone
+     */
     private AuthResponse buildAuthResponse(User user) {
-
         User authUser = userRepository
                 .findByEmailWithRoles(user.getEmail())
                 .orElse(user);
@@ -286,9 +274,24 @@ public class AuthServiceImpl implements AuthService {
                 .map(role -> role.getRole().getRoleName())
                 .toList();
 
+        // ✅ Lấy customerId và phone
+        Integer customerId = null;
+        String phone = null;
+        try {
+            Customer customer = customerRepository.findByUser_UserId(authUser.getUserId()).orElse(null);
+            if (customer != null) {
+                customerId = customer.getCustomerId();
+                phone = customer.getPhone();
+            }
+        } catch (Exception e) {
+            log.warn("Cannot get customer info: {}", e.getMessage());
+        }
+
         return AuthResponse.builder()
                 .accessToken(token)
                 .tokenType("Bearer")
+                .customerId(customerId)
+                .phone(phone)
                 .user(
                         UserResponse.builder()
                                 .id(authUser.getUserId())

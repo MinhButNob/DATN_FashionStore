@@ -77,9 +77,51 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     @Query(value = "SELECT COALESCE(SUM(order_total_amount), 0) FROM orders WHERE order_deleted_at IS NULL AND order_status = 'COMPLETED' AND DATE(order_created_at) = CURRENT_DATE", nativeQuery = true)
     BigDecimal getTodayRevenue();
 
-    // Doanh thu theo tháng
-    @Query(value = "SELECT COALESCE(SUM(order_total_amount), 0) FROM orders WHERE order_deleted_at IS NULL AND order_status = 'COMPLETED' AND EXTRACT(YEAR FROM order_created_at) = :year AND EXTRACT(MONTH FROM order_created_at) = :month", nativeQuery = true)
+    // ===== THỐNG KÊ DOANH THU MỚI =====
+
+    /**
+     * Tổng doanh thu từ tất cả đơn hàng COMPLETED
+     */
+    @Query(value = "SELECT COALESCE(SUM(order_total_amount), 0) FROM orders " +
+            "WHERE order_deleted_at IS NULL AND order_status = 'COMPLETED'",
+            nativeQuery = true)
+    BigDecimal getTotalRevenue();
+
+    /**
+     * Doanh thu online từ đơn hàng COMPLETED (không phải POS)
+     */
+    @Query(value = "SELECT COALESCE(SUM(order_total_amount), 0) FROM orders o " +
+            "WHERE o.order_deleted_at IS NULL AND o.order_status = 'COMPLETED' " +
+            "AND o.order_id NOT IN (SELECT pos_order_id FROM pos_orders WHERE pos_order_deleted_at IS NULL)",
+            nativeQuery = true)
+    BigDecimal getOnlineRevenue();
+
+    /**
+     * Tổng tiền hoàn trả từ đơn hàng RETURNED
+     */
+    @Query(value = "SELECT COALESCE(SUM(order_total_amount), 0) FROM orders " +
+            "WHERE order_deleted_at IS NULL AND order_status = 'RETURNED'",
+            nativeQuery = true)
+    BigDecimal getReturnRefundAmount();
+
+    /**
+     * Doanh thu theo tháng (COMPLETED)
+     */
+    @Query(value = "SELECT COALESCE(SUM(order_total_amount), 0) FROM orders " +
+            "WHERE order_deleted_at IS NULL AND order_status = 'COMPLETED' " +
+            "AND EXTRACT(YEAR FROM order_created_at) = :year " +
+            "AND EXTRACT(MONTH FROM order_created_at) = :month",
+            nativeQuery = true)
     BigDecimal getMonthlyRevenue(@Param("year") int year, @Param("month") int month);
+
+    /**
+     * Đếm đơn hàng hủy theo loại
+     */
+    @Query(value = "SELECT COUNT(*) FROM orders " +
+            "WHERE order_deleted_at IS NULL AND order_status = 'CANCELLED' " +
+            "AND order_notes LIKE CONCAT('%', :type, '%')",
+            nativeQuery = true)
+    long countCancelledByType(@Param("type") String type);
 
     // Kiểm tra đơn hàng đã COMPLETED
     @Query(value = "SELECT COUNT(*) > 0 FROM orders o " +
@@ -92,5 +134,117 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     boolean hasCustomerCompletedOrder(
             @Param("customerId") Integer customerId,
             @Param("productDetailId") Integer productDetailId
+    );
+
+    // ===== DASHBOARD - THÊM MỚI =====
+
+    /**
+     * Lấy doanh thu theo từng tháng trong năm
+     */
+    @Query(value = """
+        SELECT 
+            EXTRACT(MONTH FROM o.order_created_at) as month,
+            COALESCE(SUM(o.order_total_amount), 0) as revenue
+        FROM orders o
+        WHERE o.order_deleted_at IS NULL 
+            AND o.order_status = 'COMPLETED'
+            AND EXTRACT(YEAR FROM o.order_created_at) = :year
+        GROUP BY EXTRACT(MONTH FROM o.order_created_at)
+        ORDER BY month ASC
+        """, nativeQuery = true)
+    List<Object[]> getMonthlyRevenueByYear(@Param("year") int year);
+
+    /**
+     * Lấy doanh thu tháng hiện tại
+     */
+    @Query(value = """
+        SELECT COALESCE(SUM(order_total_amount), 0) 
+        FROM orders 
+        WHERE order_deleted_at IS NULL 
+            AND order_status = 'COMPLETED'
+            AND EXTRACT(YEAR FROM order_created_at) = EXTRACT(YEAR FROM CURRENT_DATE)
+            AND EXTRACT(MONTH FROM order_created_at) = EXTRACT(MONTH FROM CURRENT_DATE)
+        """, nativeQuery = true)
+    BigDecimal getCurrentMonthRevenue();
+
+    /**
+     * Lấy doanh thu tháng trước
+     */
+    @Query(value = """
+        SELECT COALESCE(SUM(order_total_amount), 0) 
+        FROM orders 
+        WHERE order_deleted_at IS NULL 
+            AND order_status = 'COMPLETED'
+            AND EXTRACT(YEAR FROM order_created_at) = EXTRACT(YEAR FROM CURRENT_DATE - INTERVAL '1 month')
+            AND EXTRACT(MONTH FROM order_created_at) = EXTRACT(MONTH FROM CURRENT_DATE - INTERVAL '1 month')
+        """, nativeQuery = true)
+    BigDecimal getPreviousMonthRevenue();
+
+    /**
+     * Lấy 5 đơn hàng gần đây nhất
+     */
+    @Query("SELECT o FROM Order o WHERE o.deletedAt IS NULL ORDER BY o.createdAt DESC")
+    List<Order> findTop5ByOrderByCreatedAtDesc(Pageable pageable);
+
+    /**
+     * Lấy tổng số đơn hàng COMPLETED
+     */
+    @Query("SELECT COUNT(o) FROM Order o WHERE o.deletedAt IS NULL AND o.orderStatus = 'COMPLETED'")
+    long countCompletedOrders();
+
+    /**
+     * Lấy tổng số đơn hàng CANCELLED
+     */
+    @Query("SELECT COUNT(o) FROM Order o WHERE o.deletedAt IS NULL AND o.orderStatus = 'CANCELLED'")
+    long countCancelledOrders();
+
+    /**
+     * Lấy tổng số đơn hàng PENDING_PAYMENT
+     */
+    @Query("SELECT COUNT(o) FROM Order o WHERE o.deletedAt IS NULL AND o.orderStatus = 'PENDING_PAYMENT'")
+    long countPendingOrders();
+
+    /**
+     * Lấy tổng số đơn hàng PROCESSING
+     */
+    @Query("SELECT COUNT(o) FROM Order o WHERE o.deletedAt IS NULL AND o.orderStatus = 'PROCESSING'")
+    long countProcessingOrders();
+
+    /**
+     * Lấy tổng số đơn hàng SHIPPING
+     */
+    @Query("SELECT COUNT(o) FROM Order o WHERE o.deletedAt IS NULL AND o.orderStatus = 'SHIPPING'")
+    long countShippingOrders();
+
+    /**
+     * Lấy tổng số đơn hàng DELIVERED
+     */
+    @Query("SELECT COUNT(o) FROM Order o WHERE o.deletedAt IS NULL AND o.orderStatus = 'DELIVERED'")
+    long countDeliveredOrders();
+
+    /**
+     * Lấy tổng số đơn hàng CONFIRMED
+     */
+    @Query("SELECT COUNT(o) FROM Order o WHERE o.deletedAt IS NULL AND o.orderStatus = 'CONFIRMED'")
+    long countConfirmedOrders();
+
+    /**
+     * Lấy doanh thu theo ngày trong tháng
+     */
+    @Query(value = """
+        SELECT 
+            EXTRACT(DAY FROM o.order_created_at) as day,
+            COALESCE(SUM(o.order_total_amount), 0) as revenue
+        FROM orders o
+        WHERE o.order_deleted_at IS NULL 
+            AND o.order_status = 'COMPLETED'
+            AND EXTRACT(YEAR FROM o.order_created_at) = :year
+            AND EXTRACT(MONTH FROM o.order_created_at) = :month
+        GROUP BY EXTRACT(DAY FROM o.order_created_at)
+        ORDER BY day ASC
+        """, nativeQuery = true)
+    List<Object[]> getDailyRevenueByMonth(
+            @Param("year") int year,
+            @Param("month") int month
     );
 }

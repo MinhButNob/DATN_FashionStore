@@ -22,24 +22,44 @@ public class ShippingAddress {
     @JoinColumn(name = "shipping_address_customer_id")
     private Customer customer;
 
+    @Column(name = "shipping_address_address_line")
+    private String shippingAddressAddressLine;
+    // ===== THÔNG TIN NGƯỜI NHẬN =====
     @Column(name = "shipping_address_full_name")
     private String shippingAddressFullName;
 
     @Column(name = "shipping_address_phone")
     private String shippingAddressPhone;
 
-    @Column(name = "shipping_address_address_line")
-    private String shippingAddressAddressLine;
+    // ===== ĐỊA CHỈ THEO THÔNG TƯ MỚI =====
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "shipping_address_province_id")
+    private Province province;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "shipping_address_ward_id")
+    private Ward ward;
+
+    @Column(name = "shipping_address_street", columnDefinition = "TEXT")
+    private String streetAddress;
+
+    @Column(name = "shipping_address_full", columnDefinition = "TEXT")
+    private String fullAddress;
+
+    // ===== GIỮ LẠI CÁC FIELD CŨ ĐỂ TƯƠNG THÍCH NGƯỢC =====
+    @Deprecated
     @Column(name = "shipping_address_city")
     private String shippingAddressCity;
 
+    @Deprecated
     @Column(name = "shipping_address_district")
     private String shippingAddressDistrict;
 
+    @Deprecated
     @Column(name = "shipping_address_ward")
     private String shippingAddressWard;
 
+    // ===== CÁC FIELD KHÁC =====
     @Column(name = "shipping_address_postal_code")
     private String shippingAddressPostalCode;
 
@@ -64,10 +84,44 @@ public class ShippingAddress {
         updatedAt = LocalDateTime.now();
         if (status == null) status = "ACTIVE";
         if (isDefault == null) isDefault = false;
+        buildFullAddress();
     }
 
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
+        buildFullAddress();
     }
+
+    /**
+     * Tự động tạo địa chỉ đầy đủ từ các thành phần
+     */
+    public void buildFullAddress() {
+        StringBuilder sb = new StringBuilder();
+        if (streetAddress != null && !streetAddress.isEmpty()) {
+            sb.append(streetAddress);
+        }
+        if (ward != null) {
+            if (sb.length() > 0) sb.append(", ");
+            sb.append(ward.getWardName());
+        }
+        if (province != null) {
+            if (sb.length() > 0) sb.append(", ");
+            sb.append(province.getProvinceName());
+        }
+        this.fullAddress = sb.toString();
+    }
+
+    // ===== GETTERS CHO CÁC FIELD CŨ (Để tương thích) =====
+    // Nếu bạn đang gọi getShippingAddressAddressLine() ở đâu đó,
+    // hãy thêm method này hoặc đổi tên field cho đúng
+
+    public String getShippingAddressAddressLine() {
+        // Trả về streetAddress hoặc shippingAddressAddressLine tùy theo tên cột
+        return this.streetAddress;
+    }
+
+    // Hoặc nếu field của bạn là shippingAddressAddressLine, hãy đổi tên:
+    // @Column(name = "shipping_address_address_line")
+    // private String shippingAddressAddressLine;
 }

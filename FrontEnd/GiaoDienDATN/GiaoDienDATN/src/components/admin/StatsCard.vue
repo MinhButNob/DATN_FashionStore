@@ -1,23 +1,26 @@
+<!-- components/admin/StatsCard.vue -->
 <template>
-  <div class="stat-card" :style="cardStyle">
-    <div class="stat-info">
-      <h3>{{ title }}</h3>
-      <div class="stat-number">{{ value }}</div>
-      <div v-if="change" class="stat-change" :class="{ positive: isPositive, negative: !isPositive }">
-        <i :class="isPositive ? 'fas fa-arrow-up' : 'fas fa-arrow-down'"></i>
-        {{ change }}
-      </div>
-    </div>
-    <div class="stat-icon" :style="iconStyle">
+  <div class="stats-card" :style="{ borderLeftColor: color }">
+    <div class="stats-icon" :style="{ background: color }">
       <i :class="icon"></i>
+    </div>
+    <div class="stats-content">
+      <div class="stats-value" v-if="!loading">
+        {{ value }}
+        <span v-if="trend !== undefined" class="trend" :class="{ positive: trend >= 0, negative: trend < 0 }">
+          {{ trend >= 0 ? '+' : '' }}{{ trend }}%
+        </span>
+      </div>
+      <div class="stats-value" v-else>
+        <div class="skeleton"></div>
+      </div>
+      <div class="stats-title">{{ title }}</div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue'
-
-const props = defineProps({
+defineProps({
   title: {
     type: String,
     required: true
@@ -26,10 +29,6 @@ const props = defineProps({
     type: [String, Number],
     required: true
   },
-  change: {
-    type: String,
-    default: null
-  },
   icon: {
     type: String,
     required: true
@@ -37,81 +36,113 @@ const props = defineProps({
   color: {
     type: String,
     default: '#e63946'
+  },
+  loading: {
+    type: Boolean,
+    default: false
+  },
+  trend: {
+    type: Number,
+    default: undefined
   }
 })
-
-const isPositive = computed(() => {
-  if (!props.change) return true
-  return !props.change.startsWith('-')
-})
-
-const cardStyle = computed(() => ({
-  borderLeft: `4px solid ${props.color}`
-}))
-
-const iconStyle = computed(() => ({
-  background: `linear-gradient(135deg, ${props.color}20, ${props.color}10)`,
-  color: props.color
-}))
 </script>
 
 <style scoped>
-.stat-card {
+.stats-card {
   background: white;
-  padding: 25px;
+  padding: 20px;
   border-radius: 15px;
-  box-shadow: var(--shadow);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 16px;
+  border-left: 4px solid #e63946;
   transition: all 0.3s;
 }
 
-.stat-card:hover {
-  transform: translateY(-5px);
-  box-shadow: var(--shadow-hover);
+.stats-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 25px rgba(0, 0, 0, 0.08);
 }
 
-.stat-info h3 {
-  font-size: 15px;
-  color: var(--medium-gray);
-  margin-bottom: 8px;
-  font-weight: 500;
-}
-
-.stat-number {
-  font-size: 32px;
-  font-weight: 700;
-  color: var(--dark-gray);
-  margin-bottom: 5px;
-}
-
-.stat-change {
-  font-size: 13px;
-  display: flex;
-  align-items: center;
-  gap: 3px;
-}
-
-.stat-change.positive {
-  color: #28a745;
-}
-
-.stat-change.negative {
-  color: #dc3545;
-}
-
-.stat-change i {
-  font-size: 10px;
-}
-
-.stat-icon {
-  width: 60px;
-  height: 60px;
-  border-radius: 50%;
+.stats-icon {
+  width: 50px;
+  height: 50px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 28px;
+  font-size: 22px;
+  color: white;
+  flex-shrink: 0;
+}
+
+.stats-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.stats-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: #2c3e50;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.trend {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 10px;
+  border-radius: 20px;
+}
+
+.trend.positive {
+  background: #d4edda;
+  color: #155724;
+}
+
+.trend.negative {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.stats-title {
+  font-size: 14px;
+  color: #999;
+  margin-top: 2px;
+}
+
+.skeleton {
+  width: 80px;
+  height: 28px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 4px;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@media (max-width: 480px) {
+  .stats-card {
+    padding: 14px 16px;
+  }
+
+  .stats-icon {
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
+  }
+
+  .stats-value {
+    font-size: 18px;
+  }
 }
 </style>

@@ -38,6 +38,8 @@ public class InvoiceDTO {
     private String shippingCity;
     private String shippingDistrict;
     private String shippingWard;
+    // ✅ THÊM shippingFullAddress
+    private String shippingFullAddress;
 
     // Thông tin voucher
     private String voucherCode;

@@ -17,4 +17,6 @@ public class ShippingAddressDTO {
     private String city;
     private String district;
     private String ward;
+    // ✅ THÊM fullAddress để FE hiển thị địa chỉ đầy đủ
+    private String fullAddress;
 }

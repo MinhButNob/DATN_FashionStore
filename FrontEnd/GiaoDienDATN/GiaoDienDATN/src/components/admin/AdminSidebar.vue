@@ -9,7 +9,6 @@
       <div v-for="section in menuSections" :key="section.title">
         <div class="menu-category">{{ section.title }}</div>
         
-        <!-- ✅ SỬA: Đổi a tag thành router-link -->
         <router-link
           v-for="item in section.items"
           :key="item.path"
@@ -19,6 +18,7 @@
         >
           <i :class="item.icon"></i>
           <span>{{ item.name }}</span>
+          <span v-if="item.badge" class="menu-badge">{{ item.badge }}</span>
         </router-link>
       </div>
     </nav>
@@ -33,17 +33,16 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'  // ✅ THÊM: import ref
+import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/authStore'
 
-// ✅ THÊM: Định nghĩa biến sidebarCollapsed
 const sidebarCollapsed = ref(false)
-
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 
+// ✅ CẬP NHẬT MENU với mục Quản lý địa chỉ
 const menuSections = [
   {
     title: "MAIN",
@@ -58,6 +57,13 @@ const menuSections = [
     title: "MANAGE",
     items: [
       { name: "Quản lý danh mục", path: "/admin/categories", icon: "fas fa-tags" },
+      // ✅ THÊM MỚI: Quản lý địa chỉ
+      { 
+        name: "Quản lý địa chỉ", 
+        path: "/admin/locations", 
+        icon: "fas fa-map-marker-alt",
+        badge: "Mới"
+      },
       { name: "Quản lý nhân viên", path: "/admin/employees", icon: "fas fa-user-tie" },
       { name: "Quản lý vai trò", path: "/admin/roles", icon: "fas fa-user-shield" },
       { name: "Quản lý hình ảnh", path: "/admin/images", icon: "fas fa-images" },
@@ -70,10 +76,15 @@ const menuSections = [
     ],
   },
   {
-    title: "SYSTEM",
+    title: "REPORTS & SYSTEM",
     items: [
+      { 
+        name: "Báo cáo thống kê", 
+        path: "/admin/statistics", 
+        icon: "fas fa-chart-pie",
+        badge: "Mới"
+      },
       { name: "Cài đặt", path: "/admin/settings", icon: "fas fa-cog" },
-      { name: "Báo cáo", path: "/admin/reports", icon: "fas fa-chart-bar" },
     ],
   },
 ]
@@ -142,7 +153,6 @@ const handleLogout = () => {
   overflow-x: hidden;
 }
 
-/* Custom scrollbar */
 .sidebar-nav::-webkit-scrollbar {
   width: 4px;
 }
@@ -228,6 +238,25 @@ const handleLogout = () => {
   white-space: nowrap;
 }
 
+.menu-badge {
+  background: #e63946;
+  color: white;
+  font-size: 10px;
+  padding: 1px 8px;
+  border-radius: 12px;
+  font-weight: 600;
+  animation: pulseBadge 2s ease-in-out infinite;
+}
+
+@keyframes pulseBadge {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
 .sidebar-footer {
   padding: 16px 20px 24px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
@@ -260,7 +289,6 @@ const handleLogout = () => {
   font-size: 16px;
 }
 
-/* ===== RESPONSIVE ===== */
 @media (max-width: 768px) {
   .admin-sidebar {
     width: 0;
@@ -301,7 +329,6 @@ const handleLogout = () => {
   }
 }
 
-/* ===== ANIMATION ===== */
 @keyframes slideIn {
   from {
     opacity: 0;
