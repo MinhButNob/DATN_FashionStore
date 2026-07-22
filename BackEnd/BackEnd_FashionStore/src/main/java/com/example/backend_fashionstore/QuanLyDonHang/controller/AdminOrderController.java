@@ -150,11 +150,33 @@ public class AdminOrderController {
         return ResponseEntity.ok(requests);
     }
 
-    // ===== 7. LẤY HÓA ĐƠN =====
+    // ===== 11. LẤY HÓA ĐƠN =====
     @GetMapping("/{orderId}/invoice")
     public ResponseEntity<InvoiceDTO> getInvoice(@PathVariable Long orderId) {
         log.info("📄 Getting invoice for order: {}", orderId);
         InvoiceDTO invoice = adminOrderService.getInvoice(orderId);
         return ResponseEntity.ok(invoice);
+    }
+
+    // ================================================================
+    // ===== 🆕 ADMIN HỦY ĐƠN HÀNG =====
+    // ================================================================
+
+    /**
+     * 12. Admin hủy đơn hàng (có thể hủy ở mọi trạng thái)
+     * Endpoint: PUT /api/admin/orders/{orderId}/cancel
+     */
+    @PutMapping("/{orderId}/cancel")
+    public ResponseEntity<AdminOrderResponseDTO> adminCancelOrder(
+            @PathVariable Long orderId,
+            @RequestBody(required = false) Map<String, String> request
+    ) {
+        String reason = request != null ? request.get("reason") : "Admin hủy đơn hàng";
+        log.info("🗑️ Admin cancelling order: {}, reason: {}", orderId, reason);
+
+        AdminOrderResponseDTO order = adminOrderService.adminCancelOrder(orderId, reason);
+        log.info("✅ Order {} cancelled by admin", orderId);
+
+        return ResponseEntity.ok(order);
     }
 }

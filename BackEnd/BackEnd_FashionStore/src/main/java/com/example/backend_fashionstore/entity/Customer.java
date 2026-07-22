@@ -28,12 +28,22 @@ public class Customer {
     @Column(name = "phone")
     private String phone;
 
+    // ===== ĐỊA CHỈ THEO THÔNG TƯ MỚI =====
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "customer_province_id")
+    private Province province;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "customer_ward_id")
+    private Ward ward;
+
+    @Column(name = "customer_street_address", columnDefinition = "TEXT")
+    private String streetAddress;
+
+    // ===== GIỮ LẠI FIELD CŨ ĐỂ TƯƠNG THÍCH =====
+    @Deprecated
     @Column(name = "address")
     private String address;
-
-    // ❌ NÊN XÓA - dùng user.status thay thế
-    // @Column(name = "customer_status")
-    // private String customerStatus = "ACTIVE";
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
@@ -50,5 +60,24 @@ public class Customer {
     @PreUpdate
     public void preUpdate() {
         updatedAt = LocalDateTime.now();
+    }
+
+    /**
+     * Lấy địa chỉ đầy đủ
+     */
+    public String getFullAddress() {
+        StringBuilder sb = new StringBuilder();
+        if (streetAddress != null && !streetAddress.isEmpty()) {
+            sb.append(streetAddress);
+        }
+        if (ward != null) {
+            if (sb.length() > 0) sb.append(", ");
+            sb.append(ward.getWardName());
+        }
+        if (province != null) {
+            if (sb.length() > 0) sb.append(", ");
+            sb.append(province.getProvinceName());
+        }
+        return sb.toString();
     }
 }

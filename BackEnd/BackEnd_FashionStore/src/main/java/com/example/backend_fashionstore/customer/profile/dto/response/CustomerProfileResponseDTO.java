@@ -1,6 +1,5 @@
 package com.example.backend_fashionstore.customer.profile.dto.response;
 
-
 import lombok.Data;
 import lombok.Builder;
 import lombok.NoArgsConstructor;
@@ -15,7 +14,7 @@ public class CustomerProfileResponseDTO {
     private Integer customerId;
     private String fullName;
     private String email;
-    private String phone;
+    private String phone;    // ✅ GIỮ PHONE
     private String address;
     private String birthday;
     private String gender;

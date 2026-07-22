@@ -22,11 +22,11 @@ public interface ReturnRequestRepository extends JpaRepository<ReturnRequest, Lo
     @Query("SELECT r FROM ReturnRequest r WHERE r.orderId = :orderId AND r.deletedAt IS NULL")
     List<ReturnRequest> findAllByOrderIdAndDeletedAtIsNull(@Param("orderId") Long orderId);
 
-    // Lấy theo orderId và deletedAt null (có thể trả về nhiều)
+    // Lấy theo orderId và deletedAt null
     @Query("SELECT r FROM ReturnRequest r WHERE r.orderId = :orderId AND r.deletedAt IS NULL")
     Optional<ReturnRequest> findByOrderIdAndDeletedAtIsNull(@Param("orderId") Long orderId);
 
-    // 🆕 Lấy danh sách orderId theo status (dùng cho filter REJECTED)
+    // Lấy danh sách orderId theo status (dùng cho filter REJECTED)
     @Query("SELECT r.orderId FROM ReturnRequest r WHERE r.status = :status AND r.deletedAt IS NULL")
     List<Long> findOrderIdsByStatus(@Param("status") String status);
 
@@ -38,4 +38,11 @@ public interface ReturnRequestRepository extends JpaRepository<ReturnRequest, Lo
 
     // Lấy tất cả chưa bị xóa
     Page<ReturnRequest> findByDeletedAtIsNull(Pageable pageable);
+
+    // 🆕 Kiểm tra tồn tại yêu cầu hoàn hàng theo orderId và status
+    boolean existsByOrderIdAndStatusAndDeletedAtIsNull(Long orderId, String status);
+
+    // 🆕 Lấy danh sách yêu cầu hoàn hàng theo orderId và status
+    @Query("SELECT r FROM ReturnRequest r WHERE r.orderId = :orderId AND r.status = :status AND r.deletedAt IS NULL")
+    Optional<ReturnRequest> findByOrderIdAndStatusAndDeletedAtIsNull(@Param("orderId") Long orderId, @Param("status") String status);
 }

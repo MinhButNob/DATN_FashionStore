@@ -1,3 +1,4 @@
+// src/services/adminOrderService.js
 import axios from "axios";
 
 const API_BASE = "http://localhost:8080/api";
@@ -12,6 +13,7 @@ export const adminOrderService = {
   getAllOrders(params = {}) {
     const queryParams = {};
 
+    // ✅ Nếu có status và khác 'all', xử lý chuỗi status
     if (params.status && params.status !== "all") {
       queryParams.status = params.status;
     }
@@ -83,6 +85,27 @@ export const adminOrderService = {
     });
   },
 
+  // ✅ Admin hủy đơn hàng (thêm mới)
+  adminCancelOrder(orderId, data) {
+    return axios.put(`${API_BASE}/admin/orders/${orderId}/cancel`, data, {
+      headers: {
+        ...getAuthHeader(),
+        "Content-Type": "application/json",
+      },
+    });
+  },
+
+  // ✅ Khôi phục đơn hàng (thêm mới)
+  restoreOrder(orderId) {
+    return axios.put(
+      `${API_BASE}/admin/orders/${orderId}/restore`,
+      {},
+      {
+        headers: getAuthHeader(),
+      },
+    );
+  },
+
   // Xóa đơn hàng (soft delete)
   deleteOrder(orderId) {
     return axios.delete(`${API_BASE}/admin/orders/${orderId}`, {
@@ -90,9 +113,13 @@ export const adminOrderService = {
     });
   },
 
+  // Gửi thông báo cho khách hàng
   notifyCustomer(orderId, data) {
     return axios.post(`${API_BASE}/admin/orders/${orderId}/notify`, data, {
-      headers: getAuthHeader(),
+      headers: {
+        ...getAuthHeader(),
+        "Content-Type": "application/json",
+      },
     });
   },
 };

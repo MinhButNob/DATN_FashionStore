@@ -1,9 +1,10 @@
 package com.example.backend_fashionstore.customer.order.dto.request;
 
-import lombok.Data;
-import lombok.Builder;
-import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
 import java.util.List;
 
 @Data
@@ -11,12 +12,10 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class OrderRequestDTO {
+    // ✅ shippingAddressId để dùng địa chỉ đã lưu
     private Integer shippingAddressId;
-    private Integer voucherId;
-    private String paymentMethod;
-    private String notes;
 
-    // ✅ THÊM CÁC FIELD MỚI CHO ĐỊA CHỈ GIAO HÀNG TRỰC TIẾP
+    // ✅ Các field cho địa chỉ tạm
     private String shippingFullName;
     private String shippingPhone;
     private String shippingAddress;
@@ -24,5 +23,12 @@ public class OrderRequestDTO {
     private String shippingDistrict;
     private String shippingWard;
 
+    // ✅ THÊM provinceId VÀ wardId
+    private Integer provinceId;
+    private Integer wardId;
+
+    private String notes;
     private List<OrderItemRequestDTO> items;
+    private String paymentMethod;
+    private Integer voucherId;
 }

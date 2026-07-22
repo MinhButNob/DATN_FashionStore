@@ -30,4 +30,9 @@ public class AdminOrderResponseDTO {
     private AdminShippingAddressDTO shippingAddress;
     private AdminVoucherInfoDTO voucher;
     private List<AdminOrderItemResponseDTO> items;
+
+    // ✅ THÊM: Thông tin người xử lý đơn hàng
+    private String processedBy;
+    private String processedByRole;
+    private LocalDateTime processedAt;
 }

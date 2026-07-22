@@ -39,6 +39,10 @@ import AdminPromotions from "../views/admin/AdminPromotions.vue";
 import AdminVouchers from "../views/admin/AdminVouchers.vue";
 import AdminBanners from "../views/admin/AdminBanners.vue";
 import AdminReviews from "../views/admin/AdminReviews.vue";
+import AdminStatistics from "../views/admin/AdminStatistics.vue";
+
+// ✅ THÊM MỚI: Admin Locations
+import AdminLocations from "../views/admin/AdminLocations.vue";
 
 // Staff views
 import StaffLayout from "../views/staff/StaffLayout.vue";
@@ -49,7 +53,15 @@ import StaffCustomers from "../views/staff/StaffCustomers.vue";
 import StaffReturns from "../views/staff/StaffReturns.vue";
 import StaffChat from "../views/staff/StaffChat.vue";
 
+// ===== SALE STAFF VIEWS =====
+import SaleStaffLayout from "../views/sale-staff/SaleStaffLayout.vue";
+import SaleStaffDashboard from "../views/sale-staff/SaleStaffDashboard.vue";
+import SaleStaffOrders from "../views/sale-staff/SaleStaffOrders.vue";
+import SaleStaffCustomers from "../views/sale-staff/SaleStaffCustomers.vue";
+import SaleStaffStock from "../views/sale-staff/SaleStaffStock.vue";
+
 const routes = [
+  // ===== CLIENT ROUTES =====
   { path: "/", redirect: "/home" },
   { path: "/home", name: "home", component: HomePage },
   { path: "/shop", name: "shop", component: ShopPage },
@@ -110,7 +122,13 @@ const routes = [
   { path: "/about", name: "about", component: AboutPage },
   { path: "/contact", name: "contact", component: ContactPage },
   { path: "/blog/:id", name: "blog-detail", component: BlogDetailPage },
-  { path: "/payment-result", name: "payment-result", component: PaymentResultPage },
+  {
+    path: "/payment-result",
+    name: "payment-result",
+    component: PaymentResultPage,
+  },
+
+  // ===== ADMIN ROUTES =====
   {
     path: "/admin/login",
     name: "admin-login",
@@ -142,7 +160,7 @@ const routes = [
       { path: "employees", name: "admin-employees", component: AdminEmployees },
       { path: "roles", name: "admin-roles", component: AdminRoles },
       { path: "colors", name: "admin-colors", component: AdminColors },
-      { path: "reviews", name: "admin-reviews", component: AdminReviews  },
+      { path: "reviews", name: "admin-reviews", component: AdminReviews },
       {
         path: "promotions",
         name: "admin-promotions",
@@ -151,8 +169,25 @@ const routes = [
       { path: "banners", name: "admin-banners", component: AdminBanners },
       { path: "vouchers", name: "admin-vouchers", component: AdminVouchers },
       { path: "settings", name: "admin-settings", component: AdminSettings },
+      {
+        path: "statistics",
+        name: "admin-statistics",
+        component: AdminStatistics,
+      },
+      // ✅ THÊM MỚI: Quản lý địa chỉ
+      {
+        path: "locations",
+        name: "admin-locations",
+        component: AdminLocations,
+        meta: {
+          title: "Quản lý địa chỉ",
+          icon: "fas fa-map-marker-alt",
+        },
+      },
     ],
   },
+
+  // ===== STAFF ROUTES =====
   {
     path: "/staff",
     component: StaffLayout,
@@ -166,6 +201,25 @@ const routes = [
       { path: "chat", name: "staff-chat", component: StaffChat },
     ],
   },
+
+  // ===== SALE STAFF ROUTES =====
+  {
+    path: "/sale-staff",
+    component: SaleStaffLayout,
+    meta: { requiresAuth: true, roles: ["SALE_STAFF", "ADMIN", "STAFF"] },
+    children: [
+      { path: "", name: "sale-staff-dashboard", component: SaleStaffDashboard },
+      { path: "orders", name: "sale-staff-orders", component: SaleStaffOrders },
+      {
+        path: "customers",
+        name: "sale-staff-customers",
+        component: SaleStaffCustomers,
+      },
+      { path: "stock", name: "sale-staff-stock", component: SaleStaffStock },
+    ],
+  },
+
+  // ===== 404 NOT FOUND =====
   { path: "/:pathMatch(.*)*", name: "not-found", component: NotFoundPage },
 ];
 
@@ -178,10 +232,22 @@ const router = createRouter({
   },
 });
 
-// Navigation Guards
+// ===== NAVIGATION GUARDS =====
 const getDefaultRouteByRole = (authStore) => {
-  if (authStore.isAdmin) return { name: "admin-dashboard" };
-  if (authStore.isStaff) return { name: "staff-dashboard" };
+  const roles = authStore.userRoles || [];
+
+  if (roles.includes("ADMIN")) {
+    return { name: "admin-dashboard" };
+  }
+
+  if (roles.includes("STAFF")) {
+    return { name: "staff-dashboard" };
+  }
+
+  if (roles.includes("SALE_STAFF")) {
+    return { name: "sale-staff-dashboard" };
+  }
+
   return { name: "home" };
 };
 
@@ -190,16 +256,27 @@ router.beforeEach((to, from, next) => {
 
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
     next({ name: "login", query: { redirect: to.fullPath } });
-  } else if (
-    to.meta.roles &&
-    !to.meta.roles.some((role) => authStore.userRoles.includes(role))
-  ) {
-    next(getDefaultRouteByRole(authStore));
-  } else if (to.meta.guest && authStore.isAuthenticated) {
-    next(getDefaultRouteByRole(authStore));
-  } else {
-    next();
+    return;
   }
+
+  if (to.meta.roles && authStore.isAuthenticated) {
+    const userRoles = authStore.userRoles || [];
+    const hasRequiredRole = to.meta.roles.some((role) =>
+      userRoles.includes(role),
+    );
+
+    if (!hasRequiredRole) {
+      next(getDefaultRouteByRole(authStore));
+      return;
+    }
+  }
+
+  if (to.meta.guest && authStore.isAuthenticated) {
+    next(getDefaultRouteByRole(authStore));
+    return;
+  }
+
+  next();
 });
 
 export default router;

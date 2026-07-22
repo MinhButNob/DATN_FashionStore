@@ -20,12 +20,14 @@ public class CustomerProfileService {
 
     private final CustomerProfileRepository customerProfileRepository;
     private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder;  // ✅ Thêm PasswordEncoder
+    private final PasswordEncoder passwordEncoder;
 
+    /**
+     * Lấy thông tin profile của khách hàng theo email
+     */
     public CustomerProfileResponseDTO getProfile(String email) {
         log.info("🔍 Getting profile for email: {}", email);
 
-        // ✅ Tìm customer, nếu chưa có thì tạo mới
         Customer customer = customerProfileRepository.findByUserEmail(email)
                 .orElseGet(() -> {
                     log.info("📝 Customer not found, creating new for email: {}", email);
@@ -48,6 +50,9 @@ public class CustomerProfileService {
         return convertToDTO(customer);
     }
 
+    /**
+     * Cập nhật thông tin profile của khách hàng
+     */
     @Transactional
     public CustomerProfileResponseDTO updateProfile(String email, CustomerProfileRequestDTO request) {
         log.info("🔄 Updating profile for email: {}", email);
@@ -56,7 +61,6 @@ public class CustomerProfileService {
                 request.getPhone(),
                 request.getAddress());
 
-        // ✅ Tìm customer, nếu chưa có thì tạo mới
         Customer customer = customerProfileRepository.findByUserEmail(email)
                 .orElseGet(() -> {
                     log.info("📝 Customer not found, creating new for email: {}", email);
@@ -72,36 +76,39 @@ public class CustomerProfileService {
 
         User user = customer.getUser();
 
-        // ✅ Cập nhật tên
+        // Cập nhật tên
         if (request.getFullName() != null && !request.getFullName().isEmpty()) {
             user.setUsername(request.getFullName());
             customer.setCustomerName(request.getFullName());
             log.info("✅ Updated name to: {}", request.getFullName());
         }
 
-        // ✅ Cập nhật email (nếu có thay đổi)
+        // Cập nhật email
         if (request.getEmail() != null && !request.getEmail().isEmpty()) {
             user.setEmail(request.getEmail());
             log.info("✅ Updated email to: {}", request.getEmail());
         }
 
-        // ✅ Cập nhật số điện thoại
+        // ✅ Cập nhật số điện thoại - QUAN TRỌNG
         if (request.getPhone() != null) {
-            customer.setPhone(request.getPhone());
-            log.info("✅ Updated phone to: {}", request.getPhone());
+            String phone = request.getPhone().trim();
+            if (!phone.isEmpty()) {
+                customer.setPhone(phone);
+                log.info("✅ Updated phone to: {}", phone);
+            } else {
+                log.warn("⚠️ Phone is empty string, keeping existing: {}", customer.getPhone());
+            }
         } else {
             log.warn("⚠️ Phone is null, keeping existing: {}", customer.getPhone());
         }
 
-        // ✅ Cập nhật địa chỉ
+        // Cập nhật địa chỉ
         if (request.getAddress() != null) {
             customer.setAddress(request.getAddress());
             log.info("✅ Updated address to: {}", request.getAddress());
-        } else {
-            log.warn("⚠️ Address is null, keeping existing: {}", customer.getAddress());
         }
 
-        // ✅ Lưu thay đổi
+        // Lưu thay đổi
         userRepository.save(user);
         Customer updatedCustomer = customerProfileRepository.save(customer);
 
@@ -115,7 +122,7 @@ public class CustomerProfileService {
     }
 
     /**
-     * ✅ Đổi mật khẩu
+     * Đổi mật khẩu
      */
     @Transactional
     public void changePassword(String email, ChangePasswordRequestDTO request) {
@@ -124,31 +131,31 @@ public class CustomerProfileService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
 
-        // ✅ Kiểm tra mật khẩu hiện tại
         if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash())) {
             log.warn("❌ Current password is incorrect for email: {}", email);
             throw new RuntimeException("Mật khẩu hiện tại không chính xác");
         }
 
-        // ✅ Kiểm tra mật khẩu mới không trùng mật khẩu cũ
         if (passwordEncoder.matches(request.getNewPassword(), user.getPasswordHash())) {
             log.warn("❌ New password is same as old password for email: {}", email);
             throw new RuntimeException("Mật khẩu mới không được trùng với mật khẩu hiện tại");
         }
 
-        // ✅ Cập nhật mật khẩu mới
         user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
 
         log.info("✅ Password changed successfully for email: {}", email);
     }
 
+    /**
+     * Chuyển đổi Customer entity sang DTO - ✅ TRẢ VỀ PHONE
+     */
     private CustomerProfileResponseDTO convertToDTO(Customer customer) {
         return CustomerProfileResponseDTO.builder()
                 .customerId(customer.getCustomerId())
                 .fullName(customer.getCustomerName())
                 .email(customer.getUser().getEmail())
-                .phone(customer.getPhone())
+                .phone(customer.getPhone())  // ✅ TRẢ VỀ SỐ ĐIỆN THOẠI ĐÃ LƯU
                 .address(customer.getAddress())
                 .birthday(null)
                 .gender(null)

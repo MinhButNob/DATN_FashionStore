@@ -54,7 +54,7 @@ public class Order {
     private BigDecimal orderShippingFee;
 
 
-    @Column(name = "order_total_amount", insertable = false, updatable = false)
+    @Column(name = "order_total_amount", nullable = true)
     private BigDecimal orderTotalAmount;
 
     @Enumerated(EnumType.STRING)

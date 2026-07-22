@@ -21,26 +21,13 @@ public interface AdminOrderService {
     OrderStatisticsDTO getStatistics();
     Map<String, Long> getOrderStatusCounts();
 
+    // ===== 🆕 ADMIN HỦY ĐƠN HÀNG =====
+    AdminOrderResponseDTO adminCancelOrder(Long orderId, String reason);
+
     // ===== 🆕 QUẢN LÝ HOÀN HÀNG =====
-
-    /**
-     * Lấy chi tiết yêu cầu hoàn hàng theo orderId
-     */
     ReturnRequestDetailDTO getReturnRequestByOrderId(Long orderId);
-
-    /**
-     * Xử lý yêu cầu hoàn hàng (Duyệt/Từ chối)
-     */
     ReturnRequestDetailDTO processReturnRequest(Long orderId, String status, String adminNote);
-
-    /**
-     * 🆕 Xác nhận đã nhận hàng trả
-     */
     ReturnRequestDetailDTO receiveReturnedItems(Long orderId, String note);
-
-    /**
-     * Lấy tất cả yêu cầu hoàn hàng
-     */
     Page<ReturnRequestDetailDTO> getAllReturnRequests(String status, Pageable pageable);
 
     // Lấy hóa đơn
