@@ -372,23 +372,18 @@
               <label>Tỉnh/Thành phố <span class="required">*</span></label>
               <select v-model="addressForm.provinceId" required @change="onProvinceChange">
                 <option :value="null">-- Chọn tỉnh/thành phố --</option>
-                <option v-for="province in provinces" :key="province.provinceId" :value="province.provinceId">
-                  {{ province.provinceName }}
+                <option v-for="province in provinces" :key="province.code" :value="province.code">
+                  {{ province.name }}
                 </option>
               </select>
-            </div>
-
-            <div class="form-group">
-              <label>Quận/Huyện</label>
-              <input type="text" v-model="addressForm.district" placeholder="Nhập quận/huyện" />
             </div>
 
             <div class="form-group">
               <label>Phường/Xã <span class="required">*</span></label>
               <select v-model="addressForm.wardId" required :disabled="!addressForm.provinceId">
                 <option :value="null">-- Chọn phường/xã --</option>
-                <option v-for="ward in wards" :key="ward.wardId" :value="ward.wardId">
-                  {{ ward.wardName }}
+                <option v-for="ward in wards" :key="ward.code" :value="ward.code">
+                  {{ ward.name }}
                 </option>
               </select>
             </div>
@@ -669,6 +664,7 @@ import ReturnRequestModal from "../../components/client/ReturnRequestModal.vue";
 import { formatPrice } from "../../utils/helpers";
 import { orderService } from "../../services/orderService";
 import axios from "axios";
+import { useVietnamAddress } from "../../composables/useVietnamAddress";
 
 const router = useRouter();
 const route = useRoute();
@@ -717,10 +713,11 @@ const showAddressModal = ref(false);
 const isEditingAddress = ref(false);
 const addressSaving = ref(false);
 const editingAddressId = ref(null);
-const provinces = ref([]);
-const profileWards = ref([]);
-const wards = ref([]);
 const addressTabsRef = ref(null);
+const { 
+  provinces, wards, 
+  fetchProvinces, fetchWards 
+} = useVietnamAddress();
 
 // ===== ADDRESS TAB STATE =====
 const activeAddressMainTab = ref('all');
@@ -731,7 +728,6 @@ const addressForm = reactive({
   fullName: '',
   phone: '',
   provinceId: null,
-  district: '',
   wardId: null,
   streetAddress: '',
   isDefault: false
@@ -749,7 +745,6 @@ const profile = reactive({
   address: "",
   fullAddress: "",
   city: "",
-  district: "",
   ward: "",
   streetAddress: "",
   provinceId: null,
@@ -838,7 +833,6 @@ const getFullAddressDisplay = () => {
   const parts = [];
   if (profile.streetAddress) parts.push(profile.streetAddress);
   if (profile.ward) parts.push(profile.ward);
-  if (profile.district) parts.push(profile.district);
   if (profile.city) parts.push(profile.city);
   return parts.length > 0 ? parts.join(', ') : '';
 };
@@ -848,7 +842,6 @@ const getFullAddress = (addr) => {
   const parts = [];
   if (addr.streetAddress) parts.push(addr.streetAddress);
   if (addr.wardName) parts.push(addr.wardName);
-  if (addr.districtName) parts.push(addr.districtName);
   if (addr.provinceName) parts.push(addr.provinceName);
   return parts.join(', ') || 'Chưa có địa chỉ';
 };
@@ -935,63 +928,10 @@ const showNotificationMsg = (message, type = 'success') => {
 
 // ===== ADDRESS FUNCTIONS =====
 
-const fetchProvinces = async () => {
-  try {
-    const response = await axios.get(`${API_BASE}/locations/provinces`);
-    provinces.value = response.data || [];
-    console.log('✅ Provinces loaded:', provinces.value.length);
-  } catch (error) {
-    console.error('❌ Error fetching provinces:', error);
-  }
-};
-
-const fetchProfileWards = async (provinceId) => {
-  if (!provinceId) {
-    profileWards.value = [];
-    return;
-  }
-  try {
-    const response = await axios.get(`${API_BASE}/locations/provinces/${provinceId}/wards`);
-    profileWards.value = response.data || [];
-    console.log('✅ Profile wards loaded:', profileWards.value.length);
-  } catch (error) {
-    console.error('❌ Error fetching profile wards:', error);
-    profileWards.value = [];
-  }
-};
-
-const fetchWards = async (provinceId) => {
-  if (!provinceId) {
-    wards.value = [];
-    return;
-  }
-  try {
-    const response = await axios.get(`${API_BASE}/locations/provinces/${provinceId}/wards`);
-    wards.value = response.data || [];
-    console.log('✅ Wards loaded:', wards.value.length);
-  } catch (error) {
-    console.error('❌ Error fetching wards:', error);
-    wards.value = [];
-  }
-};
-
-const onProfileProvinceChange = () => {
-  editForm.wardId = null;
-  editForm.ward = '';
-  if (editForm.provinceId) {
-    const province = provinces.value.find(p => p.provinceId === editForm.provinceId);
-    editForm.city = province?.provinceName || '';
-    fetchProfileWards(editForm.provinceId);
-  } else {
-    profileWards.value = [];
-    editForm.city = '';
-  }
-};
-
-const onProvinceChange = () => {
+const onProvinceChange = async () => {
   addressForm.wardId = null;
   if (addressForm.provinceId) {
-    fetchWards(addressForm.provinceId);
+    await fetchWards(addressForm.provinceId);
   } else {
     wards.value = [];
   }
@@ -1022,33 +962,38 @@ const onAddressTabChange = ({ mainTab, subTab }) => {
   activeAddressSubTab.value = subTab;
 };
 
-const openAddAddress = () => {
+const openAddAddress = async () => {
   isEditingAddress.value = false;
   editingAddressId.value = null;
   addressForm.fullName = profile.fullName || '';
   addressForm.phone = profile.phone || '';
   addressForm.provinceId = null;
-  addressForm.district = '';
   addressForm.wardId = null;
   addressForm.streetAddress = '';
   addressForm.isDefault = addresses.value.length === 0;
   wards.value = [];
+  if (provinces.value.length === 0) {
+    await fetchProvinces();
+  }
   showAddressModal.value = true;
 };
 
-const openEditAddress = (addr) => {
+const openEditAddress = async (addr) => {
   isEditingAddress.value = true;
   editingAddressId.value = addr.addressId;
   addressForm.fullName = addr.fullName || '';
   addressForm.phone = addr.phone || '';
   addressForm.provinceId = addr.provinceId || null;
-  addressForm.district = addr.districtName || '';
   addressForm.wardId = addr.wardId || null;
   addressForm.streetAddress = addr.streetAddress || '';
   addressForm.isDefault = addr.isDefault || false;
+
+  if (provinces.value.length === 0) {
+    await fetchProvinces();
+  }
   
   if (addressForm.provinceId) {
-    fetchWards(addressForm.provinceId);
+    await fetchWards(addressForm.provinceId);
   }
   showAddressModal.value = true;
 };
@@ -1084,11 +1029,17 @@ const saveAddress = async () => {
   
   try {
     const token = localStorage.getItem('token');
+    const province = provinces.value.find(p => p.code === addressForm.provinceId);
+    const ward = wards.value.find(w => w.code === addressForm.wardId);
+
     const payload = {
       fullName: addressForm.fullName.trim(),
       phone: addressForm.phone.trim(),
       provinceId: addressForm.provinceId,
       wardId: addressForm.wardId,
+      districtName: '',
+      provinceName: province?.name || '',
+      wardName: ward?.name || '',
       streetAddress: addressForm.streetAddress.trim(),
       isDefault: addressForm.isDefault
     };

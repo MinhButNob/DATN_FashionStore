@@ -78,66 +78,75 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
         Customer customer = customerRepository.findById(customerId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy khách hàng"));
 
-        ShippingAddress shippingAddress = null;
+        String shippingAddressStr = "";
+        String shippingCity = "";
+        String shippingDistrict = "";
+        String shippingWard = "";
 
         // 1. ƯU TIÊN SỬ DỤNG shippingAddressId
         if (request.getShippingAddressId() != null) {
             Long addressId = request.getShippingAddressId().longValue();
-            shippingAddress = shippingAddressRepository.findById(addressId)
+            ShippingAddress shippingAddress = shippingAddressRepository.findById(addressId)
                     .orElseThrow(() -> new RuntimeException("Không tìm thấy địa chỉ giao hàng với ID: " + request.getShippingAddressId()));
 
             if (!shippingAddress.getCustomer().getCustomerId().equals(customerId)) {
                 throw new RuntimeException("Địa chỉ giao hàng không thuộc về khách hàng này");
             }
 
+            shippingAddressStr = shippingAddress.getFullAddress();
+            shippingCity = shippingAddress.getShippingAddressCity();
+            shippingDistrict = shippingAddress.getShippingAddressDistrict();
+            shippingWard = shippingAddress.getShippingAddressWard();
+            if (shippingAddressStr == null || shippingAddressStr.isEmpty()) {
+                shippingAddressStr = buildFullAddressLine(
+                        shippingAddress.getStreetAddress(),
+                        shippingWard,
+                        shippingDistrict,
+                        shippingCity
+                );
+            }
             log.info("📦 Using saved shipping address ID: {}", request.getShippingAddressId());
-            log.info("   Full address: {}", shippingAddress.getFullAddress());
+            log.info("   Full address: {}", shippingAddressStr);
         }
-        // 2. TẠO ĐỊA CHỈ TẠM TỪ REQUEST (provinceId + wardId)
+        // 2. TẠO ĐỊA CHỈ TẠM TỪ REQUEST (Dùng data Open API truyền lên)
         else if (request.getProvinceId() != null && request.getWardId() != null) {
-            log.info("📦 Creating temporary address from provinceId and wardId");
+            log.info("📦 Creating temporary address from Open API data (provinceId and wardId present)");
 
-            Province province = provinceRepository.findById(request.getProvinceId())
-                    .orElseThrow(() -> new RuntimeException("Không tìm thấy tỉnh/thành phố với ID: " + request.getProvinceId()));
+            // Không query database local vì ID từ Open API sẽ không khớp với local DB.
+            // Dùng trực tiếp tên Thành phố và Phường xã gửi từ frontend.
+            shippingCity = request.getShippingCity() != null ? request.getShippingCity() : "";
+            shippingDistrict = request.getShippingDistrict() != null ? request.getShippingDistrict() : "";
+            shippingWard = request.getShippingWard() != null ? request.getShippingWard() : "";
 
-            Ward ward = wardRepository.findById(request.getWardId())
-                    .orElseThrow(() -> new RuntimeException("Không tìm thấy phường/xã với ID: " + request.getWardId()));
+            shippingAddressStr = buildFullAddressLine(
+                    request.getShippingAddress(),
+                    shippingWard,
+                    shippingDistrict,
+                    shippingCity
+            );
 
-            shippingAddress = ShippingAddress.builder()
-                    .shippingAddressFullName(request.getShippingFullName())
-                    .shippingAddressPhone(request.getShippingPhone())
-                    .streetAddress(request.getShippingAddress())
-                    .province(province)
-                    .ward(ward)
-                    .shippingAddressCity(province.getProvinceName())
-                    .shippingAddressDistrict(ward.getDistrictName())
-                    .shippingAddressWard(ward.getWardName())
-                    .build();
-
-            shippingAddress.buildFullAddress();
-
-            log.info("📦 Temporary address created: {}", shippingAddress.getFullAddress());
+            log.info("📦 Temporary address created: {}", shippingAddressStr);
         }
         // 3. TẠO ĐỊA CHỈ TẠM TỪ REQUEST (cách cũ)
         else if (request.getShippingFullName() != null && !request.getShippingFullName().isEmpty()) {
             log.info("📦 Creating temporary address from shipping fields");
 
-            shippingAddress = ShippingAddress.builder()
-                    .shippingAddressFullName(request.getShippingFullName())
-                    .shippingAddressPhone(request.getShippingPhone())
-                    .streetAddress(request.getShippingAddress())
-                    .shippingAddressCity(request.getShippingCity())
-                    .shippingAddressDistrict(request.getShippingDistrict())
-                    .shippingAddressWard(request.getShippingWard())
-                    .build();
+            shippingCity = request.getShippingCity() != null ? request.getShippingCity() : "";
+            shippingDistrict = request.getShippingDistrict() != null ? request.getShippingDistrict() : "";
+            shippingWard = request.getShippingWard() != null ? request.getShippingWard() : "";
 
-            shippingAddress.buildFullAddress();
+            shippingAddressStr = buildFullAddressLine(
+                    request.getShippingAddress(),
+                    shippingWard,
+                    shippingDistrict,
+                    shippingCity
+            );
 
-            log.info("📦 Temporary address created: {}", shippingAddress.getFullAddress());
+            log.info("📦 Temporary address created: {}", shippingAddressStr);
         }
         // 4. FALLBACK: Lấy địa chỉ mặc định
         else {
-            shippingAddress = shippingAddressRepository
+            ShippingAddress shippingAddress = shippingAddressRepository
                     .findByCustomer_CustomerIdAndIsDefaultTrueAndStatus(customerId, "ACTIVE")
                     .orElseGet(() -> {
                         List<ShippingAddress> addresses = shippingAddressRepository
@@ -150,11 +159,29 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
                     });
 
             if (shippingAddress != null) {
+                shippingAddressStr = shippingAddress.getFullAddress();
+                shippingCity = shippingAddress.getShippingAddressCity();
+                shippingDistrict = shippingAddress.getShippingAddressDistrict();
+                shippingWard = shippingAddress.getShippingAddressWard();
+                if (shippingAddressStr == null || shippingAddressStr.isEmpty()) {
+                    shippingAddressStr = buildFullAddressLine(
+                            shippingAddress.getStreetAddress(),
+                            shippingWard,
+                            shippingDistrict,
+                            shippingCity
+                    );
+                }
                 log.info("📦 Using default shipping address ID: {}", shippingAddress.getShippingAddressId());
-                log.info("   Full address: {}", shippingAddress.getFullAddress());
+                log.info("   Full address: {}", shippingAddressStr);
             } else {
-                log.warn("⚠️ No shipping address found for customer: {}", customerId);
-                throw new RuntimeException("Vui lòng thêm địa chỉ giao hàng");
+                // Fallback to customer address
+                if (customer.getAddress() != null && !customer.getAddress().isEmpty()) {
+                    shippingAddressStr = customer.getAddress();
+                    log.info("📦 Using customer's primary address: {}", shippingAddressStr);
+                } else {
+                    log.warn("⚠️ No shipping address found for customer: {}", customerId);
+                    throw new RuntimeException("Vui lòng thêm địa chỉ giao hàng");
+                }
             }
         }
 
@@ -227,7 +254,10 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
         // ===== TẠO ĐƠN HÀNG =====
         Order order = new Order();
         order.setCustomer(customer);
-        order.setShippingAddress(shippingAddress);
+        order.setShippingAddress(shippingAddressStr);
+        order.setShippingCity(shippingCity);
+        order.setShippingDistrict(shippingDistrict);
+        order.setShippingWard(shippingWard);
         order.setCartId(null);
         order.setOrderDate(LocalDateTime.now());
         order.setOrderStatus(OrderStatus.PENDING_PAYMENT);
@@ -748,40 +778,25 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
                 })
                 .collect(Collectors.toList());
 
-        // ✅ LẤY SHIPPING ADDRESS TỪ ORDER
-        ShippingAddress addr = order.getShippingAddress();
+        // ✅ LẤY SHIPPING ADDRESS TỪ ORDER (Nay là String)
+        String shippingAddressStr = order.getShippingAddress();
         ShippingAddressDTO shippingDTO = null;
 
-        if (addr != null) {
-            // ✅ LẤY FULL ADDRESS TỪ ENTITY
-            String fullAddressLine = addr.getFullAddress();
-
-            // NẾU CHƯA CÓ, TỰ BUILD TỪ CÁC THÀNH PHẦN
-            if (fullAddressLine == null || fullAddressLine.isEmpty()) {
-                fullAddressLine = buildFullAddressLine(
-                        addr.getStreetAddress(),
-                        addr.getShippingAddressWard(),
-                        addr.getShippingAddressDistrict(),
-                        addr.getShippingAddressCity()
-                );
-            }
-
+        if (shippingAddressStr != null && !shippingAddressStr.isEmpty()) {
+            String city = order.getShippingCity() != null ? order.getShippingCity() : "";
+            String district = order.getShippingDistrict() != null ? order.getShippingDistrict() : "";
+            String ward = order.getShippingWard() != null ? order.getShippingWard() : "";
+            
             shippingDTO = ShippingAddressDTO.builder()
-                    .addressId(addr.getShippingAddressId() != null ? addr.getShippingAddressId().intValue() : null)
-                    .fullName(addr.getShippingAddressFullName())
-                    .phone(addr.getShippingAddressPhone())
-                    .addressLine(addr.getStreetAddress())
-                    .city(addr.getShippingAddressCity())
-                    .district(addr.getShippingAddressDistrict())
-                    .ward(addr.getShippingAddressWard())
-                    .fullAddress(fullAddressLine) // ✅ ĐỊA CHỈ ĐẦY ĐỦ
+                    .addressId(null)
+                    .fullName(order.getCustomer() != null ? order.getCustomer().getCustomerName() : "")
+                    .phone(order.getCustomer() != null ? order.getCustomer().getPhone() : "")
+                    .addressLine(shippingAddressStr)
+                    .city(city)
+                    .district(district)
+                    .ward(ward)
+                    .fullAddress(shippingAddressStr) // ✅ ĐỊA CHỈ ĐẦY ĐỦ
                     .build();
-
-            log.info("📦 Shipping address for order {}: fullName={}, phone={}, fullAddress={}",
-                    order.getOrderId(),
-                    shippingDTO.getFullName(),
-                    shippingDTO.getPhone(),
-                    shippingDTO.getFullAddress());
         } else {
             // Fallback: lấy từ customer
             Customer customer = order.getCustomer();
@@ -791,6 +806,9 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
                         .fullName(customer.getCustomerName())
                         .phone(customer.getPhone())
                         .addressLine(customer.getAddress())
+                        .city("")
+                        .district("")
+                        .ward("")
                         .fullAddress(customer.getAddress())
                         .build();
             }

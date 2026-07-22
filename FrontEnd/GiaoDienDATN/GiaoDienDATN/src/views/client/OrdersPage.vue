@@ -66,18 +66,6 @@
                 <span class="address-label">📞 Số điện thoại:</span>
                 <span class="address-value">{{ selectedOrder?.shippingAddress?.phone || '---' }}</span>
               </div>
-              <div class="address-row">
-                <span class="address-label">🏠 Địa chỉ:</span>
-                <span class="address-value">{{ selectedOrder?.shippingAddress?.addressLine || '---' }}</span>
-              </div>
-              <div class="address-row">
-                <span class="address-label">📍 Phường/Xã:</span>
-                <span class="address-value">{{ selectedOrder?.shippingAddress?.ward || '---' }}</span>
-              </div>
-              <div class="address-row">
-                <span class="address-label">🏙️ Tỉnh/Thành phố:</span>
-                <span class="address-value">{{ selectedOrder?.shippingAddress?.city || '---' }}</span>
-              </div>
               <div class="address-row full-address-row">
                 <span class="address-label">📦 Địa chỉ đầy đủ:</span>
                 <span class="address-value highlight">{{ getOrderFullAddress(selectedOrder?.shippingAddress) }}</span>

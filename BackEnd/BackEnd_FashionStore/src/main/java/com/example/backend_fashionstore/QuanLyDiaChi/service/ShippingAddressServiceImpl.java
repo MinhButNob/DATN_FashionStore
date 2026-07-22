@@ -60,19 +60,10 @@ public class ShippingAddressServiceImpl implements ShippingAddressService {
         Customer customer = customerRepository.findById(customerId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy khách hàng"));
 
-        // ✅ LẤY PROVINCE TỪ ID
+        // ✅ KHÔNG LOOKUP TỪ DB LOKAL NỮA
+        // Dùng dữ liệu trực tiếp từ Open API gửi lên (provinceName, districtName, wardName)
         Province province = null;
-        if (request.getProvinceId() != null) {
-            province = provinceRepository.findById(request.getProvinceId())
-                    .orElseThrow(() -> new RuntimeException("Không tìm thấy tỉnh/thành phố với ID: " + request.getProvinceId()));
-        }
-
-        // ✅ LẤY WARD TỪ ID
         Ward ward = null;
-        if (request.getWardId() != null) {
-            ward = wardRepository.findById(request.getWardId())
-                    .orElseThrow(() -> new RuntimeException("Không tìm thấy phường/xã với ID: " + request.getWardId()));
-        }
 
         // ✅ XỬ LÝ DEFAULT
         boolean isDefault = request.getIsDefault() != null && request.getIsDefault();
@@ -102,13 +93,9 @@ public class ShippingAddressServiceImpl implements ShippingAddressService {
                 .build();
 
         // ✅ SET TÊN CHO CÁC FIELD CŨ (để tương thích)
-        if (province != null) {
-            address.setShippingAddressCity(province.getProvinceName());
-        }
-        if (ward != null) {
-            address.setShippingAddressDistrict(ward.getDistrictName());
-            address.setShippingAddressWard(ward.getWardName());
-        }
+        address.setShippingAddressCity(request.getProvinceName() != null ? request.getProvinceName() : "");
+        address.setShippingAddressDistrict(request.getDistrictName() != null ? request.getDistrictName() : "");
+        address.setShippingAddressWard(request.getWardName() != null ? request.getWardName() : "");
 
         // ✅ BUILD FULL ADDRESS
         address.buildFullAddress();
@@ -138,19 +125,14 @@ public class ShippingAddressServiceImpl implements ShippingAddressService {
         if (request.getPhone() != null) {
             address.setShippingAddressPhone(request.getPhone());
         }
-        if (request.getProvinceId() != null) {
-            Province province = provinceRepository.findById(request.getProvinceId())
-                    .orElseThrow(() -> new RuntimeException("Không tìm thấy tỉnh/thành phố"));
-            address.setProvince(province);
-            address.setShippingAddressCity(province.getProvinceName());
-        }
-        if (request.getWardId() != null) {
-            Ward ward = wardRepository.findById(request.getWardId())
-                    .orElseThrow(() -> new RuntimeException("Không tìm thấy phường/xã"));
-            address.setWard(ward);
-            address.setShippingAddressDistrict(ward.getDistrictName());
-            address.setShippingAddressWard(ward.getWardName());
-        }
+        
+        // ✅ LẤY PROVINCE VÀ WARD (Không query DB)
+        address.setProvince(null);
+        address.setWard(null);
+        address.setShippingAddressCity(request.getProvinceName() != null ? request.getProvinceName() : "");
+        address.setShippingAddressDistrict(request.getDistrictName() != null ? request.getDistrictName() : "");
+        address.setShippingAddressWard(request.getWardName() != null ? request.getWardName() : "");
+
         if (request.getStreetAddress() != null) {
             address.setStreetAddress(request.getStreetAddress());
         }

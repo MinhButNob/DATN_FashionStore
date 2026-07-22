@@ -12,6 +12,9 @@ import lombok.NoArgsConstructor;
 public class ShippingAddressRequestDTO {
     private Integer provinceId;
     private Integer wardId;
+    private String provinceName;
+    private String districtName;
+    private String wardName;
     private String streetAddress;
     private String fullName;
     private String phone;

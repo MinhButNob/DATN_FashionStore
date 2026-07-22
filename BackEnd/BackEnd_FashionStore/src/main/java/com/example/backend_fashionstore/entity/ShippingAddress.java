@@ -101,13 +101,17 @@ public class ShippingAddress {
         if (streetAddress != null && !streetAddress.isEmpty()) {
             sb.append(streetAddress);
         }
-        if (ward != null) {
+        if (shippingAddressWard != null && !shippingAddressWard.isEmpty()) {
             if (sb.length() > 0) sb.append(", ");
-            sb.append(ward.getWardName());
+            sb.append(shippingAddressWard);
         }
-        if (province != null) {
+        if (shippingAddressDistrict != null && !shippingAddressDistrict.isEmpty()) {
             if (sb.length() > 0) sb.append(", ");
-            sb.append(province.getProvinceName());
+            sb.append(shippingAddressDistrict);
+        }
+        if (shippingAddressCity != null && !shippingAddressCity.isEmpty()) {
+            if (sb.length() > 0) sb.append(", ");
+            sb.append(shippingAddressCity);
         }
         this.fullAddress = sb.toString();
     }

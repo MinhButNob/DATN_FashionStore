@@ -528,7 +528,7 @@ public class SaleStaffService {
                 })
                 .collect(Collectors.toList());
 
-        ShippingAddress addr = order.getShippingAddress();
+        String shippingAddressStr = order.getShippingAddress();
         String shippingAddress = "";
         String shippingCity = "";
         String shippingDistrict = "";
@@ -537,19 +537,17 @@ public class SaleStaffService {
         String shippingPhone = "";
         String shippingFullAddress = "";
 
-        if (addr != null) {
-            shippingFullName = addr.getShippingAddressFullName() != null ? addr.getShippingAddressFullName() : "";
-            shippingPhone = addr.getShippingAddressPhone() != null ? addr.getShippingAddressPhone() : "";
-            shippingAddress = addr.getStreetAddress() != null ? addr.getStreetAddress() : "";
-            shippingCity = addr.getShippingAddressCity() != null ? addr.getShippingAddressCity() : "";
-            shippingDistrict = addr.getShippingAddressDistrict() != null ? addr.getShippingAddressDistrict() : "";
-            shippingWard = addr.getShippingAddressWard() != null ? addr.getShippingAddressWard() : "";
-
-            // ✅ Lấy fullAddress từ entity
-            shippingFullAddress = addr.getFullAddress();
-            if (shippingFullAddress == null || shippingFullAddress.isEmpty()) {
-                shippingFullAddress = buildFullAddress(shippingAddress, shippingWard, shippingDistrict, shippingCity);
+        if (shippingAddressStr != null && !shippingAddressStr.isEmpty()) {
+            Customer customer = order.getCustomer();
+            if (customer != null) {
+                shippingFullName = customer.getCustomerName() != null ? customer.getCustomerName() : "";
+                shippingPhone = customer.getPhone() != null ? customer.getPhone() : "";
             }
+            shippingAddress = shippingAddressStr;
+            shippingCity = order.getShippingCity() != null ? order.getShippingCity() : "";
+            shippingDistrict = order.getShippingDistrict() != null ? order.getShippingDistrict() : "";
+            shippingWard = order.getShippingWard() != null ? order.getShippingWard() : "";
+            shippingFullAddress = shippingAddressStr;
         } else {
             Customer customer = order.getCustomer();
             if (customer != null) {
@@ -892,30 +890,27 @@ public class SaleStaffService {
                 .collect(Collectors.toList());
 
         // ✅ LẤY SHIPPING ADDRESS TỪ ORDER
-        ShippingAddress addr = order.getShippingAddress();
+        String shippingAddressStr = order.getShippingAddress();
         AdminShippingAddressDTO shippingDTO = null;
 
-        if (addr != null) {
-            // ✅ LẤY FULL ADDRESS
-            String fullAddress = addr.getFullAddress();
-            if (fullAddress == null || fullAddress.isEmpty()) {
-                fullAddress = buildFullAddress(
-                        addr.getStreetAddress(),
-                        addr.getShippingAddressWard(),
-                        addr.getShippingAddressDistrict(),
-                        addr.getShippingAddressCity()
-                );
+        if (shippingAddressStr != null && !shippingAddressStr.isEmpty()) {
+            Customer customer = order.getCustomer();
+            String shippingFullName = "";
+            String shippingPhone = "";
+            if (customer != null) {
+                shippingFullName = customer.getCustomerName() != null ? customer.getCustomerName() : "";
+                shippingPhone = customer.getPhone() != null ? customer.getPhone() : "";
             }
 
             shippingDTO = AdminShippingAddressDTO.builder()
-                    .addressId(addr.getShippingAddressId().intValue())
-                    .fullName(addr.getShippingAddressFullName())
-                    .phone(addr.getShippingAddressPhone())
-                    .addressLine(addr.getStreetAddress())
-                    .city(addr.getShippingAddressCity())
-                    .district(addr.getShippingAddressDistrict())
-                    .ward(addr.getShippingAddressWard())
-                    .fullAddress(fullAddress) // ✅ ĐỊA CHỈ ĐẦY ĐỦ
+                    .addressId(null)
+                    .fullName(shippingFullName)
+                    .phone(shippingPhone)
+                    .addressLine(shippingAddressStr)
+                    .city("")
+                    .district("")
+                    .ward("")
+                    .fullAddress(shippingAddressStr) // ✅ ĐỊA CHỈ ĐẦY ĐỦ
                     .build();
         } else {
             Customer customer = order.getCustomer();

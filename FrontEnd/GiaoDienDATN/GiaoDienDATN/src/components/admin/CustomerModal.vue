@@ -65,14 +65,36 @@
             />
           </div>
 
-          <!-- Địa chỉ -->
+          <!-- Tỉnh/Thành phố -->
           <div class="form-group">
-            <label>Địa chỉ</label>
+            <label>Tỉnh/Thành phố</label>
+            <select v-model="form.provinceId" class="form-control" @change="onProvinceChange">
+              <option :value="null">-- Chọn tỉnh/thành phố --</option>
+              <option v-for="province in provinces" :key="province.code" :value="province.code">
+                {{ province.name }}
+              </option>
+            </select>
+          </div>
+
+          <!-- Phường/Xã -->
+          <div class="form-group">
+            <label>Phường/Xã</label>
+            <select v-model="form.wardId" class="form-control" :disabled="!form.provinceId">
+              <option :value="null">-- Chọn phường/xã --</option>
+              <option v-for="ward in wards" :key="ward.code" :value="ward.code">
+                {{ ward.name }}
+              </option>
+            </select>
+          </div>
+
+          <!-- Địa chỉ cụ thể -->
+          <div class="form-group">
+            <label>Số nhà, tên đường (Địa chỉ cụ thể)</label>
             <input 
               type="text" 
-              v-model="form.address" 
+              v-model="form.streetAddress" 
               class="form-control" 
-              placeholder="Nhập địa chỉ"
+              placeholder="VD: 123 Trịnh Văn Bô"
             />
           </div>
 
@@ -100,7 +122,8 @@
 </template>
 
 <script setup>
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, onMounted } from 'vue'
+import { useVietnamAddress } from '../../composables/useVietnamAddress'
 
 const props = defineProps({
   visible: Boolean,
@@ -111,6 +134,15 @@ const emit = defineEmits(['close', 'submit'])
 
 const submitting = ref(false)
 const showPassword = ref(false)
+
+const { provinces, wards, fetchProvinces, fetchWards } = useVietnamAddress()
+
+// Load provinces khi modal mở
+watch(() => props.visible, async (newVal) => {
+  if (newVal && provinces.value.length === 0) {
+    await fetchProvinces()
+  }
+})
 
 // Kiểm tra là edit hay add mới
 const isEdit = computed(() => !!props.initialData?.customerId)
@@ -123,6 +155,9 @@ const form = ref({
   password: '',
   phone: '',
   address: '',
+  streetAddress: '',
+  provinceId: null,
+  wardId: null,
   isLocked: false
 })
 
@@ -135,10 +170,14 @@ const resetForm = () => {
     password: '',
     phone: '',
     address: '',
+    streetAddress: '',
+    provinceId: null,
+    wardId: null,
     isLocked: false
   }
   submitting.value = false
   showPassword.value = false
+  wards.value = []
 }
 
 // Watch initialData để populate form khi edit
@@ -151,12 +190,25 @@ watch(() => props.initialData, (newData) => {
       password: '',
       phone: newData.phone || '',
       address: newData.address || '',
+      streetAddress: newData.address || '', // Fallback address vào ô street
+      provinceId: null, // Không có ID từ backend cho Customer
+      wardId: null,
       isLocked: !!newData.isLocked
     }
+    wards.value = []
   } else {
     resetForm()
   }
 }, { immediate: true })
+
+const onProvinceChange = async () => {
+  form.value.wardId = null
+  if (form.value.provinceId) {
+    await fetchWards(form.value.provinceId)
+  } else {
+    wards.value = []
+  }
+}
 
 // Watch visible để reset khi đóng modal
 watch(() => props.visible, (newVal) => {
@@ -189,12 +241,28 @@ const handleSubmit = async () => {
 
   submitting.value = true
   try {
+    // Ghép chuỗi địa chỉ
+    let fullAddress = form.value.streetAddress ? form.value.streetAddress.trim() : ''
+    if (form.value.wardId) {
+      const w = wards.value.find(w => w.code === form.value.wardId)
+      if (w) fullAddress += `, ${w.name}`
+    }
+    if (form.value.provinceId) {
+      const p = provinces.value.find(p => p.code === form.value.provinceId)
+      if (p) fullAddress += `, ${p.name}`
+    }
+
+    // Nếu không nhập gì ở streetAddress nhưng lại có form.value.address gốc (từ lúc sửa)
+    if (!fullAddress && form.value.address) {
+      fullAddress = form.value.address
+    }
+
     // Chuẩn bị dữ liệu gửi đi
     const submitData = {
       customerName: form.value.customerName.trim(),
       email: form.value.email.trim(),
       phone: form.value.phone ? form.value.phone.trim() : null,
-      address: form.value.address ? form.value.address.trim() : null,
+      address: fullAddress ? fullAddress : null,
     }
 
     // Nếu là thêm mới, thêm password

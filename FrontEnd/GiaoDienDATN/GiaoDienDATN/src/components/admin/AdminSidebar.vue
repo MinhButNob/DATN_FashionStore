@@ -42,7 +42,7 @@ const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 
-// ✅ CẬP NHẬT MENU với mục Quản lý địa chỉ
+// Menu items cho sidebar admin
 const menuSections = [
   {
     title: "MAIN",
@@ -57,13 +57,6 @@ const menuSections = [
     title: "MANAGE",
     items: [
       { name: "Quản lý danh mục", path: "/admin/categories", icon: "fas fa-tags" },
-      // ✅ THÊM MỚI: Quản lý địa chỉ
-      { 
-        name: "Quản lý địa chỉ", 
-        path: "/admin/locations", 
-        icon: "fas fa-map-marker-alt",
-        badge: "Mới"
-      },
       { name: "Quản lý nhân viên", path: "/admin/employees", icon: "fas fa-user-tie" },
       { name: "Quản lý vai trò", path: "/admin/roles", icon: "fas fa-user-shield" },
       { name: "Quản lý hình ảnh", path: "/admin/images", icon: "fas fa-images" },

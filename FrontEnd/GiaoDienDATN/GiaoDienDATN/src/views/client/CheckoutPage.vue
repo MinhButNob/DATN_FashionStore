@@ -94,23 +94,24 @@
                   <option :value="null">-- Chọn tỉnh/thành phố --</option>
                   <option 
                     v-for="province in provinces" 
-                    :key="province.provinceId" 
-                    :value="province.provinceId"
+                    :key="province.code" 
+                    :value="province.code"
                   >
-                    {{ province.provinceName }}
+                    {{ province.name }}
                   </option>
                 </select>
               </div>
+
               <div class="form-group">
                 <label>Phường/Xã <span class="required">*</span></label>
                 <select v-model="editForm.wardId" required :disabled="!editForm.provinceId">
                   <option :value="null">-- Chọn phường/xã --</option>
                   <option 
                     v-for="ward in wards" 
-                    :key="ward.wardId" 
-                    :value="ward.wardId"
+                    :key="ward.code" 
+                    :value="ward.code"
                   >
-                    {{ ward.wardName }}
+                    {{ ward.name }}
                   </option>
                 </select>
               </div>
@@ -228,6 +229,7 @@ import ClientHeader from '../../components/client/ClientHeader.vue'
 import ClientFooter from '../../components/client/ClientFooter.vue'
 import { orderService } from '../../services/orderService'
 import axios from 'axios'
+import { useVietnamAddress } from '../../composables/useVietnamAddress'
 
 const router = useRouter()
 const cartStore = useCartStore()
@@ -257,6 +259,7 @@ const profile = reactive({
   ward: '',
   email: '',
   provinceId: null,
+  provinceId: null,
   wardId: null
 })
 
@@ -265,9 +268,9 @@ const editForm = reactive({
   phone: '',
   streetAddress: '',
   provinceId: null,
+  provinceId: null,
   wardId: null,
   city: '',
-  district: '',
   ward: ''
 })
 
@@ -282,9 +285,11 @@ const selectedAddressId = ref(null)
 const addressLoading = ref(false)
 
 // ===== PROVINCE/WARD STATE =====
-const provinces = ref([])
-const wards = ref([])
-const provinceLoading = ref(false)
+const { 
+  provinces, wards, 
+  loadingProvinces: provinceLoading, 
+  fetchProvinces, fetchWards 
+} = useVietnamAddress()
 
 // ===== FORMAT FUNCTIONS =====
 const formatPrice = (price) => {
@@ -309,7 +314,6 @@ const getFullAddress = (addr) => {
   const parts = []
   if (addr.streetAddress) parts.push(addr.streetAddress)
   if (addr.wardName) parts.push(addr.wardName)
-  if (addr.districtName) parts.push(addr.districtName)
   if (addr.provinceName) parts.push(addr.provinceName)
   return parts.join(', ') || 'Chưa có địa chỉ'
 }
@@ -324,44 +328,14 @@ const showNotification = (message, type = 'success') => {
   }, 3000)
 }
 
-// ===== FETCH PROVINCES =====
-const fetchProvinces = async () => {
-  provinceLoading.value = true
-  try {
-    const response = await axios.get(`${API_BASE}/locations/provinces`)
-    provinces.value = response.data || []
-    console.log('✅ Provinces loaded:', provinces.value.length)
-  } catch (error) {
-    console.error('❌ Error fetching provinces:', error)
-  } finally {
-    provinceLoading.value = false
-  }
-}
-
-// ===== FETCH WARDS =====
-const fetchWards = async (provinceId) => {
-  if (!provinceId) {
-    wards.value = []
-    return
-  }
-  try {
-    const response = await axios.get(`${API_BASE}/locations/provinces/${provinceId}/wards`)
-    wards.value = response.data || []
-    console.log('✅ Wards loaded:', wards.value.length)
-  } catch (error) {
-    console.error('❌ Error fetching wards:', error)
-    wards.value = []
-  }
-}
-
 // ===== ON PROVINCE CHANGE =====
-const onProvinceChange = () => {
+const onProvinceChange = async () => {
   editForm.wardId = null
   editForm.ward = ''
   if (editForm.provinceId) {
-    const province = provinces.value.find(p => p.provinceId === editForm.provinceId)
-    editForm.city = province?.provinceName || ''
-    fetchWards(editForm.provinceId)
+    const province = provinces.value.find(p => p.code === editForm.provinceId)
+    editForm.city = province?.name || ''
+    await fetchWards(editForm.provinceId)
   } else {
     wards.value = []
     editForm.city = ''
@@ -503,6 +477,7 @@ const saveProfileInfo = async () => {
     showNotification('Vui lòng chọn tỉnh/thành phố', 'error')
     return
   }
+
   if (!editForm.wardId) {
     showNotification('Vui lòng chọn phường/xã', 'error')
     return
@@ -516,8 +491,8 @@ const saveProfileInfo = async () => {
       return
     }
 
-    const province = provinces.value.find(p => p.provinceId === editForm.provinceId)
-    const ward = wards.value.find(w => w.wardId === editForm.wardId)
+    const province = provinces.value.find(p => p.code === editForm.provinceId)
+    const ward = wards.value.find(w => w.code === editForm.wardId)
 
     const payload = {
       fullName: editForm.fullName.trim(),
@@ -525,9 +500,8 @@ const saveProfileInfo = async () => {
       address: editForm.streetAddress.trim(),
       provinceId: editForm.provinceId,
       wardId: editForm.wardId,
-      city: province?.provinceName || '',
-      district: ward?.districtName || '',
-      ward: ward?.wardName || ''
+      city: province?.name || editForm.city,
+      ward: ward?.name || editForm.ward
     }
 
     const response = await axios.put(`${API_BASE}/customers/profile`, payload, {
@@ -546,7 +520,6 @@ const saveProfileInfo = async () => {
     profile.provinceId = editForm.provinceId
     profile.wardId = editForm.wardId
     profile.city = data.city || editForm.city
-    profile.district = data.district || editForm.district
     profile.ward = data.ward || editForm.ward
 
     isEditing.value = false

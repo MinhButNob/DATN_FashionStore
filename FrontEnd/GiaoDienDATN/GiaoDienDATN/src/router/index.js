@@ -41,8 +41,7 @@ import AdminBanners from "../views/admin/AdminBanners.vue";
 import AdminReviews from "../views/admin/AdminReviews.vue";
 import AdminStatistics from "../views/admin/AdminStatistics.vue";
 
-// ✅ THÊM MỚI: Admin Locations
-import AdminLocations from "../views/admin/AdminLocations.vue";
+
 
 // Staff views
 import StaffLayout from "../views/staff/StaffLayout.vue";
@@ -174,18 +173,9 @@ const routes = [
         name: "admin-statistics",
         component: AdminStatistics,
       },
-      // ✅ THÊM MỚI: Quản lý địa chỉ
-      {
-        path: "locations",
-        name: "admin-locations",
-        component: AdminLocations,
-        meta: {
-          title: "Quản lý địa chỉ",
-          icon: "fas fa-map-marker-alt",
-        },
-      },
     ],
   },
+
 
   // ===== STAFF ROUTES =====
   {

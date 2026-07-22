@@ -412,10 +412,6 @@
                 <span class="address-label">📞 Số điện thoại:</span>
                 <span class="address-value">{{ selectedOrder?.shippingAddress?.phone || '---' }}</span>
               </div>
-              <div class="address-row">
-                <span class="address-label">🏠 Địa chỉ:</span>
-                <span class="address-value">{{ getFullAddress(selectedOrder?.shippingAddress) }}</span>
-              </div>
               <div class="address-row full-address-row">
                 <span class="address-label">📦 Địa chỉ đầy đủ:</span>
                 <span class="address-value highlight">{{ selectedOrder?.shippingAddress?.fullAddress || getFullAddress(selectedOrder?.shippingAddress) }}</span>

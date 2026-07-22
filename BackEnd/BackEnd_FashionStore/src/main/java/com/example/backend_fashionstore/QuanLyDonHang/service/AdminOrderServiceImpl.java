@@ -580,38 +580,34 @@ public class AdminOrderServiceImpl implements AdminOrderService {
                 .collect(Collectors.toList());
 
         // ✅ LẤY SHIPPING ADDRESS TỪ ORDER
-        ShippingAddress addr = order.getShippingAddress();
+        String shippingAddressStr = order.getShippingAddress();
         AdminShippingAddressDTO shippingDTO = null;
 
-        // ✅ Biến lưu số điện thoại và tên từ shipping address
+        // ✅ Biến lưu số điện thoại và tên
         String shippingPhone = null;
         String shippingFullName = null;
-        String shippingFullAddress = null;
+        String shippingFullAddress = shippingAddressStr;
 
-        if (addr != null) {
-            // ✅ Lấy FULL ADDRESS
-            shippingFullAddress = addr.getFullAddress();
-            if (shippingFullAddress == null || shippingFullAddress.isEmpty()) {
-                shippingFullAddress = buildFullAddress(
-                        addr.getStreetAddress(),
-                        addr.getShippingAddressWard(),
-                        addr.getShippingAddressDistrict(),
-                        addr.getShippingAddressCity()
-                );
+        if (shippingAddressStr != null && !shippingAddressStr.isEmpty()) {
+            Customer customer = order.getCustomer();
+            if (customer != null) {
+                shippingFullName = customer.getCustomerName();
+                shippingPhone = customer.getPhone();
             }
 
-            // ✅ Lấy số điện thoại và tên từ shipping address
-            shippingPhone = addr.getShippingAddressPhone();
-            shippingFullName = addr.getShippingAddressFullName();
+            String city = order.getShippingCity() != null ? order.getShippingCity() : "";
+            String district = order.getShippingDistrict() != null ? order.getShippingDistrict() : "";
+            String ward = order.getShippingWard() != null ? order.getShippingWard() : "";
+            shippingFullAddress = shippingAddressStr; // Đã là địa chỉ đầy đủ từ lúc tạo đơn hàng
 
             shippingDTO = AdminShippingAddressDTO.builder()
-                    .addressId(addr.getShippingAddressId() != null ? addr.getShippingAddressId().intValue() : null)
+                    .addressId(null)
                     .fullName(shippingFullName)
                     .phone(shippingPhone)
-                    .addressLine(addr.getStreetAddress())
-                    .city(addr.getShippingAddressCity())
-                    .district(addr.getShippingAddressDistrict())
-                    .ward(addr.getShippingAddressWard())
+                    .addressLine(shippingAddressStr)
+                    .city(city)
+                    .district(district)
+                    .ward(ward)
                     .fullAddress(shippingFullAddress)
                     .build();
 
@@ -769,7 +765,7 @@ public class AdminOrderServiceImpl implements AdminOrderService {
                 })
                 .collect(Collectors.toList());
 
-        ShippingAddress addr = order.getShippingAddress();
+        String shippingAddressStr = order.getShippingAddress();
         String shippingAddress = "";
         String shippingCity = "";
         String shippingDistrict = "";
@@ -778,18 +774,14 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         String shippingPhone = "";
         String shippingFullAddress = "";
 
-        if (addr != null) {
-            shippingFullName = addr.getShippingAddressFullName() != null ? addr.getShippingAddressFullName() : "";
-            shippingPhone = addr.getShippingAddressPhone() != null ? addr.getShippingAddressPhone() : "";
-            shippingAddress = addr.getStreetAddress() != null ? addr.getStreetAddress() : "";
-            shippingCity = addr.getShippingAddressCity() != null ? addr.getShippingAddressCity() : "";
-            shippingDistrict = addr.getShippingAddressDistrict() != null ? addr.getShippingAddressDistrict() : "";
-            shippingWard = addr.getShippingAddressWard() != null ? addr.getShippingAddressWard() : "";
-
-            shippingFullAddress = addr.getFullAddress();
-            if (shippingFullAddress == null || shippingFullAddress.isEmpty()) {
-                shippingFullAddress = buildFullAddress(shippingAddress, shippingWard, shippingDistrict, shippingCity);
+        if (shippingAddressStr != null && !shippingAddressStr.isEmpty()) {
+            Customer customer = order.getCustomer();
+            if (customer != null) {
+                shippingFullName = customer.getCustomerName() != null ? customer.getCustomerName() : "";
+                shippingPhone = customer.getPhone() != null ? customer.getPhone() : "";
             }
+            shippingAddress = shippingAddressStr;
+            shippingFullAddress = shippingAddressStr;
         } else {
             Customer customer = order.getCustomer();
             if (customer != null) {
