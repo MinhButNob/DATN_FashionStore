@@ -25,8 +25,6 @@ import AdminLayout from "../views/admin/AdminLayout.vue";
 import AdminDashboard from "../views/admin/AdminDashboard.vue";
 import AdminProducts from "../views/admin/AdminProducts.vue";
 import AdminOrders from "../views/admin/AdminOrders.vue";
-import AdminCategories from "../views/admin/AdminCategories.vue";
-import AdminCategoryHierarchy from "../views/admin/Admincategoryhierarchy.vue";
 import AdminCustomers from "../views/admin/AdminCustomers.vue";
 import AdminSettings from "../views/admin/AdminSettings.vue";
 import AdminLogin from "../views/admin/AdminLogin.vue";
@@ -126,14 +124,9 @@ const routes = [
       { path: "products", name: "admin-products", component: AdminProducts },
       { path: "orders", name: "admin-orders", component: AdminOrders },
       {
-        path: "categories",
-        name: "admin-categories",
-        component: AdminCategories,
-      },
-      {
-        path: "category-hierarchy",
-        name: "admin-category-hierarchy",
-        component: AdminCategoryHierarchy,
+        path: '/admin/categories',
+        name: 'admin-categories',
+        component: () => import('@/views/admin/CategoryManagementView.vue')
       },
       { path: "sizes", name: "admin-sizes", component: AdminSizes },
       { path: "sizes", name: "admin-sizes", component: AdminSizes },

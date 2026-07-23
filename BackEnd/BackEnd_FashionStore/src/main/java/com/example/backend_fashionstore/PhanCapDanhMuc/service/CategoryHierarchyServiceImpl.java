@@ -14,6 +14,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
+// Ghi đè file: src/main/java/com/example/backend_fashionstore/PhanCapDanhMuc/service/CategoryHierarchyServiceImpl.java
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -29,6 +30,7 @@ public class CategoryHierarchyServiceImpl implements CategoryHierarchyService {
                 .categoryDescription(c.getCategoryDescription())
                 .status(c.getStatus())
                 .parentCategoryId(c.getParentCategoryId())
+                .categoryIsLocked(Boolean.TRUE.equals(c.getIsLocked()))
                 .build();
     }
 
@@ -54,6 +56,7 @@ public class CategoryHierarchyServiceImpl implements CategoryHierarchyService {
                 .categoryName(parent.getCategoryName())
                 .categoryDescription(parent.getCategoryDescription())
                 .status(parent.getStatus())
+                .categoryIsLocked(Boolean.TRUE.equals(parent.getIsLocked()))
                 .children(children.stream().map(this::convertToResponse).collect(Collectors.toList()))
                 .build();
     }
@@ -89,6 +92,7 @@ public class CategoryHierarchyServiceImpl implements CategoryHierarchyService {
                 .categoryDescription(request.getCategoryDescription())
                 .status(status)
                 .parentCategoryId(request.getParentCategoryId())
+                .isLocked(false) // Không cho phép tạo mới danh mục đã bị khóa qua API
                 .build();
 
         return convertToResponse(repository.save(category));
@@ -100,6 +104,11 @@ public class CategoryHierarchyServiceImpl implements CategoryHierarchyService {
         Category category = repository.findByCategoryIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new RuntimeException(
                         "Không tìm thấy danh mục với ID: " + id + " hoặc đã bị xóa. Vui lòng khôi phục trước khi sửa."));
+
+        // (MỚI) Danh mục khóa cứng (Áo/Quần/Phụ kiện/Khuyến Mãi) không cho sửa
+        if (Boolean.TRUE.equals(category.getIsLocked())) {
+            throw new RuntimeException("Danh mục '" + category.getCategoryName() + "' là danh mục mặc định, không thể chỉnh sửa");
+        }
 
         validateParent(request.getParentCategoryId(), id);
 
@@ -127,6 +136,13 @@ public class CategoryHierarchyServiceImpl implements CategoryHierarchyService {
     @Override
     @Transactional
     public void delete(Integer id) {
+        // (MỚI) Không cho xóa danh mục khóa cứng
+        Category category = repository.findByCategoryIdAndDeletedAtIsNull(id)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy danh mục với ID: " + id));
+        if (Boolean.TRUE.equals(category.getIsLocked())) {
+            throw new RuntimeException("Danh mục '" + category.getCategoryName() + "' là danh mục mặc định, không thể xóa");
+        }
+
         if (repository.existsActiveChildren(id)) {
             throw new RuntimeException("Không thể xóa danh mục đang có danh mục con, hãy xóa danh mục con trước");
         }

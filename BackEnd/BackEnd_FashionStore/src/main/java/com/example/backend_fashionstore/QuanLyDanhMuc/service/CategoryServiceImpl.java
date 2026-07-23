@@ -17,6 +17,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
+// Ghi đè file: src/main/java/com/example/backend_fashionstore/QuanLyDanhMuc/service/CategoryServiceImpl.java
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -32,6 +33,7 @@ public class CategoryServiceImpl implements CategoryService {
                 .categoryDescription(category.getCategoryDescription())
                 .status(category.getStatus())
                 .parentCategoryId(category.getParentCategoryId())
+                .categoryIsLocked(Boolean.TRUE.equals(category.getIsLocked()))
                 .build();
     }
 
@@ -77,6 +79,7 @@ public class CategoryServiceImpl implements CategoryService {
                 .categoryDescription(request.getCategoryDescription())
                 .status(status)
                 .parentCategoryId(request.getParentCategoryId())
+                .isLocked(false) // Không cho phép tạo mới danh mục đã bị khóa qua API
                 .build();
 
         return convertToResponse(categoryRepository.save(category));
@@ -88,6 +91,11 @@ public class CategoryServiceImpl implements CategoryService {
         // ✅ Chỉ cho phép update khi chưa bị xóa
         Category category = categoryRepository.findByCategoryIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy danh mục với ID: " + id + " hoặc đã bị xóa. Vui lòng khôi phục trước khi sửa."));
+
+        // (MỚI) Danh mục khóa cứng (Áo/Quần/Phụ kiện/Khuyến Mãi) không cho sửa
+        if (Boolean.TRUE.equals(category.getIsLocked())) {
+            throw new RuntimeException("Danh mục '" + category.getCategoryName() + "' là danh mục mặc định, không thể chỉnh sửa");
+        }
 
         if (!category.getCategoryName().equals(request.getCategoryName())
                 && categoryRepository.existsByCategoryNameAndDeletedAtIsNull(request.getCategoryName())) {
@@ -113,6 +121,13 @@ public class CategoryServiceImpl implements CategoryService {
     @Override
     @Transactional
     public void delete(Integer id) {
+        // (MỚI) Không cho xóa danh mục khóa cứng
+        Category category = categoryRepository.findByCategoryIdAndDeletedAtIsNull(id)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy danh mục với ID: " + id));
+        if (Boolean.TRUE.equals(category.getIsLocked())) {
+            throw new RuntimeException("Danh mục '" + category.getCategoryName() + "' là danh mục mặc định, không thể xóa");
+        }
+
         int deletedCount = categoryRepository.softDelete(id, LocalDateTime.now());
         if (deletedCount == 0) {
             throw new RuntimeException("Không thể xóa danh mục với ID: " + id);
@@ -142,7 +157,7 @@ public class CategoryServiceImpl implements CategoryService {
         return categoryRepository.countByDeletedAtIsNull();
     }
 
-    // (Thêm mới) Kiểm tra danh mục cha khi gán trực tiếp ở màn Quản lý danh mục.
+    // Kiểm tra danh mục cha khi gán trực tiếp ở màn Quản lý danh mục.
     // Áp dụng đúng luật tối đa 2 cấp giống module Phân cấp danh mục.
     private void validateParent(Integer parentCategoryId, Integer selfId) {
         if (parentCategoryId == null) return;

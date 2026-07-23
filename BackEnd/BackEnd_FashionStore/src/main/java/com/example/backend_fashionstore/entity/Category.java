@@ -7,6 +7,7 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
 
+// Ghi đè file: src/main/java/com/example/backend_fashionstore/entity/Category.java
 @Entity
 @Table(name = "categories")
 @Getter
@@ -35,6 +36,12 @@ public class Category {
     @Column(name = "parent_category_id")
     private Integer parentCategoryId;
 
+    // (MỚI) Khóa cứng - dùng cho Áo/Quần/Phụ kiện/Khuyến Mãi: không cho sửa/xóa.
+    // Kiểm tra ở tầng Service (không dùng trigger, đúng quy tắc cũ của dự án).
+    @Builder.Default
+    @Column(name = "category_is_locked", nullable = false)
+    private Boolean isLocked = false;
+
     @CreationTimestamp
     @Column(name = "category_created_at", updatable = false)
     private LocalDateTime createdAt;
@@ -49,5 +56,6 @@ public class Category {
     @PrePersist
     public void prePersist() {
         if (status == null) status = "ACTIVE";
+        if (isLocked == null) isLocked = false;
     }
 }
