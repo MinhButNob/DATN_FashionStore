@@ -6,7 +6,11 @@
       <div class="container">
         <h1 class="page-title">SẢN PHẨM YÊU THÍCH</h1>
 
-        <div v-if="wishlistItems.length === 0" class="empty-wishlist">
+        <div v-if="wishlistStore.loading" class="empty-wishlist">
+          <p>Đang tải danh sách yêu thích...</p>
+        </div>
+
+        <div v-else-if="wishlistItems.length === 0" class="empty-wishlist">
           <i class="fas fa-heart"></i>
           <h2>Danh sách yêu thích trống</h2>
           <p>Hãy thêm những sản phẩm bạn yêu thích vào danh sách này</p>
@@ -16,40 +20,32 @@
         </div>
 
         <div v-else class="wishlist-grid">
-          <div v-for="item in wishlistItems" :key="item.id" class="wishlist-card">
-            <div class="product-image" @click="goToProduct(item.id)">
-              <img v-if="item.image && item.image.startsWith('http')" :src="item.image" :alt="item.name" class="wishlist-img" />
-              <i v-else :class="['fas', `fa-${item.image || 'tshirt'}`]"></i>
-              <button class="remove-btn" @click.stop="removeFromWishlist(item.id)">
+          <div v-for="item in wishlistItems" :key="item.wishlistItemId" class="wishlist-card">
+            <div class="product-image" @click="goToProduct(item.productId)">
+              <img v-if="item.imageUrl" :src="item.imageUrl" :alt="item.productName" class="wishlist-img" />
+              <i v-else class="fas fa-tshirt"></i>
+              <button class="remove-btn" @click.stop="removeFromWishlist(item.productDetailId)">
                 <i class="fas fa-times"></i>
               </button>
             </div>
 
             <div class="product-info">
-              <h3 @click="goToProduct(item.id)">{{ item.name }}</h3>
+              <h3 @click="goToProduct(item.productId)">{{ item.productName }}</h3>
               <div class="product-price">
-                <span class="current-price">{{ formatPrice(item.price) }}</span>
-                <span v-if="item.oldPrice" class="old-price">{{ formatPrice(item.oldPrice) }}</span>
+                <span class="current-price">{{ formatPrice(item.discountedPrice || item.price) }}</span>
+                <span v-if="item.discountedPrice && item.discountedPrice < item.price" class="old-price">
+                  {{ formatPrice(item.price) }}
+                </span>
               </div>
 
-              <div class="product-rating">
-                <div class="stars">
-                  <i 
-                    v-for="star in 5" 
-                    :key="star"
-                    :class="getStarClass(star, item.rating)"
-                  ></i>
-                </div>
-                <span>({{ item.sold }} đã bán)</span>
+              <div class="product-stock" :class="{ 'out-of-stock': (item.stock || 0) === 0 }">
+                {{ (item.stock || 0) > 0 ? `Còn ${item.stock} sản phẩm` : 'Hết hàng' }}
               </div>
 
               <div class="product-actions">
-                <button class="add-to-cart" @click="addToCart(item)">
+                <button class="add-to-cart" @click="addToCart(item)" :disabled="(item.stock || 0) === 0">
                   <i class="fas fa-shopping-cart"></i>
                   Thêm vào giỏ
-                </button>
-                <button class="share-btn" @click="shareProduct(item)">
-                  <i class="fas fa-share-alt"></i>
                 </button>
               </div>
             </div>
@@ -78,66 +74,87 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import axios from 'axios'
 import { useCartStore } from '../../stores/cartStore'
-import { useProductStore } from '../../stores/productStore'
 import { useWishlistStore } from '../../stores/wishlistStore'
-import { useAuthStore } from '../../stores/authStore'
 import { useNotification } from '../../composables/useNotification'
 import ClientHeader from '../../components/client/ClientHeader.vue'
 import ClientFooter from '../../components/client/ClientFooter.vue'
-import ProductCard from '../../components/client/ProductCard.vue'
+import ProductCard from './ProductCard.vue'
 import CartModal from '../../components/client/CartModal.vue'
-import { formatPrice, getStarClass } from '../../utils/helpers'
+import { formatPrice } from '../../utils/helpers'
+
+const API_BASE = 'http://localhost:8080/api'
 
 const router = useRouter()
 const cartStore = useCartStore()
-const productStore = useProductStore()
 const wishlistStore = useWishlistStore()
-const authStore = useAuthStore()
 const { showNotification } = useNotification()
 
-const wishlistItems = computed(() => wishlistStore.wishlistItems)
+const allProducts = ref([])
 
-onMounted(async () => {
-  if (authStore.isAuthenticated) {
-    await wishlistStore.fetchWishlist()
+const fetchSuggestedProducts = async () => {
+  try {
+    const response = await axios.get(`${API_BASE}/customer/home/latest-products`, {
+      params: { page: 0, size: 8 }
+    })
+    allProducts.value = response.data?.products || []
+  } catch (error) {
+    console.error('Lỗi tải sản phẩm gợi ý:', error)
+    allProducts.value = []
   }
+}
+
+onMounted(() => {
+  wishlistStore.fetchWishlist()
+  fetchSuggestedProducts()
 })
 
+const wishlistItems = computed(() => wishlistStore.items)
+
 const suggestedProducts = computed(() => {
-  const wishlistIds = wishlistItems.value.map(item => item.id)
-  return productStore.products
-    .filter(p => !wishlistIds.includes(p.productId || p.id))
+  const wishlistProductIds = wishlistItems.value.map(item => item.productId)
+  return allProducts.value
+    .filter(p => !wishlistProductIds.includes(p.productId))
     .slice(0, 4)
 })
 
-const goToProduct = (id) => {
-  router.push(`/product/${id}`)
+const goToProduct = (productId) => {
+  router.push(`/product/${productId}`)
 }
 
-const addToCart = (product) => {
-  cartStore.addToCart({
-    productId: product.id,
-    productName: product.name,
-    price: product.price,
-    quantity: 1,
-    image: product.image
-  })
-  showNotification('Đã thêm vào giỏ hàng', 'success')
-}
-
-const removeFromWishlist = async (id) => {
-  const success = await wishlistStore.toggleWishlist(id)
-  if (success) {
-    showNotification('Đã xóa khỏi danh sách yêu thích', 'info')
-  } else {
-    showNotification('Không thể xóa sản phẩm, vui lòng thử lại', 'error')
+const addToCart = async (item) => {
+  try {
+    await cartStore.addToCart({
+      id: item.productDetailId,
+      productDetailId: item.productDetailId,
+      productId: item.productId,
+      productName: item.productName,
+      name: item.productName,
+      price: item.price,
+      discountedPrice: item.discountedPrice,
+      quantity: 1,
+      image: item.imageUrl,
+      imageUrl: item.imageUrl,
+      size: item.sizeName,
+      color: item.colorName,
+      stock: item.stock,
+    })
+    showNotification('Đã thêm vào giỏ hàng', 'success')
+  } catch (error) {
+    console.error('Add to cart error:', error)
+    showNotification('Thêm vào giỏ thất bại!', 'error')
   }
 }
 
-const shareProduct = (product) => {
-  // Simulate share functionality
-  showNotification(`Đã copy link sản phẩm: ${product.name}`, 'success')
+const removeFromWishlist = async (productDetailId) => {
+  try {
+    await wishlistStore.removeFromWishlist(productDetailId)
+    showNotification('Đã xóa khỏi danh sách yêu thích', 'info')
+  } catch (error) {
+    console.error('Remove wishlist error:', error)
+    showNotification('Xóa thất bại, vui lòng thử lại!', 'error')
+  }
 }
 </script>
 
@@ -220,16 +237,22 @@ main {
   transition: transform 0.3s;
 }
 
+.wishlist-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .wishlist-card:hover .product-image i {
   transform: scale(1.1);
 }
 
 .remove-btn {
   position: absolute;
-  top: 10px;
-  right: 10px;
-  width: 35px;
-  height: 35px;
+  top: 8px;
+  right: 8px;
+  width: 24px;       /* Thu nhỏ từ 35px xuống 24px */
+  height: 24px;      /* Thu nhỏ từ 35px xuống 24px */
   background: white;
   border: none;
   border-radius: 50%;
@@ -239,12 +262,19 @@ main {
   justify-content: center;
   transition: all 0.3s;
   box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  font-size: 10px;   /* Thêm dòng này để icon nhỏ lại */
+  padding: 0;
 }
 
 .remove-btn:hover {
   background: var(--primary-red);
   color: white;
   transform: rotate(90deg);
+}
+
+/* Icon bên trong nút */
+.remove-btn i {
+  font-size: 10px;   /* Thu nhỏ icon "✕" */
 }
 
 .product-info {
@@ -419,16 +449,5 @@ main {
   .share-btn {
     width: 100%;
   }
-}
-
-.wishlist-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.3s;
-}
-
-.wishlist-card:hover .wishlist-img {
-  transform: scale(1.05);
 }
 </style>

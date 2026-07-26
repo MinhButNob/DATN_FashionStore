@@ -36,11 +36,36 @@ public class CartService {
 
     private static final BigDecimal DEFAULT_SHIPPING_FEE = new BigDecimal("30000");
 
-    @Transactional(readOnly = true)
+    @Transactional
     public CartResponseDTO getCart(Integer customerId) {
         Cart cart = cartRepository.findByCustomerIdAndDeletedAtIsNull(customerId)
                 .orElseGet(() -> createNewCart(customerId));
+        removeDeletedProductItems(cart);
         return convertToResponse(cart);
+    }
+
+    // ✅ Xóa khỏi giỏ hàng các sản phẩm/biến thể đã bị xóa (mềm) hoặc ngừng bán bên admin
+    private void removeDeletedProductItems(Cart cart) {
+        List<CartItem> invalidItems = cart.getCartItems().stream()
+                .filter(item -> isProductUnavailable(item.getProductDetail()))
+                .collect(Collectors.toList());
+
+        if (!invalidItems.isEmpty()) {
+            log.info("Xóa {} sản phẩm không còn tồn tại khỏi giỏ hàng customerId={}",
+                    invalidItems.size(), cart.getCustomer() != null ? cart.getCustomer().getCustomerId() : null);
+            invalidItems.forEach(cart::removeCartItem);
+            cartItemRepository.deleteAll(invalidItems);
+        }
+    }
+
+    private boolean isProductUnavailable(ProductDetail productDetail) {
+        if (productDetail == null || productDetail.getDeletedAt() != null
+                || "DELETED".equals(productDetail.getStatus())) {
+            return true;
+        }
+        Product product = productDetail.getProduct();
+        return product == null || product.getDeletedAt() != null
+                || "DELETED".equals(product.getStatus());
     }
 
     private Cart createNewCart(Integer customerId) {
@@ -68,6 +93,10 @@ public class CartService {
 
         ProductDetail productDetail = productDetailRepository.findById(request.getProductDetailId())
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy sản phẩm với ID: " + request.getProductDetailId()));
+
+        if (isProductUnavailable(productDetail)) {
+            throw new RuntimeException("Sản phẩm này không còn tồn tại hoặc đã ngừng kinh doanh");
+        }
 
         if (productDetail.getQuantity() < quantity) {
             throw new RuntimeException("Số lượng sản phẩm không đủ. Còn " + productDetail.getQuantity() + " sản phẩm");

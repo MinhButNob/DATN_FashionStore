@@ -7,8 +7,8 @@
       </div>
       <div class="modal-body">
         <form @submit.prevent="handleSubmit">
-          <!-- Tên khách hàng -->
-          <div class="form-group">
+          <!-- Tên khách hàng (chỉ hiện khi thêm mới) -->
+          <div v-if="!isEdit" class="form-group">
             <label>Tên khách hàng <span class="required">*</span></label>
             <input 
               type="text" 
@@ -19,18 +19,16 @@
             />
           </div>
 
-          <!-- Email -->
-          <div class="form-group">
+          <!-- Email (chỉ hiện khi thêm mới) -->
+          <div v-if="!isEdit" class="form-group">
             <label>Email <span class="required">*</span></label>
             <input 
               type="email" 
               v-model="form.email" 
               class="form-control" 
               placeholder="Nhập email"
-              :disabled="isEdit"
               required
             />
-            <small v-if="isEdit" class="hint-text">Email không thể thay đổi</small>
           </div>
 
           <!-- Mật khẩu (chỉ hiện khi thêm mới) -->
@@ -54,8 +52,8 @@
             <small class="hint-text">Mật khẩu phải có ít nhất 6 ký tự</small>
           </div>
 
-          <!-- Số điện thoại -->
-          <div class="form-group">
+          <!-- Số điện thoại (chỉ hiện khi thêm mới) -->
+          <div v-if="!isEdit" class="form-group">
             <label>Số điện thoại</label>
             <input 
               type="tel" 
@@ -65,36 +63,14 @@
             />
           </div>
 
-          <!-- Tỉnh/Thành phố -->
-          <div class="form-group">
-            <label>Tỉnh/Thành phố</label>
-            <select v-model="form.provinceId" class="form-control" @change="onProvinceChange">
-              <option :value="null">-- Chọn tỉnh/thành phố --</option>
-              <option v-for="province in provinces" :key="province.code" :value="province.code">
-                {{ province.name }}
-              </option>
-            </select>
-          </div>
-
-          <!-- Phường/Xã -->
-          <div class="form-group">
-            <label>Phường/Xã</label>
-            <select v-model="form.wardId" class="form-control" :disabled="!form.provinceId">
-              <option :value="null">-- Chọn phường/xã --</option>
-              <option v-for="ward in wards" :key="ward.code" :value="ward.code">
-                {{ ward.name }}
-              </option>
-            </select>
-          </div>
-
-          <!-- Địa chỉ cụ thể -->
-          <div class="form-group">
-            <label>Số nhà, tên đường (Địa chỉ cụ thể)</label>
+          <!-- Địa chỉ (chỉ hiện khi thêm mới) -->
+          <div v-if="!isEdit" class="form-group">
+            <label>Địa chỉ</label>
             <input 
               type="text" 
-              v-model="form.streetAddress" 
+              v-model="form.address" 
               class="form-control" 
-              placeholder="VD: 123 Trịnh Văn Bô"
+              placeholder="Nhập địa chỉ"
             />
           </div>
 
@@ -105,6 +81,7 @@
               <option :value="false">Hoạt động</option>
               <option :value="true">Tạm khóa</option>
             </select>
+            <small class="hint-text">Chỉ có thể cập nhật trạng thái của khách hàng.</small>
           </div>
 
           <!-- Footer -->
@@ -122,8 +99,7 @@
 </template>
 
 <script setup>
-import { ref, watch, computed, onMounted } from 'vue'
-import { useVietnamAddress } from '../../composables/useVietnamAddress'
+import { ref, watch, computed } from 'vue'
 
 const props = defineProps({
   visible: Boolean,
@@ -134,15 +110,6 @@ const emit = defineEmits(['close', 'submit'])
 
 const submitting = ref(false)
 const showPassword = ref(false)
-
-const { provinces, wards, fetchProvinces, fetchWards } = useVietnamAddress()
-
-// Load provinces khi modal mở
-watch(() => props.visible, async (newVal) => {
-  if (newVal && provinces.value.length === 0) {
-    await fetchProvinces()
-  }
-})
 
 // Kiểm tra là edit hay add mới
 const isEdit = computed(() => !!props.initialData?.customerId)
@@ -155,9 +122,6 @@ const form = ref({
   password: '',
   phone: '',
   address: '',
-  streetAddress: '',
-  provinceId: null,
-  wardId: null,
   isLocked: false
 })
 
@@ -170,14 +134,10 @@ const resetForm = () => {
     password: '',
     phone: '',
     address: '',
-    streetAddress: '',
-    provinceId: null,
-    wardId: null,
     isLocked: false
   }
   submitting.value = false
   showPassword.value = false
-  wards.value = []
 }
 
 // Watch initialData để populate form khi edit
@@ -190,25 +150,12 @@ watch(() => props.initialData, (newData) => {
       password: '',
       phone: newData.phone || '',
       address: newData.address || '',
-      streetAddress: newData.address || '', // Fallback address vào ô street
-      provinceId: null, // Không có ID từ backend cho Customer
-      wardId: null,
       isLocked: !!newData.isLocked
     }
-    wards.value = []
   } else {
     resetForm()
   }
 }, { immediate: true })
-
-const onProvinceChange = async () => {
-  form.value.wardId = null
-  if (form.value.provinceId) {
-    await fetchWards(form.value.provinceId)
-  } else {
-    wards.value = []
-  }
-}
 
 // Watch visible để reset khi đóng modal
 watch(() => props.visible, (newVal) => {
@@ -223,56 +170,42 @@ const close = () => {
 }
 
 const handleSubmit = async () => {
-  // Validate
-  if (!form.value.customerName || form.value.customerName.trim() === '') {
-    alert('Vui lòng nhập tên khách hàng')
-    return
-  }
+  // Validate (chỉ áp dụng khi thêm mới, vì lúc sửa chỉ còn ô Trạng thái)
+  if (!isEdit.value) {
+    if (!form.value.customerName || form.value.customerName.trim() === '') {
+      alert('Vui lòng nhập tên khách hàng')
+      return
+    }
 
-  if (!form.value.email || form.value.email.trim() === '') {
-    alert('Vui lòng nhập email')
-    return
-  }
+    if (!form.value.email || form.value.email.trim() === '') {
+      alert('Vui lòng nhập email')
+      return
+    }
 
-  if (!isEdit.value && (!form.value.password || form.value.password.length < 6)) {
-    alert('Mật khẩu phải có ít nhất 6 ký tự')
-    return
+    if (!form.value.password || form.value.password.length < 6) {
+      alert('Mật khẩu phải có ít nhất 6 ký tự')
+      return
+    }
   }
 
   submitting.value = true
   try {
-    // Ghép chuỗi địa chỉ
-    let fullAddress = form.value.streetAddress ? form.value.streetAddress.trim() : ''
-    if (form.value.wardId) {
-      const w = wards.value.find(w => w.code === form.value.wardId)
-      if (w) fullAddress += `, ${w.name}`
-    }
-    if (form.value.provinceId) {
-      const p = provinces.value.find(p => p.code === form.value.provinceId)
-      if (p) fullAddress += `, ${p.name}`
-    }
+    let submitData
 
-    // Nếu không nhập gì ở streetAddress nhưng lại có form.value.address gốc (từ lúc sửa)
-    if (!fullAddress && form.value.address) {
-      fullAddress = form.value.address
-    }
-
-    // Chuẩn bị dữ liệu gửi đi
-    const submitData = {
-      customerName: form.value.customerName.trim(),
-      email: form.value.email.trim(),
-      phone: form.value.phone ? form.value.phone.trim() : null,
-      address: fullAddress ? fullAddress : null,
-    }
-
-    // Nếu là thêm mới, thêm password
-    if (!isEdit.value) {
-      submitData.password = form.value.password
-    }
-
-    // Nếu là sửa, thêm isLocked
     if (isEdit.value) {
-      submitData.isLocked = form.value.isLocked
+      // Chế độ sửa: chỉ cho phép cập nhật trạng thái khách hàng
+      submitData = {
+        isLocked: form.value.isLocked
+      }
+    } else {
+      // Chế độ thêm mới: gửi đầy đủ thông tin
+      submitData = {
+        customerName: form.value.customerName.trim(),
+        email: form.value.email.trim(),
+        phone: form.value.phone ? form.value.phone.trim() : null,
+        address: form.value.address ? form.value.address.trim() : null,
+        password: form.value.password
+      }
     }
 
     await emit('submit', submitData)

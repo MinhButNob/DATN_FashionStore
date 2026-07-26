@@ -1,82 +1,114 @@
 import { defineStore } from "pinia";
 import axios from "axios";
-import { useAuthStore } from "./authStore";
 
-const API_BASE = "http://localhost:8080/api/customer/wishlist";
-
-const getAuthHeader = () => {
-  const token =
-    localStorage.getItem("token") || localStorage.getItem("accessToken");
-  return token ? { Authorization: `Bearer ${token}` } : {};
-};
+const API_BASE = "http://localhost:8080/api";
 
 export const useWishlistStore = defineStore("wishlist", {
   state: () => ({
-    wishlistItems: [],
+    items: [],
     loading: false,
+    loaded: false,
   }),
 
   getters: {
-    isInWishlist: (state) => (productId) => {
-      if (!productId) return false;
-      return state.wishlistItems.some((item) => item.id === productId);
-    },
+    totalItems: (state) => state.items.length,
+    productDetailIds: (state) =>
+      new Set(state.items.map((item) => item.productDetailId)),
   },
 
   actions: {
+    getToken() {
+      return (
+        localStorage.getItem("token") || localStorage.getItem("accessToken")
+      );
+    },
+
+    isInWishlist(productDetailId) {
+      return this.items.some(
+        (item) => item.productDetailId === productDetailId,
+      );
+    },
+
     async fetchWishlist() {
-      const authStore = useAuthStore();
-      if (!authStore.isAuthenticated) {
-        this.wishlistItems = [];
+      const token = this.getToken();
+      if (!token) {
+        this.items = [];
+        this.loaded = true;
         return;
       }
+
       this.loading = true;
       try {
-        const response = await axios.get(API_BASE, {
-          headers: getAuthHeader(),
+        const response = await axios.get(`${API_BASE}/wishlist`, {
+          headers: { Authorization: `Bearer ${token}` },
         });
-        if (response.data && response.data.success) {
-          this.wishlistItems = response.data.data || [];
+
+        if (response.data && response.data.data) {
+          this.items = response.data.data.items || [];
         }
+        this.loaded = true;
       } catch (error) {
-        console.error("Error fetching wishlist:", error);
+        console.error("❌ Fetch wishlist error:", error);
       } finally {
         this.loading = false;
       }
     },
 
-    async toggleWishlist(productId) {
-      console.log("📤 Toggling wishlist for productId:", productId);
-      const authStore = useAuthStore();
-      if (!authStore.isAuthenticated) {
-        window.dispatchEvent(
-          new CustomEvent("open-auth-modal", { detail: "login" }),
-        );
-        return false;
+    async addToWishlist(productDetailId) {
+      const token = this.getToken();
+      if (!token) {
+        throw new Error("Vui lòng đăng nhập để thêm vào yêu thích");
       }
-      try {
-        // ✅ SỬA: Gửi productId trong body JSON
-        const response = await axios.post(
-          `${API_BASE}/toggle`,
-          { productId }, // ← GỬI JSON BODY
-          {
-            headers: {
-              ...getAuthHeader(),
-              "Content-Type": "application/json",
-            },
+
+      const response = await axios.post(
+        `${API_BASE}/wishlist/add`,
+        { productDetailId },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
           },
-        );
-        console.log("✅ Response:", response.data);
-        if (response.data && response.data.success) {
-          await this.fetchWishlist();
-          return true;
-        }
-      } catch (error) {
-        console.error("❌ Error toggling wishlist:", error);
-        console.error("❌ Error response:", error.response?.data);
-        console.error("❌ Error status:", error.response?.status);
+        },
+      );
+
+      if (response.data && response.data.data) {
+        this.items = response.data.data.items || [];
       }
-      return false;
+      return response.data;
+    },
+
+    async removeFromWishlist(productDetailId) {
+      const token = this.getToken();
+      if (!token) {
+        throw new Error("Vui lòng đăng nhập");
+      }
+
+      const response = await axios.delete(
+        `${API_BASE}/wishlist/items/${productDetailId}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+
+      if (response.data && response.data.data) {
+        this.items = response.data.data.items || [];
+      }
+      return response.data;
+    },
+
+    async toggleWishlist(productDetailId) {
+      if (this.isInWishlist(productDetailId)) {
+        await this.removeFromWishlist(productDetailId);
+        return false;
+      } else {
+        await this.addToWishlist(productDetailId);
+        return true;
+      }
+    },
+
+    reset() {
+      this.items = [];
+      this.loaded = false;
     },
   },
 });

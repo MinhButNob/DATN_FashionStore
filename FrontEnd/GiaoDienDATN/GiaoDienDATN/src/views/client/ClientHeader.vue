@@ -19,9 +19,7 @@
         <div class="nav-icons">
           <div class="icon-wrapper" @click="goToWishlist">
             <i class="far fa-heart"></i>
-            <span v-if="wishlistCount > 0" class="badge">{{
-              wishlistCount
-            }}</span>
+            <span v-if="wishlistCount > 0" class="badge">{{ wishlistCount }}</span>
           </div>
 
           <div class="user-menu" ref="userMenu">
@@ -51,7 +49,8 @@
             </Transition>
           </div>
 
-          <div class="icon-wrapper" @click="cartStore.toggleCart">
+          <!-- ✅ Click vào cart icon để chuyển đến trang cart -->
+          <div class="icon-wrapper" @click="goToCartPage">
             <i class="fas fa-shopping-cart"></i>
             <span v-if="cartStore.totalItems > 0" class="badge">
               {{ cartStore.totalItems }}
@@ -72,22 +71,7 @@
             >
               <i :class="item.icon"></i>
               {{ item.name }}
-              <i v-if="item.children" class="fas fa-chevron-down"></i>
             </router-link>
-
-            <Transition v-if="item.children" name="dropdown">
-              <div v-if="isDropdownOpen(item.path)" class="dropdown-menu">
-                <router-link
-                  v-for="child in item.children"
-                  :key="child.path"
-                  :to="child.path"
-                  @click="closeDropdowns"
-                >
-                  <i :class="child.icon"></i>
-                  {{ child.name }}
-                </router-link>
-              </div>
-            </Transition>
           </li>
         </ul>
       </div>
@@ -96,137 +80,35 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from "vue";
+import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { useProductStore } from "../../stores/productStore";
 import { useCartStore } from "../../stores/cartStore";
 import { useAuthStore } from "../../stores/authStore";
+import { useWishlistStore } from "../../stores/wishlistStore";
 
 const router = useRouter();
 const route = useRoute();
 const productStore = useProductStore();
 const cartStore = useCartStore();
 const authStore = useAuthStore();
+const wishlistStore = useWishlistStore();
 
 const searchQuery = ref("");
 const showUserMenu = ref(false);
-const openDropdown = ref(null);
 const userMenu = ref(null);
+const wishlistCount = computed(() => wishlistStore.totalItems);
 
-const wishlistCount = ref(0);
+onMounted(() => {
+  if (authStore.isAuthenticated) {
+    wishlistStore.fetchWishlist();
+  }
+});
 
 const menuItems = [
-  { path: "/", name: "Trang chủ", icon: "fas fa-home" },
-  {
-    path: "/shop?category=men",
-    name: "Nam",
-    icon: "fas fa-male",
-    children: [
-      {
-        path: "/shop?category=men&subcategory=ao",
-        name: "Áo nam",
-        icon: "fas fa-tshirt",
-      },
-      {
-        path: "/shop?category=men&subcategory=quan",
-        name: "Quần nam",
-        icon: "fas fa-vest",
-      },
-      {
-        path: "/shop?category=men&subcategory=giay",
-        name: "Giày nam",
-        icon: "fas fa-shoe-prints",
-      },
-      {
-        path: "/shop?category=men&subcategory=phukien",
-        name: "Phụ kiện nam",
-        icon: "fas fa-glasses",
-      },
-    ],
-  },
-  {
-    path: "/shop?category=women",
-    name: "Nữ",
-    icon: "fas fa-female",
-    children: [
-      {
-        path: "/shop?category=women&subcategory=dam",
-        name: "Đầm nữ",
-        icon: "fas fa-dress",
-      },
-      {
-        path: "/shop?category=women&subcategory=ao",
-        name: "Áo nữ",
-        icon: "fas fa-tshirt",
-      },
-      {
-        path: "/shop?category=women&subcategory=quan",
-        name: "Quần nữ",
-        icon: "fas fa-vest",
-      },
-      {
-        path: "/shop?category=women&subcategory=phukien",
-        name: "Phụ kiện nữ",
-        icon: "fas fa-handbag",
-      },
-    ],
-  },
-  {
-    path: "/shop?category=kids",
-    name: "Trẻ em",
-    icon: "fas fa-child",
-    children: [
-      {
-        path: "/shop?category=kids&subcategory=be-trai",
-        name: "Bé trai",
-        icon: "fas fa-boy",
-      },
-      {
-        path: "/shop?category=kids&subcategory=be-gai",
-        name: "Bé gái",
-        icon: "fas fa-girl",
-      },
-      {
-        path: "/shop?category=kids&subcategory=so-sinh",
-        name: "Sơ sinh",
-        icon: "fas fa-baby",
-      },
-    ],
-  },
-  {
-    path: "/shop?category=accessories",
-    name: "Phụ kiện",
-    icon: "fas fa-bag-shopping",
-    children: [
-      {
-        path: "/shop?category=accessories&subcategory=tui",
-        name: "Túi xách",
-        icon: "fas fa-bag-shopping",
-      },
-      {
-        path: "/shop?category=accessories&subcategory=giay",
-        name: "Giày dép",
-        icon: "fas fa-shoe-prints",
-      },
-      {
-        path: "/shop?category=accessories&subcategory=dongho",
-        name: "Đồng hồ",
-        icon: "fas fa-clock",
-      },
-      {
-        path: "/shop?category=accessories&subcategory=kinh",
-        name: "Kính mát",
-        icon: "fas fa-glasses",
-      },
-      {
-        path: "/shop?category=accessories&subcategory=trangsuc",
-        name: "Trang sức",
-        icon: "fas fa-gem",
-      },
-    ],
-  },
+  { path: "/home", name: "Trang chủ", icon: "fas fa-home" },
+  { path: "/shop", name: "Sản phẩm", icon: "fas fa-store" },
   { path: "/shop?tag=sale", name: "Khuyến mãi", icon: "fas fa-tags" },
-  { path: "/blog", name: "Blog", icon: "fas fa-blog" },
   { path: "/about", name: "Về chúng tôi", icon: "fas fa-info-circle" },
 ];
 
@@ -234,14 +116,13 @@ const isActive = (path) => {
   if (path.includes("?")) {
     const [base, query] = path.split("?");
     const params = new URLSearchParams(query);
-    const category = params.get("category");
-    return route.path === base && route.query.category === category;
+    const tag = params.get("tag");
+    if (tag === "sale") {
+      return route.path === "/shop" && route.query.tag === "sale";
+    }
+    return route.path === base;
   }
   return route.path === path;
-};
-
-const isDropdownOpen = (path) => {
-  return openDropdown.value === path;
 };
 
 const toggleUserMenu = () => {
@@ -253,7 +134,6 @@ const closeUserMenu = () => {
 };
 
 const closeDropdowns = () => {
-  openDropdown.value = null;
   closeUserMenu();
 };
 
@@ -278,15 +158,20 @@ const goToWishlist = () => {
   closeDropdowns();
 };
 
+// ✅ Chuyển đến trang cart
+const goToCartPage = () => {
+  closeDropdowns();
+  router.push("/cart");
+};
+
 const showLoginModal = () => {
-  // Emit event to open login modal
   window.dispatchEvent(new CustomEvent("open-auth-modal", { detail: "login" }));
   closeUserMenu();
 };
 
 const showRegisterModal = () => {
   window.dispatchEvent(
-    new CustomEvent("open-auth-modal", { detail: "register" }),
+    new CustomEvent("open-auth-modal", { detail: "register" })
   );
   closeUserMenu();
 };
@@ -301,11 +186,6 @@ const logout = () => {
 const handleClickOutside = (event) => {
   if (userMenu.value && !userMenu.value.contains(event.target)) {
     showUserMenu.value = false;
-  }
-
-  // Close dropdowns when clicking outside
-  if (!event.target.closest(".has-dropdown")) {
-    openDropdown.value = null;
   }
 };
 
@@ -325,12 +205,12 @@ header {
   width: 100%;
   z-index: 1000;
   background: white;
-  box-shadow: var(--shadow);
+  box-shadow: 0 2px 15px rgba(0, 0, 0, 0.08);
 }
 
 .header-top {
   padding: 15px 0;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid #f0f0f0;
 }
 
 .header-container {
@@ -344,33 +224,45 @@ header {
 .logo {
   font-size: 28px;
   font-weight: 800;
-  background: linear-gradient(135deg, var(--primary-red), var(--light-red));
+  background: linear-gradient(135deg, #e63946, #ff6b6b);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   cursor: pointer;
+  letter-spacing: 1px;
 }
 
 .search-box {
   display: flex;
   align-items: center;
-  background: linear-gradient(135deg, var(--light-gray), #e9ecef);
+  background: #f5f5f5;
   border-radius: 30px;
-  padding: 5px 20px;
+  padding: 5px 5px 5px 20px;
   width: 400px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+}
+
+.search-box:focus-within {
+  box-shadow: 0 2px 15px rgba(230, 57, 70, 0.15);
+  background: white;
 }
 
 .search-box input {
   border: none;
   background: none;
-  padding: 12px;
+  padding: 12px 0;
   width: 100%;
   outline: none;
   font-size: 14px;
+  color: #333;
+}
+
+.search-box input::placeholder {
+  color: #999;
 }
 
 .search-box button {
-  background: var(--primary-red);
+  background: #e63946;
   border: none;
   color: white;
   cursor: pointer;
@@ -378,12 +270,15 @@ header {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  transition: var(--transition);
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .search-box button:hover {
-  background: var(--dark-red);
-  transform: scale(1.1);
+  background: #c62828;
+  transform: scale(1.05);
 }
 
 .nav-icons {
@@ -395,71 +290,92 @@ header {
 .icon-wrapper {
   position: relative;
   cursor: pointer;
+  padding: 5px;
 }
 
 .icon-wrapper i {
   font-size: 22px;
-  color: var(--dark-gray);
-  transition: var(--transition);
+  color: #333;
+  transition: all 0.3s ease;
 }
 
 .icon-wrapper:hover i {
-  color: var(--primary-red);
+  color: #e63946;
   transform: translateY(-3px);
 }
 
 .badge {
   position: absolute;
-  top: -8px;
+  top: -5px;
   right: -8px;
-  background: var(--primary-red);
+  background: #e63946;
   color: white;
   font-size: 11px;
-  padding: 2px 5px;
+  padding: 2px 6px;
   border-radius: 50%;
   min-width: 18px;
   text-align: center;
   font-weight: 600;
+  border: 2px solid white;
 }
 
 .user-menu {
   position: relative;
 }
 
+.user-menu i {
+  font-size: 22px;
+  color: #333;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.user-menu i:hover {
+  color: #e63946;
+}
+
 .user-dropdown {
   position: absolute;
-  top: 40px;
+  top: 45px;
   right: 0;
   background: white;
-  border-radius: 10px;
-  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
   width: 200px;
   z-index: 1001;
   overflow: hidden;
+  animation: slideDown 0.3s ease;
 }
 
 .user-dropdown a {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   padding: 12px 20px;
-  color: var(--dark-gray);
+  color: #333;
   text-decoration: none;
-  transition: var(--transition);
+  transition: all 0.2s ease;
+  font-size: 14px;
 }
 
 .user-dropdown a:hover {
-  background: var(--light-gray);
-  color: var(--primary-red);
+  background: #f8f9fa;
+  color: #e63946;
 }
 
 .user-dropdown a i {
   width: 20px;
+  font-size: 16px;
+  color: #666;
+}
+
+.user-dropdown a:hover i {
+  color: #e63946;
 }
 
 .dropdown-enter-active,
 .dropdown-leave-active {
-  transition: all 0.3s;
+  transition: all 0.3s ease;
 }
 
 .dropdown-enter-from,
@@ -468,86 +384,81 @@ header {
   transform: translateY(-10px);
 }
 
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .nav-menu {
   background: white;
   padding: 10px 0;
-  position: relative;
+  border-bottom: 1px solid #f0f0f0;
 }
 
 .nav-menu ul {
   display: flex;
   list-style: none;
-  gap: 15px;
+  gap: 5px;
   justify-content: center;
   flex-wrap: wrap;
-}
-
-.nav-menu ul li {
-  position: relative;
+  margin: 0;
+  padding: 0;
 }
 
 .nav-menu ul li a {
   text-decoration: none;
-  color: var(--medium-gray);
-  font-weight: 600;
-  transition: var(--transition);
-  padding: 10px 15px;
-  border-radius: 20px;
+  color: #555;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  padding: 10px 20px;
+  border-radius: 25px;
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 8px;
   font-size: 14px;
 }
 
 .nav-menu ul li a i {
-  font-size: 14px;
+  font-size: 15px;
 }
 
-.nav-menu ul li a:hover,
+.nav-menu ul li a:hover {
+  color: #e63946;
+  background: rgba(230, 57, 70, 0.08);
+}
+
 .nav-menu ul li a.active {
-  color: var(--primary-red);
-  background: rgba(230, 57, 70, 0.1);
+  color: #e63946;
+  background: rgba(230, 57, 70, 0.12);
+  font-weight: 600;
 }
 
-.dropdown-menu {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  background: white;
-  border-radius: 10px;
-  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
-  width: 220px;
-  z-index: 1000;
-  overflow: hidden;
-}
-
-.dropdown-menu a {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 20px;
-  border-radius: 0 !important;
-}
-
-.dropdown-menu a:first-child {
-  border-radius: 10px 10px 0 0 !important;
-}
-
-.dropdown-menu a:last-child {
-  border-radius: 0 0 10px 10px !important;
+@media (max-width: 1024px) {
+  .search-box {
+    width: 300px;
+  }
 }
 
 @media (max-width: 768px) {
   .header-container {
     flex-direction: column;
+    gap: 10px;
   }
 
   .logo {
+    font-size: 24px;
     order: 1;
   }
 
   .nav-icons {
     order: 2;
+    gap: 15px;
   }
 
   .search-box {
@@ -556,22 +467,34 @@ header {
   }
 
   .nav-menu ul {
-    flex-direction: column;
-    align-items: center;
+    flex-direction: row;
+    flex-wrap: wrap;
     gap: 5px;
   }
 
-  .nav-menu ul li {
-    width: 100%;
-    text-align: center;
+  .nav-menu ul li a {
+    padding: 8px 15px;
+    font-size: 13px;
   }
 
-  .dropdown-menu {
-    position: static;
-    width: 100%;
-    box-shadow: none;
-    border: 1px solid var(--border-color);
-    margin-top: 5px;
+  .nav-menu ul li a i {
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 480px) {
+  .nav-menu ul li a {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+
+  .nav-menu ul li a i {
+    font-size: 12px;
+  }
+
+  .user-dropdown {
+    right: -20px;
+    width: 180px;
   }
 }
 </style>

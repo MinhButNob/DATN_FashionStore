@@ -19,4 +19,5 @@ public class ProductCardResponse {
     private Integer totalStock;
     private String categoryName;      // ✅ Thêm field này
     private Integer categoryId;        // ✅ Thêm field này
+    private List<VariantCustomerResponse> variants; // ✅ Thêm để FE lấy productDetailId (wishlist, filter size...)
 }

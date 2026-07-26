@@ -15,7 +15,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/vouchers")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "http://localhost:5173")
 public class CustomerVoucherController {
 
     private final CustomerVoucherService customerVoucherService;

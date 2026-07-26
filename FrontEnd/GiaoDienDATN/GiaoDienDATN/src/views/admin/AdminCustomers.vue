@@ -145,9 +145,15 @@
                     <i class="fas fa-trash"></i>
                   </button>
                 </template>
-                <!-- Đã xóa: chỉ xem -->
+                <!-- Đã xóa: cho phép khôi phục -->
                 <template v-else>
-                  <span class="readonly-label">Chỉ xem</span>
+                  <button
+                    class="action-btn restore-btn"
+                    @click="confirmRestore(customer.customerId)"
+                    title="Khôi phục"
+                  >
+                    <i class="fas fa-undo"></i>
+                  </button>
                 </template>
               </div>
             </td>
@@ -363,11 +369,18 @@ const closeCustomerModal = () => {
 // ✅ SỬA: Hàm xử lý submit từ CustomerModal
 const handleCustomerSubmit = async (data) => {
   try {
-    // Nếu đang sửa khách hàng
+    // Nếu đang sửa khách hàng -> chỉ cho phép cập nhật trạng thái
     if (editingCustomer.value?.customerId) {
-      // Cập nhật thông tin khách hàng (bao gồm phone và address)
-      await customerStore.updateCustomer(editingCustomer.value.customerId, data);
-      showNotification("Cập nhật thông tin thành công!", "success");
+      const currentIsLocked = !!editingCustomer.value.isLocked;
+      const newIsLocked = !!data.isLocked;
+
+      if (currentIsLocked !== newIsLocked) {
+        // Backend chỉ hỗ trợ toggle khóa/mở khóa tài khoản
+        await customerStore.toggleLock(editingCustomer.value.customerId);
+        showNotification("Cập nhật trạng thái thành công!", "success");
+      } else {
+        showNotification("Không có thay đổi để cập nhật", "warning");
+      }
     } else {
       // Thêm mới khách hàng
       await customerStore.addCustomer(data);
@@ -393,6 +406,15 @@ const confirmDelete = (id) => {
   showConfirmDialog.value = true;
 };
 
+const confirmRestore = (id) => {
+  pendingCustomerId = id;
+  confirmTitle.value = "Xác nhận khôi phục";
+  confirmMessage.value = "Bạn có chắc chắn muốn khôi phục khách hàng này?";
+  confirmButtonText.value = "Khôi phục";
+  confirmAction.value = "restore";
+  showConfirmDialog.value = true;
+};
+
 const closeConfirmDialog = () => {
   showConfirmDialog.value = false;
   pendingCustomerId = null;
@@ -405,6 +427,10 @@ const handleConfirm = async () => {
     if (confirmAction.value === "delete") {
       await customerStore.removeCustomer(pendingCustomerId);
       showNotification("Xóa khách hàng thành công!", "success");
+      await loadData();
+    } else if (confirmAction.value === "restore") {
+      await customerStore.restoreCustomer(pendingCustomerId);
+      showNotification("Khôi phục khách hàng thành công!", "success");
       await loadData();
     }
   } catch (error) {

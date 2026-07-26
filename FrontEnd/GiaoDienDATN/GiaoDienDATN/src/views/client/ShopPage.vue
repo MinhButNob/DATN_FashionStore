@@ -188,8 +188,12 @@
                     <div v-if="product.discountPercent > 0" class="discount-flag">
                       -{{ product.discountPercent }}%
                     </div>
-                    <div class="product-wishlist-direct" @click.stop="handleWishlistToggle(product.productId)">
-                      <i :class="[wishlistStore.isInWishlist(product.productId) ? 'fas fa-heart' : 'far fa-heart']"></i>
+                    <div
+                      class="product-wishlist-direct"
+                      :class="{ active: isProductInWishlist(product) }"
+                      @click.stop="toggleWishlistDirect(product)"
+                    >
+                      <i :class="[isProductInWishlist(product) ? 'fas' : 'far', 'fa-heart']"></i>
                     </div>
                   </div>
                   <div class="product-info-direct">
@@ -273,9 +277,9 @@ import ClientHeader from '../../components/client/ClientHeader.vue'
 import ClientFooter from '../../components/client/ClientFooter.vue'
 import CartModal from '../../components/client/CartModal.vue'
 import { useCartStore } from '../../stores/cartStore'
-import { useNotification } from '../../composables/useNotification'
-import { useWishlistStore } from '../../stores/wishlistStore'
 import { useAuthStore } from '../../stores/authStore'
+import { useWishlistStore } from '../../stores/wishlistStore'
+import { useNotification } from '../../composables/useNotification'
 import axios from 'axios'
 
 const route = useRoute()
@@ -733,33 +737,54 @@ watch(() => route.query.categoryId, (newCategoryId) => {
   }
 }, { immediate: true })
 
-// Wishlist Toggle
-const handleWishlistToggle = async (productId) => {
-  if (!authStore.isAuthenticated) {
-    window.dispatchEvent(new CustomEvent('open-auth-modal', { detail: 'login' }))
-    return
-  }
-  const isAdded = !wishlistStore.isInWishlist(productId)
-  const success = await wishlistStore.toggleWishlist(productId)
-  if (success) {
-    if (isAdded) {
-      showNotification('Đã thêm sản phẩm vào danh sách yêu thích!', 'success')
-    } else {
-      showNotification('Đã xóa sản phẩm khỏi danh sách yêu thích!', 'info')
-    }
-  } else {
-    showNotification('Có lỗi xảy ra, vui lòng thử lại!', 'error')
-  }
-}
-
 // Lifecycle
 onMounted(async () => {
   await fetchSizes()
   await fetchProducts()
-  if (authStore.isAuthenticated) {
-    await wishlistStore.fetchWishlist()
+  if (authStore.isAuthenticated && !wishlistStore.loaded) {
+    wishlistStore.fetchWishlist()
   }
 })
+
+// ✅ Wishlist trên trang Shop
+const getWishlistProductDetailId = (product) => {
+  let id = product.productDetailId || product.id
+  if (product.variants && product.variants.length > 0) {
+    id = product.variants[0].productDetailId || id
+  }
+  return id
+}
+
+const isProductInWishlist = (product) => {
+  return wishlistStore.isInWishlist(getWishlistProductDetailId(product))
+}
+
+const toggleWishlistDirect = async (product) => {
+  if (!authStore.isAuthenticated) {
+    window.dispatchEvent(new CustomEvent('open-auth-modal', { detail: 'login' }))
+    return
+  }
+
+  const productDetailId = getWishlistProductDetailId(product)
+  if (!productDetailId) {
+    showNotification('Không thể xác định sản phẩm!', 'error')
+    return
+  }
+
+  try {
+    const added = await wishlistStore.toggleWishlist(productDetailId)
+    showNotification(
+      added ? 'Đã thêm vào danh sách yêu thích' : 'Đã xoá khỏi danh sách yêu thích',
+      'success'
+    )
+  } catch (error) {
+    console.error('Toggle wishlist error:', error)
+    showNotification(
+      error?.response?.data?.message || 'Thao tác thất bại, vui lòng thử lại!',
+      'error'
+    )
+  }
+}
 </script>
 
 <style scoped>
@@ -1095,6 +1120,37 @@ main {
   font-weight: bold;
 }
 
+.product-wishlist-direct {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+  transition: all 0.2s;
+  z-index: 2;
+}
+
+.product-wishlist-direct:hover {
+  transform: scale(1.1);
+}
+
+.product-wishlist-direct i {
+  font-size: 16px;
+  color: #999;
+}
+
+.product-wishlist-direct.active i,
+.product-wishlist-direct i.fas {
+  color: #e63946;
+}
+
 .product-info-direct {
   padding: 20px;
 }
@@ -1339,41 +1395,5 @@ main {
   .current-price-direct {
     font-size: 16px;
   }
-}
-
-.product-wishlist-direct {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  width: 35px;
-  height: 35px;
-  background: white;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.3s;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-  z-index: 10;
-}
-
-.product-wishlist-direct:hover {
-  background: #e63946;
-  color: white;
-  transform: scale(1.1);
-}
-
-.product-wishlist-direct i {
-  font-size: 16px;
-  transition: color 0.3s;
-}
-
-.product-wishlist-direct .fas.fa-heart {
-  color: #e63946;
-}
-
-.product-wishlist-direct:hover .fas.fa-heart {
-  color: white;
 }
 </style>

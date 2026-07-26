@@ -1,5 +1,7 @@
 package com.example.backend_fashionstore.QuanLyBanner.service;
 
+import com.cloudinary.Cloudinary;
+import com.cloudinary.utils.ObjectUtils;
 import com.example.backend_fashionstore.QuanLyBanner.dto.BannerDto;
 import com.example.backend_fashionstore.QuanLyBanner.repository.BannerRepository;
 import com.example.backend_fashionstore.QuanLySanPham.repository.Product.ProductRepository;
@@ -9,17 +11,15 @@ import com.example.backend_fashionstore.entity.Category;
 import com.example.backend_fashionstore.entity.Product;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import net.coobird.thumbnailator.Thumbnails;
 import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.nio.file.*;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.UUID;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -31,8 +31,7 @@ public class BannerService {
     private final BannerRepository bannerRepository;
     private final CategoryRepository categoryRepository;
     private final ProductRepository productRepository;
-
-    private static final String UPLOAD_DIR = "uploads/banners/";
+    private final Cloudinary cloudinary;
 
     public List<BannerDto.BannerResponse> getActiveBanners() {
         try {
@@ -190,42 +189,47 @@ public class BannerService {
             throw new IllegalArgumentException("Chỉ hỗ trợ định dạng JPG, PNG, WebP");
         }
 
-        Path uploadPath = Paths.get(UPLOAD_DIR);
-        if (!Files.exists(uploadPath)) {
-            Files.createDirectories(uploadPath);
-        }
-
-        String newFilename = UUID.randomUUID() + ".jpg";
-        Path filePath = uploadPath.resolve(newFilename);
-
-        try {
-            Thumbnails.of(file.getInputStream())
-                    .size(1920, 600)
-                    .keepAspectRatio(true)
-                    .outputFormat("jpg")
-                    .outputQuality(0.92)
-                    .toFile(filePath.toFile());
-
-            log.info("Saved image: {}", newFilename);
-            return UPLOAD_DIR + newFilename;
-
-        } catch (IOException e) {
-            log.error("Error saving image: ", e);
-            throw new IOException("Không thể lưu ảnh: " + e.getMessage());
-        }
+        @SuppressWarnings("rawtypes")
+        Map uploadResult = cloudinary.uploader().upload(
+                file.getBytes(),
+                ObjectUtils.asMap("folder", "banners")
+        );
+        log.info("Uploaded banner image to Cloudinary: {}", uploadResult.get("secure_url"));
+        return uploadResult.get("secure_url").toString();
     }
 
     private void deleteOldImage(String imagePath) {
-        if (imagePath == null || imagePath.isEmpty()) return;
+        if (imagePath == null || imagePath.trim().isEmpty()) return;
         try {
-            Path path = Paths.get(imagePath);
-            if (Files.exists(path)) {
-                Files.delete(path);
-                log.info("Deleted old image: {}", imagePath);
+            String publicId = extractPublicId(imagePath);
+            if (publicId != null && !publicId.trim().isEmpty()) {
+                cloudinary.uploader().destroy(publicId, ObjectUtils.emptyMap());
+                log.info("Deleted banner image on Cloudinary with public_id: {}", publicId);
             }
-        } catch (IOException e) {
-            log.warn("Không thể xóa ảnh cũ: {}", imagePath);
+        } catch (Exception e) {
+            log.warn("Không thể xóa ảnh banner cũ trên Cloudinary: {}", imagePath);
         }
+    }
+
+    private String extractPublicId(String imagePath) {
+        if (imagePath == null || !imagePath.startsWith("http")) {
+            return null;
+        }
+        int uploadIndex = imagePath.indexOf("/upload/");
+        if (uploadIndex == -1) {
+            return null;
+        }
+        String pathAfterUpload = imagePath.substring(uploadIndex + "/upload/".length());
+
+        if (pathAfterUpload.matches("^v\\d+/.*")) {
+            pathAfterUpload = pathAfterUpload.substring(pathAfterUpload.indexOf('/') + 1);
+        }
+
+        int lastDotIndex = pathAfterUpload.lastIndexOf('.');
+        if (lastDotIndex != -1) {
+            pathAfterUpload = pathAfterUpload.substring(0, lastDotIndex);
+        }
+        return pathAfterUpload;
     }
 
     private void setLinkTarget(Banner banner, BannerDto.BannerRequest request) {
