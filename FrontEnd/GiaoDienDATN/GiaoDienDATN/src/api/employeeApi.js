@@ -1,44 +1,42 @@
-import axios from './axios.js'
+import api from './axios.js'
 
-// baseURL đã là http://localhost:8080/api nên chỉ cần '/employees'
+// baseURL đã có sẵn nên chỉ cần '/employees'
 const API_URL = '/employees'
 
 export const employeeApi = {
-  // ✅ THÊM method này
   getAll() {
-    return axios.get(API_URL)
+    return api.get(API_URL)
   },
 
   create(data) {
-    return axios.post(API_URL, data)
+    return api.post(API_URL, data)
   },
 
   update(id, data) {
-    return axios.put(`${API_URL}/${id}`, data)
+    return api.put(`${API_URL}/${id}`, data)
   },
 
   delete(id) {
-    return axios.delete(`${API_URL}/${id}`)
+    return api.delete(`${API_URL}/${id}`)
   },
 
   getById(id) {
-    return axios.get(`${API_URL}/${id}`)
+    return api.get(`${API_URL}/${id}`)
   },
 
   search(params) {
-    return axios.get(`${API_URL}/search`, { params })
+    return api.get(`${API_URL}/search`, { params })
   },
 
-  // Thêm vào employeeApi.js
-toggleLock(id) {
-  return axios.patch(`${API_URL}/${id}/toggle-lock`)
-},
+  toggleLock(id) {
+    return api.patch(`${API_URL}/${id}/toggle-lock`)
+  },
 
-restore(id) {
-  return axios.patch(`${API_URL}/${id}/restore`)
-},
+  restore(id) {
+    return api.patch(`${API_URL}/${id}/restore`)
+  },
 
   getStatistics() {
-    return axios.get(`${API_URL}/statistics`)
+    return api.get(`${API_URL}/statistics`)
   }
 }

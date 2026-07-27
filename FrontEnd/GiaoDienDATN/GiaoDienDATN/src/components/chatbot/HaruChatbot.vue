@@ -229,8 +229,7 @@ const chatWindowStyle = computed(() => {
     return {
       left: safeLeft + 'px',
       right: 'auto',
-      bottom: chatBottom.value + 'px',
-    }
+      bottom: chatBottom.value + 'px' }
   } else {
     // Haru bên phải → chat nằm bên trái Haru
     const left = haruPos.value.x - CHAT_WIDTH - CHAT_GAP
@@ -238,8 +237,7 @@ const chatWindowStyle = computed(() => {
     return {
       left: safeLeft + 'px',
       right: 'auto',
-      bottom: chatBottom.value + 'px',
-    }
+      bottom: chatBottom.value + 'px' }
   }
 })
 
@@ -380,7 +378,7 @@ const callAIAPI = async (message) => {
   const headers = { 'Content-Type': 'application/json' }
   if (token) headers['Authorization'] = `Bearer ${token}`
 
-  const response = await fetch('http://localhost:8080/api/ai/chat', {
+  const response = await fetch('/ai/chat', {
     method: 'POST',
     headers,
     body: JSON.stringify({ message, userId: Number(userId) })
@@ -420,7 +418,7 @@ const formatPrice = (price) =>
 
 // Ảnh sản phẩm từ DB có thể là path tương đối (vd: /uploads/abc.jpg)
 // => cần ghép domain backend để hiển thị đúng, nếu đã là URL đầy đủ (http...) thì giữ nguyên.
-const BACKEND_BASE_URL = 'http://localhost:8080'
+const BACKEND_BASE_URL = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "").replace(/\/api$/, "")
 const resolveImageUrl = (link) => {
   if (!link) return ''
   if (/^https?:\/\//i.test(link)) return link

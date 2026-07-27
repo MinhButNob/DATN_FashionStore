@@ -211,11 +211,9 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
-import axios from 'axios';
+import api from "@/api/axios";
 
 const router = useRouter();
-const API_BASE = 'http://localhost:8080/api';
-
 // ===== STATE =====
 const loading = ref(false);
 const error = ref(null);
@@ -287,9 +285,7 @@ const navigateToOrders = (status) => {
 const fetchOrderStats = async () => {
   try {
     const token = localStorage.getItem('token');
-    const response = await axios.get(`${API_BASE}/admin/orders/statistics`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
+    const response = await api.get(`/admin/orders/statistics`, {});
     if (response.data) {
       orderStats.value = response.data;
       console.log('✅ Order stats loaded:', orderStats.value);
@@ -303,9 +299,7 @@ const fetchOrderStats = async () => {
 const fetchStatusCounts = async () => {
   try {
     const token = localStorage.getItem('token');
-    const response = await axios.get(`${API_BASE}/admin/orders/status/counts`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
+    const response = await api.get(`/admin/orders/status/counts`, {});
     if (response.data) {
       statusCounts.value = response.data;
       console.log('✅ Status counts loaded:', statusCounts.value);

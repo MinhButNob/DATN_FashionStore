@@ -81,8 +81,7 @@ import { useNotification } from "../../composables/useNotification";
 const props = defineProps({
   visible: Boolean,
   isEdit: Boolean,
-  initialData: Object,
-});
+  initialData: Object });
 
 const emit = defineEmits(["close", "submit"]);
 const { showNotification } = useNotification();
@@ -98,8 +97,7 @@ const form = ref({
   promotionDescription: "",
   promotionDiscountPercent: null,
   promotionStartDate: "",
-  promotionEndDate: "",
-});
+  promotionEndDate: "" });
 
 const submitting = ref(false);
 
@@ -112,8 +110,7 @@ watch(
         promotionDescription: newData.promotionDescription || "",
         promotionDiscountPercent: newData.promotionDiscountPercent || null,
         promotionStartDate: formatDateTime(newData.promotionStartDate),
-        promotionEndDate: formatDateTime(newData.promotionEndDate),
-      };
+        promotionEndDate: formatDateTime(newData.promotionEndDate) };
     }
   },
   { immediate: true },
@@ -128,8 +125,7 @@ watch(
         promotionDescription: "",
         promotionDiscountPercent: null,
         promotionStartDate: "",
-        promotionEndDate: "",
-      };
+        promotionEndDate: "" };
       submitting.value = false;
     }
   },

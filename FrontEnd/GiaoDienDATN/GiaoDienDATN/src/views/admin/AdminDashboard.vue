@@ -342,13 +342,12 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import axios from 'axios'
+import api from "@/api/axios";
 import StatsCard from '../../components/admin/StatsCard.vue'
 import RevenueChart from '../../components/admin/RevenueChart.vue'
 
 const router = useRouter()
-const API_BASE = 'http://localhost:8080/api'
-const IMAGE_BASE = 'http://localhost:8080'
+const IMAGE_BASE = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "").replace(/\/api$/, "");
 
 // ===== STATE =====
 const loading = ref(false)
@@ -498,7 +497,7 @@ const showNotification = (message, type = 'success') => {
 const fetchProductStats = async () => {
   loadingProduct.value = true
   try {
-    const response = await axios.get(`${API_BASE}/products/statistics`)
+    const response = await api.get(`/products/statistics`)
     if (response.data?.data) {
       productStats.value = response.data.data
     }
@@ -513,9 +512,7 @@ const fetchCustomerStats = async () => {
   loadingCustomer.value = true
   try {
     const token = localStorage.getItem('token')
-    const response = await axios.get(`${API_BASE}/admin/customers/statistics`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
+    const response = await api.get(`/admin/customers/statistics`, {})
     if (response.data) {
       customerStats.value = response.data
     }
@@ -530,9 +527,7 @@ const fetchOrderStats = async () => {
   loadingOrder.value = true
   try {
     const token = localStorage.getItem('token')
-    const response = await axios.get(`${API_BASE}/admin/orders/statistics`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
+    const response = await api.get(`/admin/orders/statistics`, {})
     if (response.data) {
       orderStats.value = response.data
     }
@@ -546,9 +541,7 @@ const fetchOrderStats = async () => {
 const fetchOrderStatusCounts = async () => {
   try {
     const token = localStorage.getItem('token')
-    const response = await axios.get(`${API_BASE}/admin/orders/status/counts`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
+    const response = await api.get(`/admin/orders/status/counts`, {})
     if (response.data) {
       orderStatusCounts.value = response.data
     }
@@ -595,7 +588,7 @@ const fetchTopProducts = async () => {
   try {
     // Gọi API để lấy top sản phẩm bán chạy
     // Sử dụng OrderDetailRepository.getTopSellingProducts
-    const response = await axios.get(`${API_BASE}/orders/top-products`, {
+    const response = await api.get(`/orders/top-products`, {
       params: { limit: 5 }
     })
     if (response.data) {
@@ -611,10 +604,8 @@ const fetchTopProducts = async () => {
 const fetchRecentOrders = async () => {
   try {
     const token = localStorage.getItem('token')
-    const response = await axios.get(`${API_BASE}/admin/orders`, {
-      params: { page: 0, size: 10 },
-      headers: { Authorization: `Bearer ${token}` }
-    })
+    const response = await api.get(`/admin/orders`, {
+      params: { page: 0, size: 10 } })
     if (response.data?.content) {
       recentOrders.value = response.data.content.slice(0, 5)
     }
@@ -651,9 +642,7 @@ const refreshAllData = async () => {
 const viewOrderDetail = async (orderId) => {
   try {
     const token = localStorage.getItem('token')
-    const response = await axios.get(`${API_BASE}/admin/orders/${orderId}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
+    const response = await api.get(`/admin/orders/${orderId}`, {})
     if (response.data) {
       selectedOrder.value = response.data
       showDetailModal.value = true

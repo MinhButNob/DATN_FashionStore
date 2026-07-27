@@ -197,7 +197,7 @@ const emit = defineEmits([
 const router = useRouter()
 
 // ===== CONSTANTS =====
-const IMAGE_BASE = "http://localhost:8080"
+const IMAGE_BASE = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "").replace(/\/api$/, "");
 const RETURN_HOURS_LIMIT = 48
 
 // ===== HELPERS =====

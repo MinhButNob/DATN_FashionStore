@@ -10,8 +10,7 @@ export function useNotification() {
       id,
       message,
       type,
-      duration,
-    });
+      duration });
 
     if (duration > 0) {
       setTimeout(() => {
@@ -30,6 +29,5 @@ export function useNotification() {
   return {
     notifications,
     showNotification,
-    removeNotification,
-  };
+    removeNotification };
 }

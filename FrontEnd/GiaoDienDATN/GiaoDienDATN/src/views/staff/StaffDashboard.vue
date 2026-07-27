@@ -197,8 +197,7 @@ const statusBadge = (s) => {
     COMPLETED: { label: 'Hoàn tất',  badge: 'badge-success' },
     CANCELLED: { label: 'Đã hủy',    badge: 'badge-danger'  },
     RETURNED:  { label: 'Đổi trả',   badge: 'badge-danger'  },
-    REFUNDED:  { label: 'Hoàn tiền', badge: 'badge-danger'  },
-  };
+    REFUNDED:  { label: 'Hoàn tiền', badge: 'badge-danger'  } };
   return map[s?.toUpperCase()] ?? { label: s ?? '–', badge: 'badge-secondary' };
 };
 
@@ -234,8 +233,7 @@ const loadTodayOrders = async () => {
       startDate: t,
       endDate: t,
       page: 0,
-      size: 50,
-    });
+      size: 50 });
     const content = res.data?.data?.content ?? res.data?.content ?? [];
 
     // Tính tổng doanh thu = tổng tất cả đơn không bị hủy/hoàn tiền
@@ -260,8 +258,7 @@ const loadTodayOrders = async () => {
         total: formatPrice(o.total ?? 0),
         status: label,
         badge,
-        staff: o.cashierName ?? '–',
-      };
+        staff: o.cashierName ?? '–' };
     });
   } catch (e) {
     console.error('[Dashboard] Lỗi load today orders:', e);

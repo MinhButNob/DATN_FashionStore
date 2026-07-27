@@ -105,8 +105,7 @@
                 :class="{
                   active: size.status === 'ACTIVE',
                   inactive: size.status === 'INACTIVE',
-                  deleted: size.status === 'DELETED',
-                }"
+                  deleted: size.status === 'DELETED' }"
               >
                 {{
                   size.status === "ACTIVE"
@@ -274,8 +273,7 @@ const defaultForm = {
   sizeCode: "",
   sizeName: "",
   description: "",
-  status: "ACTIVE",
-};
+  status: "ACTIVE" };
 const formData = ref({ ...defaultForm });
 
 const showToast = (message, type = "success") => {
@@ -332,8 +330,7 @@ const openEditModal = (size) => {
     sizeCode: size.sizeCode,
     sizeName: size.sizeName,
     description: size.description,
-    status: size.status,
-  };
+    status: size.status };
   showModal.value = true;
 };
 

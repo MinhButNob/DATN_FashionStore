@@ -339,14 +339,13 @@ import ClientHeader from '../../components/client/ClientHeader.vue'
 import ClientFooter from '../../components/client/ClientFooter.vue'
 import CartModal from '../../components/client/CartModal.vue'
 import CartPopup from '../../components/client/CartPopup.vue'
-import axios from 'axios'
+import api from "@/api/axios";
 
 const route = useRoute()
 const router = useRouter()
 const cartStore = useCartStore()
 const { showNotification } = useNotification()
-const API_BASE = "http://localhost:8080/api"
-const IMAGE_BASE = "http://localhost:8080"
+const IMAGE_BASE = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "").replace(/\/api$/, "");
 
 const loading = ref(true)
 const product = ref(null)
@@ -581,7 +580,7 @@ const loadProductDetail = async () => {
       return
     }
     
-    const response = await axios.get(`${API_BASE}/customer/home/products/${productId}`)
+    const response = await api.get(`/customer/home/products/${productId}`)
     product.value = response.data
     
     const firstInStockVariant = product.value.variants?.find(v => v.quantity > 0)
@@ -627,7 +626,7 @@ const loadReviews = async (productId, reset = true) => {
     }
 
     // ✅ Gọi API gộp theo productId (tất cả biến thể màu/size): /api/reviews/product-all/{productId}
-    const response = await axios.get(`${API_BASE}/reviews/product-all/${productId}`, {
+    const response = await api.get(`/reviews/product-all/${productId}`, {
       params: {
         page: reviewsPage.value,
         size: 5
@@ -658,7 +657,7 @@ const loadRatingStats = async (productId) => {
   try {
     if (!productId) return
 
-    const response = await axios.get(`${API_BASE}/reviews/product-all/${productId}/rating`)
+    const response = await api.get(`/reviews/product-all/${productId}/rating`)
     ratingStats.value = response.data
   } catch (error) {
     console.error('❌ Lỗi tải thống kê rating:', error)

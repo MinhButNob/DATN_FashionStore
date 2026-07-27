@@ -1,12 +1,5 @@
 // src/services/saleStaffService.js
-import axios from "axios";
-
-const API_BASE = "http://localhost:8080/api";
-
-const getAuthHeader = () => {
-  const token = localStorage.getItem("token");
-  return token ? { Authorization: `Bearer ${token}` } : {};
-};
+import api from "@/api/axios";
 
 export const saleStaffService = {
   // ===== ORDERS =====
@@ -15,147 +8,106 @@ export const saleStaffService = {
       page: params.page || 0,
       size: params.size || 10,
       keyword: params.keyword || "",
-      status: params.status || "",
-    };
-    return axios.get(`${API_BASE}/sale-staff/orders`, {
-      params: queryParams,
-      headers: getAuthHeader(),
-    });
+      status: params.status || "" };
+    return api.get("/sale-staff/orders", {
+      params: queryParams });
   },
 
   getOrderDetail(orderId) {
-    return axios.get(`${API_BASE}/sale-staff/orders/${orderId}`, {
-      headers: getAuthHeader(),
-    });
+    return api.get(`/sale-staff/orders/${orderId}`);
   },
 
   updateOrderStatus(orderId, data) {
-    return axios.put(`${API_BASE}/sale-staff/orders/${orderId}/status`, data, {
-      headers: getAuthHeader(),
-    });
+    return api.put(`/sale-staff/orders/${orderId}/status`, data);
   },
 
   updatePaymentStatus(orderId, paymentStatus) {
-    return axios.put(
-      `${API_BASE}/sale-staff/orders/${orderId}/payment-status`,
+    return api.put(
+      `/sale-staff/orders/${orderId}/payment-status`,
       null,
-      { params: { paymentStatus }, headers: getAuthHeader() },
+      { params: { paymentStatus } },
     );
   },
 
   cancelOrder(orderId, reason) {
-    return axios.put(
-      `${API_BASE}/sale-staff/orders/${orderId}/cancel`,
-      { reason },
-      { headers: getAuthHeader() },
-    );
+    return api.put(`/sale-staff/orders/${orderId}/cancel`, { reason });
   },
 
   getStatistics() {
-    return axios.get(`${API_BASE}/sale-staff/orders/statistics`, {
-      headers: getAuthHeader(),
-    });
+    return api.get("/sale-staff/orders/statistics");
   },
 
   getStatusCounts() {
-    return axios.get(`${API_BASE}/sale-staff/orders/status/counts`, {
-      headers: getAuthHeader(),
-    });
+    return api.get("/sale-staff/orders/status/counts");
   },
 
   getInvoice(orderId) {
-    return axios.get(`${API_BASE}/sale-staff/orders/${orderId}/invoice`, {
-      headers: getAuthHeader(),
-    });
+    return api.get(`/sale-staff/orders/${orderId}/invoice`);
   },
 
   // ===== RETURN REQUESTS =====
   getReturnRequestByOrderId(orderId) {
-    return axios.get(
-      `${API_BASE}/sale-staff/orders/return-requests/order/${orderId}`,
-      {
-        headers: getAuthHeader(),
-      },
-    );
+    return api.get(`/sale-staff/orders/return-requests/order/${orderId}`);
   },
 
   processReturnRequest(orderId, data) {
-    return axios.put(
-      `${API_BASE}/sale-staff/orders/return-requests/${orderId}/process`,
+    return api.put(
+      `/sale-staff/orders/return-requests/${orderId}/process`,
       data,
-      { headers: getAuthHeader() },
     );
   },
 
   receiveReturnedItems(orderId, note) {
-    return axios.put(
-      `${API_BASE}/sale-staff/orders/return-requests/${orderId}/receive`,
+    return api.put(
+      `/sale-staff/orders/return-requests/${orderId}/receive`,
       { note },
-      { headers: getAuthHeader() },
     );
   },
 
   getAllReturnRequests(params = {}) {
-    return axios.get(`${API_BASE}/sale-staff/orders/return-requests`, {
+    return api.get("/sale-staff/orders/return-requests", {
       params: {
         page: params.page || 0,
         size: params.size || 10,
-        status: params.status || "",
-      },
-      headers: getAuthHeader(),
-    });
+        status: params.status || "" } });
   },
 
   // ===== PRODUCTS (STOCK ONLY) =====
   updateStock(productDetailId, quantity) {
-    return axios.put(
-      `${API_BASE}/sale-staff/products/stock/${productDetailId}`,
+    return api.put(
+      `/sale-staff/products/stock/${productDetailId}`,
       { quantity },
-      { headers: getAuthHeader() },
     );
   },
 
   increaseStock(productDetailId, quantity) {
-    return axios.post(
-      `${API_BASE}/sale-staff/products/stock/${productDetailId}/increase`,
+    return api.post(
+      `/sale-staff/products/stock/${productDetailId}/increase`,
       { quantity },
-      { headers: getAuthHeader() },
     );
   },
 
   decreaseStock(productDetailId, quantity) {
-    return axios.post(
-      `${API_BASE}/sale-staff/products/stock/${productDetailId}/decrease`,
+    return api.post(
+      `/sale-staff/products/stock/${productDetailId}/decrease`,
       { quantity },
-      { headers: getAuthHeader() },
     );
   },
 
   getProductDetail(productDetailId) {
-    return axios.get(
-      `${API_BASE}/sale-staff/products/details/${productDetailId}`,
-      {
-        headers: getAuthHeader(),
-      },
-    );
+    return api.get(`/sale-staff/products/details/${productDetailId}`);
   },
 
   // ===== CUSTOMERS =====
   getCustomers(params = {}) {
-    return axios.get(`${API_BASE}/sale-staff/customers`, {
+    return api.get("/sale-staff/customers", {
       params: {
         page: params.page || 0,
         size: params.size || 10,
         keyword: params.keyword || "",
-        status: params.status || "",
-      },
-      headers: getAuthHeader(),
-    });
+        status: params.status || "" } });
   },
 
   getCustomerById(id) {
-    return axios.get(`${API_BASE}/sale-staff/customers/${id}`, {
-      headers: getAuthHeader(),
-    });
-  },
-};
+    return api.get(`/sale-staff/customers/${id}`);
+  } };

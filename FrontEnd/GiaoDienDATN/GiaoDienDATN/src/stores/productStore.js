@@ -17,8 +17,7 @@ export const useProductStore = defineStore("products", () => {
       tag: "Hot",
       status: "active",
       description:
-        "Áo thun nam chất liệu cotton cao cấp, thoáng mát, thấm hút mồ hôi tốt.",
-    },
+        "Áo thun nam chất liệu cotton cao cấp, thoáng mát, thấm hút mồ hôi tốt." },
     {
       id: 2,
       name: "Đầm nữ công sở",
@@ -32,8 +31,7 @@ export const useProductStore = defineStore("products", () => {
       tag: "Sale",
       status: "active",
       description:
-        "Đầm công sở thiết kế thanh lịch, chất liệu cao cấp không nhăn.",
-    },
+        "Đầm công sở thiết kế thanh lịch, chất liệu cao cấp không nhăn." },
     {
       id: 3,
       name: "Quần jean nam",
@@ -46,8 +44,7 @@ export const useProductStore = defineStore("products", () => {
       image: "jeans",
       tag: "Mới",
       status: "active",
-      description: "Quần jean nam form regular, chất liệu denim cao cấp.",
-    },
+      description: "Quần jean nam form regular, chất liệu denim cao cấp." },
     {
       id: 4,
       name: "Áo khoác nữ",
@@ -60,8 +57,7 @@ export const useProductStore = defineStore("products", () => {
       image: "jacket",
       tag: "Hot",
       status: "active",
-      description: "Áo khoác nữ thời trang, chất liệu gió chống nước.",
-    },
+      description: "Áo khoác nữ thời trang, chất liệu gió chống nước." },
     {
       id: 5,
       name: "Quần short trẻ em",
@@ -74,8 +70,7 @@ export const useProductStore = defineStore("products", () => {
       image: "shorts",
       tag: "",
       status: "active",
-      description: "Quần short trẻ em thoáng mát, phù hợp cho bé vận động.",
-    },
+      description: "Quần short trẻ em thoáng mát, phù hợp cho bé vận động." },
     {
       id: 6,
       name: "Túi xách nữ",
@@ -88,8 +83,7 @@ export const useProductStore = defineStore("products", () => {
       image: "bag",
       tag: "",
       status: "active",
-      description: "Túi xách nữ thời trang, chất liệu da cao cấp.",
-    },
+      description: "Túi xách nữ thời trang, chất liệu da cao cấp." },
   ]);
 
   const categories = ref([
@@ -99,16 +93,14 @@ export const useProductStore = defineStore("products", () => {
       name: "Thời trang nữ",
       slug: "women",
       count: 67,
-      status: "active",
-    },
+      status: "active" },
     { id: 3, name: "Trẻ em", slug: "kids", count: 23, status: "active" },
     {
       id: 4,
       name: "Phụ kiện",
       slug: "accessories",
       count: 34,
-      status: "active",
-    },
+      status: "active" },
   ]);
 
   const images = ref([
@@ -230,8 +222,7 @@ export const useProductStore = defineStore("products", () => {
     sort: "default",
     priceRange: "all",
     tags: [],
-    ratings: [],
-  });
+    ratings: [] });
 
   // Getters
   const filteredProducts = computed(() => {
@@ -329,8 +320,7 @@ export const useProductStore = defineStore("products", () => {
       sort: "default",
       priceRange: "all",
       tags: [],
-      ratings: [],
-    };
+      ratings: [] };
   }
 
   function addProduct(product) {
@@ -338,8 +328,7 @@ export const useProductStore = defineStore("products", () => {
       ...product,
       id: Date.now(),
       sold: 0,
-      rating: 4.5,
-    };
+      rating: 4.5 };
     products.value.push(newProduct);
   }
 
@@ -393,6 +382,5 @@ export const useProductStore = defineStore("products", () => {
     deleteProduct,
     toggleProductStatus,
     addImage,
-    deleteImage,
-  };
+    deleteImage };
 });

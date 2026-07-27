@@ -803,7 +803,7 @@ import {
 import UpdateOrderStatusModal from '../../components/sale-staff/UpdateOrderStatusModal.vue'
 import InvoiceModal from '../../components/sale-staff/InvoiceModal.vue'
 import { useNotification } from '../../composables/useNotification'
-import axios from 'axios'
+import api from "@/api/axios";
 
 const router = useRouter()
 const store = useSaleStaffStore()
@@ -896,8 +896,7 @@ const toastType = ref('success')
 let toastTimer = null
 
 // ===== CONSTANTS =====
-const API_BASE = "http://localhost:8080/api"
-const IMAGE_BASE = "http://localhost:8080"
+const IMAGE_BASE = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "").replace(/\/api$/, "");
 const CANNOT_UPDATE = ['CANCELLED', 'RETURNED', 'RETURN_REQUESTED', 'RETURN_PENDING', 'COMPLETED']
 
 // ===== HELPERS =====
@@ -1036,12 +1035,8 @@ const fetchOrders = async () => {
     console.log('📤 Fetching orders with params:', params)
     
     const token = localStorage.getItem('token')
-    const response = await axios.get(`${API_BASE}/sale-staff/orders`, {
-      params,
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    })
+    const response = await api.get(`/sale-staff/orders`, {
+      params })
     
     console.log('📦 Orders response:', response.data)
     
@@ -1077,11 +1072,7 @@ const fetchOrders = async () => {
 const fetchStatistics = async () => {
   try {
     const token = localStorage.getItem('token')
-    const response = await axios.get(`${API_BASE}/sale-staff/orders/statistics`, {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    })
+    const response = await api.get(`/sale-staff/orders/statistics`, {})
     
     if (response.data && response.data.data) {
       statistics.value = response.data.data
@@ -1179,13 +1170,9 @@ const onStatusUpdated = async (data) => {
 const viewInvoice = async (order) => {
   try {
     const token = localStorage.getItem('token')
-    const response = await axios.get(
-      `${API_BASE}/sale-staff/orders/${order.orderId}/invoice`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      }
+    const response = await api.get(
+      `/sale-staff/orders/${order.orderId}/invoice`,
+      {}
     )
     
     if (response.data && response.data.data) {
@@ -1239,8 +1226,8 @@ const confirmCancelOrder = async () => {
       reason: cancelReason.value.trim()
     }
 
-    const response = await axios.put(
-      `${API_BASE}/sale-staff/orders/${cancelOrderId.value}/cancel`,
+    const response = await api.put(
+      `/sale-staff/orders/${cancelOrderId.value}/cancel`,
       payload,
       {
         headers: {
@@ -1287,8 +1274,8 @@ const confirmRestoreOrder = async () => {
       notes: 'Staff khôi phục đơn hàng từ trạng thái đã hủy'
     }
 
-    const response = await axios.put(
-      `${API_BASE}/sale-staff/orders/${restoreOrder.value.orderId}/status`,
+    const response = await api.put(
+      `/sale-staff/orders/${restoreOrder.value.orderId}/status`,
       payload,
       {
         headers: {
@@ -1315,11 +1302,7 @@ const confirmRestoreOrder = async () => {
 const viewReturnRequest = async (order) => {
   try {
     const token = localStorage.getItem('token')
-    const response = await axios.get(`${API_BASE}/sale-staff/orders/return-requests/order/${order.orderId}`, {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    })
+    const response = await api.get(`/sale-staff/orders/return-requests/order/${order.orderId}`, {})
     
     if (response.data && response.data.data) {
       returnRequestDetail.value = response.data.data
@@ -1358,8 +1341,8 @@ const processReturn = async (status) => {
       adminNote: adminNote.value.trim() || null
     }
     
-    const response = await axios.put(
-      `${API_BASE}/sale-staff/orders/return-requests/${returnRequestDetail.value.orderId}/process`,
+    const response = await api.put(
+      `/sale-staff/orders/return-requests/${returnRequestDetail.value.orderId}/process`,
       payload,
       {
         headers: {
@@ -1406,8 +1389,8 @@ const receiveReturnedItems = async () => {
       note: adminNote.value.trim() || null
     }
     
-    const response = await axios.put(
-      `${API_BASE}/sale-staff/orders/return-requests/${returnRequestDetail.value.orderId}/receive`,
+    const response = await api.put(
+      `/sale-staff/orders/return-requests/${returnRequestDetail.value.orderId}/receive`,
       payload,
       {
         headers: {
@@ -1446,8 +1429,8 @@ const completeReturn = async () => {
       notes: adminNote.value.trim() || 'Hoàn tất hoàn hàng'
     }
     
-    const response = await axios.put(
-      `${API_BASE}/sale-staff/orders/${returnRequestDetail.value.orderId}/status`,
+    const response = await api.put(
+      `/sale-staff/orders/${returnRequestDetail.value.orderId}/status`,
       payload,
       {
         headers: {

@@ -67,73 +67,62 @@ const routes = [
   {
     path: "/product/:id",
     name: "product-detail",
-    component: ProductDetailPage,
-  },
+    component: ProductDetailPage },
   { path: "/cart", name: "cart", component: CartPage },
   {
     path: "/checkout",
     name: "checkout",
     component: CheckoutPage,
-    meta: { requiresAuth: true },
-  },
+    meta: { requiresAuth: true } },
   {
     path: "/orders",
     name: "orders",
     component: OrdersPage,
-    meta: { requiresAuth: true },
-  },
+    meta: { requiresAuth: true } },
   {
     path: "/profile",
     name: "profile",
     component: ProfilePage,
-    meta: { requiresAuth: true },
-  },
+    meta: { requiresAuth: true } },
   {
     path: "/wishlist",
     name: "wishlist",
     component: WishlistPage,
-    meta: { requiresAuth: true },
-  },
+    meta: { requiresAuth: true } },
   {
     path: "/login",
     name: "login",
     component: LoginPage,
-    meta: { guest: true },
-  },
+    meta: { guest: true } },
   {
     path: "/signup",
     name: "signup",
     component: SignupPage,
-    meta: { guest: true },
-  },
+    meta: { guest: true } },
   {
     path: "/forgot-password",
     name: "forgot-password",
     component: ForgotPasswordPage,
-    meta: { guest: true },
-  },
+    meta: { guest: true } },
   {
     path: "/reset-password/:token",
     name: "reset-password",
     component: ResetPasswordPage,
-    meta: { guest: true },
-  },
+    meta: { guest: true } },
   { path: "/about", name: "about", component: AboutPage },
   { path: "/contact", name: "contact", component: ContactPage },
   { path: "/blog/:id", name: "blog-detail", component: BlogDetailPage },
   {
     path: "/payment-result",
     name: "payment-result",
-    component: PaymentResultPage,
-  },
+    component: PaymentResultPage },
 
   // ===== ADMIN ROUTES =====
   {
     path: "/admin/login",
     name: "admin-login",
     component: AdminLogin,
-    meta: { guest: true },
-  },
+    meta: { guest: true } },
   {
     path: "/admin",
     component: AdminLayout,
@@ -145,13 +134,11 @@ const routes = [
       {
         path: "categories",
         name: "admin-categories",
-        component: AdminCategories,
-      },
+        component: AdminCategories },
       {
         path: "category-hierarchy",
         name: "admin-category-hierarchy",
-        component: AdminCategoryHierarchy,
-      },
+        component: AdminCategoryHierarchy },
       { path: "sizes", name: "admin-sizes", component: AdminSizes },
       { path: "sizes", name: "admin-sizes", component: AdminSizes },
       { path: "images", name: "admin-images", component: AdminImages },
@@ -163,18 +150,15 @@ const routes = [
       {
         path: "promotions",
         name: "admin-promotions",
-        component: AdminPromotions,
-      },
+        component: AdminPromotions },
       { path: "banners", name: "admin-banners", component: AdminBanners },
       { path: "vouchers", name: "admin-vouchers", component: AdminVouchers },
       { path: "settings", name: "admin-settings", component: AdminSettings },
       {
         path: "statistics",
         name: "admin-statistics",
-        component: AdminStatistics,
-      },
-    ],
-  },
+        component: AdminStatistics },
+    ] },
 
 
   // ===== STAFF ROUTES =====
@@ -189,8 +173,7 @@ const routes = [
       { path: "customers", name: "staff-customers", component: StaffCustomers },
       { path: "returns", name: "staff-returns", component: StaffReturns },
       { path: "chat", name: "staff-chat", component: StaffChat },
-    ],
-  },
+    ] },
 
   // ===== SALE STAFF ROUTES =====
   {
@@ -203,11 +186,9 @@ const routes = [
       {
         path: "customers",
         name: "sale-staff-customers",
-        component: SaleStaffCustomers,
-      },
+        component: SaleStaffCustomers },
       { path: "stock", name: "sale-staff-stock", component: SaleStaffStock },
-    ],
-  },
+    ] },
 
   // ===== 404 NOT FOUND =====
   { path: "/:pathMatch(.*)*", name: "not-found", component: NotFoundPage },
@@ -219,8 +200,7 @@ const router = createRouter({
   scrollBehavior(to, from, savedPosition) {
     if (savedPosition) return savedPosition;
     return { top: 0 };
-  },
-});
+  } });
 
 // ===== NAVIGATION GUARDS =====
 const getDefaultRouteByRole = (authStore) => {

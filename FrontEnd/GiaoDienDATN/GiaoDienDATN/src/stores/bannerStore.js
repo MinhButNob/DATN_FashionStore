@@ -56,8 +56,7 @@ export const useBannerStore = defineStore("banners", () => {
         page: currentPage.value,
         size: pageSize.value,
         sortBy: "displayOrder",
-        sortDirection: "asc",
-      });
+        sortDirection: "asc" });
       banners.value = res.data?.content || [];
       totalPages.value = res.data?.totalPages || 1;
       totalElements.value = res.data?.totalElements || 0;
@@ -117,8 +116,7 @@ export const useBannerStore = defineStore("banners", () => {
         success: false,
         message: errorMessage,
         errors: e.response?.data?.errors,
-        status: e.response?.status,
-      };
+        status: e.response?.status };
     } finally {
       saving.value = false;
     }
@@ -171,8 +169,7 @@ export const useBannerStore = defineStore("banners", () => {
         success: false,
         message: errorMessage,
         errors: e.response?.data?.errors,
-        status: e.response?.status,
-      };
+        status: e.response?.status };
     } finally {
       saving.value = false;
     }
@@ -192,8 +189,7 @@ export const useBannerStore = defineStore("banners", () => {
       return { 
         success: false, 
         message: errorMessage,
-        status: e.response?.status,
-      };
+        status: e.response?.status };
     }
   }
 
@@ -211,8 +207,7 @@ export const useBannerStore = defineStore("banners", () => {
       return { 
         success: false, 
         message: errorMessage,
-        status: e.response?.status,
-      };
+        status: e.response?.status };
     }
   }
 
@@ -251,6 +246,5 @@ export const useBannerStore = defineStore("banners", () => {
     deleteBanner,
     restoreBanner,
     setPage,
-    search,
-  };
+    search };
 });

@@ -9,32 +9,27 @@ export const useEmployeeStore = defineStore("employee", {
       totalEmployees: 0,
       activeEmployees: 0,
       lockedEmployees: 0,
-      deletedEmployees: 0,
-    },
+      deletedEmployees: 0 },
     pagination: {
       currentPage: 0,
       pageSize: 10,
       totalElements: 0,
-      totalPages: 0,
-    },
+      totalPages: 0 },
     currentFilters: {
       keyword: "",
       status: "",
       page: 0,
       size: 10,
       sortBy: "employeeId",
-      direction: "desc",
-    },
+      direction: "desc" },
     loading: false,
-    error: null,
-  }),
+    error: null }),
 
   getters: {
     getEmployees: (state) => state.employees,
     getPagination: (state) => state.pagination,
     getStatistics: (state) => state.statistics,
-    isLoading: (state) => state.loading,
-  },
+    isLoading: (state) => state.loading },
 
   actions: {
     async searchEmployees({
@@ -43,8 +38,7 @@ export const useEmployeeStore = defineStore("employee", {
       page = 0,
       size = 10,
       sortBy = "employeeId",
-      direction = "desc",
-    }) {
+      direction = "desc" }) {
       this.loading = true;
 
       this.currentFilters = { keyword, status, page, size, sortBy, direction };
@@ -56,8 +50,7 @@ export const useEmployeeStore = defineStore("employee", {
           page,
           size,
           sortBy,
-          direction,
-        });
+          direction });
 
         if (result.success) {
           const data = result.data;
@@ -67,16 +60,14 @@ export const useEmployeeStore = defineStore("employee", {
               currentPage: data.number || 0,
               pageSize: data.size || 10,
               totalElements: data.totalElements || 0,
-              totalPages: data.totalPages || 0,
-            };
+              totalPages: data.totalPages || 0 };
           } else if (Array.isArray(data)) {
             this.employees = data;
             this.pagination = {
               currentPage: 0,
               pageSize: data.length,
               totalElements: data.length,
-              totalPages: 1,
-            };
+              totalPages: 1 };
           } else {
             this.employees = [];
           }
@@ -153,8 +144,7 @@ export const useEmployeeStore = defineStore("employee", {
       } catch (error) {
         return {
           success: false,
-          error: error.response?.data?.error || "Lỗi thao tác",
-        };
+          error: error.response?.data?.error || "Lỗi thao tác" };
       }
     },
 
@@ -170,8 +160,7 @@ export const useEmployeeStore = defineStore("employee", {
       } catch (error) {
         return {
           success: false,
-          error: error.response?.data?.error || "Lỗi xóa nhân viên",
-        };
+          error: error.response?.data?.error || "Lỗi xóa nhân viên" };
       }
     },
 
@@ -187,8 +176,7 @@ export const useEmployeeStore = defineStore("employee", {
       } catch (error) {
         return {
           success: false,
-          error: error.response?.data?.error || "Lỗi khôi phục",
-        };
+          error: error.response?.data?.error || "Lỗi khôi phục" };
       }
     },
 
@@ -200,12 +188,9 @@ export const useEmployeeStore = defineStore("employee", {
             totalEmployees: result.data.totalEmployees || 0,
             activeEmployees: result.data.activeEmployees || 0,
             lockedEmployees: result.data.lockedEmployees || 0,
-            deletedEmployees: result.data.deletedEmployees || 0,
-          };
+            deletedEmployees: result.data.deletedEmployees || 0 };
         }
       } catch (error) {
         console.error("Lỗi tải thống kê:", error);
       }
-    },
-  },
-});
+    } } });

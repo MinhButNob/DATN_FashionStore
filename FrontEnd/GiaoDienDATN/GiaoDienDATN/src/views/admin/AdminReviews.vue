@@ -367,10 +367,9 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import axios from 'axios'
+import api from "@/api/axios";
 
-const API_BASE = "http://localhost:8080/api/admin/reviews"
-const IMAGE_BASE = "http://localhost:8080"
+const IMAGE_BASE = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "").replace(/\/api$/, "");
 
 // State
 const loading = ref(false)
@@ -457,17 +456,13 @@ const fetchReviews = async () => {
   loading.value = true
   try {
     const token = localStorage.getItem('token')
-    const response = await axios.get(API_BASE, {
+    const response = await api.get("/admin/reviews", {
       params: {
         status: filterStatus.value || null,
         keyword: keyword.value || null,
         page: currentPage.value,
         size: 10
-      },
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    })
+      } })
 
     if (response.data) {
       reviews.value = response.data.content || []
@@ -486,11 +481,7 @@ const fetchReviews = async () => {
 const fetchStats = async () => {
   try {
     const token = localStorage.getItem('token')
-    const response = await axios.get(`${API_BASE}/statistics`, {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    })
+    const response = await api.get(`/admin/reviews/statistics`, {})
     stats.value = response.data || {}
   } catch (error) {
     console.error('❌ Error fetching stats:', error)
@@ -519,11 +510,7 @@ const approveReview = async (reviewId) => {
 
   try {
     const token = localStorage.getItem('token')
-    await axios.put(`${API_BASE}/${reviewId}/approve`, {}, {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    })
+    await api.put(`/admin/reviews/${reviewId}/approve`, {}, {})
     showNotification('✅ Duyệt đánh giá thành công!', 'success')
     fetchReviews()
     fetchStats()
@@ -558,13 +545,9 @@ const confirmReject = async () => {
   rejectLoading.value = true
   try {
     const token = localStorage.getItem('token')
-    await axios.put(`${API_BASE}/${rejectReviewId.value}/reject`, {
+    await api.put(`/admin/reviews/${rejectReviewId.value}/reject`, {
       reason: rejectReason.value
-    }, {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    })
+    }, {})
     showNotification('❌ Đã từ chối đánh giá', 'success')
     closeRejectModal()
     fetchReviews()
@@ -596,11 +579,7 @@ const deleteReview = async (reviewId) => {
 
   try {
     const token = localStorage.getItem('token')
-    await axios.delete(`${API_BASE}/${reviewId}`, {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    })
+    await api.delete(`/admin/reviews/${reviewId}`, {})
     showNotification('🗑️ Xóa đánh giá thành công!', 'success')
     fetchReviews()
     fetchStats()

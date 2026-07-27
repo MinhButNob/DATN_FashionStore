@@ -188,7 +188,7 @@
 
 <script setup>
 import { ref, watch, computed } from 'vue'
-import axios from 'axios'
+import api from "@/api/axios";
 
 const props = defineProps({
   visible: Boolean,
@@ -197,8 +197,7 @@ const props = defineProps({
 
 const emit = defineEmits(['close', 'submitted'])
 
-const API_BASE = "http://localhost:8080/api"
-const IMAGE_BASE = "http://localhost:8080"
+const IMAGE_BASE = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "").replace(/\/api$/, "");
 
 const form = ref({
   reason: '',
@@ -311,7 +310,7 @@ const uploadImage = async (file) => {
 
   try {
     const token = localStorage.getItem('token')
-    const response = await axios.post(`${API_BASE}/reviews/upload-image`, formData, {
+    const response = await api.post(`/reviews/upload-image`, formData, {
       headers: {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'multipart/form-data'
@@ -456,8 +455,8 @@ const submitReturnRequest = async () => {
 
     console.log('📤 Submitting return request:', payload)
 
-    const response = await axios.post(
-      `${API_BASE}/orders/${props.order.orderId}/return-request`,
+    const response = await api.post(
+      `/orders/${props.order.orderId}/return-request`,
       payload,
       {
         headers: {

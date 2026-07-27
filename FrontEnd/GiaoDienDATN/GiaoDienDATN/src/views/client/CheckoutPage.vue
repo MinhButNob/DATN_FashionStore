@@ -228,15 +228,14 @@ import { useAuthStore } from '../../stores/authStore'
 import ClientHeader from '../../components/client/ClientHeader.vue'
 import ClientFooter from '../../components/client/ClientFooter.vue'
 import { orderService } from '../../services/orderService'
-import axios from 'axios'
+import api from "@/api/axios";
 import { useVietnamAddress } from '../../composables/useVietnamAddress'
 
 const router = useRouter()
 const cartStore = useCartStore()
 const authStore = useAuthStore()
 
-const API_BASE = "http://localhost:8080/api"
-const IMAGE_BASE = "http://localhost:8080"
+const IMAGE_BASE = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "").replace(/\/api$/, "");
 const SHIPPING_FEE = 30000
 
 const placingOrder = ref(false)
@@ -352,9 +351,7 @@ const fetchAddresses = async () => {
       return
     }
 
-    const response = await axios.get(`${API_BASE}/shipping-addresses`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
+    const response = await api.get(`/shipping-addresses`, {})
     
     addresses.value = response.data || []
     console.log('✅ Addresses loaded:', addresses.value.length)
@@ -395,9 +392,7 @@ const fetchProfile = async () => {
     const token = localStorage.getItem('token')
     if (!token) return
 
-    const response = await axios.get(`${API_BASE}/customers/profile`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
+    const response = await api.get(`/customers/profile`, {})
 
     const data = response.data
     console.log('✅ Profile loaded:', data)
@@ -504,7 +499,7 @@ const saveProfileInfo = async () => {
       ward: ward?.name || editForm.ward
     }
 
-    const response = await axios.put(`${API_BASE}/customers/profile`, payload, {
+    const response = await api.put(`/customers/profile`, payload, {
       headers: {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json'
@@ -586,7 +581,7 @@ const placeOrder = async () => {
 
   try {
     const token = localStorage.getItem('token')
-    const response = await axios.post(`${API_BASE}/orders/create`, orderPayload, {
+    const response = await api.post(`/orders/create`, orderPayload, {
       headers: {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json'
@@ -597,10 +592,10 @@ const placeOrder = async () => {
 
     if (orderData.value.paymentMethod === 'VNPAY' && response.data && response.data.orderId) {
       showNotification('Đang chuyển hướng sang cổng thanh toán VNPay...', 'success')
-      const paymentRes = await axios.post(
-        `${API_BASE}/payment/vnpay/create/${response.data.orderId}`,
+      const paymentRes = await api.post(
+        `/payment/vnpay/create/${response.data.orderId}`,
         {},
-        { headers: { Authorization: `Bearer ${token}` } }
+        {}
       )
       
       if (paymentRes.data && paymentRes.data.paymentUrl) {

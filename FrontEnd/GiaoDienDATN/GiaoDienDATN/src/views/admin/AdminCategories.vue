@@ -246,9 +246,7 @@
 
 <script>
 import categoryService from '@/api/categoryService';
-import axios from 'axios';
-
-const API_BASE = 'http://localhost:8080/api';
+import api from "@/api/axios";
 
 export default {
   name: 'AdminCategories',
@@ -502,7 +500,7 @@ export default {
   
   try {
     // ✅ Gọi API kiểm tra sản phẩm trong danh mục
-    const response = await axios.get(`${API_BASE}/products/category/${cat.categoryId}/count`);
+    const response = await api.get(`/products/category/${cat.categoryId}/count`);
     const productCount = response.data?.data || response.data || 0;
     
     if (productCount > 0) {
@@ -610,7 +608,7 @@ export default {
     // (Thêm mới) Lấy danh sách 3 danh mục lớn mặc định từ module Phân cấp danh mục (chỉ đọc, không ảnh hưởng gì)
     async loadParentCategoryOptions() {
       try {
-        const response = await axios.get(`${API_BASE}/category-hierarchy/parents`);
+        const response = await api.get(`/category-hierarchy/parents`);
         this.parentCategoryOptions = response?.data || [];
       } catch (error) {
         console.error('Lỗi tải danh sách danh mục lớn:', error);

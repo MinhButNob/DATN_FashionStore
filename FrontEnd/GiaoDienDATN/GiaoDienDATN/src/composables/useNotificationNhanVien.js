@@ -13,15 +13,13 @@ export const NOTIFICATION_TYPES = {
   SUCCESS: 'success',
   ERROR: 'error',
   WARNING: 'warning',
-  INFO: 'info',
-};
+  INFO: 'info' };
 
 export const NOTIFICATION_DURATION = {
   SHORT: 2000,
   MEDIUM: 3000,
   LONG: 5000,
-  EXTRA_LONG: 8000,
-};
+  EXTRA_LONG: 8000 };
 
 const DEFAULT_DURATION = 3000;
 const MAX_NOTIFICATIONS = 5;
@@ -41,8 +39,7 @@ export function useNotificationNhanVien() {
       type,
       duration,
       timestamp: Date.now(),
-      visible: true,
-    };
+      visible: true };
 
     notifications.value.push(notification);
 
@@ -173,8 +170,7 @@ export function useNotificationNhanVien() {
     
     // Constants
     NOTIFICATION_TYPES,
-    NOTIFICATION_DURATION,
-  };
+    NOTIFICATION_DURATION };
 }
 
 // =============================================
@@ -191,8 +187,7 @@ export const NotificationContainerNhanVien = {
         success: 'fas fa-check-circle',
         error: 'fas fa-exclamation-circle',
         warning: 'fas fa-exclamation-triangle',
-        info: 'fas fa-info-circle',
-      };
+        info: 'fas fa-info-circle' };
       return icons[type] || icons.info;
     };
 
@@ -202,8 +197,7 @@ export const NotificationContainerNhanVien = {
         success: '#28a745',
         error: '#dc3545',
         warning: '#ffc107',
-        info: '#17a2b8',
-      };
+        info: '#17a2b8' };
       return colors[type] || colors.info;
     };
 
@@ -213,8 +207,7 @@ export const NotificationContainerNhanVien = {
         success: '#d4edda',
         error: '#f8d7da',
         warning: '#fff3cd',
-        info: '#d1ecf1',
-      };
+        info: '#d1ecf1' };
       return colors[type] || colors.info;
     };
 
@@ -223,8 +216,7 @@ export const NotificationContainerNhanVien = {
       removeNotification,
       getIcon,
       getColor,
-      getBackgroundColor,
-    };
+      getBackgroundColor };
   },
   template: `
     <div class="notification-container-nhanvien">
@@ -256,8 +248,7 @@ export const NotificationContainerNhanVien = {
         ></div>
       </div>
     </div>
-  `,
-};
+  ` };
 
 // =============================================
 // STYLES - CSS cho notification

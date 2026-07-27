@@ -374,12 +374,10 @@
 import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useAuthStore } from "../../stores/authStore";
 import { useNotification } from "../../composables/useNotification";
-import axios from "axios";
+import api from "@/api/axios";
 
 const authStore = useAuthStore();
 const { showNotification } = useNotification();
-const API_BASE = "http://localhost:8080/api";
-
 // State
 const isOpen = ref(false);
 const activeTab = ref("login");
@@ -402,15 +400,13 @@ const showResetConfirmPassword = ref(false);
 const resetForm = ref({
   otp: "",
   newPassword: "",
-  confirmPassword: "",
-});
+  confirmPassword: "" });
 
 // Login form
 const loginForm = ref({
   email: "",
   password: "",
-  remember: false,
-});
+  remember: false });
 
 // Register form
 const registerForm = ref({
@@ -419,8 +415,7 @@ const registerForm = ref({
   phone: "",
   password: "",
   confirmPassword: "",
-  agreeTerms: false,
-});
+  agreeTerms: false });
 
 // Computed
 const isResetFormValid = computed(() => {
@@ -461,8 +456,7 @@ const handleRegister = async () => {
     await authStore.register({
       name: form.name,
       email: form.email,
-      password: form.password,
-    });
+      password: form.password });
 
     showNotification("Đăng ký thành công!", "success");
 
@@ -472,8 +466,7 @@ const handleRegister = async () => {
       phone: "",
       password: "",
       confirmPassword: "",
-      agreeTerms: false,
-    };
+      agreeTerms: false };
 
     activeTab.value = "login";
   } catch (error) {
@@ -524,16 +517,14 @@ const resetForms = () => {
   loginForm.value = {
     email: "",
     password: "",
-    remember: false,
-  };
+    remember: false };
   registerForm.value = {
     name: "",
     email: "",
     phone: "",
     password: "",
     confirmPassword: "",
-    agreeTerms: false,
-  };
+    agreeTerms: false };
 };
 
 const togglePassword = () => {
@@ -591,8 +582,7 @@ const socialLogin = async (provider) => {
               return;
             }
             resolve(response);
-          },
-        });
+          } });
 
         google.accounts.id.prompt((notification) => {
           if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
@@ -625,8 +615,7 @@ const socialLogin = async (provider) => {
             }
           },
           {
-            scope: "public_profile,email",
-          },
+            scope: "public_profile,email" },
         );
       });
 
@@ -665,8 +654,7 @@ const showForgotPassword = () => {
   resetForm.value = {
     otp: "",
     newPassword: "",
-    confirmPassword: "",
-  };
+    confirmPassword: "" };
   showForgotModal.value = true;
 };
 
@@ -680,8 +668,7 @@ const closeForgotModal = () => {
   resetForm.value = {
     otp: "",
     newPassword: "",
-    confirmPassword: "",
-  };
+    confirmPassword: "" };
   resetLoading.value = false;
 };
 
@@ -700,9 +687,8 @@ const handleForgotPassword = async () => {
   forgotLoading.value = true;
 
   try {
-    const response = await axios.post(`${API_BASE}/auth/forgot-password`, {
-      email: forgotEmail.value,
-    });
+    const response = await api.post(`/auth/forgot-password`, {
+      email: forgotEmail.value });
 
     console.log("✅ Forgot password response:", response.data);
     
@@ -745,11 +731,10 @@ const handleResetPassword = async () => {
   resetLoading.value = true;
 
   try {
-    const response = await axios.post(`${API_BASE}/auth/reset-password`, {
+    const response = await api.post(`/auth/reset-password`, {
       email: forgotEmail.value,
       otp: resetForm.value.otp,
-      newPassword: resetForm.value.newPassword,
-    });
+      newPassword: resetForm.value.newPassword });
 
     console.log("✅ Reset password response:", response.data);
     

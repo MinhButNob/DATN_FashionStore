@@ -206,9 +206,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
-import axios from 'axios';
-
-const API_BASE = 'http://localhost:8080/api';
+import api from "@/api/axios";
 
 // State
 const allProducts = ref([]);
@@ -329,10 +327,8 @@ const fetchProducts = async () => {
   loading.value = true;
   try {
     const token = localStorage.getItem('token');
-    const response = await axios.get(`${API_BASE}/products`, {
-      params: { page: 0, size: 100 },
-      headers: { Authorization: `Bearer ${token}` }
-    });
+    const response = await api.get(`/products`, {
+      params: { page: 0, size: 100 } });
     
     let products = [];
     if (response.data?.data?.content) {
@@ -364,9 +360,7 @@ const fetchProducts = async () => {
 const fetchStatistics = async () => {
   try {
     const token = localStorage.getItem('token');
-    const response = await axios.get(`${API_BASE}/products/statistics`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
+    const response = await api.get(`/products/statistics`, {});
     const data = response.data?.data;
     if (data) {
       statistics.value = data;
@@ -379,9 +373,7 @@ const fetchStatistics = async () => {
 const fetchCategories = async () => {
   try {
     const token = localStorage.getItem('token');
-    const response = await axios.get(`${API_BASE}/categories/active`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
+    const response = await api.get(`/categories/active`, {});
     
     let categories = [];
     if (response.data?.data) {
@@ -432,8 +424,8 @@ const updateStock = async (product, variant) => {
   updating.value = true;
   try {
     const token = localStorage.getItem('token');
-    const response = await axios.put(
-      `${API_BASE}/sale-staff/products/stock/${variant.productDetailId}`,
+    const response = await api.put(
+      `/sale-staff/products/stock/${variant.productDetailId}`,
       { quantity: variant.quantity },
       {
         headers: {
@@ -468,8 +460,8 @@ const increaseStock = async (product, variant) => {
   updating.value = true;
   try {
     const token = localStorage.getItem('token');
-    const response = await axios.post(
-      `${API_BASE}/sale-staff/products/stock/${variant.productDetailId}/increase`,
+    const response = await api.post(
+      `/sale-staff/products/stock/${variant.productDetailId}/increase`,
       { quantity: 1 },
       {
         headers: {
@@ -507,8 +499,8 @@ const decreaseStock = async (product, variant) => {
   updating.value = true;
   try {
     const token = localStorage.getItem('token');
-    const response = await axios.post(
-      `${API_BASE}/sale-staff/products/stock/${variant.productDetailId}/decrease`,
+    const response = await api.post(
+      `/sale-staff/products/stock/${variant.productDetailId}/decrease`,
       { quantity: 1 },
       {
         headers: {

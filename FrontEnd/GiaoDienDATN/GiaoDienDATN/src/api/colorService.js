@@ -1,15 +1,11 @@
 // src/api/colorService.js
-import axios from "axios";
+import api from "./axios";
 
-const API_BASE = "http://localhost:8080/api";
-
-// ✅ CÁCH 1: Export default object
 const colorService = {
   async getColors(page = 0, size = 100) {
     try {
-      const response = await axios.get(`${API_BASE}/colors`, {
-        params: { page, size },
-      });
+      const response = await api.get("/colors", {
+        params: { page, size } });
       return response;
     } catch (error) {
       console.error("Lỗi lấy danh sách màu:", error);
@@ -19,7 +15,7 @@ const colorService = {
 
   async getActiveColors() {
     try {
-      const response = await axios.get(`${API_BASE}/colors/active`);
+      const response = await api.get("/colors/active");
       return response;
     } catch (error) {
       console.error("Lỗi lấy màu hoạt động:", error);
@@ -29,7 +25,7 @@ const colorService = {
 
   async getColorById(id) {
     try {
-      const response = await axios.get(`${API_BASE}/colors/${id}`);
+      const response = await api.get(`/colors/${id}`);
       return response;
     } catch (error) {
       console.error(`Lỗi lấy màu ID ${id}:`, error);
@@ -39,7 +35,7 @@ const colorService = {
 
   async createColor(data) {
     try {
-      const response = await axios.post(`${API_BASE}/colors`, data);
+      const response = await api.post("/colors", data);
       return response;
     } catch (error) {
       console.error("Lỗi tạo màu:", error);
@@ -49,7 +45,7 @@ const colorService = {
 
   async updateColor(id, data) {
     try {
-      const response = await axios.put(`${API_BASE}/colors/${id}`, data);
+      const response = await api.put(`/colors/${id}`, data);
       return response;
     } catch (error) {
       console.error(`Lỗi cập nhật màu ID ${id}:`, error);
@@ -59,7 +55,7 @@ const colorService = {
 
   async deleteColor(id) {
     try {
-      const response = await axios.delete(`${API_BASE}/colors/${id}`);
+      const response = await api.delete(`/colors/${id}`);
       return response;
     } catch (error) {
       console.error(`Lỗi xóa màu ID ${id}:`, error);
@@ -69,7 +65,7 @@ const colorService = {
 
   async restoreColor(id) {
     try {
-      const response = await axios.patch(`${API_BASE}/colors/${id}/restore`);
+      const response = await api.patch(`/colors/${id}/restore`);
       return response;
     } catch (error) {
       console.error(`Lỗi khôi phục màu ID ${id}:`, error);
@@ -79,9 +75,8 @@ const colorService = {
 
   async searchColors(keyword, page = 0, size = 10) {
     try {
-      const response = await axios.get(`${API_BASE}/colors/search`, {
-        params: { keyword, page, size },
-      });
+      const response = await api.get("/colors/search", {
+        params: { keyword, page, size } });
       return response;
     } catch (error) {
       console.error("Lỗi tìm kiếm màu:", error);
@@ -91,13 +86,12 @@ const colorService = {
 
   async countColors() {
     try {
-      const response = await axios.get(`${API_BASE}/colors/count`);
+      const response = await api.get("/colors/count");
       return response;
     } catch (error) {
       console.error("Lỗi đếm màu:", error);
       throw error;
     }
-  },
-};
+  } };
 
 export default colorService;

@@ -159,7 +159,7 @@ const receiving = ref(false)
 const showImageViewer = ref(false)
 const viewingImage = ref('')
 
-const IMAGE_BASE = "http://localhost:8080"
+const IMAGE_BASE = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "").replace(/\/api$/, "");
 
 const getImageUrl = (imagePath) => {
   if (!imagePath) return ''

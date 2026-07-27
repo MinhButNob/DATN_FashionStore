@@ -23,26 +23,22 @@ app.config.errorHandler = (err, vm, info) => {
 };
 app.use(vue3GoogleLogin, {
   clientId:
-    "402914017010-6lmb8tf0937e9gpmjfjh36ps6mf94lu6.apps.googleusercontent.com",
-});
+    "402914017010-6lmb8tf0937e9gpmjfjh36ps6mf94lu6.apps.googleusercontent.com" });
 
 // Global properties (tùy chọn)
 app.config.globalProperties.$filters = {
   formatPrice(value) {
     return new Intl.NumberFormat("vi-VN", {
       style: "currency",
-      currency: "VND",
-    }).format(value);
-  },
-};
+      currency: "VND" }).format(value);
+  } };
 
 window.fbAsyncInit = function () {
   FB.init({
     appId: "1424131579521050",
     cookie: true,
     xfbml: true,
-    version: "v23.0",
-  });
+    version: "v23.0" });
 
   console.log("Facebook SDK loaded");
 };

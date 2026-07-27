@@ -137,8 +137,7 @@ const { showNotification } = useNotification();
 const form = ref({
   email: "",
   password: "",
-  remember: false,
-});
+  remember: false });
 
 const loading = ref(false);
 const error = ref("");

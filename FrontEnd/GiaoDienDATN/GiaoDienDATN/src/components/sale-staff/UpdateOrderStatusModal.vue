@@ -177,7 +177,7 @@ const updateStatus = async () => {
     }
 
     const response = await fetch(
-      `http://localhost:8080/api/sale-staff/orders/${props.order.orderId}/status`,
+      `/sale-staff/orders/${props.order.orderId}/status`,
       {
         method: 'PUT',
         headers: {

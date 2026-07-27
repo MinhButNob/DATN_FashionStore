@@ -25,8 +25,7 @@ export const sizeService = {
       description: data.description,
       status: typeof data.status === "boolean"
         ? (data.status ? "ACTIVE" : "INACTIVE")
-        : (data.status || "ACTIVE"),
-    };
+        : (data.status || "ACTIVE") };
     const response = await sizeApi.create(payload);
     return response.data;
   },
@@ -39,8 +38,7 @@ export const sizeService = {
       description: data.description,
       status: typeof data.status === "boolean"
         ? (data.status ? "ACTIVE" : "INACTIVE")
-        : (data.status || "ACTIVE"),
-    };
+        : (data.status || "ACTIVE") };
     const response = await sizeApi.update(id, payload);
     return response.data;
   },
@@ -58,5 +56,4 @@ export const sizeService = {
   async countSizes() {
     const response = await sizeApi.count();
     return response.data;
-  },
-};
+  } };

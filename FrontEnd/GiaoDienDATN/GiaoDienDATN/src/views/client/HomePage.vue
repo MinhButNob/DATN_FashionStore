@@ -105,14 +105,12 @@ import BannerSlider from "../../components/client/BannerSlider.vue";
 import CartModal from "../../components/client/CartModal.vue";
 import { useCartStore } from "../../stores/cartStore";
 import { useAuthStore } from "../../stores/authStore";
-import axios from "axios";
+import api from "@/api/axios";
 
 const router = useRouter();
 const { showNotification } = useNotification();
 const cartStore = useCartStore();
 const authStore = useAuthStore();
-const API_BASE = "http://localhost:8080/api";
-
 const loading = ref(true);
 const latestProducts = ref([]);
 const categories = ref([]);
@@ -145,8 +143,7 @@ const getCategoryIcon = (categoryName) => {
     "Quần Jeans": "fas fa-vest",
     "Áo Sơ Mi": "fas fa-shirt",
     "Đầm": "fas fa-dress",
-    "Phụ kiện": "fas fa-glasses",
-  };
+    "Phụ kiện": "fas fa-glasses" };
   return icons[categoryName] || "fas fa-tag";
 };
 
@@ -193,7 +190,7 @@ const loadCategories = async () => {
     // Lấy cây danh mục (chỉ ACTIVE) từ module Phân cấp danh mục, sau đó chỉ giữ
     // lại đúng 3 danh mục lớn mặc định - KHÔNG hiển thị danh mục con hay bất kỳ
     // danh mục độc lập nào khác (được tạo ở "Quản lý danh mục" nhưng chưa gán vào 3 danh mục lớn).
-    const response = await axios.get(`${API_BASE}/category-hierarchy/tree/active`);
+    const response = await api.get(`/category-hierarchy/tree/active`);
     let categoriesData = response.data || [];
 
     if (!Array.isArray(categoriesData)) {
@@ -206,7 +203,7 @@ const loadCategories = async () => {
 
     console.log("✅ Categories loaded:", categoriesData);
     
-    const productsResponse = await axios.get(`${API_BASE}/products`, {
+    const productsResponse = await api.get(`/products`, {
       params: { page: 0, size: 1000 }
     });
     
@@ -244,9 +241,9 @@ const loadCategories = async () => {
 const loadProducts = async () => {
   loading.value = true;
   try {
-    console.log("🟡 Đang gọi API:", `${API_BASE}/customer/home/latest-products`);
+    console.log("🟡 Đang gọi API:", `/customer/home/latest-products`);
     
-    const response = await axios.get(`${API_BASE}/customer/home/latest-products`, {
+    const response = await api.get(`/customer/home/latest-products`, {
       params: {
         page: 0,
         size: 12

@@ -271,9 +271,7 @@
 </template>
 
 <script>
-import axios from 'axios';
-
-const API_BASE = 'http://localhost:8080/api';
+import api from "@/api/axios";
 
 export default {
   name: 'AdminColors',
@@ -384,7 +382,7 @@ export default {
     async loadColors() {
       this.loading = true;
       try {
-        const response = await axios.get(`${API_BASE}/colors`, {
+        const response = await api.get(`/colors`, {
           params: { page: 0, size: 100 }
         });
         
@@ -530,10 +528,10 @@ export default {
         };
 
         if (this.isEdit) {
-          await axios.put(`${API_BASE}/colors/${this.selectedColor.colorId}`, submitData);
+          await api.put(`/colors/${this.selectedColor.colorId}`, submitData);
           this.showNotification('Cập nhật màu thành công!', 'success');
         } else {
-          await axios.post(`${API_BASE}/colors`, submitData);
+          await api.post(`/colors`, submitData);
           this.showNotification('Thêm màu mới thành công!', 'success');
         }
         
@@ -562,7 +560,7 @@ export default {
           hexCode: color.hexCode,
           status: newStatus
         };
-        await axios.put(`${API_BASE}/colors/${color.colorId}`, submitData);
+        await api.put(`/colors/${color.colorId}`, submitData);
         
         const index = this.allColors.findIndex(c => c.colorId === color.colorId);
         if (index !== -1) {
@@ -592,7 +590,7 @@ export default {
 
     async deleteColor() {
       try {
-        await axios.delete(`${API_BASE}/colors/${this.deleteColorId}`);
+        await api.delete(`/colors/${this.deleteColorId}`);
         
         const index = this.allColors.findIndex(c => c.colorId === this.deleteColorId);
         if (index !== -1) {
@@ -626,7 +624,7 @@ export default {
 
     async restoreColor() {
       try {
-        await axios.patch(`${API_BASE}/colors/${this.restoreColorId}/restore`);
+        await api.patch(`/colors/${this.restoreColorId}/restore`);
         
         const index = this.allColors.findIndex(c => c.colorId === this.restoreColorId);
         if (index !== -1) {

@@ -131,24 +131,21 @@ const notifications = ref([
     time: "5 phút trước",
     icon: "fas fa-shopping-cart",
     color: "#e63946",
-    read: false,
-  },
+    read: false },
   {
     id: 2,
     message: 'Sản phẩm "Áo thun nam" sắp hết hàng',
     time: "1 giờ trước",
     icon: "fas fa-exclamation-triangle",
     color: "#ffc107",
-    read: false,
-  },
+    read: false },
   {
     id: 3,
     message: "Có đánh giá mới từ khách hàng",
     time: "2 giờ trước",
     icon: "fas fa-star",
     color: "#17a2b8",
-    read: true,
-  },
+    read: true },
 ]);
 
 const unreadCount = computed(() => {

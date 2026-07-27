@@ -24,8 +24,7 @@ export const openPosSession = (data) => {
 
 export const closePosSession = (sessionId, employeeId) => {
   return api.put(`/pos/sessions/${sessionId}/close`, null, {
-    params: { employeeId },
-  });
+    params: { employeeId } });
 };
 
 export const getActiveSessions = () => {

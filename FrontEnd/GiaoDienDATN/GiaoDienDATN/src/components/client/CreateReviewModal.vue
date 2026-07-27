@@ -134,7 +134,7 @@
 
 <script setup>
 import { ref, watch, onMounted } from 'vue'
-import axios from 'axios'
+import api from "@/api/axios";
 
 const props = defineProps({
   visible: Boolean,
@@ -144,8 +144,7 @@ const props = defineProps({
 
 const emit = defineEmits(['close', 'submitted'])
 
-const API_BASE = "http://localhost:8080/api"
-const IMAGE_BASE = "http://localhost:8080"
+const IMAGE_BASE = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "").replace(/\/api$/, "");
 
 const rating = ref(0)
 const comment = ref('')
@@ -190,7 +189,7 @@ const uploadImage = async (file) => {
 
   try {
     const token = localStorage.getItem('token')
-    const response = await axios.post(`${API_BASE}/reviews/upload-image`, formData, {
+    const response = await api.post(`/reviews/upload-image`, formData, {
       headers: {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'multipart/form-data'
@@ -315,30 +314,22 @@ const checkReviewStatus = async () => {
     console.log('🔍 Checking review status for order:', props.orderId, 'product:', props.product.productDetailId)
     
     // 1. Kiểm tra đã đánh giá chưa
-    const checkResponse = await axios.get(`${API_BASE}/reviews/check`, {
+    const checkResponse = await api.get(`/reviews/check`, {
       params: {
         orderId: props.orderId,
         productDetailId: props.product.productDetailId
-      },
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    })
+      } })
     alreadyReviewed.value = checkResponse.data.reviewed || false
     console.log('✅ alreadyReviewed:', alreadyReviewed.value)
     
     // 2. Nếu chưa đánh giá, kiểm tra có thể đánh giá không
     if (!alreadyReviewed.value) {
       try {
-        const canReviewResponse = await axios.get(`${API_BASE}/reviews/can-review`, {
+        const canReviewResponse = await api.get(`/reviews/can-review`, {
           params: {
             orderId: props.orderId,
             productDetailId: props.product.productDetailId
-          },
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        })
+          } })
         canReview.value = canReviewResponse.data.canReview || false
         console.log('✅ canReview:', canReview.value)
       } catch (err) {
@@ -430,7 +421,7 @@ const submitReview = async () => {
 
     console.log('📤 Submitting review:', payload)
 
-    const response = await axios.post(`${API_BASE}/reviews/create`, payload, {
+    const response = await api.post(`/reviews/create`, payload, {
       headers: {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json'

@@ -1,16 +1,14 @@
 // services/api.js
-import axios from 'axios';
+import api from "@/api/axios";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
-    'Accept': 'application/json',
-  },
-});
+    'Accept': 'application/json' } });
 
 // Request interceptor - Thêm token
 api.interceptors.request.use(
@@ -35,9 +33,8 @@ api.interceptors.response.use(
       try {
         const refreshToken = localStorage.getItem('refreshToken');
         if (refreshToken) {
-          const response = await axios.post(`${API_BASE_URL}/auth/refresh-token`, {
-            refreshToken,
-          });
+          const response = await api.post(`${API_BASE_URL}/auth/refresh-token`, {
+            refreshToken });
           if (response.data.accessToken) {
             localStorage.setItem('accessToken', response.data.accessToken);
             originalRequest.headers.Authorization = `Bearer ${response.data.accessToken}`;

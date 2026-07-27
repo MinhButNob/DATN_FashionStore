@@ -21,8 +21,7 @@ export const useCategoryHierarchyStore = defineStore("categoryHierarchy", {
     parentOptions: [],
     loading: false,
     saving: false,
-    error: null,
-  }),
+    error: null }),
 
   getters: {
     hasChildren: (state) => (categoryId) => {
@@ -40,8 +39,7 @@ export const useCategoryHierarchyStore = defineStore("categoryHierarchy", {
       );
     },
 
-    totalParents: (state) => state.tree.length,
-  },
+    totalParents: (state) => state.tree.length },
 
   actions: {
     async loadTree() {
@@ -111,6 +109,4 @@ export const useCategoryHierarchyStore = defineStore("categoryHierarchy", {
       const result = await categoryHierarchyService.restoreCategory(id);
       await this.loadTree();
       return result;
-    },
-  },
-});
+    } } });
