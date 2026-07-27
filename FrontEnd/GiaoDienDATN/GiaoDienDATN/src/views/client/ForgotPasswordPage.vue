@@ -134,8 +134,7 @@ import ClientFooter from "../../components/client/ClientFooter.vue";
 const { showNotification } = useNotification();
 
 const form = ref({
-  email: "",
-});
+  email: "" });
 
 const loading = ref(false);
 const error = ref("");

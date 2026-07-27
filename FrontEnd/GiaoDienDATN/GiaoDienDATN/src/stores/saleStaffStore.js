@@ -16,21 +16,18 @@ export const useSaleStaffStore = defineStore("saleStaff", () => {
     completedOrders: 0,
     cancelledOrders: 0,
     todayRevenue: 0,
-    monthlyRevenue: 0,
-  });
+    monthlyRevenue: 0 });
 
   const pagination = ref({
     currentPage: 0,
     totalPages: 0,
     totalElements: 0,
-    pageSize: 10,
-  });
+    pageSize: 10 });
 
   const filters = ref({
     keyword: "",
     status: "",
-    customerStatus: "",
-  });
+    customerStatus: "" });
 
   // ===== GETTERS =====
   const filteredOrders = computed(() => orders.value);
@@ -46,8 +43,7 @@ export const useSaleStaffStore = defineStore("saleStaff", () => {
         page,
         size,
         keyword: filters.value.keyword,
-        status: filters.value.status,
-      });
+        status: filters.value.status });
 
       const data = response.data?.data || response.data;
       orders.value = data?.content || [];
@@ -55,8 +51,7 @@ export const useSaleStaffStore = defineStore("saleStaff", () => {
         currentPage: data?.number || 0,
         totalPages: data?.totalPages || 0,
         totalElements: data?.totalElements || 0,
-        pageSize: data?.size || 10,
-      };
+        pageSize: data?.size || 10 };
       return data;
     } catch (error) {
       console.error("Error fetching orders:", error);
@@ -139,8 +134,7 @@ export const useSaleStaffStore = defineStore("saleStaff", () => {
     try {
       const response = await saleStaffService.getAllReturnRequests({
         page,
-        size,
-      });
+        size });
       const data = response.data?.data || response.data;
       returnRequests.value = data?.content || [];
       return data;
@@ -256,8 +250,7 @@ export const useSaleStaffStore = defineStore("saleStaff", () => {
         page,
         size,
         keyword: filters.value.keyword,
-        status: filters.value.customerStatus,
-      });
+        status: filters.value.customerStatus });
 
       const data = response.data?.data || response.data;
       customers.value = data?.content || [];
@@ -265,8 +258,7 @@ export const useSaleStaffStore = defineStore("saleStaff", () => {
         currentPage: data?.number || 0,
         totalPages: data?.totalPages || 0,
         totalElements: data?.totalElements || 0,
-        pageSize: data?.size || 10,
-      };
+        pageSize: data?.size || 10 };
       return data;
     } catch (error) {
       console.error("Error fetching customers:", error);
@@ -291,8 +283,7 @@ export const useSaleStaffStore = defineStore("saleStaff", () => {
     filters.value = {
       keyword: "",
       status: "",
-      customerStatus: "",
-    };
+      customerStatus: "" };
   };
 
   return {
@@ -326,6 +317,5 @@ export const useSaleStaffStore = defineStore("saleStaff", () => {
     decreaseStock,
     fetchCustomers,
     getCustomerById,
-    resetFilters,
-  };
+    resetFilters };
 });

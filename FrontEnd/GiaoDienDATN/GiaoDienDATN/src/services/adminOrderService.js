@@ -1,12 +1,5 @@
 // src/services/adminOrderService.js
-import axios from "axios";
-
-const API_BASE = "http://localhost:8080/api";
-
-const getAuthHeader = () => {
-  const token = localStorage.getItem("token");
-  return token ? { Authorization: `Bearer ${token}` } : {};
-};
+import api from "@/api/axios";
 
 export const adminOrderService = {
   // Lấy tất cả đơn hàng (Admin)
@@ -25,101 +18,55 @@ export const adminOrderService = {
 
     console.log("📤 Calling API with params:", queryParams);
 
-    return axios.get(`${API_BASE}/admin/orders`, {
-      params: queryParams,
-      headers: {
-        ...getAuthHeader(),
-        "Content-Type": "application/json",
-      },
-    });
+    return api.get("/admin/orders", {
+      params: queryParams });
   },
 
   // Lấy chi tiết đơn hàng (Admin)
   getOrderDetail(orderId) {
-    return axios.get(`${API_BASE}/admin/orders/${orderId}`, {
-      headers: getAuthHeader(),
-    });
+    return api.get(`/admin/orders/${orderId}`);
   },
 
   // Cập nhật trạng thái đơn hàng (Admin)
   updateOrderStatus(orderId, data) {
     const requestData = {
       orderStatus: data.orderStatus || data,
-      notes: data.notes || "",
-    };
-    return axios.put(
-      `${API_BASE}/admin/orders/${orderId}/status`,
-      requestData,
-      {
-        headers: {
-          ...getAuthHeader(),
-          "Content-Type": "application/json",
-        },
-      },
-    );
+      notes: data.notes || "" };
+    return api.put(`/admin/orders/${orderId}/status`, requestData);
   },
 
   // Cập nhật trạng thái thanh toán (Admin)
   updatePaymentStatus(orderId, paymentStatus) {
-    return axios.put(
-      `${API_BASE}/admin/orders/${orderId}/payment-status`,
-      null,
-      {
-        params: { paymentStatus },
-        headers: getAuthHeader(),
-      },
-    );
+    return api.put(`/admin/orders/${orderId}/payment-status`, null, {
+      params: { paymentStatus } });
   },
 
   // Lấy thống kê đơn hàng
   getStatistics() {
-    return axios.get(`${API_BASE}/admin/orders/statistics`, {
-      headers: getAuthHeader(),
-    });
+    return api.get("/admin/orders/statistics");
   },
 
   // Lấy số lượng theo trạng thái
   getStatusCounts() {
-    return axios.get(`${API_BASE}/admin/orders/status/counts`, {
-      headers: getAuthHeader(),
-    });
+    return api.get("/admin/orders/status/counts");
   },
 
   // ✅ Admin hủy đơn hàng (thêm mới)
   adminCancelOrder(orderId, data) {
-    return axios.put(`${API_BASE}/admin/orders/${orderId}/cancel`, data, {
-      headers: {
-        ...getAuthHeader(),
-        "Content-Type": "application/json",
-      },
-    });
+    return api.put(`/admin/orders/${orderId}/cancel`, data);
   },
 
   // ✅ Khôi phục đơn hàng (thêm mới)
   restoreOrder(orderId) {
-    return axios.put(
-      `${API_BASE}/admin/orders/${orderId}/restore`,
-      {},
-      {
-        headers: getAuthHeader(),
-      },
-    );
+    return api.put(`/admin/orders/${orderId}/restore`, {});
   },
 
   // Xóa đơn hàng (soft delete)
   deleteOrder(orderId) {
-    return axios.delete(`${API_BASE}/admin/orders/${orderId}`, {
-      headers: getAuthHeader(),
-    });
+    return api.delete(`/admin/orders/${orderId}`);
   },
 
   // Gửi thông báo cho khách hàng
   notifyCustomer(orderId, data) {
-    return axios.post(`${API_BASE}/admin/orders/${orderId}/notify`, data, {
-      headers: {
-        ...getAuthHeader(),
-        "Content-Type": "application/json",
-      },
-    });
-  },
-};
+    return api.post(`/admin/orders/${orderId}/notify`, data);
+  } };

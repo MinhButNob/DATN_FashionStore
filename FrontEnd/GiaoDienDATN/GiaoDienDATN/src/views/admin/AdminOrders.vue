@@ -885,7 +885,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { adminOrderService } from '../../services/adminOrderService'
 import UpdateStatusModal from '../../components/admin/UpdateStatusModal.vue'
-import axios from 'axios'
+import api from "@/api/axios";
 
 // ===== STATE =====
 const loading = ref(false)
@@ -974,8 +974,7 @@ const toastType = ref('success')
 let toastTimer = null
 
 // ===== CONSTANTS =====
-const IMAGE_BASE = "http://localhost:8080"
-const API_BASE = "http://localhost:8080/api"
+const IMAGE_BASE = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "").replace(/\/api$/, "");
 const ADMIN_CANNOT_UPDATE = ['CANCELLED', 'RETURNED', 'RETURN_REQUESTED', 'RETURN_PENDING']
 
 // ===== HELPER FUNCTIONS =====
@@ -1053,8 +1052,7 @@ const getStatusText = (status) => {
     'REJECTED': 'Từ chối hoàn trả',
     'PENDING': 'Chờ duyệt',
     'APPROVED': 'Đã duyệt',
-    'RECEIVED': 'Đã nhận hàng',
-  }
+    'RECEIVED': 'Đã nhận hàng' }
   return map[status] || status
 }
 
@@ -1072,8 +1070,7 @@ const getStatusClass = (status) => {
     'RETURN_RECEIVED': 'status-return-received',
     'RETURN_PENDING': 'status-return-pending',
     'RETURNED': 'status-returned',
-    'REJECTED': 'status-rejected',
-  }
+    'REJECTED': 'status-rejected' }
   return map[status] || ''
 }
 
@@ -1322,13 +1319,9 @@ const closeItemsModal = () => {
 const viewInvoice = async (order) => {
   try {
     const token = localStorage.getItem('token')
-    const response = await axios.get(
-      `${API_BASE}/admin/orders/${order.orderId}/invoice`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      }
+    const response = await api.get(
+      `/admin/orders/${order.orderId}/invoice`,
+      {}
     )
     
     if (response.data) {
@@ -1430,8 +1423,8 @@ const confirmCancelOrder = async () => {
       reason: cancelReason.value.trim()
     }
 
-    const response = await axios.put(
-      `${API_BASE}/admin/orders/${cancelOrderId.value}/cancel`,
+    const response = await api.put(
+      `/admin/orders/${cancelOrderId.value}/cancel`,
       payload,
       {
         headers: {
@@ -1478,8 +1471,8 @@ const confirmRestoreOrder = async () => {
       notes: 'Admin khôi phục đơn hàng từ trạng thái đã hủy'
     }
 
-    const response = await axios.put(
-      `${API_BASE}/admin/orders/${restoreOrder.value.orderId}/status`,
+    const response = await api.put(
+      `/admin/orders/${restoreOrder.value.orderId}/status`,
       payload,
       {
         headers: {
@@ -1506,11 +1499,7 @@ const confirmRestoreOrder = async () => {
 const viewReturnRequest = async (order) => {
   try {
     const token = localStorage.getItem('token')
-    const response = await axios.get(`${API_BASE}/admin/orders/return-requests/order/${order.orderId}`, {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    })
+    const response = await api.get(`/admin/orders/return-requests/order/${order.orderId}`, {})
     
     if (response.data) {
       returnRequestDetail.value = response.data
@@ -1549,8 +1538,8 @@ const processReturn = async (status) => {
       adminNote: adminNote.value.trim() || null
     }
     
-    const response = await axios.put(
-      `${API_BASE}/admin/orders/return-requests/${returnRequestDetail.value.orderId}/process`,
+    const response = await api.put(
+      `/admin/orders/return-requests/${returnRequestDetail.value.orderId}/process`,
       payload,
       {
         headers: {
@@ -1592,8 +1581,8 @@ const receiveReturnedItems = async () => {
       note: adminNote.value.trim() || null
     }
     
-    const response = await axios.put(
-      `${API_BASE}/admin/orders/return-requests/${returnRequestDetail.value.orderId}/receive`,
+    const response = await api.put(
+      `/admin/orders/return-requests/${returnRequestDetail.value.orderId}/receive`,
       payload,
       {
         headers: {
@@ -1632,8 +1621,8 @@ const completeReturn = async () => {
       notes: adminNote.value.trim() || 'Hoàn tất hoàn hàng'
     }
     
-    const response = await axios.put(
-      `${API_BASE}/admin/orders/${returnRequestDetail.value.orderId}/status`,
+    const response = await api.put(
+      `/admin/orders/${returnRequestDetail.value.orderId}/status`,
       payload,
       {
         headers: {

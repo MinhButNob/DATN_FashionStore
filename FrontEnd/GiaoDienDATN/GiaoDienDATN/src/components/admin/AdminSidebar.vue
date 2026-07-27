@@ -51,8 +51,7 @@ const menuSections = [
       { name: "Quản lý sản phẩm", path: "/admin/products", icon: "fas fa-tshirt" },
       { name: "Quản lý đơn hàng", path: "/admin/orders", icon: "fas fa-shopping-cart" },
       { name: "Quản lý khách hàng", path: "/admin/customers", icon: "fas fa-users" },
-    ],
-  },
+    ] },
   {
     title: "MANAGE",
     items: [
@@ -66,8 +65,7 @@ const menuSections = [
       { name: "Quản lý đánh giá", path: "/admin/reviews", icon: "fas fa-star" },
       { name: "Quản lý khuyến mãi", path: "/admin/promotions", icon: "fas fa-percent" },
       { name: "Voucher", path: "/admin/vouchers", icon: "fas fa-ticket-alt" },
-    ],
-  },
+    ] },
   {
     title: "REPORTS & SYSTEM",
     items: [
@@ -78,8 +76,7 @@ const menuSections = [
         badge: "Mới"
       },
       { name: "Cài đặt", path: "/admin/settings", icon: "fas fa-cog" },
-    ],
-  },
+    ] },
 ]
 
 const isActive = (path) => {

@@ -128,8 +128,7 @@ import { useNotification } from "../../composables/useNotification";
 const props = defineProps({
   visible: Boolean,
   isEdit: Boolean,
-  initialData: Object,
-});
+  initialData: Object });
 
 const emit = defineEmits(["close", "submit"]);
 const { showNotification } = useNotification();
@@ -149,8 +148,7 @@ const form = ref({
   voucherStartDate: "",
   voucherEndDate: "",
   voucherMaxUsage: null,
-  voucherMinOrderValue: 0,
-});
+  voucherMinOrderValue: 0 });
 
 const submitting = ref(false);
 
@@ -176,8 +174,7 @@ watch(
         voucherStartDate: formatDateTime(newData.voucherStartDate),
         voucherEndDate: formatDateTime(newData.voucherEndDate),
         voucherMaxUsage: newData.voucherMaxUsage || null,
-        voucherMinOrderValue: newData.voucherMinOrderValue || 0,
-      };
+        voucherMinOrderValue: newData.voucherMinOrderValue || 0 };
     }
   },
   { immediate: true },
@@ -194,8 +191,7 @@ watch(
         voucherStartDate: "",
         voucherEndDate: "",
         voucherMaxUsage: null,
-        voucherMinOrderValue: 0,
-      };
+        voucherMinOrderValue: 0 };
       discountType.value = "amount";
       submitting.value = false;
     }
@@ -278,8 +274,7 @@ const handleSubmit = async () => {
     voucherStartDate: form.value.voucherStartDate,
     voucherEndDate: form.value.voucherEndDate,
     voucherMaxUsage: maxUsage,
-    voucherMinOrderValue: minOrderValue,
-  };
+    voucherMinOrderValue: minOrderValue };
 
   try {
     await emit("submit", submitData);

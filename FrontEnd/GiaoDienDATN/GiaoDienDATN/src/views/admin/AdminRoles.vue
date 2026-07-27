@@ -89,8 +89,7 @@
                 :class="{
                   active: role.status === 'ACTIVE',
                   inactive: role.status === 'INACTIVE',
-                  deleted: role.status === 'DELETED',
-                }"
+                  deleted: role.status === 'DELETED' }"
               >
                 {{
                   role.status === "ACTIVE"

@@ -7,8 +7,7 @@ export function formatPrice(price) {
   if (isNaN(num)) return "0₫";
   return new Intl.NumberFormat("vi-VN", {
     style: "currency",
-    currency: "VND",
-  }).format(num);
+    currency: "VND" }).format(num);
 }
 
 // Get category name in Vietnamese
@@ -17,8 +16,7 @@ export function getCategoryName(category) {
     men: "Thời trang nam",
     women: "Thời trang nữ",
     kids: "Trẻ em",
-    accessories: "Phụ kiện",
-  };
+    accessories: "Phụ kiện" };
   return categories[category] || category;
 }
 
@@ -65,8 +63,7 @@ export function getOrderStatusText(status) {
     processing: "Đang xử lý",
     shipped: "Đang giao",
     delivered: "Đã giao",
-    cancelled: "Đã hủy",
-  };
+    cancelled: "Đã hủy" };
   return statuses[status] || status;
 }
 
@@ -77,8 +74,7 @@ export function getOrderStatusClass(status) {
     processing: "info",
     shipped: "primary",
     delivered: "success",
-    cancelled: "danger",
-  };
+    cancelled: "danger" };
   return classes[status] || "secondary";
 }
 
@@ -124,8 +120,7 @@ export function getStatusText(status) {
     REJECTED: "Từ chối hoàn trả",
     PENDING: "Chờ duyệt",
     APPROVED: "Đã duyệt",
-    RECEIVED: "Đã nhận hàng",
-  };
+    RECEIVED: "Đã nhận hàng" };
   return map[status] || status || "---";
 }
 
@@ -151,8 +146,7 @@ export function getStatusClass(status) {
     REJECTED: "status-rejected",
     PENDING: "status-pending-review",
     APPROVED: "status-approved",
-    RECEIVED: "status-return-received",
-  };
+    RECEIVED: "status-return-received" };
   return map[status] || "";
 }
 
@@ -169,8 +163,7 @@ export function getPaymentStatusText(status) {
     FAILED: "Thất bại",
     REFUNDED: "Đã hoàn tiền",
     CANCELLED: "Đã hủy",
-    SUCCESS: "Thành công",
-  };
+    SUCCESS: "Thành công" };
   return map[status] || status || "---";
 }
 
@@ -187,8 +180,7 @@ export function getPaymentClass(status) {
     FAILED: "payment-failed",
     REFUNDED: "payment-refunded",
     CANCELLED: "payment-cancelled",
-    SUCCESS: "payment-success",
-  };
+    SUCCESS: "payment-success" };
   return map[status] || "";
 }
 
@@ -211,8 +203,7 @@ export function getFullStatusText(status) {
     RETURN_RECEIVED: "Đã nhận hàng trả từ khách",
     RETURN_PENDING: "Đang thu hồi hàng",
     RETURNED: "Đã hoàn trả hàng",
-    REJECTED: "Yêu cầu hoàn hàng bị từ chối",
-  };
+    REJECTED: "Yêu cầu hoàn hàng bị từ chối" };
   return map[status] || status || "---";
 }
 
@@ -241,8 +232,7 @@ export function getColorHex(colorName) {
     Ghi: "#C0C0C0",
     Bạc: "#C0C0C0",
     "Vàng kim": "#FFD700",
-    Đồng: "#CD7F32",
-  };
+    Đồng: "#CD7F32" };
   return colorMap[colorName] || "#CCCCCC";
 }
 
@@ -356,8 +346,7 @@ export function getStatusColor(status) {
     RETURN_RECEIVED: "#3498db",
     RETURN_PENDING: "#17a2b8",
     RETURNED: "#28a745",
-    REJECTED: "#dc3545",
-  };
+    REJECTED: "#dc3545" };
   return map[status] || "#6c757d";
 }
 
@@ -387,5 +376,4 @@ export default {
   getInitials,
   generateId,
   debounce,
-  getStatusColor,
-};
+  getStatusColor };

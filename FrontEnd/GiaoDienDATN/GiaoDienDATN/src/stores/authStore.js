@@ -1,14 +1,11 @@
 import { defineStore } from "pinia";
-import axios from "axios";
-
-const API = "http://localhost:8080/api/auth";
+import api from "../api/axios";
 
 export const useAuthStore = defineStore("auth", {
   state: () => ({
     user: JSON.parse(localStorage.getItem("user")) || null,
 
-    token: localStorage.getItem("token") || null,
-  }),
+    token: localStorage.getItem("accessToken") || null }),
 
   getters: {
     isAuthenticated: (state) => !!state.token,
@@ -40,66 +37,54 @@ export const useAuthStore = defineStore("auth", {
       if (this.userRoles.includes("STAFF")) return "STAFF";
       if (this.userRoles.includes("CUSTOMER")) return "CUSTOMER";
       return null;
-    },
-  },
+    } },
 
   actions: {
+    // Lưu lại session (token + user) sau khi login/social login thành công
+    _setSession(data) {
+      this.token = data.accessToken;
+      this.user = data.user;
+
+      localStorage.setItem("accessToken", data.accessToken);
+      if (data.refreshToken) {
+        localStorage.setItem("refreshToken", data.refreshToken);
+      }
+      localStorage.setItem("user", JSON.stringify(data.user));
+    },
+
     async register(data) {
-      const response = await axios.post(`${API}/register`, data);
+      const response = await api.post("/auth/register", data);
 
       return response.data;
     },
 
     async login(email, password) {
-      const response = await axios.post(`${API}/login`, {
+      const response = await api.post("/auth/login", {
         email,
-        password,
-      });
+        password });
 
       const data = response.data;
-
-      this.token = data.accessToken;
-
-      this.user = data.user;
-
-      localStorage.setItem("token", data.accessToken);
-
-      localStorage.setItem("user", JSON.stringify(data.user));
+      this._setSession(data);
 
       return data.user;
     },
 
     async googleLogin(idToken) {
-      const response = await axios.post(`${API}/google`, {
-        idToken,
-      });
+      const response = await api.post("/auth/google", {
+        idToken });
 
       const data = response.data;
-
-      this.token = data.accessToken;
-
-      this.user = data.user;
-
-      localStorage.setItem("token", data.accessToken);
-
-      localStorage.setItem("user", JSON.stringify(data.user));
+      this._setSession(data);
 
       return data.user;
     },
 
     async facebookLogin(accessToken) {
-      const response = await axios.post(`${API}/facebook`, {
-        accessToken,
-      });
+      const response = await api.post("/auth/facebook", {
+        accessToken });
 
       const data = response.data;
-
-      this.token = data.accessToken;
-      this.user = data.user;
-
-      localStorage.setItem("token", data.accessToken);
-
-      localStorage.setItem("user", JSON.stringify(data.user));
+      this._setSession(data);
 
       return data.user;
     },
@@ -108,9 +93,7 @@ export const useAuthStore = defineStore("auth", {
       this.user = null;
       this.token = null;
 
-      localStorage.removeItem("token");
-
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("refreshToken");
       localStorage.removeItem("user");
-    },
-  },
-});
+    } } });

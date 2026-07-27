@@ -6,48 +6,37 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.socket.config.annotation.EnableWebSocket;
 import org.springframework.web.socket.config.annotation.WebSocketConfigurer;
 import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry;
-import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+// ⚠️ CORS KHÔNG cấu hình ở đây nữa - đã chuyển hẳn về SecurityConfig
+// (bean CorsConfigurationSource + .cors(Customizer.withDefaults())).
+// Lý do: nếu cấu hình CORS ở CẢ WebMvcConfigurer (addCorsMappings) LẪN
+// Spring Security cùng lúc, response có thể bị gắn 2 header
+// Access-Control-Allow-Origin trùng nhau -> Chrome báo lỗi CORS dù
+// origin đã được cho phép đúng. Chỉ nên giữ 1 nơi cấu hình duy nhất.
 @Configuration
-@EnableWebSocket  // ===== CODE MỚI: Thêm dòng này để bật WebSocket =====
-public class WebConfig implements WebMvcConfigurer, WebSocketConfigurer {  // ===== CODE MỚI: Thêm WebSocketConfigurer =====
+@EnableWebSocket
+public class WebConfig implements WebMvcConfigurer, WebSocketConfigurer {
 
-    // ===== CODE MỚI: Inject WebSocket Handler =====
     @Autowired
     private ChatWebSocketHandler chatWebSocketHandler;
 
-    // ===== CODE CŨ: Cấu hình ResourceHandler (GIỮ NGUYÊN) =====
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        // ✅ Cấu hình đúng đường dẫn tuyệt đối
         registry.addResourceHandler("/uploads/**")
                 .addResourceLocations("file:./uploads/")
                 .setCachePeriod(3600);
-
-        // ✅ Hoặc dùng đường dẫn tuyệt đối (Windows)
-        // .addResourceLocations("file:C:/BackEnd_FashionStore/uploads/")
-
-        // ✅ Nếu dùng Linux/Mac
-        // .addResourceLocations("file:/home/user/BackEnd_FashionStore/uploads/")
     }
 
-    // ===== CODE CŨ: Cấu hình CORS (GIỮ NGUYÊN) =====
-    @Override
-    public void addCorsMappings(CorsRegistry registry) {
-        registry.addMapping("/**")
-                .allowedOrigins("*")
-                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH")
-                .allowedHeaders("*")
-                .allowCredentials(false)
-                .maxAge(3600);
-    }
-
-    // ===== CODE MỚI: Cấu hình WebSocket Handler =====
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
         registry.addHandler(chatWebSocketHandler, "/ws/chat")
-                .setAllowedOrigins("*");
+                .setAllowedOrigins(
+                        "https://datn-fe-two.vercel.app",
+                        "https://datn-fe-fashionstore.vercel.app",
+                        "http://localhost:3000",
+                        "http://localhost:5173"
+                );
     }
 }

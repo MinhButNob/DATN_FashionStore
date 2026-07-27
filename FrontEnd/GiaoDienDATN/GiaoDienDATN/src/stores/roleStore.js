@@ -11,9 +11,7 @@ export const useRoleStore = defineStore("role", {
       currentPage: 0,
       totalPages: 0,
       totalElements: 0,
-      pageSize: 10,
-    },
-  }),
+      pageSize: 10 } }),
 
   actions: {
     async fetchRoles(page = 0, size = 10, status = null) {
@@ -25,8 +23,7 @@ export const useRoleStore = defineStore("role", {
           currentPage: response.data.number,
           totalPages: response.data.totalPages,
           totalElements: response.data.totalElements,
-          pageSize: response.data.size,
-        };
+          pageSize: response.data.size };
         this.error = null;
       } catch (error) {
         this.error =
@@ -78,8 +75,7 @@ export const useRoleStore = defineStore("role", {
           status:
             roleData.status === "DELETED"
               ? "ACTIVE"
-              : roleData.status || "ACTIVE",
-        };
+              : roleData.status || "ACTIVE" };
         const response = await roleApi.create(payload);
         await this.fetchRoles(
           this.pagination.currentPage,
@@ -102,8 +98,7 @@ export const useRoleStore = defineStore("role", {
 
         const payload = {
           roleName: roleData.roleName,
-          status: roleData.status,
-        };
+          status: roleData.status };
         const response = await roleApi.update(id, payload);
         await this.fetchRoles(
           this.pagination.currentPage,
@@ -172,8 +167,7 @@ export const useRoleStore = defineStore("role", {
           currentPage: response.data.number,
           totalPages: response.data.totalPages,
           totalElements: filteredContent.length,
-          pageSize: response.data.size,
-        };
+          pageSize: response.data.size };
         this.error = null;
       } catch (error) {
         this.error =
@@ -194,8 +188,7 @@ export const useRoleStore = defineStore("role", {
           currentPage: response.data.number,
           totalPages: response.data.totalPages,
           totalElements: response.data.totalElements,
-          pageSize: response.data.size,
-        };
+          pageSize: response.data.size };
         this.error = null;
       } catch (error) {
         this.error =
@@ -225,8 +218,7 @@ export const useRoleStore = defineStore("role", {
 
     clearError() {
       this.error = null;
-    },
-  },
+    } },
 
   // Thêm getters để lọc dữ liệu
   getters: {
@@ -244,6 +236,4 @@ export const useRoleStore = defineStore("role", {
     },
     totalCount: (state) => {
       return state.pagination.totalElements;
-    },
-  },
-});
+    } } });

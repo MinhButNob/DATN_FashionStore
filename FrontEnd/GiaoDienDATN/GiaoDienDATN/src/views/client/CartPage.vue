@@ -313,10 +313,9 @@ import ClientHeader from '../../components/client/ClientHeader.vue'
 import ClientFooter from '../../components/client/ClientFooter.vue'
 import ProductCard from '../../components/client/ProductCard.vue'
 import { cartService } from '../../services/cartService'
-import axios from 'axios'
+import api from "@/api/axios";
 
-const API_BASE = "http://localhost:8080/api"
-const IMAGE_BASE = "http://localhost:8080"
+const IMAGE_BASE = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "").replace(/\/api$/, "");
 
 const router = useRouter()
 const cartStore = useCartStore()
@@ -405,9 +404,7 @@ const fetchAvailableVouchers = async () => {
       return
     }
 
-    const response = await axios.get(`${API_BASE}/vouchers/available`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
+    const response = await api.get(`/vouchers/available`, {})
 
     console.log('📦 Voucher API response:', response.data)
 
@@ -646,7 +643,7 @@ const goToProduct = (id) => {
 
 const fetchSuggestedProducts = async () => {
   try {
-    const response = await axios.get(`${API_BASE}/customer/home/latest-products`, {
+    const response = await api.get(`/customer/home/latest-products`, {
       params: { page: 0, size: 4 }
     })
     let products = response.data?.products || []

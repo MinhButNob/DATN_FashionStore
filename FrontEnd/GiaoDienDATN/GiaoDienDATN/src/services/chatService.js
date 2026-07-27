@@ -136,7 +136,6 @@ const chatService = {
       console.error('closeConversation error:', error);
       throw error;
     }
-  },
-};
+  } };
 
 export default chatService;

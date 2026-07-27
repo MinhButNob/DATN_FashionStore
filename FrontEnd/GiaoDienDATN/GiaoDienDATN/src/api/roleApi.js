@@ -50,5 +50,4 @@ export const roleApi = {
     return api.get(
       `/roles/search?keyword=${keyword}&page=${page}&size=${size}`,
     );
-  },
-};
+  } };

@@ -30,16 +30,14 @@ export const useChatStore = defineStore('chat', {
     loading: {
       conversations: false,
       messages: false,
-      sending: false,
-    },
+      sending: false },
     searchKeyword: '',
     error: null,
     ws: null,
     isWebSocketConnected: false,
     wsListeners: [],
     currentCustomerId: null,
-    processedMessageIds: new Set(),
-  }),
+    processedMessageIds: new Set() }),
 
   getters: {
     filteredConversations: (state) => {
@@ -55,8 +53,7 @@ export const useChatStore = defineStore('chat', {
     },
     closedConversations: (state) => {
       return (state.conversations || []).filter(c => c.status === 'CLOSED');
-    },
-  },
+    } },
 
   actions: {
     // ===== WEBSOCKET =====
@@ -368,14 +365,11 @@ export const useChatStore = defineStore('chat', {
       this.loading = {
         conversations: false,
         messages: false,
-        sending: false,
-      };
+        sending: false };
       this.searchKeyword = '';
       this.error = null;
       this.isWebSocketConnected = false;
       this.currentCustomerId = null;
       this.processedMessageIds = new Set();
       this.disconnectWebSocket();
-    },
-  },
-});
+    } } });

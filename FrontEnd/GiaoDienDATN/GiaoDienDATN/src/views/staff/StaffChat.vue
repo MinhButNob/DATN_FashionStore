@@ -240,8 +240,7 @@ const {
   messages,
   loading,
   searchKeyword,
-  unreadCount,
-} = storeToRefs(chatStore);
+  unreadCount } = storeToRefs(chatStore);
 const reply = ref('');
 const search = ref('');
 const messagesContainer = ref(null);

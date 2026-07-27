@@ -262,8 +262,7 @@ const handleSubmit = async () => {
       customerName: form.value.customerName.trim(),
       email: form.value.email.trim(),
       phone: form.value.phone ? form.value.phone.trim() : null,
-      address: fullAddress ? fullAddress : null,
-    }
+      address: fullAddress ? fullAddress : null }
 
     // Nếu là thêm mới, thêm password
     if (!isEdit.value) {

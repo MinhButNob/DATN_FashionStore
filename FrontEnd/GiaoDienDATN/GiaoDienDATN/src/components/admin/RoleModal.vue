@@ -53,13 +53,10 @@ export default {
   props: {
     isEdit: {
       type: Boolean,
-      default: false,
-    },
+      default: false },
     initialData: {
       type: Object,
-      default: () => null,
-    },
-  },
+      default: () => null } },
   data() {
     return {
       formData: {
@@ -67,15 +64,13 @@ export default {
         status: "ACTIVE",  // Mặc định là "ACTIVE"
       },
       errors: {},
-      isSubmitting: false,
-    };
+      isSubmitting: false };
   },
   created() {
     if (this.isEdit && this.initialData) {
       this.formData = {
         roleName: this.initialData.roleName || "",
-        status: this.normalizeStatus(this.initialData.status),
-      };
+        status: this.normalizeStatus(this.initialData.status) };
     }
   },
   methods: {
@@ -117,9 +112,7 @@ export default {
       } finally {
         this.isSubmitting = false;
       }
-    },
-  },
-};
+    } } };
 </script>
 
 <style scoped>

@@ -290,7 +290,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted, onErrorCaptured } from 'vue'
 import { useBannerStore } from '../../stores/bannerStore'
-import axios from 'axios'
+import api from "@/api/axios";
 import productService from '../../api/productService'
 
 onErrorCaptured((err, instance, info) => {
@@ -300,8 +300,6 @@ onErrorCaptured((err, instance, info) => {
 })
 
 const store = useBannerStore()
-const API_BASE = 'http://localhost:8080/api'
-
 // ========== STATE ==========
 const keyword = ref('')
 const showModal = ref(false)
@@ -331,8 +329,7 @@ const form = reactive({
   productId: null,
   customUrl: '',
   displayOrder: 0,
-  status: 'ACTIVE',
-})
+  status: 'ACTIVE' })
 
 // ========== CLICK RA NGOÀI ĐỂ ĐÓNG GỢI Ý (thay cho @blur + setTimeout) ==========
 // Lý do đổi cách làm cũ: @blur kết hợp setTimeout dễ bị tranh chấp (race condition)
@@ -359,9 +356,9 @@ onMounted(async () => {
     await store.fetchBanners()
     
     const [catRes, prodRes, parentCatRes] = await Promise.all([
-      axios.get(`${API_BASE}/categories/active`),
-      axios.get(`${API_BASE}/products`, { params: { size: 200 } }),
-      axios.get(`${API_BASE}/category-hierarchy/parents`).catch(() => ({ data: [] }))
+      api.get(`/categories/active`),
+      api.get(`/products`, { params: { size: 200 } }),
+      api.get(`/category-hierarchy/parents`).catch(() => ({ data: [] }))
     ])
     // ⚠️ Backend bọc dữ liệu 2 lớp: ApiResponse { data: PageResponse { content: [...] } }
     // Trước đây code chỉ bóc 1 lớp (res.data.content) nên products.value bị gán nhầm
@@ -438,8 +435,7 @@ function openEdit(banner) {
     productId: banner.productId || null,
     customUrl: banner.customUrl || '',
     displayOrder: banner.displayOrder || 0,
-    status: banner.status || 'ACTIVE',
-  })
+    status: banner.status || 'ACTIVE' })
   // ✅ SỬA: Hiển thị ảnh preview đúng cách
   imagePreview.value = getImageUrl(banner.imagePath)
   selectedFile.value = null
@@ -472,8 +468,7 @@ function resetForm() {
     productId: null,
     customUrl: '',
     displayOrder: 0,
-    status: 'ACTIVE',
-  })
+    status: 'ACTIVE' })
   categorySearchQuery.value = ''
   productSearchQuery.value = ''
   showCategorySuggestions.value = false
@@ -724,12 +719,12 @@ function getImageUrl(path) {
   if (!path) return ''
   if (path.startsWith('http')) return path
   if (path.startsWith('/uploads/')) {
-    return `http://localhost:8080${path}`
+    return `${(import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "").replace(/\/api$/, "")}/${path}`
   }
   if (path.startsWith('uploads/')) {
-    return `http://localhost:8080/${path}`
+    return `${(import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "").replace(/\/api$/, "")}/${path}`
   }
-  return `http://localhost:8080/uploads/${path}`
+  return `${(import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "").replace(/\/api$/, "")}/uploads/${path}`
 }
 
 // ✅ THÊM: Xử lý lỗi ảnh thumb

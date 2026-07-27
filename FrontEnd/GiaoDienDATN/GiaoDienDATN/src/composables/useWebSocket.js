@@ -3,7 +3,7 @@ import { ref } from 'vue';
 
 /**
  * WebSocket Composable
- * Kết nối đến ws://localhost:8080/ws/chat
+ * Kết nối đến /ws/chat
  */
 export function useWebSocket() {
   const socket = ref(null);
@@ -60,7 +60,7 @@ export function useWebSocket() {
     // không còn ở trạng thái "đã đóng có chủ đích" nữa.
     intentionalDisconnect = false;
 
-    const wsUrl = `ws://localhost:8080${path}`;
+    const wsUrl = `${path}`;
     console.log('🔗 Connecting to WebSocket:', wsUrl);
 
     try {
@@ -212,6 +212,5 @@ export function useWebSocket() {
     disconnect,
     send,
     onMessage,
-    identify,
-  };
+    identify };
 }

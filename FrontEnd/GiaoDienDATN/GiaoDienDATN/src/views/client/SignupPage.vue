@@ -326,8 +326,7 @@ const form = ref({
   phone: "",
   password: "",
   confirmPassword: "",
-  agreeTerms: false,
-});
+  agreeTerms: false });
 
 const loading = ref(false);
 const error = ref("");
@@ -399,8 +398,7 @@ const strengthText = computed(() => {
     weak: "Yếu",
     fair: "Trung bình",
     good: "Khá",
-    strong: "Mạnh",
-  };
+    strong: "Mạnh" };
   return texts[strengthClass.value];
 });
 
@@ -477,8 +475,7 @@ const handleRegister = async () => {
       name: fullName.value,
       email: form.value.email,
       phone: form.value.phone.trim(),
-      password: form.value.password,
-    });
+      password: form.value.password });
 
     success.value = "Đăng ký thành công! Đang chuyển hướng...";
     showNotification("Đăng ký thành công!", "success");

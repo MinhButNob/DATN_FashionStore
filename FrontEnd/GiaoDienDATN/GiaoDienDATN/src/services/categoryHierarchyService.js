@@ -125,7 +125,6 @@ const categoryHierarchyService = {
       console.error(`Lỗi khôi phục danh mục ID ${id}:`, error);
       throw error;
     }
-  },
-};
+  } };
 
 export default categoryHierarchyService;

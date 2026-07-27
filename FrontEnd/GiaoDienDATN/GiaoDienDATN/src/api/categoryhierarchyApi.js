@@ -3,50 +3,47 @@
 // KHÔNG xử lý logic nghiệp vụ, KHÔNG try/catch ở đây.
 // Được dùng bởi: src/service/categoryhierarchyService.js
 
-import axios from "axios";
-
-const API_BASE = "http://localhost:8080/api/category-hierarchy";
+import api from "./axios";
 
 const categoryHierarchyApi = {
   // GET /tree - toàn bộ cây danh mục (ACTIVE + INACTIVE)
   fetchTree() {
-    return axios.get(`${API_BASE}/tree`);
+    return api.get("/category-hierarchy/tree");
   },
 
   // GET /tree/active - cây danh mục chỉ ACTIVE
   fetchActiveTree() {
-    return axios.get(`${API_BASE}/tree/active`);
+    return api.get("/category-hierarchy/tree/active");
   },
 
   // GET /parents - danh sách danh mục cấp 1
   fetchParents() {
-    return axios.get(`${API_BASE}/parents`);
+    return api.get("/category-hierarchy/parents");
   },
 
   // GET /children/:parentId - danh mục con theo cha
   fetchChildren(parentId) {
-    return axios.get(`${API_BASE}/children/${parentId}`);
+    return api.get(`/category-hierarchy/children/${parentId}`);
   },
 
   // POST / - tạo danh mục mới
   create(payload) {
-    return axios.post(`${API_BASE}`, payload);
+    return api.post("/category-hierarchy", payload);
   },
 
   // PUT /:id - cập nhật danh mục
   update(id, payload) {
-    return axios.put(`${API_BASE}/${id}`, payload);
+    return api.put(`/category-hierarchy/${id}`, payload);
   },
 
   // DELETE /:id - xóa mềm danh mục
   remove(id) {
-    return axios.delete(`${API_BASE}/${id}`);
+    return api.delete(`/category-hierarchy/${id}`);
   },
 
   // PATCH /:id/restore - khôi phục danh mục đã xóa
   restore(id) {
-    return axios.patch(`${API_BASE}/${id}/restore`);
-  },
-};
+    return api.patch(`/category-hierarchy/${id}/restore`);
+  } };
 
 export default categoryHierarchyApi;

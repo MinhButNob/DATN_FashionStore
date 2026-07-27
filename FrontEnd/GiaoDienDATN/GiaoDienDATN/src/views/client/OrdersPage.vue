@@ -197,8 +197,7 @@ const cartStore = useCartStore()
 const { showNotification } = useNotification()
 
 // ===== CONSTANTS =====
-const API_BASE = "http://localhost:8080/api"
-const IMAGE_BASE = "http://localhost:8080"
+const IMAGE_BASE = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "").replace(/\/api$/, "");
 
 // ===== STATE =====
 const loading = ref(false)

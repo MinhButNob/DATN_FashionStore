@@ -663,7 +663,7 @@ import CreateReviewModal from "../../components/client/CreateReviewModal.vue";
 import ReturnRequestModal from "../../components/client/ReturnRequestModal.vue";
 import { formatPrice } from "../../utils/helpers";
 import { orderService } from "../../services/orderService";
-import axios from "axios";
+import api from "@/api/axios";
 import { useVietnamAddress } from "../../composables/useVietnamAddress";
 
 const router = useRouter();
@@ -673,8 +673,7 @@ const cartStore = useCartStore();
 const { showNotification } = useNotification();
 
 // ===== CONSTANTS =====
-const API_BASE = "http://localhost:8080/api";
-const IMAGE_BASE = "http://localhost:8080";
+const IMAGE_BASE = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "").replace(/\/api$/, "");
 
 // ===== STATE =====
 const activeTab = ref("info");
@@ -774,8 +773,7 @@ let toastTimer = null;
 const passwordForm = reactive({
   currentPassword: "",
   newPassword: "",
-  confirmPassword: "",
-});
+  confirmPassword: "" });
 
 // ===== COMPUTED =====
 const displayName = computed(() => {
@@ -890,8 +888,7 @@ const getStatusText = (status) => {
     "REJECTED": "Từ chối hoàn trả",
     "PENDING": "Chờ duyệt",
     "APPROVED": "Đã duyệt",
-    "RECEIVED": "Đã nhận hàng",
-  };
+    "RECEIVED": "Đã nhận hàng" };
   return map[status] || status;
 };
 
@@ -911,8 +908,7 @@ const getStatusClass = (status) => {
     "RETURNED": "status-returned",
     "REJECTED": "status-rejected",
     "PENDING": "status-pending-review",
-    "APPROVED": "status-approved",
-  };
+    "APPROVED": "status-approved" };
   return map[status] || "";
 };
 
@@ -941,11 +937,7 @@ const fetchAddresses = async () => {
   addressLoading.value = true;
   try {
     const token = localStorage.getItem('token');
-    const response = await axios.get(`${API_BASE}/shipping-addresses`, {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    });
+    const response = await api.get(`/shipping-addresses`, {});
     addresses.value = response.data || [];
     console.log('✅ Addresses loaded:', addresses.value.length);
   } catch (error) {
@@ -1046,17 +1038,17 @@ const saveAddress = async () => {
 
     let response;
     if (isEditingAddress.value) {
-      response = await axios.put(
-        `${API_BASE}/shipping-addresses/${editingAddressId.value}`,
+      response = await api.put(
+        `/shipping-addresses/${editingAddressId.value}`,
         payload,
-        { headers: { Authorization: `Bearer ${token}` } }
+        {}
       );
       showNotificationMsg('Cập nhật địa chỉ thành công!', 'success');
     } else {
-      response = await axios.post(
-        `${API_BASE}/shipping-addresses`,
+      response = await api.post(
+        `/shipping-addresses`,
         payload,
-        { headers: { Authorization: `Bearer ${token}` } }
+        {}
       );
       showNotificationMsg('Thêm địa chỉ thành công!', 'success');
     }
@@ -1074,10 +1066,10 @@ const saveAddress = async () => {
 const setDefaultAddress = async (addressId) => {
   try {
     const token = localStorage.getItem('token');
-    await axios.put(
-      `${API_BASE}/shipping-addresses/${addressId}/default`,
+    await api.put(
+      `/shipping-addresses/${addressId}/default`,
       {},
-      { headers: { Authorization: `Bearer ${token}` } }
+      {}
     );
     showNotificationMsg('Đặt địa chỉ mặc định thành công!', 'success');
     await fetchAddresses();
@@ -1092,9 +1084,9 @@ const deleteAddress = async (addressId) => {
   
   try {
     const token = localStorage.getItem('token');
-    await axios.delete(
-      `${API_BASE}/shipping-addresses/${addressId}`,
-      { headers: { Authorization: `Bearer ${token}` } }
+    await api.delete(
+      `/shipping-addresses/${addressId}`,
+      {}
     );
     showNotificationMsg('Xóa địa chỉ thành công!', 'success');
     await fetchAddresses();
@@ -1118,7 +1110,7 @@ const fetchProfile = async () => {
     const token = authStore.token || localStorage.getItem("token");
     
     if (token) {
-      const response = await axios.get(`${API_BASE}/customers/profile`, {
+      const response = await api.get(`/customers/profile`, {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json"
@@ -1207,8 +1199,8 @@ const saveProfile = async () => {
 
     console.log("📤 Sending profile update:", payload);
 
-    const response = await axios.put(
-      `${API_BASE}/customers/profile`,
+    const response = await api.put(
+      `/customers/profile`,
       payload,
       {
         headers: {
@@ -1416,27 +1408,19 @@ const checkAllReviewsStatus = async (ordersList) => {
         reviewedItems.value.delete(reviewKey);
         
         try {
-          const response = await axios.get(`${API_BASE}/reviews/check`, {
+          const response = await api.get(`/reviews/check`, {
             params: {
               orderId: order.orderId,
               productDetailId: item.productDetailId
-            },
-            headers: {
-              Authorization: `Bearer ${token}`
-            }
-          });
+            } });
           
           if (response.data.reviewed) {
             try {
-              const myReviewsResponse = await axios.get(`${API_BASE}/reviews/my-reviews`, {
+              const myReviewsResponse = await api.get(`/reviews/my-reviews`, {
                 params: {
                   page: 0,
                   size: 100
-                },
-                headers: {
-                  Authorization: `Bearer ${token}`
-                }
-              });
+                } });
               
               if (myReviewsResponse.data && myReviewsResponse.data.content) {
                 const foundReview = myReviewsResponse.data.content.find(
@@ -1514,11 +1498,7 @@ const deleteReview = ({ orderId, productDetailId }) => {
     }
     
     const token = localStorage.getItem('token');
-    axios.delete(`${API_BASE}/reviews/${reviewData.reviewId}`, {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    }).then(() => {
+    api.delete(`/reviews/${reviewData.reviewId}`, {}).then(() => {
       reviewedItems.value.delete(`${orderId}_${productDetailId}`);
       showNotificationMsg("Xóa đánh giá thành công!", "success");
       fetchOrders();
@@ -1603,8 +1583,8 @@ const changePassword = async () => {
       return;
     }
 
-    const response = await axios.put(
-      `${API_BASE}/customers/change-password`,
+    const response = await api.put(
+      `/customers/change-password`,
       {
         currentPassword: passwordForm.currentPassword,
         newPassword: passwordForm.newPassword

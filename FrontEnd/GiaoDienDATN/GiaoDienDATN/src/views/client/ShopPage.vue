@@ -276,7 +276,7 @@ import { useCartStore } from '../../stores/cartStore'
 import { useNotification } from '../../composables/useNotification'
 import { useWishlistStore } from '../../stores/wishlistStore'
 import { useAuthStore } from '../../stores/authStore'
-import axios from 'axios'
+import api from "@/api/axios";
 
 const route = useRoute()
 const router = useRouter()
@@ -284,8 +284,6 @@ const cartStore = useCartStore()
 const authStore = useAuthStore()
 const wishlistStore = useWishlistStore()
 const { showNotification } = useNotification()
-const API_BASE = "http://localhost:8080/api"
-
 // State
 const loading = ref(false)
 const allProducts = ref([])
@@ -582,7 +580,7 @@ const changePage = (page) => {
 // Fetch danh sách kích thước từ API
 const fetchSizes = async () => {
   try {
-    const response = await axios.get(`${API_BASE}/sizes`, {
+    const response = await api.get(`/sizes`, {
       params: { page: 0, size: 100 }
     })
     
@@ -614,7 +612,7 @@ const fetchSizes = async () => {
 const fetchProducts = async () => {
   loading.value = true
   try {
-    const response = await axios.get(`${API_BASE}/customer/home/latest-products`, {
+    const response = await api.get(`/customer/home/latest-products`, {
       params: { page: 0, size: 100 }
     })
     
@@ -699,7 +697,7 @@ const updateSizeProductCounts = () => {
 
 const fetchCategories = async () => {
   try {
-    const response = await axios.get(`${API_BASE}/categories/active`)
+    const response = await api.get(`/categories/active`)
     const categoriesData = response.data || []
     
     const productCountByCategory = {}

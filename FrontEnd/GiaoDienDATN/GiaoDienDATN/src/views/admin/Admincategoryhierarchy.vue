@@ -241,8 +241,7 @@ export default {
         categoryName: "",
         categoryDescription: "",
         status: "ACTIVE",
-        parentCategoryId: null,
-      },
+        parentCategoryId: null },
       showDeleteModal: false,
       deleteTarget: null,
       // Thêm danh mục con bằng cách chọn danh mục có sẵn (lấy từ Quản lý danh mục)
@@ -262,8 +261,7 @@ export default {
       showToast: false,
       toastMessage: "",
       toastType: "success",
-      toastTimer: null,
-    };
+      toastTimer: null };
   },
   computed: {
     tree() {
@@ -284,8 +282,7 @@ export default {
     // và đang chưa thuộc danh mục lớn nào -> dùng cho modal "Thêm danh mục con"
     unassignedCategories() {
       return this.tree.filter((p) => !this.isLocked(p));
-    },
-  },
+    } },
   mounted() {
     this.loadTree();
   },
@@ -320,8 +317,7 @@ export default {
         categoryName: "",
         categoryDescription: "",
         status: "ACTIVE",
-        parentCategoryId: parent ? parent.categoryId : null,
-      };
+        parentCategoryId: parent ? parent.categoryId : null };
       this.showModal = true;
     },
     openEditModal(item) {
@@ -335,8 +331,7 @@ export default {
         categoryName: item.categoryName,
         categoryDescription: item.categoryDescription,
         status: item.status,
-        parentCategoryId: item.parentCategoryId ?? null,
-      };
+        parentCategoryId: item.parentCategoryId ?? null };
       this.showModal = true;
     },
     closeModal() {
@@ -381,8 +376,7 @@ export default {
           categoryName: selected.categoryName,
           categoryDescription: selected.categoryDescription,
           status: selected.status,
-          parentCategoryId: this.pickParentTarget.categoryId,
-        });
+          parentCategoryId: this.pickParentTarget.categoryId });
         this.notify("Đã thêm danh mục con thành công");
         this.closePickModal();
       } catch (error) {
@@ -416,8 +410,7 @@ export default {
           categoryName: this.assignTarget.categoryName,
           categoryDescription: this.assignTarget.categoryDescription,
           status: this.assignTarget.status,
-          parentCategoryId: this.assignParentId,
-        });
+          parentCategoryId: this.assignParentId });
         this.notify("Đã gán danh mục vào danh mục lớn thành công");
         this.closeAssignModal();
       } catch (error) {
@@ -440,8 +433,7 @@ export default {
           categoryName: this.detachTarget.categoryName,
           categoryDescription: this.detachTarget.categoryDescription,
           status: this.detachTarget.status,
-          parentCategoryId: null,
-        });
+          parentCategoryId: null });
         this.notify("Đã gỡ danh mục khỏi danh mục lớn");
         this.showDetachModal = false;
       } catch (error) {
@@ -474,9 +466,7 @@ export default {
       this.showToast = true;
       clearTimeout(this.toastTimer);
       this.toastTimer = setTimeout(() => (this.showToast = false), 2500);
-    },
-  },
-};
+    } } };
 </script>
 
 <style scoped>

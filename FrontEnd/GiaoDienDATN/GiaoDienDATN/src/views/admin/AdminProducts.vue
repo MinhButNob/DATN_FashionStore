@@ -387,9 +387,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
-import axios from 'axios';
-
-const API_BASE = 'http://localhost:8080/api';
+import api from "@/api/axios";
 
 // State
 const allProducts = ref([]);
@@ -512,7 +510,7 @@ const calculateAllDiscountedPrices = () => {};
 const fetchProducts = async () => {
   loading.value = true;
   try {
-    const response = await axios.get(`${API_BASE}/products`, {
+    const response = await api.get(`/products`, {
       params: { page: 0, size: 100 }
     });
     
@@ -545,7 +543,7 @@ const fetchProducts = async () => {
 
 const fetchStatistics = async () => {
   try {
-    const response = await axios.get(`${API_BASE}/products/statistics`);
+    const response = await api.get(`/products/statistics`);
     const data = response.data?.data;
     if (data) {
       statistics.value = data;
@@ -557,7 +555,7 @@ const fetchStatistics = async () => {
 
 const fetchCategories = async () => {
   try {
-    const response = await axios.get(`${API_BASE}/categories`);
+    const response = await api.get(`/categories`);
     let categories = [];
     
     if (response.data?.data?.content) {
@@ -583,7 +581,7 @@ const fetchCategories = async () => {
 
 const fetchColors = async () => {
   try {
-    const response = await axios.get(`${API_BASE}/colors`, {
+    const response = await api.get(`/colors`, {
       params: { page: 0, size: 100 }
     });
     
@@ -607,7 +605,7 @@ const fetchColors = async () => {
 
 const fetchSizes = async () => {
   try {
-    const response = await axios.get(`${API_BASE}/sizes`, {
+    const response = await api.get(`/sizes`, {
       params: { page: 0, size: 100 }
     });
     
@@ -632,7 +630,7 @@ const fetchSizes = async () => {
 const fetchPromotions = async () => {
   try {
     const token = localStorage.getItem('token');
-    const response = await axios.get(`${API_BASE}/admin/promotions`, {
+    const response = await api.get(`/admin/promotions`, {
       params: { page: 0, size: 100 },
       headers: { 'Authorization': `Bearer ${token}` }
     });
@@ -861,10 +859,10 @@ const handleSubmit = async () => {
     };
     
     if (isEdit.value) {
-      await axios.put(`${API_BASE}/products/${form.value.productId}`, submitData);
+      await api.put(`/products/${form.value.productId}`, submitData);
       showNotification('Cập nhật sản phẩm thành công!');
     } else {
-      await axios.post(`${API_BASE}/products`, submitData);
+      await api.post(`/products`, submitData);
       showNotification('Thêm sản phẩm thành công!');
     }
     
@@ -895,7 +893,7 @@ const closeDeleteModal = () => {
 const deleteProduct = async () => {
   try {
     // ✅ GỌI API SOFT DELETE
-    await axios.delete(`${API_BASE}/products/${deleteProductId.value}`);
+    await api.delete(`/products/${deleteProductId.value}`);
     
     // ✅ CẬP NHẬT TRẠNG THÁI (KHÔNG XÓA KHỎI DANH SÁCH)
     const index = allProducts.value.findIndex(p => p.productId === deleteProductId.value);
@@ -932,7 +930,7 @@ const closeRestoreModal = () => {
 const restoreProduct = async () => {
   try {
     // ✅ GỌI API RESTORE
-    await axios.patch(`${API_BASE}/products/${restoreProductId.value}/restore`);
+    await api.patch(`/products/${restoreProductId.value}/restore`);
     
     // ✅ CẬP NHẬT TRẠNG THÁI
     const index = allProducts.value.findIndex(p => p.productId === restoreProductId.value);

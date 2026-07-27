@@ -1,27 +1,17 @@
 import { defineStore } from "pinia";
-import axios from "axios";
+import api from "../api/axios";
 import { useAuthStore } from "./authStore";
-
-const API_BASE = "http://localhost:8080/api/customer/wishlist";
-
-const getAuthHeader = () => {
-  const token =
-    localStorage.getItem("token") || localStorage.getItem("accessToken");
-  return token ? { Authorization: `Bearer ${token}` } : {};
-};
 
 export const useWishlistStore = defineStore("wishlist", {
   state: () => ({
     wishlistItems: [],
-    loading: false,
-  }),
+    loading: false }),
 
   getters: {
     isInWishlist: (state) => (productId) => {
       if (!productId) return false;
       return state.wishlistItems.some((item) => item.id === productId);
-    },
-  },
+    } },
 
   actions: {
     async fetchWishlist() {
@@ -32,9 +22,7 @@ export const useWishlistStore = defineStore("wishlist", {
       }
       this.loading = true;
       try {
-        const response = await axios.get(API_BASE, {
-          headers: getAuthHeader(),
-        });
+        const response = await api.get("/customer/wishlist");
         if (response.data && response.data.success) {
           this.wishlistItems = response.data.data || [];
         }
@@ -55,17 +43,8 @@ export const useWishlistStore = defineStore("wishlist", {
         return false;
       }
       try {
-        // ✅ SỬA: Gửi productId trong body JSON
-        const response = await axios.post(
-          `${API_BASE}/toggle`,
-          { productId }, // ← GỬI JSON BODY
-          {
-            headers: {
-              ...getAuthHeader(),
-              "Content-Type": "application/json",
-            },
-          },
-        );
+        const response = await api.post("/customer/wishlist/toggle", {
+          productId });
         console.log("✅ Response:", response.data);
         if (response.data && response.data.success) {
           await this.fetchWishlist();
@@ -77,6 +56,4 @@ export const useWishlistStore = defineStore("wishlist", {
         console.error("❌ Error status:", error.response?.status);
       }
       return false;
-    },
-  },
-});
+    } } });

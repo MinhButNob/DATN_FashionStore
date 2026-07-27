@@ -233,7 +233,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import axios from 'axios'
+import api from "@/api/axios";
 import { 
   formatPrice, 
   formatDate, 
@@ -244,8 +244,6 @@ import {
 } from '../../utils/helpers'
 
 const router = useRouter()
-const API_BASE = 'http://localhost:8080/api'
-
 // ===== STATE =====
 const loading = ref(false)
 const error = ref(null)
@@ -268,9 +266,7 @@ const navigateTo = (path) => {
 const fetchOrderStats = async () => {
   try {
     const token = localStorage.getItem('token')
-    const response = await axios.get(`${API_BASE}/sale-staff/orders/statistics`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
+    const response = await api.get(`/sale-staff/orders/statistics`, {})
     
     // Xử lý response với ApiResponse wrapper
     if (response.data?.data) {
@@ -289,9 +285,7 @@ const fetchOrderStats = async () => {
 const fetchStatusCounts = async () => {
   try {
     const token = localStorage.getItem('token')
-    const response = await axios.get(`${API_BASE}/sale-staff/orders/status/counts`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
+    const response = await api.get(`/sale-staff/orders/status/counts`, {})
     
     // Xử lý response với ApiResponse wrapper
     if (response.data?.data) {

@@ -56,8 +56,7 @@ const mainTree = computed(() =>
 const ICON_MAP = {
   "Áo": "fas fa-tshirt",
   "Quần": "fas fa-socks",
-  "Phụ kiện": "fas fa-glasses",
-};
+  "Phụ kiện": "fas fa-glasses" };
 function iconFor(name) {
   return ICON_MAP[name] || "fas fa-tag";
 }

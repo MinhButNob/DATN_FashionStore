@@ -25,8 +25,7 @@ defineProps({
   visible: { type: Boolean, default: false },
   title: { type: String, default: "Xác nhận" },
   message: { type: String, default: "Bạn có chắc chắn?" },
-  confirmText: { type: String, default: "Xác nhận" },
-});
+  confirmText: { type: String, default: "Xác nhận" } });
 
 const emit = defineEmits(["confirm", "cancel"]);
 
