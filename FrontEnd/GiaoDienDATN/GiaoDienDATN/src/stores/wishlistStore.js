@@ -5,13 +5,17 @@ import { useAuthStore } from "./authStore";
 export const useWishlistStore = defineStore("wishlist", {
   state: () => ({
     wishlistItems: [],
-    loading: false }),
+    loading: false
+  }),
 
   getters: {
-    isInWishlist: (state) => (productId) => {
-      if (!productId) return false;
-      return state.wishlistItems.some((item) => item.id === productId);
-    } },
+    items: (state) => state.wishlistItems,
+
+    isInWishlist: (state) => (productDetailId) => {
+      if (!productDetailId) return false;
+      return state.wishlistItems.some((item) => item.productDetailId === productDetailId);
+    }
+  },
 
   actions: {
     async fetchWishlist() {
@@ -22,38 +26,92 @@ export const useWishlistStore = defineStore("wishlist", {
       }
       this.loading = true;
       try {
+        // Backend route is /api/customer/wishlist
         const response = await api.get("/customer/wishlist");
-        if (response.data && response.data.success) {
-          this.wishlistItems = response.data.data || [];
+        if (response.data && response.data.data) {
+          // Map response data to expected format
+          this.wishlistItems = response.data.data.items || [];
         }
       } catch (error) {
         console.error("Error fetching wishlist:", error);
+        this.wishlistItems = [];
       } finally {
         this.loading = false;
       }
     },
 
-    async toggleWishlist(productId) {
-      console.log("📤 Toggling wishlist for productId:", productId);
+    async addToWishlist(productDetailId) {
       const authStore = useAuthStore();
       if (!authStore.isAuthenticated) {
         window.dispatchEvent(
-          new CustomEvent("open-auth-modal", { detail: "login" }),
+          new CustomEvent("open-auth-modal", { detail: "login" })
         );
         return false;
       }
+
       try {
-        const response = await api.post("/customer/wishlist/toggle", {
-          productId });
-        console.log("✅ Response:", response.data);
-        if (response.data && response.data.success) {
-          await this.fetchWishlist();
+        // Backend route is /api/customer/wishlist/add
+        const response = await api.post("/customer/wishlist/add", {
+          productDetailId
+        });
+
+        if (response.data && response.data.data) {
+          this.wishlistItems = response.data.data.items || [];
           return true;
         }
       } catch (error) {
-        console.error("❌ Error toggling wishlist:", error);
-        console.error("❌ Error response:", error.response?.data);
-        console.error("❌ Error status:", error.response?.status);
+        console.error("Error adding to wishlist:", error);
       }
       return false;
-    } } });
+    },
+
+    async removeFromWishlist(productDetailId) {
+      const authStore = useAuthStore();
+      if (!authStore.isAuthenticated) {
+        window.dispatchEvent(
+          new CustomEvent("open-auth-modal", { detail: "login" })
+        );
+        return false;
+      }
+
+      try {
+        // Backend route is /api/customer/wishlist/items/:id
+        const response = await api.delete(`/customer/wishlist/items/${productDetailId}`);
+
+        if (response.data && response.data.data) {
+          this.wishlistItems = response.data.data.items || [];
+          return true;
+        }
+      } catch (error) {
+        console.error("Error removing from wishlist:", error);
+      }
+      return false;
+    },
+
+    async toggleWishlist(productDetailId) {
+      console.log("📤 Toggling wishlist for productDetailId:", productDetailId);
+      const authStore = useAuthStore();
+      if (!authStore.isAuthenticated) {
+        window.dispatchEvent(
+          new CustomEvent("open-auth-modal", { detail: "login" })
+        );
+        return false;
+      }
+
+      try {
+        const isInWishlist = this.isInWishlist(productDetailId);
+        
+        if (isInWishlist) {
+          // Remove from wishlist
+          return await this.removeFromWishlist(productDetailId);
+        } else {
+          // Add to wishlist
+          return await this.addToWishlist(productDetailId);
+        }
+      } catch (error) {
+        console.error("❌ Error toggling wishlist:", error);
+        return false;
+      }
+    }
+  }
+});

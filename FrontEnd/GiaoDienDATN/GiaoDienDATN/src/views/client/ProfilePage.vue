@@ -246,26 +246,27 @@
                   <div v-else class="wishlist-grid">
                     <div
                       v-for="product in wishlist"
-                      :key="product.id"
+                      :key="product.wishlistItemId"
                       class="wishlist-card"
                     >
-                      <div class="product-image" @click="goToProduct(product.id)">
-                        <i :class="['fas', `fa-${product.image || 'tshirt'}`]"></i>
+                      <div class="product-image" @click="goToProduct(product.productId)">
+                        <img v-if="product.imageUrl" :src="product.imageUrl" :alt="product.productName" class="wishlist-img" />
+                        <i v-else class="fas fa-tshirt"></i>
                         <button
                           class="remove-btn"
-                          @click.stop="removeFromWishlist(product.id)"
+                          @click.stop="removeFromWishlist(product.productDetailId)"
                         >
                           <i class="fas fa-times"></i>
                         </button>
                       </div>
                       <div class="product-info">
-                        <h3 @click="goToProduct(product.id)">{{ product.name }}</h3>
+                        <h3 @click="goToProduct(product.productId)">{{ product.productName }}</h3>
                         <p class="product-price">
-                          {{ formatPrice(product.price) }}
+                          {{ formatPrice(product.discountedPrice || product.price) }}
                         </p>
-                        <button class="add-to-cart" @click="addToCart(product)">
+                        <button class="add-to-cart" @click="addToCart(product)" :disabled="(product.stock || 0) === 0">
                           <i class="fas fa-shopping-cart"></i>
-                          Thêm vào giỏ
+                          {{ (product.stock || 0) === 0 ? 'Hết hàng' : 'Thêm vào giỏ' }}
                         </button>
                       </div>
                     </div>
@@ -652,6 +653,7 @@ import { ref, reactive, computed, onMounted, watch } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { useAuthStore } from "../../stores/authStore";
 import { useCartStore } from "../../stores/cartStore";
+import { useWishlistStore } from "../../stores/wishlistStore";
 import { useNotification } from "../../composables/useNotification";
 import ClientHeader from "../../components/client/ClientHeader.vue";
 import ClientFooter from "../../components/client/ClientFooter.vue";
@@ -670,6 +672,7 @@ const router = useRouter();
 const route = useRoute();
 const authStore = useAuthStore();
 const cartStore = useCartStore();
+const wishlistStore = useWishlistStore();
 const { showNotification } = useNotification();
 
 // ===== CONSTANTS =====
@@ -683,7 +686,7 @@ const passwordLoading = ref(false);
 const pageLoading = ref(true);
 const showWelcomeBanner = ref(false);
 const ordersLoading = ref(false);
-const wishlistLoading = ref(false);
+const wishlistLoading = computed(() => wishlistStore.loading);
 const cancelLoading = ref(false);
 const showCancelModal = ref(false);
 const showDetailModal = ref(false);
@@ -761,7 +764,7 @@ const editForm = reactive({
 const orders = ref([]);
 
 // ===== WISHLIST DATA =====
-const wishlist = ref([]);
+const wishlist = computed(() => wishlistStore.items);
 
 // ===== TOAST =====
 const showToast = ref(false);
@@ -1514,16 +1517,10 @@ const deleteReview = ({ orderId, productDetailId }) => {
 
 // ===== WISHLIST FUNCTIONS =====
 const fetchWishlist = async () => {
-  wishlistLoading.value = true;
   try {
-    wishlist.value = [
-      { id: 1, name: "Áo thun nam", price: 199000, image: "tshirt" },
-      { id: 2, name: "Đầm nữ công sở", price: 399000, image: "dress" },
-    ];
+    await wishlistStore.fetchWishlist();
   } catch (error) {
     console.error("Error fetching wishlist:", error);
-  } finally {
-    wishlistLoading.value = false;
   }
 };
 
@@ -1532,13 +1529,31 @@ const goToProduct = (id) => {
 };
 
 const addToCart = (product) => {
-  cartStore.addToCart(product);
+  cartStore.addToCart({
+    id: product.productDetailId,
+    productDetailId: product.productDetailId,
+    productId: product.productId,
+    productName: product.productName,
+    name: product.productName,
+    price: product.price,
+    discountedPrice: product.discountedPrice,
+    quantity: 1,
+    image: product.imageUrl,
+    imageUrl: product.imageUrl,
+    size: product.sizeName,
+    color: product.colorName,
+    stock: product.stock,
+  });
   showNotificationMsg("Đã thêm vào giỏ hàng", "success");
 };
 
-const removeFromWishlist = (id) => {
-  wishlist.value = wishlist.value.filter((p) => p.id !== id);
-  showNotificationMsg("Đã xóa khỏi danh sách yêu thích", "info");
+const removeFromWishlist = async (productDetailId) => {
+  const ok = await wishlistStore.removeFromWishlist(productDetailId);
+  if (ok) {
+    showNotificationMsg("Đã xóa khỏi danh sách yêu thích", "info");
+  } else {
+    showNotificationMsg("Xóa thất bại, vui lòng thử lại!", "error");
+  }
 };
 
 // ===== PASSWORD FUNCTIONS =====
@@ -2113,6 +2128,12 @@ main {
   justify-content: center;
   position: relative;
   cursor: pointer;
+}
+
+.wishlist-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .product-image i {

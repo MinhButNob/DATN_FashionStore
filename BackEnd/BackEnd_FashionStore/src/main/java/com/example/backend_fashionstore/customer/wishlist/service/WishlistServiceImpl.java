@@ -1,11 +1,13 @@
 package com.example.backend_fashionstore.customer.wishlist.service;
 
+import com.example.backend_fashionstore.auth.repository.CustomerRepository;
 import com.example.backend_fashionstore.customer.repository.CustomerProductRepository;
-import com.example.backend_fashionstore.customer.wishlist.dto.response.WishlistProductResponse;
+import com.example.backend_fashionstore.QuanLySanPham.repository.ProductDetail.ProductDetailRepository;
+import com.example.backend_fashionstore.customer.wishlist.dto.response.WishlistItemResponseDTO;
+import com.example.backend_fashionstore.customer.wishlist.dto.response.WishlistResponseDTO;
 import com.example.backend_fashionstore.customer.wishlist.repository.WishlistItemRepository;
 import com.example.backend_fashionstore.customer.wishlist.repository.WishlistRepository;
 import com.example.backend_fashionstore.entity.*;
-import com.example.backend_fashionstore.quanLyKhachHang.repository.KhachHangCustomerRepository;
 import com.example.backend_fashionstore.quanLyKhuyenMai.repository.ProductPromotionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,10 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -28,168 +27,270 @@ public class WishlistServiceImpl implements WishlistService {
 
     private final WishlistRepository wishlistRepository;
     private final WishlistItemRepository wishlistItemRepository;
-    private final KhachHangCustomerRepository customerRepository;
+    private final CustomerRepository customerRepository;
+    private final ProductDetailRepository productDetailRepository;
     private final CustomerProductRepository customerProductRepository;
     private final ProductPromotionRepository productPromotionRepository;
 
     @Override
     @Transactional(readOnly = true)
-    public List<WishlistProductResponse> getWishlist(Integer customerId) {
+    public WishlistResponseDTO getWishlist(Integer customerId) {
         log.info("Fetching wishlist for customer ID: {}", customerId);
-        Optional<Wishlist> wishlistOpt = wishlistRepository.findByCustomer_CustomerIdAndWishlistStatus(customerId, "ACTIVE");
-        if (wishlistOpt.isEmpty()) {
-            return Collections.emptyList();
+
+        Wishlist wishlist = wishlistRepository.findByCustomerIdAndDeletedAtIsNull(customerId)
+                .orElse(null);
+
+        if (wishlist == null) {
+            return WishlistResponseDTO.builder()
+                    .customerId(customerId)
+                    .totalItems(0)
+                    .items(List.of())
+                    .build();
         }
 
-        List<WishlistItem> activeItems = wishlistItemRepository.findByWishlist_WishlistIdAndWishlistItemStatus(
-                wishlistOpt.get().getWishlistId(), "ACTIVE");
+        // Lấy tất cả items chưa bị xóa
+        List<WishlistItem> activeItems = wishlistItemRepository
+                .findActiveByWishlistId(wishlist.getWishlistId());
 
-        return activeItems.stream()
-                .map(item -> item.getProductDetail().getProduct())
-                .distinct()
-                .map(this::convertToWishlistProductResponse)
+        List<WishlistItemResponseDTO> itemDTOs = activeItems.stream()
+                .map(this::convertToWishlistItemResponseDTO)
                 .collect(Collectors.toList());
+
+        return WishlistResponseDTO.builder()
+                .wishlistId(wishlist.getWishlistId())
+                .customerId(customerId)
+                .totalItems(itemDTOs.size())
+                .items(itemDTOs)
+                .build();
     }
 
     @Override
     @Transactional
-    public void toggleWishlist(Integer customerId, Integer productId) {
-        log.info("Toggling wishlist for customer ID: {}, product ID: {}", customerId, productId);
+    public WishlistResponseDTO addToWishlist(Integer customerId, Integer productDetailId) {
+        log.info("Adding product detail ID: {} to wishlist for customer ID: {}", productDetailId, customerId);
+
+        // Verify customer exists
         Customer customer = customerRepository.findById(customerId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy khách hàng với ID: " + customerId));
 
-        Wishlist wishlist = wishlistRepository.findByCustomer_CustomerIdAndWishlistStatus(customerId, "ACTIVE")
+        // Get or create wishlist
+        Wishlist wishlist = wishlistRepository.findByCustomerIdAndDeletedAtIsNull(customerId)
                 .orElseGet(() -> {
                     Wishlist newWishlist = new Wishlist();
                     newWishlist.setCustomer(customer);
-                    newWishlist.setWishlistName("Default");
+                    newWishlist.setWishlistName("My Wishlist");
                     newWishlist.setIsPublic(false);
                     newWishlist.setWishlistStatus("ACTIVE");
+                    newWishlist.setDeletedAt(null);
                     return wishlistRepository.save(newWishlist);
                 });
 
-        Optional<WishlistItem> existingItemOpt = wishlistItemRepository
-                .findByWishlist_WishlistIdAndProductDetail_Product_ProductIdAndWishlistItemStatus(
-                        wishlist.getWishlistId(), productId, "ACTIVE");
+        // ✅ Check if product detail exists - use ProductDetailRepository
+        ProductDetail productDetail = productDetailRepository.findByIdWithRelations(productDetailId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy biến thể sản phẩm với ID: " + productDetailId));
 
-        if (existingItemOpt.isPresent()) {
-            WishlistItem item = existingItemOpt.get();
-            item.setWishlistItemStatus("DELETED");
-            item.setWishlistItemDeletedAt(LocalDateTime.now());
-            wishlistItemRepository.save(item);
-            log.info("Removed product ID: {} from customer ID: {} wishlist", productId, customerId);
-        } else {
-            List<ProductDetail> details = customerProductRepository.findActiveVariantsByProductId(productId);
-            if (details.isEmpty()) {
-                throw new RuntimeException("Sản phẩm không có biến thể hoạt động");
+        // Check if item already exists (including deleted ones)
+        var existingItem = wishlistItemRepository
+                .findByWishlistIdAndProductDetailId(wishlist.getWishlistId(), productDetailId);
+
+        if (existingItem.isPresent()) {
+            WishlistItem item = existingItem.get();
+            // If it was deleted, restore it
+            if (item.getWishlistItemDeletedAt() != null) {
+                item.setWishlistItemDeletedAt(null);
+                wishlistItemRepository.save(item);
+                log.info("Restored item from wishlist");
+            } else {
+                log.info("Item already exists in wishlist");
             }
-            ProductDetail productDetail = details.get(0);
-
+        } else {
+            // Create new item
             WishlistItem newItem = new WishlistItem();
             newItem.setWishlist(wishlist);
             newItem.setProductDetail(productDetail);
             newItem.setWishlistItemStatus("ACTIVE");
+            newItem.setWishlistItemDeletedAt(null);
             wishlistItemRepository.save(newItem);
-            log.info("Added product ID: {} to customer ID: {} wishlist", productId, customerId);
+            log.info("Added new item to wishlist");
+        }
+
+        return getWishlist(customerId);
+    }
+
+    @Override
+    @Transactional
+    public WishlistResponseDTO removeFromWishlist(Integer customerId, Integer productDetailId) {
+        log.info("Removing product detail ID: {} from wishlist for customer ID: {}", productDetailId, customerId);
+
+        Wishlist wishlist = wishlistRepository.findByCustomerIdAndDeletedAtIsNull(customerId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy wishlist của khách hàng"));
+
+        WishlistItem item = wishlistItemRepository
+                .findActiveItem(wishlist.getWishlistId(), productDetailId)
+                .orElseThrow(() -> new RuntimeException("Item không tồn tại trong wishlist"));
+
+        // Soft delete
+        item.setWishlistItemDeletedAt(LocalDateTime.now());
+        wishlistItemRepository.save(item);
+        log.info("Soft deleted item from wishlist");
+
+        return getWishlist(customerId);
+    }
+
+    @Override
+    @Transactional
+    public WishlistResponseDTO hardRemoveFromWishlist(Integer customerId, Integer productDetailId) {
+        log.info("Hard removing product detail ID: {} from wishlist for customer ID: {}", productDetailId, customerId);
+
+        Wishlist wishlist = wishlistRepository.findByCustomerIdAndDeletedAtIsNull(customerId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy wishlist của khách hàng"));
+
+        WishlistItem item = wishlistItemRepository
+                .findByWishlistIdAndProductDetailId(wishlist.getWishlistId(), productDetailId)
+                .orElseThrow(() -> new RuntimeException("Item không tồn tại trong wishlist"));
+
+        // Hard delete - remove from database
+        wishlistItemRepository.delete(item);
+        log.info("Hard deleted item from wishlist");
+
+        return getWishlist(customerId);
+    }
+
+    @Override
+    @Transactional
+    public WishlistResponseDTO toggleWishlist(Integer customerId, Integer productDetailId) {
+        log.info("Toggling product detail ID: {} in wishlist for customer ID: {}", productDetailId, customerId);
+
+        Wishlist wishlist = wishlistRepository.findByCustomerIdAndDeletedAtIsNull(customerId)
+                .orElse(null);
+
+        boolean alreadyActive = wishlist != null && wishlistItemRepository
+                .findActiveItem(wishlist.getWishlistId(), productDetailId)
+                .isPresent();
+
+        if (alreadyActive) {
+            return removeFromWishlist(customerId, productDetailId);
+        } else {
+            return addToWishlist(customerId, productDetailId);
         }
     }
 
-    private WishlistProductResponse convertToWishlistProductResponse(Product product) {
-        Promotion productPromotion = getPromotionForProduct(product);
-        List<ProductDetail> variants = customerProductRepository.findActiveVariantsByProductId(product.getProductId());
+    /**
+     * Convert WishlistItem entity to WishlistItemResponseDTO
+     * Includes product details, pricing, and discount calculation
+     */
+    private WishlistItemResponseDTO convertToWishlistItemResponseDTO(WishlistItem item) {
+        ProductDetail productDetail = item.getProductDetail();
+        Product product = productDetail.getProduct();
 
-        BigDecimal minPrice = BigDecimal.ZERO;
-        int totalStock = 0;
-        String mainImageUrl = null;
+        // Get promotion if exists
+        Promotion promotion = getPromotionForProductDetail(productDetail);
 
-        if (variants != null && !variants.isEmpty()) {
-            BigDecimal originalMinPrice = variants.stream()
-                    .map(ProductDetail::getPrice)
-                    .filter(price -> price != null && price.compareTo(BigDecimal.ZERO) > 0)
-                    .min(BigDecimal::compareTo)
-                    .orElse(BigDecimal.ZERO);
+        // Calculate discounted price
+        BigDecimal discountedPrice = calculateDiscountedPrice(productDetail.getPrice(), promotion);
 
-            minPrice = calculateDiscountedPrice(originalMinPrice, productPromotion);
+        // Get main image
+        String imageUrl = getMainImageUrlForProductDetail(productDetail);
 
-            totalStock = variants.stream()
-                    .mapToInt(pd -> pd.getQuantity() != null ? pd.getQuantity() : 0)
-                    .sum();
+        // Get color and size names from Color and Size entities
+        String colorName = productDetail.getColor() != null ? productDetail.getColor().getColorName() : "N/A";
+        String sizeName = productDetail.getSize() != null ? productDetail.getSize().getSizeName() : "N/A";
 
-            for (ProductDetail variant : variants) {
-                try {
-                    List<ProductImage> images = customerProductRepository.findActiveImagesByVariantId(variant.getProductDetailId());
-                    if (images != null && !images.isEmpty()) {
-                        ProductImage mainImage = images.stream()
-                                .filter(img -> img.getIsMain() != null && img.getIsMain())
-                                .findFirst()
-                                .orElse(images.get(0));
-
-                        String imagePath = mainImage.getProductImagePath();
-                        if (imagePath != null && !imagePath.isEmpty()) {
-                            if (imagePath.startsWith("http")) {
-                                mainImageUrl = imagePath;
-                            } else {
-                                String cleanPath = imagePath.startsWith("/") ? imagePath : "/" + imagePath;
-                                mainImageUrl = "http://localhost:8080" + cleanPath;
-                            }
-                            break;
-                        }
-                    }
-                } catch (Exception e) {
-                    log.error("Error reading image for variant ID {}: {}", variant.getProductDetailId(), e.getMessage());
-                }
-            }
-        }
-
-        BigDecimal price = minPrice;
-        BigDecimal oldPrice = null;
-        if (productPromotion != null && minPrice.compareTo(BigDecimal.ZERO) > 0) {
-            BigDecimal originalMinPrice = variants.stream()
-                    .map(ProductDetail::getPrice)
-                    .filter(p -> p != null && p.compareTo(BigDecimal.ZERO) > 0)
-                    .min(BigDecimal::compareTo)
-                    .orElse(BigDecimal.ZERO);
-            if (originalMinPrice.compareTo(minPrice) > 0) {
-                oldPrice = originalMinPrice;
-            }
-        }
-
-        return WishlistProductResponse.builder()
-                .id(product.getProductId())
-                .name(product.getProductName())
-                .price(price)
-                .oldPrice(oldPrice)
-                .rating(4.8)
-                .sold(120)
-                .image(mainImageUrl)
-                .inStock(totalStock > 0)
+        return WishlistItemResponseDTO.builder()
+                .wishlistItemId(item.getWishlistItemId())
+                .productDetailId(productDetail.getProductDetailId())
+                .productId(product.getProductId())
+                .productName(product.getProductName())
+                .colorName(colorName)
+                .sizeName(sizeName)
+                .price(productDetail.getPrice())
+                .discountedPrice(discountedPrice)
+                .imageUrl(imageUrl)
+                .stock(productDetail.getQuantity() != null ? productDetail.getQuantity() : 0)
+                .addedAt(item.getWishlistItemAddedAt())
                 .build();
     }
 
-    private Promotion getPromotionForProduct(Product product) {
-        if (product.getProductDetails() == null) return null;
-
-        for (ProductDetail detail : product.getProductDetails()) {
-            if (detail.getDeletedAt() == null && detail.getProductDetailId() != null) {
-                List<ProductPromotion> promotions = productPromotionRepository.findByProductDetailId(detail.getProductDetailId());
-                if (!promotions.isEmpty()) {
-                    Promotion promo = promotions.get(0).getPromotion();
-                    if (promo != null && promo.getPromotionDeletedAt() == null &&
-                            "ACTIVE".equals(promo.getPromotionStatus())) {
-                        return promo;
-                    }
-                }
-            }
+    /**
+     * Get promotion for a specific product detail
+     */
+    private Promotion getPromotionForProductDetail(ProductDetail productDetail) {
+        if (productDetail == null || productDetail.getProductDetailId() == null) {
+            return null;
         }
+
+        List<ProductPromotion> promotions = productPromotionRepository
+                .findByProductDetailId(productDetail.getProductDetailId());
+
+        if (promotions == null || promotions.isEmpty()) {
+            return null;
+        }
+
+        Promotion promotion = promotions.get(0).getPromotion();
+        if (promotion != null && promotion.getPromotionDeletedAt() == null &&
+                "ACTIVE".equals(promotion.getPromotionStatus())) {
+            return promotion;
+        }
+
         return null;
     }
 
+    /**
+     * Calculate discounted price based on promotion
+     */
     private BigDecimal calculateDiscountedPrice(BigDecimal originalPrice, Promotion promotion) {
-        if (promotion == null || originalPrice == null) return originalPrice;
-        BigDecimal discountPercent = promotion.getPromotionDiscountPercent();
-        if (discountPercent == null || discountPercent.compareTo(BigDecimal.ZERO) == 0) return originalPrice;
+        if (promotion == null || originalPrice == null) {
+            return originalPrice;
+        }
 
-        BigDecimal discount = originalPrice.multiply(discountPercent.divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP));
+        BigDecimal discountPercent = promotion.getPromotionDiscountPercent();
+        if (discountPercent == null || discountPercent.compareTo(BigDecimal.ZERO) == 0) {
+            return originalPrice;
+        }
+
+        BigDecimal discount = originalPrice.multiply(
+                discountPercent.divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP));
         return originalPrice.subtract(discount).setScale(0, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * Get main image URL for a product detail
+     */
+    private String getMainImageUrlForProductDetail(ProductDetail productDetail) {
+        if (productDetail == null || productDetail.getProductDetailId() == null) {
+            return null;
+        }
+
+        try {
+            List<ProductImage> images = customerProductRepository
+                    .findActiveImagesByVariantId(productDetail.getProductDetailId());
+
+            if (images == null || images.isEmpty()) {
+                return null;
+            }
+
+            // Find main image first
+            ProductImage mainImage = images.stream()
+                    .filter(img -> img.getIsMain() != null && img.getIsMain())
+                    .findFirst()
+                    .orElse(images.get(0));
+
+            String imagePath = mainImage.getProductImagePath();
+            if (imagePath == null || imagePath.isEmpty()) {
+                return null;
+            }
+
+            // Handle different URL formats
+            if (imagePath.startsWith("http")) {
+                return imagePath;
+            } else {
+                String cleanPath = imagePath.startsWith("/") ? imagePath : "/" + imagePath;
+                return "http://localhost:8080" + cleanPath;
+            }
+        } catch (Exception e) {
+            log.error("Error reading image for product detail ID {}: {}",
+                    productDetail.getProductDetailId(), e.getMessage());
+            return null;
+        }
     }
 }
