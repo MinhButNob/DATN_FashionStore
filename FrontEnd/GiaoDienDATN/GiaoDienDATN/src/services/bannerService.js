@@ -61,7 +61,6 @@ const bannerService = {
       console.error(`Lỗi khôi phục banner ID ${id}:`, error);
       throw error;
     }
-  },
-};
+  } };
 
 export default bannerService;

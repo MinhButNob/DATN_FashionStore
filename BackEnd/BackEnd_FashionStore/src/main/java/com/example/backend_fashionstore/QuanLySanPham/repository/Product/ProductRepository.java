@@ -2,6 +2,7 @@ package com.example.backend_fashionstore.QuanLySanPham.repository.Product;
 
 import com.example.backend_fashionstore.entity.Product;
 import com.example.backend_fashionstore.entity.ProductDetail;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Modifying;
@@ -68,4 +69,36 @@ public interface ProductRepository extends JpaRepository<Product, Integer>, JpaS
 
     @Query("SELECT DISTINCT p FROM Product p JOIN p.productDetails pd WHERE pd.price >= :minPrice AND pd.price <= :maxPrice AND p.status = 'ACTIVE' AND p.deletedAt IS NULL AND pd.status = 'ACTIVE' AND pd.deletedAt IS NULL")
     List<Product> findActiveProductsByPriceRange(@Param("minPrice") java.math.BigDecimal minPrice, @Param("maxPrice") java.math.BigDecimal maxPrice);
+
+    // ===== DASHBOARD - THÊM MỚI =====
+
+    /**
+     * Đếm số sản phẩm đã bị xóa mềm
+     */
+    @Query("SELECT COUNT(p) FROM Product p WHERE p.deletedAt IS NOT NULL")
+    long countByDeletedAtIsNotNull();
+
+    /**
+     * Đếm số sản phẩm theo trạng thái
+     */
+    @Query("SELECT COUNT(p) FROM Product p WHERE p.status = :status AND p.deletedAt IS NULL")
+    long countByStatus(@Param("status") String status);
+
+    /**
+     * Lấy tổng số lượng tồn kho của tất cả sản phẩm
+     */
+    @Query("SELECT COALESCE(SUM(pd.quantity), 0) FROM ProductDetail pd WHERE pd.deletedAt IS NULL AND pd.status = 'ACTIVE'")
+    Integer getTotalStock();
+
+    /**
+     * Lấy số sản phẩm theo danh mục
+     */
+    @Query("SELECT COUNT(p) FROM Product p WHERE p.category.categoryId = :categoryId AND p.deletedAt IS NULL AND p.status = 'ACTIVE'")
+    long countActiveProductsByCategoryId(@Param("categoryId") Integer categoryId);
+
+    /**
+     * Lấy danh sách sản phẩm đã xóa (có phân trang)
+     */
+    @Query("SELECT p FROM Product p WHERE p.deletedAt IS NOT NULL ORDER BY p.deletedAt DESC")
+    List<Product> findAllDeletedProducts(Pageable pageable);
 }

@@ -38,8 +38,7 @@ export const useOrder = () => {
       PROCESSING: "Đang xử lý",
       COMPLETED: "Hoàn thành",
       CANCELLED: "Đã hủy",
-      RETURNED: "Trả hàng",
-    };
+      RETURNED: "Trả hàng" };
     return map[status] || status;
   };
 
@@ -50,8 +49,7 @@ export const useOrder = () => {
       PROCESSING: "processing",
       COMPLETED: "completed",
       CANCELLED: "cancelled",
-      RETURNED: "returned",
-    };
+      RETURNED: "returned" };
     return map[status] || "";
   };
 
@@ -61,8 +59,7 @@ export const useOrder = () => {
       UNPAID: "Chưa thanh toán",
       PAID: "Đã thanh toán",
       PARTIAL: "Thanh toán một phần",
-      REFUNDED: "Đã hoàn tiền",
-    };
+      REFUNDED: "Đã hoàn tiền" };
     return map[status] || status || "Chưa thanh toán";
   };
 
@@ -112,6 +109,5 @@ export const useOrder = () => {
     getPaymentStatusText,
     openCancelModal,
     closeCancelModal,
-    confirmCancelOrder,
-  };
+    confirmCancelOrder };
 };

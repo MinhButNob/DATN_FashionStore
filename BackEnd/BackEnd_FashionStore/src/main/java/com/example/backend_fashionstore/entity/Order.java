@@ -26,9 +26,17 @@ public class Order {
     @JoinColumn(name = "order_customer_id", nullable = false)
     private Customer customer;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "order_shipping_address_id")
-    private ShippingAddress shippingAddress;
+    @Column(name = "shipping_address", length = 1000)
+    private String shippingAddress;
+
+    @Column(name = "shipping_city", length = 100)
+    private String shippingCity;
+
+    @Column(name = "shipping_district", length = 100)
+    private String shippingDistrict;
+
+    @Column(name = "shipping_ward", length = 100)
+    private String shippingWard;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "order_voucher_id")
@@ -54,7 +62,7 @@ public class Order {
     private BigDecimal orderShippingFee;
 
 
-    @Column(name = "order_total_amount", insertable = false, updatable = false)
+    @Column(name = "order_total_amount", nullable = true)
     private BigDecimal orderTotalAmount;
 
     @Enumerated(EnumType.STRING)

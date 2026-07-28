@@ -1,7 +1,5 @@
 // src/api/categoryService.js
-import axios from "axios";
-
-const API_BASE = "http://localhost:8080/api";
+import api from "./axios";
 
 const categoryService = {
   /**
@@ -9,7 +7,7 @@ const categoryService = {
    */
   async getCategories() {
     try {
-      const response = await axios.get(`${API_BASE}/categories`);
+      const response = await api.get("/categories");
       return response;
     } catch (error) {
       console.error("Lỗi lấy danh sách danh mục:", error);
@@ -23,7 +21,7 @@ const categoryService = {
    */
   async getActiveCategories() {
     try {
-      const response = await axios.get(`${API_BASE}/categories/active`);
+      const response = await api.get("/categories/active");
       return response;
     } catch (error) {
       console.error("Lỗi lấy danh mục hoạt động:", error);
@@ -36,7 +34,7 @@ const categoryService = {
    */
   async getCategoryById(id) {
     try {
-      const response = await axios.get(`${API_BASE}/categories/${id}`);
+      const response = await api.get(`/categories/${id}`);
       return response;
     } catch (error) {
       console.error(`Lỗi lấy danh mục ID ${id}:`, error);
@@ -50,7 +48,7 @@ const categoryService = {
    */
   async createCategory(data) {
     try {
-      const response = await axios.post(`${API_BASE}/categories`, data);
+      const response = await api.post("/categories", data);
       return response;
     } catch (error) {
       console.error("Lỗi tạo danh mục:", error);
@@ -65,7 +63,7 @@ const categoryService = {
    */
   async updateCategory(id, data) {
     try {
-      const response = await axios.put(`${API_BASE}/categories/${id}`, data);
+      const response = await api.put(`/categories/${id}`, data);
       return response;
     } catch (error) {
       console.error(`Lỗi cập nhật danh mục ID ${id}:`, error);
@@ -79,7 +77,7 @@ const categoryService = {
    */
   async deleteCategory(id) {
     try {
-      const response = await axios.delete(`${API_BASE}/categories/${id}`);
+      const response = await api.delete(`/categories/${id}`);
       return response;
     } catch (error) {
       console.error(`Lỗi xóa danh mục ID ${id}:`, error);
@@ -93,9 +91,7 @@ const categoryService = {
    */
   async restoreCategory(id) {
     try {
-      const response = await axios.patch(
-        `${API_BASE}/categories/${id}/restore`,
-      );
+      const response = await api.patch(`/categories/${id}/restore`);
       return response;
     } catch (error) {
       console.error(`Lỗi khôi phục danh mục ID ${id}:`, error);
@@ -111,9 +107,8 @@ const categoryService = {
    */
   async searchCategories(keyword, page = 0, size = 10) {
     try {
-      const response = await axios.get(`${API_BASE}/categories/search`, {
-        params: { keyword, page, size },
-      });
+      const response = await api.get("/categories/search", {
+        params: { keyword, page, size } });
       return response;
     } catch (error) {
       console.error("Lỗi tìm kiếm danh mục:", error);
@@ -126,13 +121,12 @@ const categoryService = {
    */
   async countCategories() {
     try {
-      const response = await axios.get(`${API_BASE}/categories/count`);
+      const response = await api.get("/categories/count");
       return response;
     } catch (error) {
       console.error("Lỗi đếm danh mục:", error);
       throw error;
     }
-  },
-};
+  } };
 
 export default categoryService;

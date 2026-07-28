@@ -57,6 +57,16 @@ public class Employee {
     @Column(name = "employee_deleted_at")
     private LocalDateTime deletedAt;
 
+    // Chat properties
+    @Column(name = "current_chat_count")
+    private Integer currentChatCount = 0;
+
+    @Column(name = "max_chat_count")
+    private Integer maxChatCount = 5;
+
+    @Column(name = "last_active_at")
+    private LocalDateTime lastActiveAt;
+
     @PrePersist
     public void prePersist() {
         createdAt = LocalDateTime.now();

@@ -32,6 +32,16 @@
               <li>
                 <a
                   href="#"
+                  :class="{ active: activeTab === 'address' }"
+                  @click.prevent="activeTab = 'address'"
+                >
+                  <i class="fas fa-map-marker-alt"></i>
+                  Địa chỉ giao hàng
+                </a>
+              </li>
+              <li>
+                <a
+                  href="#"
                   :class="{ active: activeTab === 'orders' }"
                   @click.prevent="activeTab = 'orders'"
                 >
@@ -108,7 +118,7 @@
                   </button>
                 </div>
 
-                <!-- Thông tin tài khoản -->
+                <!-- ===== THÔNG TIN TÀI KHOẢN ===== -->
                 <div v-show="activeTab === 'info'" class="profile-tab">
                   <h2>Thông tin tài khoản</h2>
 
@@ -126,241 +136,97 @@
                         <label>Số điện thoại</label>
                         <p>{{ profile.phone || "Chưa cập nhật" }}</p>
                       </div>
-                      <div class="info-item">
-                        <label>Địa chỉ</label>
-                        <p>{{ profile.address || "Chưa cập nhật" }}</p>
-                      </div>
                     </div>
                     <button class="btn btn-primary" @click="startEditing">
-                      <i class="fas fa-edit"></i>
-                      Chỉnh sửa thông tin
+                      <i class="fas fa-edit"></i> Chỉnh sửa thông tin
                     </button>
                   </div>
 
                   <form v-else @submit.prevent="saveProfile" class="info-edit">
                     <div class="form-group">
                       <label>Họ và tên <span class="required">*</span></label>
-                      <input 
-                        type="text" 
-                        v-model="editForm.fullName" 
-                        required 
-                        placeholder="Nhập họ và tên của bạn"
-                      />
+                      <input type="text" v-model="editForm.fullName" required placeholder="Nhập họ và tên của bạn" />
                     </div>
                     <div class="form-group">
                       <label>Email <span class="required">*</span></label>
-                      <input 
-                        type="email" 
-                        v-model="editForm.email" 
-                        required 
-                        disabled 
-                        class="disabled-input"
-                      />
+                      <input type="email" v-model="editForm.email" required disabled class="disabled-input" />
                       <small class="form-hint">Email không thể thay đổi</small>
                     </div>
                     <div class="form-group">
                       <label>Số điện thoại</label>
-                      <input 
-                        type="tel" 
-                        v-model="editForm.phone" 
-                        placeholder="Ví dụ: 0912345678"
-                      />
+                      <input type="tel" v-model="editForm.phone" placeholder="Ví dụ: 0912345678" />
                     </div>
-                    <div class="form-group">
-                      <label>Địa chỉ</label>
-                      <input 
-                        type="text" 
-                        v-model="editForm.address" 
-                        placeholder="Ví dụ: 123 Nguyễn Huệ, Quận 1, TP.HCM"
-                      />
-                    </div>
+                    <!-- ĐÃ XÓA CÁC TRƯỜNG ĐỊA CHỈ Ở ĐÂY -->
                     <div class="form-actions">
                       <button type="submit" class="btn btn-primary" :disabled="loading">
                         <i v-if="loading" class="fas fa-spinner fa-spin"></i>
                         {{ loading ? "Đang lưu..." : "Lưu thay đổi" }}
                       </button>
-                      <button
-                        type="button"
-                        class="btn btn-outline"
-                        @click="cancelEditing"
-                      >
-                        Hủy
-                      </button>
+                      <button type="button" class="btn btn-outline" @click="cancelEditing">Hủy</button>
                     </div>
                   </form>
                 </div>
 
-                <!-- Đơn hàng -->
+                <!-- ===== ĐỊA CHỈ GIAO HÀNG ===== -->
+                <div v-show="activeTab === 'address'" class="profile-tab">
+                  <div class="address-header">
+                    <h2>📍 Địa chỉ giao hàng</h2>
+                    <button class="btn btn-primary btn-sm" @click="openAddAddress">
+                      <i class="fas fa-plus"></i> Thêm địa chỉ mới
+                    </button>
+                  </div>
+
+                  <!-- Address Tabs -->
+                  <AddressTabs 
+                    ref="addressTabsRef"
+                    :addresses="addresses"
+                    @change-tab="onAddressTabChange"
+                  />
+
+                  <!-- Address List -->
+                  <AddressList
+                    :addresses="addresses"
+                    :loading="addressLoading"
+                    :main-tab="activeAddressMainTab"
+                    :sub-tab="activeAddressSubTab"
+                    @add-address="openAddAddress"
+                    @edit-address="openEditAddress"
+                    @delete-address="deleteAddress"
+                    @set-default="setDefaultAddress"
+                  />
+                </div>
+
+                <!-- ===== ĐƠN HÀNG ===== -->
                 <div v-show="activeTab === 'orders'" class="profile-tab">
                   <div class="orders-header">
                     <h2>Đơn hàng của tôi</h2>
-                    <div class="order-tabs">
-                      <button 
-                        v-for="tab in orderTabs" 
-                        :key="tab.value"
-                        :class="['tab-btn', { active: orderFilter === tab.value }]"
-                        @click="changeOrderFilter(tab.value)"
-                      >
-                        {{ tab.label }}
-                        <span v-if="tab.value !== 'all'" class="tab-count">
-                          ({{ getOrderCountByStatus(tab.value) }})
-                        </span>
-                      </button>
-                    </div>
                   </div>
 
-                  <!-- Loading -->
-                  <div v-if="ordersLoading" class="loading-state">
-                    <i class="fas fa-spinner fa-spin"></i>
-                    <p>Đang tải đơn hàng...</p>
-                  </div>
+                  <OrderTabs 
+                    ref="orderTabsRef"
+                    :orders="orders"
+                    @change-tab="onTabChange"
+                  />
 
-                  <!-- Empty orders -->
-                  <div v-else-if="orders.length === 0" class="empty-state">
-                    <i class="fas fa-shopping-bag"></i>
-                    <h3>Chưa có đơn hàng nào</h3>
-                    <p v-if="orderFilter === 'all'">Bạn chưa có đơn hàng nào</p>
-                    <p v-else>Không có đơn hàng nào ở trạng thái này</p>
-                    <router-link to="/shop" class="btn-shop-now">
-                      <i class="fas fa-shopping-cart"></i> Mua sắm ngay
-                    </router-link>
-                  </div>
-
-                  <!-- Orders list -->
-                  <div v-else class="orders-list">
-                    <div v-for="order in orders" :key="order.orderId" class="order-card">
-                      <div class="order-header">
-                        <div class="order-info">
-                          <span class="order-id">#{{ order.orderCode || order.orderId }}</span>
-                          <span class="order-date">{{ formatDate(order.orderDate) }}</span>
-                        </div>
-                        <span :class="['order-status', getStatusClass(order.orderStatus)]">
-                          {{ getStatusText(order.orderStatus) }}
-                        </span>
-                      </div>
-
-                      <!-- Order Items với nút đánh giá riêng cho từng sản phẩm -->
-                      <div class="order-items">
-                        <div v-for="item in order.items" :key="item.itemId" class="order-item">
-                          <div class="item-image">
-                            <img v-if="item.imageUrl" :src="getImageUrl(item.imageUrl)" :alt="item.productName" @error="handleImageError" />
-                            <i v-else class="fas fa-tshirt"></i>
-                          </div>
-                          <div class="item-details">
-                            <h4>{{ item.productName }}</h4>
-                            <p class="item-variant">
-                              {{ item.sizeName || '' }} {{ item.colorName || '' }}
-                            </p>
-                            <p class="item-quantity">x{{ item.quantity }}</p>
-                          </div>
-                          <div class="item-price">
-                            {{ formatPrice(item.finalAmount) }}
-                          </div>
-                          
-                          <!-- Nút Đánh giá cho từng sản phẩm - Chỉ hiển thị khi COMPLETED -->
-                          <div class="item-actions" v-if="order.orderStatus === 'COMPLETED'">
-                            <!-- Nếu chưa đánh giá -->
-                            <button 
-                              v-if="!isItemReviewed(order.orderId, item.productDetailId)"
-                              class="btn btn-review btn-sm"
-                              @click="openReviewModal(order, item)"
-                            >
-                              <i class="fas fa-star"></i> Đánh giá
-                            </button>
-                            
-                            <!-- Nếu đã đánh giá -->
-                            <div v-else class="reviewed-group">
-                              <span class="reviewed-badge">
-                                <i class="fas fa-check-circle"></i> Đã đánh giá
-                              </span>
-                              <button 
-                                class="btn btn-sm btn-outline"
-                                @click="viewReview(order.orderId, item.productDetailId)"
-                                title="Xem đánh giá"
-                              >
-                                <i class="fas fa-eye"></i>
-                              </button>
-                              <button 
-                                class="btn btn-sm btn-danger"
-                                @click="deleteReview(order.orderId, item.productDetailId)"
-                                title="Xóa đánh giá"
-                              >
-                                <i class="fas fa-trash"></i>
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <!-- Hiển thị voucher nếu có -->
-                      <div v-if="order.voucher" class="order-voucher">
-                        <i class="fas fa-ticket-alt"></i>
-                        <span class="voucher-code">{{ order.voucher.voucherCode }}</span>
-                        <span class="voucher-discount">-{{ formatPrice(order.discountAmount || 0) }}</span>
-                      </div>
-
-                      <div class="order-footer">
-                        <div class="order-total">
-                          <span>Tổng cộng:</span>
-                          <strong>{{ formatPrice(order.totalAmount) }}</strong>
-                        </div>
-                        <div class="order-actions">
-                          <button class="btn btn-outline" @click="viewOrderDetail(order.orderId)">
-                            <i class="fas fa-eye"></i> Xem chi tiết
-                          </button>
-                          
-                          <!-- HỦY ĐƠN - Chỉ khi PENDING_PAYMENT hoặc PROCESSING -->
-                          <button 
-                            v-if="['PENDING_PAYMENT', 'PROCESSING'].includes(order.orderStatus)" 
-                            class="btn btn-danger" 
-                            @click="handleCancelOrder(order.orderId)"
-                          >
-                            <i class="fas fa-times"></i> Hủy đơn
-                          </button>
-                          
-                          <!-- HOÀN HÀNG - Chỉ khi COMPLETED -->
-                          <button 
-                            v-if="order.orderStatus === 'COMPLETED'" 
-                            class="btn btn-warning" 
-                            @click="handleReturnOrder(order)"
-                          >
-                            <i class="fas fa-undo"></i> Hoàn hàng
-                          </button>
-                          
-                          <!-- MUA LẠI - Chỉ khi COMPLETED -->
-                          <button 
-                            v-if="order.orderStatus === 'COMPLETED'" 
-                            class="btn btn-primary" 
-                            @click="handleReorder(order)"
-                          >
-                            <i class="fas fa-redo"></i> Mua lại
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- Pagination -->
-                  <div class="pagination" v-if="totalPages > 1">
-                    <button 
-                      class="page-btn"
-                      :disabled="currentPage === 0"
-                      @click="goToPage(currentPage - 1)"
-                    >
-                      <i class="fas fa-chevron-left"></i>
-                    </button>
-                    <span class="page-info">{{ currentPage + 1 }} / {{ totalPages }}</span>
-                    <button 
-                      class="page-btn"
-                      :disabled="currentPage === totalPages - 1"
-                      @click="goToPage(currentPage + 1)"
-                    >
-                      <i class="fas fa-chevron-right"></i>
-                    </button>
-                  </div>
+                  <OrderList
+                    :orders="filteredOrders"
+                    :loading="ordersLoading"
+                    :current-page="currentPage"
+                    :total-pages="totalPages"
+                    :show-review-actions="true"
+                    :reviewed-items="reviewedItems"
+                    @view-detail="viewOrderDetail"
+                    @cancel-order="handleCancelOrder"
+                    @return-order="handleReturnOrder"
+                    @reorder="handleReorder"
+                    @review="openReviewModal"
+                    @view-review="viewReview"
+                    @delete-review="deleteReview"
+                    @change-page="goToPage"
+                  />
                 </div>
 
-                <!-- Sản phẩm yêu thích -->
+                <!-- ===== SẢN PHẨM YÊU THÍCH ===== -->
                 <div v-show="activeTab === 'wishlist'" class="profile-tab">
                   <h2>Sản phẩm yêu thích</h2>
 
@@ -380,103 +246,100 @@
                   <div v-else class="wishlist-grid">
                     <div
                       v-for="product in wishlist"
-                      :key="product.id"
+                      :key="product.wishlistItemId"
                       class="wishlist-card"
                     >
-                      <div class="product-image" @click="goToProduct(product.id)">
-                        <i :class="['fas', `fa-${product.image || 'tshirt'}`]"></i>
+                      <div class="product-image" @click="goToProduct(product.productId)">
+                        <img v-if="product.imageUrl" :src="product.imageUrl" :alt="product.productName" class="wishlist-img" />
+                        <i v-else class="fas fa-tshirt"></i>
                         <button
                           class="remove-btn"
-                          @click.stop="removeFromWishlist(product.id)"
+                          @click.stop="removeFromWishlist(product.productDetailId)"
                         >
                           <i class="fas fa-times"></i>
                         </button>
                       </div>
                       <div class="product-info">
-                        <h3 @click="goToProduct(product.id)">{{ product.name }}</h3>
+                        <h3 @click="goToProduct(product.productId)">{{ product.productName }}</h3>
                         <p class="product-price">
-                          {{ formatPrice(product.price) }}
+                          {{ formatPrice(product.discountedPrice || product.price) }}
                         </p>
-                        <button class="add-to-cart" @click="addToCart(product)">
+                        <button class="add-to-cart" @click="addToCart(product)" :disabled="(product.stock || 0) === 0">
                           <i class="fas fa-shopping-cart"></i>
-                          Thêm vào giỏ
+                          {{ (product.stock || 0) === 0 ? 'Hết hàng' : 'Thêm vào giỏ' }}
                         </button>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                <!-- Đổi mật khẩu -->
-<div v-show="activeTab === 'password'" class="profile-tab">
-  <h2>Đổi mật khẩu</h2>
+                <!-- ===== ĐỔI MẬT KHẨU ===== -->
+                <div v-show="activeTab === 'password'" class="profile-tab">
+                  <h2>Đổi mật khẩu</h2>
 
-  <form @submit.prevent="changePassword" class="password-form">
-    <!-- Mật khẩu hiện tại -->
-    <div class="form-group">
-      <label>Mật khẩu hiện tại <span class="required">*</span></label>
-      <input
-        type="password"
-        v-model="passwordForm.currentPassword"
-        required
-        placeholder="Nhập mật khẩu hiện tại"
-        class="password-input-field"
-      />
-    </div>
+                  <form @submit.prevent="changePassword" class="password-form">
+                    <div class="form-group">
+                      <label>Mật khẩu hiện tại <span class="required">*</span></label>
+                      <input
+                        type="password"
+                        v-model="passwordForm.currentPassword"
+                        required
+                        placeholder="Nhập mật khẩu hiện tại"
+                        class="password-input-field"
+                      />
+                    </div>
 
-    <!-- Mật khẩu mới -->
-    <div class="form-group">
-      <label>Mật khẩu mới <span class="required">*</span></label>
-      <input
-        type="password"
-        v-model="passwordForm.newPassword"
-        required
-        minlength="6"
-        placeholder="Nhập mật khẩu mới (ít nhất 6 ký tự)"
-        class="password-input-field"
-      />
-    </div>
+                    <div class="form-group">
+                      <label>Mật khẩu mới <span class="required">*</span></label>
+                      <input
+                        type="password"
+                        v-model="passwordForm.newPassword"
+                        required
+                        minlength="6"
+                        placeholder="Nhập mật khẩu mới (ít nhất 6 ký tự)"
+                        class="password-input-field"
+                      />
+                    </div>
 
-    <!-- Xác nhận mật khẩu mới -->
-    <div class="form-group">
-      <label>Xác nhận mật khẩu mới <span class="required">*</span></label>
-      <input
-        type="password"
-        v-model="passwordForm.confirmPassword"
-        required
-        placeholder="Xác nhận mật khẩu mới"
-        class="password-input-field"
-      />
-    </div>
+                    <div class="form-group">
+                      <label>Xác nhận mật khẩu mới <span class="required">*</span></label>
+                      <input
+                        type="password"
+                        v-model="passwordForm.confirmPassword"
+                        required
+                        placeholder="Xác nhận mật khẩu mới"
+                        class="password-input-field"
+                      />
+                    </div>
 
-    <!-- Password requirements -->
-    <div class="password-requirements">
-      <p>Mật khẩu phải có:</p>
-      <ul>
-        <li :class="{ valid: passwordForm.newPassword.length >= 6 }">
-          <i :class="passwordForm.newPassword.length >= 6 ? 'fas fa-check-circle' : 'far fa-circle'"></i>
-          Ít nhất 6 ký tự
-        </li>
-        <li :class="{ valid: /[A-Z]/.test(passwordForm.newPassword) }">
-          <i :class="/[A-Z]/.test(passwordForm.newPassword) ? 'fas fa-check-circle' : 'far fa-circle'"></i>
-          Ít nhất 1 chữ hoa
-        </li>
-        <li :class="{ valid: /[0-9]/.test(passwordForm.newPassword) }">
-          <i :class="/[0-9]/.test(passwordForm.newPassword) ? 'fas fa-check-circle' : 'far fa-circle'"></i>
-          Ít nhất 1 số
-        </li>
-      </ul>
-    </div>
+                    <div class="password-requirements">
+                      <p>Mật khẩu phải có:</p>
+                      <ul>
+                        <li :class="{ valid: passwordForm.newPassword.length >= 6 }">
+                          <i :class="passwordForm.newPassword.length >= 6 ? 'fas fa-check-circle' : 'far fa-circle'"></i>
+                          Ít nhất 6 ký tự
+                        </li>
+                        <li :class="{ valid: /[A-Z]/.test(passwordForm.newPassword) }">
+                          <i :class="/[A-Z]/.test(passwordForm.newPassword) ? 'fas fa-check-circle' : 'far fa-circle'"></i>
+                          Ít nhất 1 chữ hoa
+                        </li>
+                        <li :class="{ valid: /[0-9]/.test(passwordForm.newPassword) }">
+                          <i :class="/[0-9]/.test(passwordForm.newPassword) ? 'fas fa-check-circle' : 'far fa-circle'"></i>
+                          Ít nhất 1 số
+                        </li>
+                      </ul>
+                    </div>
 
-    <button
-      type="submit"
-      class="btn btn-primary"
-      :disabled="!isPasswordValid || passwordLoading"
-    >
-      <i v-if="passwordLoading" class="fas fa-spinner fa-spin"></i>
-      {{ passwordLoading ? "Đang xử lý..." : "Đổi mật khẩu" }}
-    </button>
-  </form>
-</div>
+                    <button
+                      type="submit"
+                      class="btn btn-primary"
+                      :disabled="!isPasswordValid || passwordLoading"
+                    >
+                      <i v-if="passwordLoading" class="fas fa-spinner fa-spin"></i>
+                      {{ passwordLoading ? "Đang xử lý..." : "Đổi mật khẩu" }}
+                    </button>
+                  </form>
+                </div>
               </template>
             </template>
           </div>
@@ -485,6 +348,70 @@
     </main>
 
     <ClientFooter />
+
+    <!-- ===== ADDRESS MODAL ===== -->
+    <div v-if="showAddressModal" class="modal-overlay" @click.self="closeAddressModal">
+      <div class="modal-container">
+        <div class="modal-header">
+          <h3>{{ isEditingAddress ? '✏️ Sửa địa chỉ' : '➕ Thêm địa chỉ mới' }}</h3>
+          <button class="close-btn" @click="closeAddressModal">✕</button>
+        </div>
+
+        <div class="modal-body">
+          <form @submit.prevent="saveAddress">
+            <div class="form-group">
+              <label>Họ và tên <span class="required">*</span></label>
+              <input type="text" v-model="addressForm.fullName" required placeholder="Nhập họ và tên người nhận" />
+            </div>
+
+            <div class="form-group">
+              <label>Số điện thoại <span class="required">*</span></label>
+              <input type="tel" v-model="addressForm.phone" required placeholder="Nhập số điện thoại người nhận" />
+            </div>
+
+            <div class="form-group">
+              <label>Tỉnh/Thành phố <span class="required">*</span></label>
+              <select v-model="addressForm.provinceId" required @change="onProvinceChange">
+                <option :value="null">-- Chọn tỉnh/thành phố --</option>
+                <option v-for="province in provinces" :key="province.code" :value="province.code">
+                  {{ province.name }}
+                </option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label>Phường/Xã <span class="required">*</span></label>
+              <select v-model="addressForm.wardId" required :disabled="!addressForm.provinceId">
+                <option :value="null">-- Chọn phường/xã --</option>
+                <option v-for="ward in wards" :key="ward.code" :value="ward.code">
+                  {{ ward.name }}
+                </option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label>Số nhà, tên đường <span class="required">*</span></label>
+              <input type="text" v-model="addressForm.streetAddress" required placeholder="VD: 123 Nguyễn Huệ" />
+            </div>
+
+            <div class="form-group checkbox-group">
+              <label class="checkbox-label">
+                <input type="checkbox" v-model="addressForm.isDefault" />
+                <span>Đặt làm địa chỉ mặc định</span>
+              </label>
+            </div>
+
+            <div class="modal-footer">
+              <button type="button" class="btn btn-outline" @click="closeAddressModal">Hủy</button>
+              <button type="submit" class="btn btn-primary" :disabled="addressSaving">
+                <i v-if="addressSaving" class="fas fa-spinner fa-spin"></i>
+                {{ addressSaving ? 'Đang lưu...' : (isEditingAddress ? 'Cập nhật' : 'Thêm mới') }}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
 
     <!-- Cancel Reason Modal -->
     <div v-if="showCancelModal" class="modal-overlay" @click.self="closeCancelModal">
@@ -495,7 +422,7 @@
         </div>
         <div class="modal-body">
           <div class="form-group">
-            <label>Lý do hủy</label>
+            <label>Lý do hủy <span class="required">*</span></label>
             <textarea v-model="cancelReason" rows="3" placeholder="Nhập lý do hủy đơn hàng..."></textarea>
           </div>
         </div>
@@ -528,6 +455,25 @@
               <p><strong>Ngày đặt:</strong> {{ formatDate(selectedOrder?.orderDate) }}</p>
               <p><strong>Trạng thái:</strong> {{ getStatusText(selectedOrder?.orderStatus) }}</p>
               <p><strong>Thanh toán:</strong> {{ selectedOrder?.paymentStatus || 'UNPAID' }}</p>
+            </div>
+          </div>
+
+          <!-- ===== ĐỊA CHỈ GIAO HÀNG - HIỂN THỊ CHI TIẾT ===== -->
+          <div class="address-section">
+            <h4>📍 Địa chỉ giao hàng</h4>
+            <div class="address-detail-card">
+              <div class="address-row">
+                <span class="address-label">👤 Người nhận:</span>
+                <span class="address-value">{{ selectedOrder?.shippingAddress?.fullName || '---' }}</span>
+              </div>
+              <div class="address-row">
+                <span class="address-label">📞 Số điện thoại:</span>
+                <span class="address-value">{{ selectedOrder?.shippingAddress?.phone || '---' }}</span>
+              </div>
+              <div class="address-row full-address-row">
+                <span class="address-label">📦 Địa chỉ đầy đủ:</span>
+                <span class="address-value highlight">{{ getOrderFullAddress(selectedOrder?.shippingAddress) }}</span>
+              </div>
             </div>
           </div>
 
@@ -601,7 +547,7 @@
       </div>
     </div>
 
-    <!-- Review Modal (Tạo mới) -->
+    <!-- Review Modal -->
     <CreateReviewModal
       :visible="showReviewModal"
       :product="selectedProduct"
@@ -686,7 +632,7 @@
       </div>
     </div>
 
-    <!-- ✅ Return Request Modal -->
+    <!-- Return Request Modal -->
     <ReturnRequestModal
       :visible="showReturnModal"
       :order="selectedOrderForReturn"
@@ -707,36 +653,32 @@ import { ref, reactive, computed, onMounted, watch } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { useAuthStore } from "../../stores/authStore";
 import { useCartStore } from "../../stores/cartStore";
+import { useWishlistStore } from "../../stores/wishlistStore";
 import { useNotification } from "../../composables/useNotification";
 import ClientHeader from "../../components/client/ClientHeader.vue";
 import ClientFooter from "../../components/client/ClientFooter.vue";
+import OrderTabs from "../../components/client/OrderTabs.vue";
+import OrderList from "../../components/client/OrderList.vue";
+import AddressTabs from "../../components/client/AddressTabs.vue";
+import AddressList from "../../components/client/AddressList.vue";
 import CreateReviewModal from "../../components/client/CreateReviewModal.vue";
 import ReturnRequestModal from "../../components/client/ReturnRequestModal.vue";
 import { formatPrice } from "../../utils/helpers";
 import { orderService } from "../../services/orderService";
-import axios from "axios";
+import api from "@/api/axios";
+import { useVietnamAddress } from "../../composables/useVietnamAddress";
 
 const router = useRouter();
 const route = useRoute();
 const authStore = useAuthStore();
 const cartStore = useCartStore();
+const wishlistStore = useWishlistStore();
 const { showNotification } = useNotification();
 
-// ✅ BASE URL CHO ẢNH
-const IMAGE_BASE = "http://localhost:8080";
-const API_BASE = "http://localhost:8080/api";
+// ===== CONSTANTS =====
+const IMAGE_BASE = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "").replace(/\/api$/, "");
 
-// ✅ HÀM LẤY URL ẢNH
-const getImageUrl = (imagePath) => {
-  if (!imagePath) return '';
-  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
-    return imagePath;
-  }
-  const cleanPath = imagePath.startsWith('/') ? imagePath : '/' + imagePath;
-  return IMAGE_BASE + cleanPath;
-};
-
-// State
+// ===== STATE =====
 const activeTab = ref("info");
 const editing = ref(false);
 const loading = ref(false);
@@ -744,48 +686,99 @@ const passwordLoading = ref(false);
 const pageLoading = ref(true);
 const showWelcomeBanner = ref(false);
 const ordersLoading = ref(false);
-const wishlistLoading = ref(false);
+const wishlistLoading = computed(() => wishlistStore.loading);
 const cancelLoading = ref(false);
 const showCancelModal = ref(false);
 const showDetailModal = ref(false);
 const showImageViewer = ref(false);
+const showReviewModal = ref(false);
+const showViewReviewModal = ref(false);
+const showReturnModal = ref(false);
 const cancelOrderId = ref(null);
 const cancelReason = ref("");
 const selectedOrder = ref(null);
+const selectedOrderForReturn = ref(null);
 const currentPage = ref(0);
 const totalPages = ref(0);
-const orderFilter = ref("all");
 const viewingImage = ref("");
-
-// ✅ State cho Return
-const showReturnModal = ref(false);
-const selectedOrderForReturn = ref(null);
-
-// ✅ State cho Review
-const showReviewModal = ref(false);
-const showViewReviewModal = ref(false);
 const selectedProduct = ref(null);
 const selectedOrderId = ref(null);
 const editingReviewId = ref(null);
-const reviewedItems = ref(new Map());
 const viewingReview = ref(null);
+const reviewedItems = ref(new Map());
+const orderTabsRef = ref(null);
 
-// Profile data
+// ===== ADDRESS STATE =====
+const addresses = ref([]);
+const addressLoading = ref(false);
+const showAddressModal = ref(false);
+const isEditingAddress = ref(false);
+const addressSaving = ref(false);
+const editingAddressId = ref(null);
+const addressTabsRef = ref(null);
+const { 
+  provinces, wards, 
+  fetchProvinces, fetchWards 
+} = useVietnamAddress();
+
+// ===== ADDRESS TAB STATE =====
+const activeAddressMainTab = ref('all');
+const activeAddressSubTab = ref('all');
+
+// ===== ADDRESS FORM =====
+const addressForm = reactive({
+  fullName: '',
+  phone: '',
+  provinceId: null,
+  wardId: null,
+  streetAddress: '',
+  isDefault: false
+});
+
+// ===== TABS =====
+const activeMainTab = ref('all');
+const activeSubTab = ref('all');
+
+// ===== PROFILE DATA =====
 const profile = reactive({
   fullName: "",
   email: "",
   phone: "",
-  address: ""
+  address: "",
+  fullAddress: "",
+  city: "",
+  ward: "",
+  streetAddress: "",
+  provinceId: null,
+  wardId: null
 });
 
 const editForm = reactive({
   fullName: "",
   email: "",
-  phone: "",
-  address: ""
+  phone: ""
+  // ĐÃ XÓA CÁC TRƯỜNG ĐỊA CHỈ
 });
 
-// Computed để hiển thị
+// ===== ORDERS DATA =====
+const orders = ref([]);
+
+// ===== WISHLIST DATA =====
+const wishlist = computed(() => wishlistStore.items);
+
+// ===== TOAST =====
+const showToast = ref(false);
+const toastMessage = ref("");
+const toastType = ref("success");
+let toastTimer = null;
+
+// ===== PASSWORD =====
+const passwordForm = reactive({
+  currentPassword: "",
+  newPassword: "",
+  confirmPassword: "" });
+
+// ===== COMPUTED =====
 const displayName = computed(() => {
   return profile.fullName || authStore.user?.username || "Người dùng";
 });
@@ -793,45 +786,6 @@ const displayName = computed(() => {
 const displayEmail = computed(() => {
   return profile.email || authStore.user?.email || "email@example.com";
 });
-
-// Orders data
-const orders = ref([]);
-
-// Wishlist data
-const wishlist = ref([]);
-
-// Toast
-const showToast = ref(false);
-const toastMessage = ref("");
-const toastType = ref("success");
-let toastTimer = null;
-
-// Password change
-const showCurrentPassword = ref(false);
-const showNewPassword = ref(false);
-const showConfirmPassword = ref(false);
-
-const passwordForm = reactive({
-  currentPassword: "",
-  newPassword: "",
-  confirmPassword: "",
-});
-
-// ✅ Order tabs
-const orderTabs = [
-  { value: 'all', label: 'Tất cả' },
-  { value: 'PENDING_PAYMENT', label: 'Chờ thanh toán' },
-  { value: 'PROCESSING', label: 'Đang xử lý' },
-  { value: 'SHIPPING', label: 'Đang giao hàng' },
-  { value: 'DELIVERED', label: 'Đã giao hàng' },
-  { value: 'COMPLETED', label: 'Hoàn thành' },
-  { value: 'CANCELLED', label: 'Đã hủy' },
-  { value: 'RETURN_REQUESTED', label: 'Yêu cầu hoàn hàng' },
-  { value: 'RETURN_APPROVED', label: 'Đã duyệt hoàn hàng' },
-  { value: 'RETURN_RECEIVED', label: 'Đã nhận hàng trả' },
-  { value: 'REJECTED', label: 'Đã từ chối hoàn trả' },
-  { value: 'RETURNED', label: 'Đã hoàn trả' }
-];
 
 const isPasswordValid = computed(() => {
   return (
@@ -843,15 +797,73 @@ const isPasswordValid = computed(() => {
   );
 });
 
-// ===== UTILITY FUNCTIONS =====
-const showNotificationMsg = (message, type = 'success') => {
-  if (toastTimer) clearTimeout(toastTimer);
-  toastMessage.value = message;
-  toastType.value = type;
-  showToast.value = true;
-  toastTimer = setTimeout(() => {
-    showToast.value = false;
-  }, 3000);
+// ===== FILTERED ORDERS =====
+const filteredOrders = computed(() => {
+  let result = [...orders.value];
+  
+  if (activeMainTab.value === 'orders') {
+    result = result.filter(o => 
+      !['RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED', 'REJECTED', 'CANCELLED'].includes(o.orderStatus)
+    );
+  } else if (activeMainTab.value === 'returns') {
+    result = result.filter(o => 
+      ['RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED', 'REJECTED'].includes(o.orderStatus)
+    );
+  } else if (activeMainTab.value === 'cancelled') {
+    result = result.filter(o => o.orderStatus === 'CANCELLED');
+  }
+  
+  if (activeSubTab.value !== 'all' && activeMainTab.value !== 'all') {
+    result = result.filter(o => o.orderStatus === activeSubTab.value);
+  }
+  
+  return result;
+});
+
+// ===== HELPER FUNCTIONS =====
+const getImageUrl = (imagePath) => {
+  if (!imagePath) return '';
+  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+    return imagePath;
+  }
+  const cleanPath = imagePath.startsWith('/') ? imagePath : '/' + imagePath;
+  return IMAGE_BASE + cleanPath;
+};
+
+const getFullAddressDisplay = () => {
+  const parts = [];
+  if (profile.streetAddress) parts.push(profile.streetAddress);
+  if (profile.ward) parts.push(profile.ward);
+  if (profile.city) parts.push(profile.city);
+  return parts.length > 0 ? parts.join(', ') : '';
+};
+
+const getFullAddress = (addr) => {
+  if (!addr) return '';
+  const parts = [];
+  if (addr.streetAddress) parts.push(addr.streetAddress);
+  if (addr.wardName) parts.push(addr.wardName);
+  if (addr.provinceName) parts.push(addr.provinceName);
+  return parts.join(', ') || 'Chưa có địa chỉ';
+};
+
+const getOrderFullAddress = (shippingAddress) => {
+  if (!shippingAddress) return '---';
+  
+  if (shippingAddress.addressLine) {
+    return shippingAddress.addressLine;
+  }
+  
+  const parts = [];
+  if (shippingAddress.addressLine) parts.push(shippingAddress.addressLine);
+  if (shippingAddress.ward) parts.push(shippingAddress.ward);
+  if (shippingAddress.city) parts.push(shippingAddress.city);
+  
+  return parts.length > 0 ? parts.join(', ') : '---';
+};
+
+const handleImageError = (event) => {
+  event.target.style.display = 'none';
 };
 
 const formatDate = (dateString) => {
@@ -871,15 +883,15 @@ const getStatusText = (status) => {
     "DELIVERED": "Đã giao hàng",
     "COMPLETED": "Hoàn thành",
     "CANCELLED": "Đã hủy",
-    "PENDING": "Chờ duyệt",
-    "APPROVED": "Đã duyệt",
-    "REJECTED": "Đã từ chối hoàn trả",
     "RETURN_REQUESTED": "Yêu cầu hoàn hàng",
     "RETURN_APPROVED": "Đã duyệt hoàn hàng",
     "RETURN_RECEIVED": "Đã nhận hàng trả",
     "RETURN_PENDING": "Đang thu hồi hàng",
-    "RETURNED": "Đã hoàn trả"
-  };
+    "RETURNED": "Đã hoàn trả",
+    "REJECTED": "Từ chối hoàn trả",
+    "PENDING": "Chờ duyệt",
+    "APPROVED": "Đã duyệt",
+    "RECEIVED": "Đã nhận hàng" };
   return map[status] || status;
 };
 
@@ -892,20 +904,207 @@ const getStatusClass = (status) => {
     "DELIVERED": "status-delivered",
     "COMPLETED": "status-completed",
     "CANCELLED": "status-cancelled",
-    "PENDING": "status-pending-review",
-    "APPROVED": "status-approved",
-    "REJECTED": "status-rejected",
     "RETURN_REQUESTED": "status-return-requested",
     "RETURN_APPROVED": "status-return-approved",
     "RETURN_RECEIVED": "status-return-received",
     "RETURN_PENDING": "status-return-pending",
-    "RETURNED": "status-returned"
-  };
+    "RETURNED": "status-returned",
+    "REJECTED": "status-rejected",
+    "PENDING": "status-pending-review",
+    "APPROVED": "status-approved" };
   return map[status] || "";
 };
 
-const handleImageError = (event) => {
-  event.target.style.display = 'none';
+const showNotificationMsg = (message, type = 'success') => {
+  if (toastTimer) clearTimeout(toastTimer);
+  toastMessage.value = message;
+  toastType.value = type;
+  showToast.value = true;
+  toastTimer = setTimeout(() => {
+    showToast.value = false;
+  }, 3000);
+};
+
+// ===== ADDRESS FUNCTIONS =====
+
+const onProvinceChange = async () => {
+  addressForm.wardId = null;
+  if (addressForm.provinceId) {
+    await fetchWards(addressForm.provinceId);
+  } else {
+    wards.value = [];
+  }
+};
+
+const fetchAddresses = async () => {
+  addressLoading.value = true;
+  try {
+    const token = localStorage.getItem('token');
+    const response = await api.get(`/shipping-addresses`, {});
+    addresses.value = response.data || [];
+    console.log('✅ Addresses loaded:', addresses.value.length);
+  } catch (error) {
+    console.error('❌ Error fetching addresses:', error);
+    showNotificationMsg('Không thể tải địa chỉ', 'error');
+    addresses.value = [];
+  } finally {
+    addressLoading.value = false;
+  }
+};
+
+const onAddressTabChange = ({ mainTab, subTab }) => {
+  activeAddressMainTab.value = mainTab;
+  activeAddressSubTab.value = subTab;
+};
+
+const openAddAddress = async () => {
+  isEditingAddress.value = false;
+  editingAddressId.value = null;
+  addressForm.fullName = profile.fullName || '';
+  addressForm.phone = profile.phone || '';
+  addressForm.provinceId = null;
+  addressForm.wardId = null;
+  addressForm.streetAddress = '';
+  addressForm.isDefault = addresses.value.length === 0;
+  wards.value = [];
+  if (provinces.value.length === 0) {
+    await fetchProvinces();
+  }
+  showAddressModal.value = true;
+};
+
+const openEditAddress = async (addr) => {
+  isEditingAddress.value = true;
+  editingAddressId.value = addr.addressId;
+  addressForm.fullName = addr.fullName || '';
+  addressForm.phone = addr.phone || '';
+  addressForm.provinceId = addr.provinceId || null;
+  addressForm.wardId = addr.wardId || null;
+  addressForm.streetAddress = addr.streetAddress || '';
+  addressForm.isDefault = addr.isDefault || false;
+
+  if (provinces.value.length === 0) {
+    await fetchProvinces();
+  }
+  
+  if (addressForm.provinceId) {
+    await fetchWards(addressForm.provinceId);
+  }
+  showAddressModal.value = true;
+};
+
+const closeAddressModal = () => {
+  showAddressModal.value = false;
+  addressSaving.value = false;
+};
+
+const saveAddress = async () => {
+  if (!addressForm.fullName || addressForm.fullName.trim() === '') {
+    showNotificationMsg('Vui lòng nhập họ và tên', 'error');
+    return;
+  }
+  if (!addressForm.phone || addressForm.phone.trim() === '') {
+    showNotificationMsg('Vui lòng nhập số điện thoại', 'error');
+    return;
+  }
+  if (!addressForm.provinceId) {
+    showNotificationMsg('Vui lòng chọn tỉnh/thành phố', 'error');
+    return;
+  }
+  if (!addressForm.wardId) {
+    showNotificationMsg('Vui lòng chọn phường/xã', 'error');
+    return;
+  }
+  if (!addressForm.streetAddress || addressForm.streetAddress.trim() === '') {
+    showNotificationMsg('Vui lòng nhập địa chỉ cụ thể', 'error');
+    return;
+  }
+
+  addressSaving.value = true;
+  
+  try {
+    const token = localStorage.getItem('token');
+    const province = provinces.value.find(p => p.code === addressForm.provinceId);
+    const ward = wards.value.find(w => w.code === addressForm.wardId);
+
+    const payload = {
+      fullName: addressForm.fullName.trim(),
+      phone: addressForm.phone.trim(),
+      provinceId: addressForm.provinceId,
+      wardId: addressForm.wardId,
+      districtName: '',
+      provinceName: province?.name || '',
+      wardName: ward?.name || '',
+      streetAddress: addressForm.streetAddress.trim(),
+      isDefault: addressForm.isDefault
+    };
+
+    let response;
+    if (isEditingAddress.value) {
+      response = await api.put(
+        `/shipping-addresses/${editingAddressId.value}`,
+        payload,
+        {}
+      );
+      showNotificationMsg('Cập nhật địa chỉ thành công!', 'success');
+    } else {
+      response = await api.post(
+        `/shipping-addresses`,
+        payload,
+        {}
+      );
+      showNotificationMsg('Thêm địa chỉ thành công!', 'success');
+    }
+
+    await fetchAddresses();
+    closeAddressModal();
+  } catch (error) {
+    console.error('❌ Error saving address:', error);
+    showNotificationMsg(error.response?.data?.message || 'Không thể lưu địa chỉ', 'error');
+  } finally {
+    addressSaving.value = false;
+  }
+};
+
+const setDefaultAddress = async (addressId) => {
+  try {
+    const token = localStorage.getItem('token');
+    await api.put(
+      `/shipping-addresses/${addressId}/default`,
+      {},
+      {}
+    );
+    showNotificationMsg('Đặt địa chỉ mặc định thành công!', 'success');
+    await fetchAddresses();
+  } catch (error) {
+    console.error('❌ Error setting default address:', error);
+    showNotificationMsg(error.response?.data?.message || 'Không thể đặt địa chỉ mặc định', 'error');
+  }
+};
+
+const deleteAddress = async (addressId) => {
+  if (!confirm('Bạn có chắc muốn xóa địa chỉ này?')) return;
+  
+  try {
+    const token = localStorage.getItem('token');
+    await api.delete(
+      `/shipping-addresses/${addressId}`,
+      {}
+    );
+    showNotificationMsg('Xóa địa chỉ thành công!', 'success');
+    await fetchAddresses();
+  } catch (error) {
+    console.error('❌ Error deleting address:', error);
+    showNotificationMsg(error.response?.data?.message || 'Không thể xóa địa chỉ', 'error');
+  }
+};
+
+// ===== TAB HANDLER =====
+const onTabChange = ({ mainTab, subTab }) => {
+  activeMainTab.value = mainTab;
+  activeSubTab.value = subTab;
+  currentPage.value = 0;
+  fetchOrders();
 };
 
 // ===== PROFILE FUNCTIONS =====
@@ -914,7 +1113,7 @@ const fetchProfile = async () => {
     const token = authStore.token || localStorage.getItem("token");
     
     if (token) {
-      const response = await axios.get("http://localhost:8080/api/customers/profile", {
+      const response = await api.get(`/customers/profile`, {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json"
@@ -925,14 +1124,23 @@ const fetchProfile = async () => {
         const data = response.data;
         profile.fullName = data.fullName || data.customerName || authStore.user?.username || "";
         profile.email = data.email || authStore.user?.email || "";
-        profile.phone = data.phone || "";
+        profile.phone = data.phone || "";  // ✅ LẤY SỐ ĐIỆN THOẠI
         profile.address = data.address || "";
+        profile.fullAddress = data.address || "";
+        profile.city = data.city || "";
+        profile.district = data.district || "";
+        profile.ward = data.ward || "";
+        profile.streetAddress = data.streetAddress || data.address || "";
+        profile.provinceId = data.provinceId || null;
+        profile.wardId = data.wardId || null;
 
         if (authStore.user) {
           authStore.user.username = profile.fullName;
           authStore.user.email = profile.email;
           localStorage.setItem("user", JSON.stringify(authStore.user));
         }
+        
+        console.log("✅ Profile loaded - phone:", profile.phone);
       }
     } else {
       profile.fullName = authStore.user?.username || "";
@@ -941,7 +1149,7 @@ const fetchProfile = async () => {
 
     if (route.query.newUser === 'true') {
       showWelcomeBanner.value = true;
-      if (!profile.phone && !profile.address) {
+      if (!profile.phone) {
         setTimeout(() => startEditing(), 500);
       }
     }
@@ -958,8 +1166,8 @@ const startEditing = () => {
   Object.assign(editForm, {
     fullName: profile.fullName,
     email: profile.email,
-    phone: profile.phone || "",
-    address: profile.address || ""
+    phone: profile.phone || ""
+    // ĐÃ XÓA CÁC TRƯỜNG ĐỊA CHỈ
   });
   editing.value = true;
   showWelcomeBanner.value = false;
@@ -969,6 +1177,7 @@ const cancelEditing = () => {
   editing.value = false;
 };
 
+// ===== SAVE PROFILE - CẬP NHẬT SỐ ĐIỆN THOẠI =====
 const saveProfile = async () => {
   if (!editForm.fullName || editForm.fullName.trim().length === 0) {
     showNotificationMsg("Vui lòng nhập họ và tên", "error");
@@ -979,49 +1188,46 @@ const saveProfile = async () => {
   try {
     const token = authStore.token || localStorage.getItem("token");
     
+    if (!token) {
+      showNotificationMsg("Vui lòng đăng nhập để lưu thông tin", "warning");
+      loading.value = false;
+      return;
+    }
+
     const payload = {
       fullName: editForm.fullName.trim(),
       email: editForm.email,
-      phone: editForm.phone ? editForm.phone.trim() : "",
-      address: editForm.address ? editForm.address.trim() : ""
+      phone: editForm.phone ? editForm.phone.trim() : ""
     };
 
-    if (token) {
-      const response = await axios.put(
-        "http://localhost:8080/api/customers/profile",
-        payload,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json"
-          }
+    console.log("📤 Sending profile update:", payload);
+
+    const response = await api.put(
+      `/customers/profile`,
+      payload,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
         }
-      );
-
-      if (response.data) {
-        const data = response.data;
-        profile.fullName = data.fullName || data.customerName || editForm.fullName;
-        profile.email = data.email || editForm.email;
-        profile.phone = data.phone || editForm.phone || "";
-        profile.address = data.address || editForm.address || "";
-
-        if (authStore.user) {
-          authStore.user.username = profile.fullName;
-          authStore.user.email = profile.email;
-          localStorage.setItem("user", JSON.stringify(authStore.user));
-        }
-
-        editing.value = false;
-        showNotificationMsg("Cập nhật thông tin thành công!", "success");
-        await fetchProfile();
       }
-    } else {
-      showNotificationMsg("Vui lòng đăng nhập để lưu thông tin", "warning");
-      profile.fullName = editForm.fullName;
-      profile.email = editForm.email;
-      profile.phone = editForm.phone || "";
-      profile.address = editForm.address || "";
+    );
+
+    if (response.data) {
+      const data = response.data;
+      profile.fullName = data.fullName || data.customerName || editForm.fullName;
+      profile.email = data.email || editForm.email;
+      profile.phone = data.phone || editForm.phone || "";  // ✅ LƯU SỐ ĐIỆN THOẠI
+
+      if (authStore.user) {
+        authStore.user.username = profile.fullName;
+        authStore.user.email = profile.email;
+        localStorage.setItem("user", JSON.stringify(authStore.user));
+      }
+
       editing.value = false;
+      showNotificationMsg("Cập nhật thông tin thành công!", "success");
+      await fetchProfile();
     }
   } catch (error) {
     console.error("❌ Error saving profile:", error);
@@ -1043,13 +1249,30 @@ const fetchOrders = async () => {
       return;
     }
 
-    const status = orderFilter.value === 'all' ? null : orderFilter.value;
-    const response = await orderService.getMyOrders(status, currentPage.value, 10);
+    let statusFilter = null;
     
-    console.log("📦 Orders response with filter:", orderFilter.value, response.data);
+    if (activeMainTab.value === 'orders') {
+      if (activeSubTab.value === 'all') {
+        statusFilter = 'PENDING_PAYMENT,CONFIRMED,PROCESSING,SHIPPING,DELIVERED,COMPLETED';
+      } else {
+        statusFilter = activeSubTab.value;
+      }
+    } else if (activeMainTab.value === 'returns') {
+      if (activeSubTab.value === 'all') {
+        statusFilter = 'RETURN_REQUESTED,RETURN_APPROVED,RETURN_RECEIVED,RETURN_PENDING,RETURNED,REJECTED';
+      } else {
+        statusFilter = activeSubTab.value;
+      }
+    } else if (activeMainTab.value === 'cancelled') {
+      statusFilter = 'CANCELLED';
+    }
+
+    const response = await orderService.getMyOrders(statusFilter, currentPage.value, 10);
+    
+    console.log("📦 Orders response:", response.data);
     
     if (response.data && response.data.content) {
-      orders.value = response.data.content;
+      orders.value = response.data.content || [];
       totalPages.value = response.data.totalPages || 0;
       currentPage.value = response.data.number || 0;
       
@@ -1066,130 +1289,7 @@ const fetchOrders = async () => {
   }
 };
 
-const checkAllReviewsStatus = async (orders) => {
-  try {
-    const token = localStorage.getItem('token');
-    if (!token) return;
-
-    for (const order of orders) {
-      if (order.orderStatus !== 'COMPLETED') continue;
-      if (!order.items || order.items.length === 0) continue;
-      
-      for (const item of order.items) {
-        if (!item || !item.productDetailId) continue;
-        
-        const reviewKey = `${order.orderId}_${item.productDetailId}`;
-        
-        if (reviewedItems.value.has(reviewKey)) {
-          const data = reviewedItems.value.get(reviewKey);
-          if (data && data.reviewId === null) {
-            reviewedItems.value.delete(reviewKey);
-          }
-          continue;
-        }
-        
-        try {
-          const response = await axios.get(`${API_BASE}/reviews/check`, {
-            params: {
-              orderId: order.orderId,
-              productDetailId: item.productDetailId
-            },
-            headers: {
-              Authorization: `Bearer ${token}`
-            }
-          });
-          
-          console.log('🔍 Check review for order:', order.orderId, 'item:', item.productDetailId, response.data);
-          
-          if (response.data.reviewed) {
-            try {
-              const myReviewsResponse = await axios.get(`${API_BASE}/reviews/my-reviews`, {
-                params: {
-                  page: 0,
-                  size: 100
-                },
-                headers: {
-                  Authorization: `Bearer ${token}`
-                }
-              });
-              
-              if (myReviewsResponse.data && myReviewsResponse.data.content) {
-                const foundReview = myReviewsResponse.data.content.find(
-                  r => r.orderId === order.orderId && r.productDetailId === item.productDetailId
-                );
-                if (foundReview && foundReview.reviewId) {
-                  console.log('✅ Found review:', foundReview);
-                  reviewedItems.value.set(reviewKey, foundReview);
-                } else {
-                  reviewedItems.value.delete(reviewKey);
-                }
-              }
-            } catch (err) {
-              console.warn('Cannot get review detail, skip caching');
-              reviewedItems.value.delete(reviewKey);
-            }
-          } else {
-            reviewedItems.value.delete(reviewKey);
-          }
-        } catch (error) {
-          console.error(`❌ Error checking review:`, error);
-          reviewedItems.value.delete(reviewKey);
-        }
-      }
-    }
-  } catch (error) {
-    console.error('❌ Error checking all reviews:', error);
-  }
-};
-
-const getReviewDetail = async (orderId, productDetailId) => {
-  try {
-    const token = localStorage.getItem('token');
-    const response = await axios.get(`${API_BASE}/reviews/my-reviews`, {
-      params: {
-        orderId: orderId,
-        productDetailId: productDetailId
-      },
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    });
-    if (response.data && response.data.content && response.data.content.length > 0) {
-      return response.data.content[0];
-    }
-    return null;
-  } catch (error) {
-    console.error('❌ Error getting review detail:', error);
-    return null;
-  }
-};
-
-const isItemReviewed = (orderId, productDetailId) => {
-  if (!orderId || !productDetailId) return false;
-  const reviewKey = `${orderId}_${productDetailId}`;
-  const data = reviewedItems.value.get(reviewKey);
-  return data && data.reviewId !== null && data.reviewId !== undefined;
-};
-
-const getReviewData = (orderId, productDetailId) => {
-  const reviewKey = `${orderId}_${productDetailId}`;
-  const data = reviewedItems.value.get(reviewKey);
-  if (data && data.reviewId) {
-    return data;
-  }
-  return null;
-};
-
-const getOrderCountByStatus = (status) => {
-  return orders.value.filter(order => order.orderStatus === status).length;
-};
-
-const changeOrderFilter = (filterValue) => {
-  orderFilter.value = filterValue;
-  currentPage.value = 0;
-  fetchOrders();
-};
-
+// ===== PAGINATION =====
 const goToPage = (page) => {
   if (page >= 0 && page < totalPages.value) {
     currentPage.value = page;
@@ -1197,6 +1297,7 @@ const goToPage = (page) => {
   }
 };
 
+// ===== ORDER DETAIL =====
 const viewOrderDetail = async (orderId) => {
   try {
     const response = await orderService.getOrderDetail(orderId);
@@ -1213,6 +1314,7 @@ const closeDetailModal = () => {
   selectedOrder.value = null;
 };
 
+// ===== CANCEL ORDER =====
 const handleCancelOrder = (orderId) => {
   cancelOrderId.value = orderId;
   cancelReason.value = "";
@@ -1245,6 +1347,7 @@ const confirmCancelOrder = async () => {
   }
 };
 
+// ===== RETURN ORDER =====
 const handleReturnOrder = (order) => {
   if (!order) {
     showNotificationMsg("Không tìm thấy đơn hàng", "error");
@@ -1271,6 +1374,7 @@ const onReturnSubmitted = (data) => {
   fetchOrders();
 };
 
+// ===== REORDER =====
 const handleReorder = (order) => {
   if (order.items && order.items.length > 0) {
     order.items.forEach(item => {
@@ -1291,22 +1395,61 @@ const handleReorder = (order) => {
 };
 
 // ===== REVIEW FUNCTIONS =====
-const openReviewModal = (order, item) => {
+const checkAllReviewsStatus = async (ordersList) => {
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    for (const order of ordersList) {
+      if (order.orderStatus !== 'COMPLETED') continue;
+      if (!order.items || order.items.length === 0) continue;
+      
+      for (const item of order.items) {
+        if (!item || !item.productDetailId) continue;
+        
+        const reviewKey = `${order.orderId}_${item.productDetailId}`;
+        reviewedItems.value.delete(reviewKey);
+        
+        try {
+          const response = await api.get(`/reviews/check`, {
+            params: {
+              orderId: order.orderId,
+              productDetailId: item.productDetailId
+            } });
+          
+          if (response.data.reviewed) {
+            try {
+              const myReviewsResponse = await api.get(`/reviews/my-reviews`, {
+                params: {
+                  page: 0,
+                  size: 100
+                } });
+              
+              if (myReviewsResponse.data && myReviewsResponse.data.content) {
+                const foundReview = myReviewsResponse.data.content.find(
+                  r => r.orderId === order.orderId && r.productDetailId === item.productDetailId
+                );
+                if (foundReview && foundReview.reviewId) {
+                  reviewedItems.value.set(reviewKey, foundReview);
+                }
+              }
+            } catch (err) {
+              console.warn('Cannot get review detail, skip caching');
+            }
+          }
+        } catch (error) {
+          console.error(`❌ Error checking review:`, error);
+        }
+      }
+    }
+  } catch (error) {
+    console.error('❌ Error checking all reviews:', error);
+  }
+};
+
+const openReviewModal = ({ order, item }) => {
   if (!order || !item) {
     showNotificationMsg("Không có sản phẩm để đánh giá", "warning");
-    return;
-  }
-  
-  if (!item.productDetailId) {
-    showNotificationMsg("Sản phẩm không hợp lệ", "warning");
-    return;
-  }
-  
-  const reviewKey = `${order.orderId}_${item.productDetailId}`;
-  const existingReview = reviewedItems.value.get(reviewKey);
-  
-  if (existingReview && existingReview.reviewId) {
-    showNotificationMsg("Bạn đã đánh giá sản phẩm này trong đơn hàng này!", "info");
     return;
   }
   
@@ -1332,52 +1475,14 @@ const onReviewSubmitted = (review) => {
   fetchOrders();
 };
 
-const viewReview = async (orderId, productDetailId) => {
-  try {
-    const reviewData = getReviewData(orderId, productDetailId);
-    
-    if (!reviewData || !reviewData.reviewId) {
-      showNotificationMsg("Không tìm thấy đánh giá", "warning");
-      const reviewKey = `${orderId}_${productDetailId}`;
-      reviewedItems.value.delete(reviewKey);
-      return;
-    }
-    
-    console.log('📖 Viewing review:', reviewData);
-    
-    if (reviewData && reviewData.comment !== undefined) {
-      viewingReview.value = reviewData;
-      showViewReviewModal.value = true;
-      return;
-    }
-    
-    const token = localStorage.getItem('token');
-    const response = await axios.get(`${API_BASE}/reviews/${reviewData.reviewId}`, {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    });
-    
-    if (response.data) {
-      viewingReview.value = response.data;
-      const reviewKey = `${orderId}_${productDetailId}`;
-      reviewedItems.value.set(reviewKey, response.data);
-      showViewReviewModal.value = true;
-    } else {
-      showNotificationMsg("Không tìm thấy đánh giá", "warning");
-      const reviewKey = `${orderId}_${productDetailId}`;
-      reviewedItems.value.delete(reviewKey);
-    }
-  } catch (error) {
-    console.error('❌ Error viewing review:', error);
-    if (error.response?.status === 404) {
-      const reviewKey = `${orderId}_${productDetailId}`;
-      reviewedItems.value.delete(reviewKey);
-      showNotificationMsg("Đánh giá không tồn tại", "warning");
-    } else {
-      showNotificationMsg("Không thể tải đánh giá", "error");
-    }
+const viewReview = ({ orderId, productDetailId }) => {
+  const reviewData = reviewedItems.value.get(`${orderId}_${productDetailId}`);
+  if (!reviewData || !reviewData.reviewId) {
+    showNotificationMsg("Không tìm thấy đánh giá", "warning");
+    return;
   }
+  viewingReview.value = reviewData;
+  showViewReviewModal.value = true;
 };
 
 const closeViewReview = () => {
@@ -1385,71 +1490,37 @@ const closeViewReview = () => {
   viewingReview.value = null;
 };
 
-const deleteReview = async (orderId, productDetailId) => {
+const deleteReview = ({ orderId, productDetailId }) => {
   if (!confirm("Bạn có chắc muốn xóa đánh giá này?")) return;
   
   try {
-    const token = localStorage.getItem('token');
-    const reviewData = getReviewData(orderId, productDetailId);
-    
+    const reviewData = reviewedItems.value.get(`${orderId}_${productDetailId}`);
     if (!reviewData || !reviewData.reviewId) {
       showNotificationMsg("Không tìm thấy đánh giá để xóa", "error");
-      const reviewKey = `${orderId}_${productDetailId}`;
-      reviewedItems.value.delete(reviewKey);
-      await fetchOrders();
       return;
     }
     
-    console.log('🗑️ Deleting review with ID:', reviewData.reviewId);
-    
-    await axios.delete(`${API_BASE}/reviews/${reviewData.reviewId}`, {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
+    const token = localStorage.getItem('token');
+    api.delete(`/reviews/${reviewData.reviewId}`, {}).then(() => {
+      reviewedItems.value.delete(`${orderId}_${productDetailId}`);
+      showNotificationMsg("Xóa đánh giá thành công!", "success");
+      fetchOrders();
+    }).catch(error => {
+      console.error('❌ Error deleting review:', error);
+      showNotificationMsg(error.response?.data?.error || "Không thể xóa đánh giá", "error");
     });
-    
-    const reviewKey = `${orderId}_${productDetailId}`;
-    reviewedItems.value.delete(reviewKey);
-    
-    showNotificationMsg("Xóa đánh giá thành công! Bạn có thể đánh giá lại sản phẩm này trong đơn hàng này.", "success");
-    await fetchOrders();
-    
   } catch (error) {
     console.error('❌ Error deleting review:', error);
-    
-    if (error.response?.status === 404) {
-      const reviewKey = `${orderId}_${productDetailId}`;
-      reviewedItems.value.delete(reviewKey);
-      showNotificationMsg("Đánh giá đã được xóa trước đó. Bạn có thể đánh giá lại.", "info");
-      await fetchOrders();
-    } else {
-      showNotificationMsg(error.response?.data?.error || "Không thể xóa đánh giá", "error");
-    }
+    showNotificationMsg(error.message || "Không thể xóa đánh giá", "error");
   }
-};
-
-const viewImage = (imageUrl) => {
-  viewingImage.value = getImageUrl(imageUrl);
-  showImageViewer.value = true;
-};
-
-const closeImageViewer = () => {
-  showImageViewer.value = false;
-  viewingImage.value = '';
 };
 
 // ===== WISHLIST FUNCTIONS =====
 const fetchWishlist = async () => {
-  wishlistLoading.value = true;
   try {
-    wishlist.value = [
-      { id: 1, name: "Áo thun nam", price: 199000, image: "tshirt" },
-      { id: 2, name: "Đầm nữ công sở", price: 399000, image: "dress" },
-    ];
+    await wishlistStore.fetchWishlist();
   } catch (error) {
     console.error("Error fetching wishlist:", error);
-  } finally {
-    wishlistLoading.value = false;
   }
 };
 
@@ -1458,24 +1529,40 @@ const goToProduct = (id) => {
 };
 
 const addToCart = (product) => {
-  cartStore.addToCart(product);
+  cartStore.addToCart({
+    id: product.productDetailId,
+    productDetailId: product.productDetailId,
+    productId: product.productId,
+    productName: product.productName,
+    name: product.productName,
+    price: product.price,
+    discountedPrice: product.discountedPrice,
+    quantity: 1,
+    image: product.imageUrl,
+    imageUrl: product.imageUrl,
+    size: product.sizeName,
+    color: product.colorName,
+    stock: product.stock,
+  });
   showNotificationMsg("Đã thêm vào giỏ hàng", "success");
 };
 
-const removeFromWishlist = (id) => {
-  wishlist.value = wishlist.value.filter((p) => p.id !== id);
-  showNotificationMsg("Đã xóa khỏi danh sách yêu thích", "info");
+const removeFromWishlist = async (productDetailId) => {
+  const ok = await wishlistStore.removeFromWishlist(productDetailId);
+  if (ok) {
+    showNotificationMsg("Đã xóa khỏi danh sách yêu thích", "info");
+  } else {
+    showNotificationMsg("Xóa thất bại, vui lòng thử lại!", "error");
+  }
 };
 
 // ===== PASSWORD FUNCTIONS =====
 const changePassword = async () => {
-  // Kiểm tra mật khẩu hiện tại
   if (!passwordForm.currentPassword || passwordForm.currentPassword.length === 0) {
     showNotificationMsg("Vui lòng nhập mật khẩu hiện tại", "error");
     return;
   }
 
-  // Kiểm tra mật khẩu mới
   if (!passwordForm.newPassword || passwordForm.newPassword.length < 6) {
     showNotificationMsg("Mật khẩu mới phải có ít nhất 6 ký tự", "error");
     return;
@@ -1491,13 +1578,11 @@ const changePassword = async () => {
     return;
   }
 
-  // Kiểm tra xác nhận mật khẩu
   if (passwordForm.newPassword !== passwordForm.confirmPassword) {
     showNotificationMsg("Mật khẩu xác nhận không khớp", "error");
     return;
   }
 
-  // Kiểm tra mật khẩu mới không trùng mật khẩu cũ
   if (passwordForm.newPassword === passwordForm.currentPassword) {
     showNotificationMsg("Mật khẩu mới không được trùng với mật khẩu hiện tại", "error");
     return;
@@ -1513,8 +1598,8 @@ const changePassword = async () => {
       return;
     }
 
-    const response = await axios.put(
-      "http://localhost:8080/api/customers/change-password",
+    const response = await api.put(
+      `/customers/change-password`,
       {
         currentPassword: passwordForm.currentPassword,
         newPassword: passwordForm.newPassword
@@ -1531,7 +1616,6 @@ const changePassword = async () => {
     
     showNotificationMsg("Đổi mật khẩu thành công!", "success");
     
-    // Reset form
     passwordForm.currentPassword = "";
     passwordForm.newPassword = "";
     passwordForm.confirmPassword = "";
@@ -1545,6 +1629,18 @@ const changePassword = async () => {
   }
 };
 
+// ===== IMAGE VIEWER =====
+const viewImage = (imageUrl) => {
+  viewingImage.value = getImageUrl(imageUrl);
+  showImageViewer.value = true;
+};
+
+const closeImageViewer = () => {
+  showImageViewer.value = false;
+  viewingImage.value = '';
+};
+
+// ===== LOGOUT =====
 const changeAvatar = () => {
   showNotificationMsg("Chức năng đang phát triển", "info");
 };
@@ -1556,41 +1652,6 @@ const logout = () => {
   }
 };
 
-// ===== WATCH =====
-watch(
-  () => authStore.user,
-  (newUser) => {
-    if (newUser) {
-      profile.fullName = newUser.username || profile.fullName;
-      profile.email = newUser.email || profile.email;
-    }
-  },
-  { deep: true }
-);
-
-watch(
-  () => route.query.newUser,
-  (newVal) => {
-    if (newVal === 'true') {
-      showWelcomeBanner.value = true;
-      if (!profile.phone && !profile.address) {
-        setTimeout(() => startEditing(), 500);
-      }
-    }
-  }
-);
-
-watch(
-  () => route.query.tab,
-  (newTab) => {
-    if (newTab === 'orders') {
-      activeTab.value = 'orders';
-      fetchOrders();
-    }
-  },
-  { immediate: true }
-);
-
 // ===== LIFECYCLE =====
 onMounted(() => {
   console.log("🚀 Profile page mounted");
@@ -1599,11 +1660,19 @@ onMounted(() => {
     activeTab.value = 'orders';
   }
   
+  fetchProvinces();
   fetchProfile();
   fetchOrders();
   fetchWishlist();
+  fetchAddresses();
+});
+
+// Watch để fetch lại khi tab thay đổi
+watch([activeMainTab, activeSubTab], () => {
+  fetchOrders();
 });
 </script>
+
 
 <style scoped>
 /* ===== RESET & CONTAINER ===== */
@@ -1625,7 +1694,7 @@ main {
 /* ===== PROFILE CONTAINER ===== */
 .profile-container {
   display: grid;
-  grid-template-columns: 300px 1fr;
+  grid-template-columns: 280px 1fr;
   gap: 30px;
   background: white;
   border-radius: 20px;
@@ -1636,7 +1705,7 @@ main {
 /* ===== SIDEBAR ===== */
 .profile-sidebar {
   background: linear-gradient(135deg, #e63946 0%, #c62828 100%);
-  padding: 30px;
+  padding: 30px 25px;
   color: white;
   display: flex;
   flex-direction: column;
@@ -1799,6 +1868,14 @@ main {
   font-size: 16px;
 }
 
+.loading-state.small {
+  padding: 40px 20px;
+}
+
+.loading-state.small i {
+  font-size: 30px;
+}
+
 /* ===== WELCOME BANNER ===== */
 .welcome-banner {
   background: linear-gradient(135deg, #e63946 0%, #ff6b6b 100%);
@@ -1878,14 +1955,15 @@ main {
 
 /* ===== FORM STYLES ===== */
 .form-group {
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
 
 .form-group label {
   display: block;
-  margin-bottom: 5px;
+  margin-bottom: 6px;
   color: #1a1a2e;
   font-weight: 500;
+  font-size: 14px;
 }
 
 .required {
@@ -1913,6 +1991,12 @@ main {
   box-shadow: 0 0 0 3px rgba(230, 57, 70, 0.1);
 }
 
+.form-group select:disabled {
+  background: #f1f3f5;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
 .form-group textarea {
   min-height: 80px;
   resize: vertical;
@@ -1935,15 +2019,232 @@ main {
   max-width: 600px;
 }
 
-/* ===== PASSWORD INPUT - FIXED ===== */
-.password-input-wrapper {
+.form-actions {
+  display: flex;
+  gap: 15px;
+  margin-top: 20px;
+}
+
+/* ===== ADDRESS HEADER ===== */
+.address-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 15px;
+}
+
+.address-header h2 {
+  margin: 0;
+  font-size: 24px;
+  color: #1a1a2e;
+}
+
+/* ===== CHECKBOX GROUP ===== */
+.checkbox-group {
+  margin-top: 5px;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-weight: 500;
+  color: #1a1a2e;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #e63946;
+  cursor: pointer;
+}
+
+/* ===== ORDERS HEADER ===== */
+.orders-header {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 15px;
+}
+
+.orders-header h2 {
+  margin-bottom: 0;
+}
+
+/* ===== EMPTY STATE ===== */
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  background: #f8f9fa;
+  border-radius: 15px;
+}
+
+.empty-state i {
+  font-size: 60px;
+  color: #e63946;
+  margin-bottom: 15px;
+  opacity: 0.7;
+}
+
+.empty-state h3 {
+  color: #1a1a2e;
+  font-size: 22px;
+  margin-bottom: 10px;
+}
+
+.empty-state p {
+  color: #6c757d;
+  margin-bottom: 20px;
+  font-size: 16px;
+}
+
+/* ===== WISHLIST ===== */
+.wishlist-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 20px;
+}
+
+.wishlist-card {
+  border: 1px solid #e9ecef;
+  border-radius: 12px;
+  overflow: hidden;
+  transition: all 0.3s;
+}
+
+.wishlist-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+}
+
+.product-image {
+  height: 150px;
+  background: #f1f3f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   position: relative;
+  cursor: pointer;
+}
+
+.wishlist-img {
   width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.product-image i {
+  font-size: 50px;
+  color: #adb5bd;
+}
+
+.remove-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 30px;
+  height: 30px;
+  background: white;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.remove-btn:hover {
+  background: #e63946;
+  color: white;
+}
+
+.product-info {
+  padding: 15px;
+}
+
+.product-info h3 {
+  font-size: 14px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: color 0.3s;
+}
+
+.product-info h3:hover {
+  color: #e63946;
+}
+
+.product-price {
+  font-weight: 600;
+  color: #e63946;
+  margin-bottom: 10px;
+  font-size: 16px;
+}
+
+.add-to-cart {
+  width: 100%;
+  background: #e63946;
+  color: white;
+  border: none;
+  padding: 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+  font-weight: 500;
+}
+
+.add-to-cart:hover {
+  background: #c62828;
+}
+
+/* ===== PASSWORD REQUIREMENTS ===== */
+.password-requirements {
+  background: #f8f9fa;
+  padding: 15px 20px;
+  border-radius: 10px;
+  margin-bottom: 20px;
+}
+
+.password-requirements p {
+  color: #1a1a2e;
+  margin-bottom: 10px;
+  font-weight: 500;
+}
+
+.password-requirements ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.password-requirements li {
+  margin-bottom: 5px;
+  color: #6c757d;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.password-requirements li i {
+  font-size: 14px;
+}
+
+.password-requirements li.valid {
+  color: #28a745;
+}
+
+.password-requirements li.valid i {
+  color: #28a745;
 }
 
 .password-input-field {
   width: 100%;
-  padding: 12px 45px 12px 15px !important;
+  padding: 12px 15px;
   border: 2px solid #e9ecef;
   border-radius: 10px;
   outline: none;
@@ -1951,45 +2252,11 @@ main {
   font-size: 14px;
   font-family: inherit;
   box-sizing: border-box;
-  background: white;
 }
 
 .password-input-field:focus {
   border-color: #e63946;
   box-shadow: 0 0 0 3px rgba(230, 57, 70, 0.1);
-}
-
-.password-toggle-icon {
-  position: absolute;
-  right: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  cursor: pointer;
-  color: #6c757d;
-  font-size: 18px;
-  z-index: 2;
-  transition: color 0.3s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 5px;
-  background: transparent;
-  border-radius: 4px;
-  user-select: none;
-}
-
-.password-toggle-icon:hover {
-  color: #1a1a2e;
-}
-
-.password-toggle-icon i {
-  pointer-events: none;
-}
-
-.form-actions {
-  display: flex;
-  gap: 15px;
-  margin-top: 20px;
 }
 
 /* ===== BUTTONS ===== */
@@ -2008,7 +2275,7 @@ main {
 }
 
 .btn-sm {
-  padding: 6px 12px;
+  padding: 6px 16px;
   font-size: 12px;
   min-width: 32px;
 }
@@ -2057,409 +2324,6 @@ main {
 
 .btn-warning:hover {
   background: #e0a800;
-}
-
-.btn-success {
-  background: #28a745;
-  color: white;
-}
-
-.btn-success:hover {
-  background: #1e7e34;
-}
-
-.btn-review {
-  background: linear-gradient(135deg, #f5c842, #f0a500);
-  color: white;
-  border: none;
-  padding: 6px 12px;
-  border-radius: 8px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-}
-
-.btn-review:hover {
-  background: linear-gradient(135deg, #e6b800, #cc9900);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(245, 200, 66, 0.4);
-}
-
-/* ===== ITEM ACTIONS ===== */
-.item-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  margin-left: auto;
-  flex-shrink: 0;
-}
-
-.review-action-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.reviewed-group {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.reviewed-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
-  background: #e8f5e9;
-  color: #2e7d32;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.reviewed-badge i {
-  font-size: 14px;
-}
-
-/* ===== ORDER ITEMS ===== */
-.order-item {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  padding: 10px 0;
-  border-bottom: 1px dashed #e9ecef;
-}
-
-.order-item:last-child {
-  border-bottom: none;
-}
-
-.item-image {
-  width: 60px;
-  height: 60px;
-  background: #f1f3f5;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  flex-shrink: 0;
-}
-
-.item-image img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.item-image i {
-  font-size: 30px;
-  color: #adb5bd;
-}
-
-.item-details {
-  flex: 1;
-}
-
-.item-details h4 {
-  font-size: 15px;
-  color: #1a1a2e;
-  margin-bottom: 3px;
-}
-
-.item-variant {
-  font-size: 13px;
-  color: #6c757d;
-}
-
-.item-quantity {
-  font-size: 13px;
-  color: #6c757d;
-}
-
-.item-price {
-  font-weight: 600;
-  color: #e63946;
-  font-size: 15px;
-}
-
-/* ===== ORDERS ===== */
-.orders-header {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  margin-bottom: 15px;
-}
-
-.orders-header h2 {
-  margin-bottom: 0;
-}
-
-.order-tabs {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin: 5px 0 10px;
-}
-
-.tab-btn {
-  padding: 6px 16px;
-  background: #f0f0f0;
-  border: none;
-  border-radius: 20px;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 500;
-  color: #666;
-  transition: all 0.3s;
-}
-
-.tab-btn:hover {
-  background: #e0e0e0;
-}
-
-.tab-btn.active {
-  background: #e63946;
-  color: white;
-}
-
-.tab-count {
-  font-size: 11px;
-  opacity: 0.8;
-}
-
-.orders-list {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.order-card {
-  border: 1px solid #e9ecef;
-  border-radius: 15px;
-  padding: 20px;
-  transition: all 0.3s;
-}
-
-.order-card:hover {
-  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
-}
-
-.order-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 15px;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.order-info {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
-
-.order-id {
-  font-weight: 700;
-  color: #e63946;
-  font-size: 16px;
-}
-
-.order-date {
-  color: #6c757d;
-  font-size: 14px;
-}
-
-.order-status {
-  padding: 5px 15px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.status-pending {
-  background: #fff3cd;
-  color: #856404;
-}
-.status-processing {
-  background: #cce5ff;
-  color: #004085;
-}
-.status-shipping {
-  background: #d1ecf1;
-  color: #0c5460;
-}
-.status-delivered {
-  background: #d4edda;
-  color: #155724;
-}
-.status-completed {
-  background: #d4edda;
-  color: #155724;
-}
-.status-cancelled {
-  background: #f8d7da;
-  color: #721c24;
-}
-.status-pending-review {
-  background: #fff3cd;
-  color: #856404;
-}
-.status-approved {
-  background: #d4edda;
-  color: #155724;
-}
-.status-rejected {
-  background: #f8d7da;
-  color: #721c24;
-}
-.status-return-requested {
-  background: #fff3cd;
-  color: #856404;
-}
-.status-return-approved {
-  background: #cce5ff;
-  color: #004085;
-}
-.status-return-received {
-  background: #cce5ff;
-  color: #004085;
-}
-.status-return-pending {
-  background: #d1ecf1;
-  color: #0c5460;
-}
-.status-returned {
-  background: #d4edda;
-  color: #155724;
-}
-
-.order-voucher {
-  background: #e8f5e9;
-  padding: 10px 15px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 5px 0 15px;
-  border-left: 4px solid #2e7d32;
-}
-
-.order-voucher i {
-  color: #2e7d32;
-  font-size: 18px;
-}
-
-.order-voucher .voucher-code {
-  font-weight: 700;
-  color: #2e7d32;
-  background: white;
-  padding: 2px 10px;
-  border-radius: 4px;
-  font-size: 14px;
-}
-
-.order-voucher .voucher-discount {
-  color: #e63946;
-  font-weight: 700;
-  margin-left: auto;
-}
-
-.order-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 15px;
-  padding-top: 15px;
-  border-top: 1px solid #e9ecef;
-  flex-wrap: wrap;
-  gap: 15px;
-}
-
-.order-total {
-  font-size: 16px;
-}
-
-.order-total strong {
-  color: #e63946;
-  margin-left: 10px;
-}
-
-.order-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  align-items: center;
-}
-
-/* ===== PAGINATION ===== */
-.pagination {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 15px;
-  margin-top: 20px;
-}
-
-.page-btn {
-  padding: 8px 16px;
-  border: 1px solid #ddd;
-  background: white;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.3s;
-}
-
-.page-btn:hover:not(:disabled) {
-  background: #e63946;
-  color: white;
-  border-color: #e63946;
-}
-
-.page-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.page-info {
-  font-size: 14px;
-  color: #666;
-}
-
-/* ===== EMPTY STATE ===== */
-.empty-state {
-  text-align: center;
-  padding: 60px 20px;
-  background: #f8f9fa;
-  border-radius: 15px;
-}
-
-.empty-state i {
-  font-size: 70px;
-  color: #e63946;
-  margin-bottom: 15px;
-  opacity: 0.7;
-}
-
-.empty-state h3 {
-  color: #1a1a2e;
-  font-size: 22px;
-  margin-bottom: 10px;
-}
-
-.empty-state p {
-  color: #6c757d;
-  margin-bottom: 25px;
-  font-size: 16px;
 }
 
 .btn-shop-now {
@@ -2570,6 +2434,64 @@ main {
   border-radius: 0 0 12px 12px;
 }
 
+/* ===== ADDRESS SECTION ===== */
+.address-section {
+  margin-bottom: 20px;
+  padding: 16px 20px;
+  background: #f8f9fa;
+  border-radius: 12px;
+  border: 1px solid #e9ecef;
+}
+
+.address-section h4 {
+  margin-top: 0;
+  margin-bottom: 12px;
+  color: #2c3e50;
+  font-size: 15px;
+}
+
+.address-detail-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.address-row {
+  display: flex;
+  align-items: flex-start;
+  padding: 4px 0;
+  font-size: 14px;
+}
+
+.address-row .address-label {
+  font-weight: 600;
+  color: #2c3e50;
+  min-width: 120px;
+  flex-shrink: 0;
+}
+
+.address-row .address-value {
+  color: #444;
+  word-break: break-word;
+}
+
+.address-row.full-address-row {
+  background: #e8f0fe;
+  padding: 8px 12px;
+  border-radius: 6px;
+  margin-top: 4px;
+}
+
+.address-row.full-address-row .address-label {
+  color: #1a3a6a;
+}
+
+.address-row.full-address-row .address-value.highlight {
+  color: #1a3a6a;
+  font-weight: 500;
+}
+
+/* ===== MODAL CONTENT ===== */
 .order-info-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -2854,6 +2776,76 @@ main {
   min-width: 120px;
 }
 
+/* ===== STATUS BADGE ===== */
+.status-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.status-badge.status-pending {
+  background: #fff3cd;
+  color: #856404;
+}
+.status-badge.status-confirmed {
+  background: #cce5ff;
+  color: #004085;
+}
+.status-badge.status-processing {
+  background: #cce5ff;
+  color: #004085;
+}
+.status-badge.status-shipping {
+  background: #d1ecf1;
+  color: #0c5460;
+}
+.status-badge.status-delivered {
+  background: #d4edda;
+  color: #155724;
+}
+.status-badge.status-completed {
+  background: #d4edda;
+  color: #155724;
+}
+.status-badge.status-cancelled {
+  background: #f8d7da;
+  color: #721c24;
+}
+.status-badge.status-return-requested {
+  background: #fff3cd;
+  color: #856404;
+}
+.status-badge.status-return-approved {
+  background: #cce5ff;
+  color: #004085;
+}
+.status-badge.status-return-received {
+  background: #cce5ff;
+  color: #004085;
+}
+.status-badge.status-return-pending {
+  background: #d1ecf1;
+  color: #0c5460;
+}
+.status-badge.status-returned {
+  background: #d4edda;
+  color: #155724;
+}
+.status-badge.status-rejected {
+  background: #f8d7da;
+  color: #721c24;
+}
+.status-badge.status-pending-review {
+  background: #fff3cd;
+  color: #856404;
+}
+.status-badge.status-approved {
+  background: #d4edda;
+  color: #155724;
+}
+
 /* ===== IMAGE VIEWER ===== */
 .image-viewer-container {
   max-width: 90vw;
@@ -2888,141 +2880,6 @@ main {
   transform: rotate(90deg);
   background: #e63946;
   color: white;
-}
-
-/* ===== WISHLIST ===== */
-.wishlist-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 20px;
-}
-
-.wishlist-card {
-  border: 1px solid #e9ecef;
-  border-radius: 12px;
-  overflow: hidden;
-  transition: all 0.3s;
-}
-
-.wishlist-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
-}
-
-.product-image {
-  height: 150px;
-  background: #f1f3f5;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  cursor: pointer;
-}
-
-.product-image i {
-  font-size: 50px;
-  color: #adb5bd;
-}
-
-.remove-btn {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  width: 30px;
-  height: 30px;
-  background: white;
-  border: none;
-  border-radius: 50%;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.3s;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-}
-
-.remove-btn:hover {
-  background: #e63946;
-  color: white;
-}
-
-.product-info {
-  padding: 15px;
-}
-
-.product-info h3 {
-  font-size: 14px;
-  margin-bottom: 8px;
-  cursor: pointer;
-  transition: color 0.3s;
-}
-
-.product-info h3:hover {
-  color: #e63946;
-}
-
-.product-price {
-  font-weight: 600;
-  color: #e63946;
-  margin-bottom: 10px;
-  font-size: 16px;
-}
-
-.add-to-cart {
-  width: 100%;
-  background: #e63946;
-  color: white;
-  border: none;
-  padding: 10px;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.3s;
-  font-weight: 500;
-}
-
-.add-to-cart:hover {
-  background: #c62828;
-}
-
-/* ===== PASSWORD REQUIREMENTS ===== */
-.password-requirements {
-  background: #f8f9fa;
-  padding: 15px 20px;
-  border-radius: 10px;
-  margin-bottom: 20px;
-}
-
-.password-requirements p {
-  color: #1a1a2e;
-  margin-bottom: 10px;
-  font-weight: 500;
-}
-
-.password-requirements ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.password-requirements li {
-  margin-bottom: 5px;
-  color: #6c757d;
-  font-size: 14px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.password-requirements li i {
-  font-size: 14px;
-}
-
-.password-requirements li.valid {
-  color: #28a745;
-}
-
-.password-requirements li.valid i {
-  color: #28a745;
 }
 
 /* ===== TOAST ===== */
@@ -3120,32 +2977,8 @@ main {
     gap: 15px;
   }
 
-  .order-footer {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .order-actions {
-    width: 100%;
-  }
-
-  .order-actions .btn {
-    flex: 1;
-  }
-
-  .order-item {
-    flex-wrap: wrap;
-  }
-
-  .item-actions {
-    width: 100%;
-    margin-left: 0;
-    justify-content: flex-start;
-  }
-
-  .reviewed-group {
-    width: 100%;
-    justify-content: flex-start;
+  .info-grid {
+    grid-template-columns: 1fr;
   }
 
   .wishlist-grid {
@@ -3161,14 +2994,34 @@ main {
     margin: 10px;
   }
 
-  .order-tabs {
-    overflow-x: auto;
-    flex-wrap: nowrap;
-  }
-
   .image-viewer-container .close-btn {
     top: 10px;
     right: 10px;
+  }
+
+  .address-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .address-header .btn {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .address-row {
+    flex-direction: column;
+    padding: 2px 0;
+  }
+  
+  .address-row .address-label {
+    min-width: auto;
+    font-size: 12px;
+  }
+  
+  .address-row .address-value {
+    font-size: 13px;
+    padding-left: 10px;
   }
 }
 
@@ -3181,25 +3034,12 @@ main {
     grid-template-columns: 1fr;
   }
 
-  .order-header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
   .form-actions {
     flex-direction: column;
   }
 
   .form-actions .btn {
     width: 100%;
-  }
-
-  .order-voucher {
-    flex-wrap: wrap;
-  }
-  
-  .order-voucher .voucher-discount {
-    margin-left: 0;
   }
 }
 </style>

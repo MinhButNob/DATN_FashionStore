@@ -62,18 +62,21 @@
 
     <nav class="nav-menu">
       <div class="container">
-        <ul>
-          <li v-for="item in menuItems" :key="item.path">
-            <router-link
-              :to="item.path"
-              :class="{ active: isActive(item.path) }"
-              @click="closeDropdowns"
-            >
-              <i :class="item.icon"></i>
-              {{ item.name }}
-            </router-link>
-          </li>
-        </ul>
+      <ul>
+        <li v-for="item in menuItemsBefore" :key="item.path">
+          <router-link :to="item.path" :class="{ active: isActive(item.path) }" @click="closeDropdowns">
+            <i :class="item.icon"></i>
+            {{ item.name }}
+          </router-link>
+        </li>
+        <CategoryMegaMenu />
+        <li v-for="item in menuItemsAfter" :key="item.path">
+          <router-link :to="item.path" :class="{ active: isActive(item.path) }" @click="closeDropdowns">
+            <i :class="item.icon"></i>
+            {{ item.name }}
+          </router-link>
+        </li>
+      </ul>
       </div>
     </nav>
   </header>
@@ -85,6 +88,7 @@ import { useRouter, useRoute } from "vue-router";
 import { useProductStore } from "../../stores/productStore";
 import { useCartStore } from "../../stores/cartStore";
 import { useAuthStore } from "../../stores/authStore";
+import CategoryMegaMenu from "../../components/client/Categorymegamenu.vue";
 
 const router = useRouter();
 const route = useRoute();
@@ -97,10 +101,13 @@ const showUserMenu = ref(false);
 const userMenu = ref(null);
 const wishlistCount = ref(0);
 
-const menuItems = [
+// Thứ tự menu mong muốn: Trang chủ, Sản phẩm, Khuyến mãi, [3 danh mục mặc định: Áo/Quần/Phụ kiện], Về chúng tôi
+const menuItemsBefore = [
   { path: "/home", name: "Trang chủ", icon: "fas fa-home" },
   { path: "/shop", name: "Sản phẩm", icon: "fas fa-store" },
-  { path: "/shop?tag=sale", name: "Khuyến mãi", icon: "fas fa-tags" },
+  { path: "/shop?categoryName=" + encodeURIComponent("Khuyến Mãi"), name: "Khuyến mãi", icon: "fas fa-tags" },
+];
+const menuItemsAfter = [
   { path: "/about", name: "Về chúng tôi", icon: "fas fa-info-circle" },
 ];
 

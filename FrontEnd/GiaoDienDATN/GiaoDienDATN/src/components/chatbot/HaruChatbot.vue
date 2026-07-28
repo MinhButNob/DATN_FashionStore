@@ -33,109 +33,134 @@
         :class="{ 'side-right': !chatOnRight }"
         :style="chatWindowStyle"
       >
-        <div class="chat-messages" ref="messagesContainer">
+        <!-- Thêm Tabs -->
+        <div class="chat-tabs-header">
+          <button 
+            class="tab-btn" 
+            :class="{ active: activeTab === 'haru' }" 
+            @click="activeTab = 'haru'"
+          >
+            <i class="fas fa-robot"></i> AI Haru
+          </button>
+          <button 
+            class="tab-btn" 
+            :class="{ active: activeTab === 'staff' }" 
+            @click="activeTab = 'staff'"
+          >
+            <i class="fas fa-headset"></i> Nhân viên tư vấn
+          </button>
           <button @click="toggleChat" class="close-btn" title="Đóng">
             <i class="fas fa-times"></i>
           </button>
+        </div>
 
-          <div v-if="messages.length === 0" class="welcome-message">
-            <div class="welcome-content">
-              <h3>Xin chào! Tôi là Haru</h3>
-              <p>Tôi có thể giúp bạn:</p>
-              <ul>
-                <li>🛍️ Tìm kiếm sản phẩm</li>
-                <li>📝 Hỗ trợ đặt hàng</li>
-                <li>❓ Trả lời thắc mắc</li>
-              </ul>
-            </div>
-          </div>
-
-          <div
-            v-for="message in messages"
-            :key="message.id"
-            class="message"
-            :class="{ 'user': message.type === 'user', 'bot': message.type === 'bot' }"
-          >
-            <div class="message-content">
-              <div class="message-bubble">
-                <p v-html="message.content"></p>
-                <span class="message-time">{{ formatTime(message.timestamp) }}</span>
+        <!-- AI Haru Tab -->
+        <div v-show="activeTab === 'haru'" class="chat-tab-content">
+          <div class="chat-messages" ref="messagesContainer">
+            <div v-if="messages.length === 0" class="welcome-message">
+              <div class="welcome-content">
+                <h3>Xin chào! Tôi là Haru</h3>
+                <p>Tôi có thể giúp bạn:</p>
+                <ul>
+                  <li>🛍️ Tìm kiếm sản phẩm</li>
+                  <li>📝 Hỗ trợ đặt hàng</li>
+                  <li>❓ Trả lời thắc mắc</li>
+                </ul>
               </div>
+            </div>
 
-              <!-- Card sản phẩm gắn theo tin nhắn này (nếu có) -->
-              <div v-if="message.products && message.products.length > 0" class="product-recommendations">
-                <div class="product-list">
-                  <div
-                    v-for="product in message.products"
-                    :key="product.id"
-                    class="product-card"
-                    @click="navigateToProduct(product.id)"
-                    title="Xem chi tiết sản phẩm"
-                  >
-                    <img
-                      v-if="product.link"
-                      :src="resolveImageUrl(product.link)"
-                      :alt="product.name"
-                      class="product-img"
-                      @error="(e) => e.target.style.display='none'"
-                    />
-                    <div class="product-info">
-                      <p class="product-name">{{ product.name }}</p>
-                      <p class="product-price">{{ formatPrice(product.price) }}đ</p>
-                      <p v-if="product.color" class="product-meta">
-                        {{ product.color }}<span v-if="product.size"> · {{ product.size }}</span>
-                      </p>
-                      <span class="product-view-btn">Xem chi tiết →</span>
+            <div
+              v-for="message in messages"
+              :key="message.id"
+              class="message"
+              :class="{ 'user': message.type === 'user', 'bot': message.type === 'bot' }"
+            >
+              <div class="message-content">
+                <div class="message-bubble">
+                  <p v-html="message.content"></p>
+                  <span class="message-time">{{ formatTime(message.timestamp) }}</span>
+                </div>
+
+                <!-- Card sản phẩm gắn theo tin nhắn này (nếu có) -->
+                <div v-if="message.products && message.products.length > 0" class="product-recommendations">
+                  <div class="product-list">
+                    <div
+                      v-for="product in message.products"
+                      :key="product.id"
+                      class="product-card"
+                      @click="navigateToProduct(product.id)"
+                      title="Xem chi tiết sản phẩm"
+                    >
+                      <img
+                        v-if="product.link"
+                        :src="resolveImageUrl(product.link)"
+                        :alt="product.name"
+                        class="product-img"
+                        @error="(e) => e.target.style.display='none'"
+                      />
+                      <div class="product-info">
+                        <p class="product-name">{{ product.name }}</p>
+                        <p class="product-price">{{ formatPrice(product.price) }}đ</p>
+                        <p v-if="product.color" class="product-meta">
+                          {{ product.color }}<span v-if="product.size"> · {{ product.size }}</span>
+                        </p>
+                        <span class="product-view-btn">Xem chi tiết →</span>
+                      </div>
                     </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div v-if="isTyping" class="message bot">
+              <div class="message-content">
+                <div class="message-bubble typing">
+                  <div class="typing-indicator">
+                    <span></span><span></span><span></span>
                   </div>
                 </div>
               </div>
             </div>
           </div>
 
-          <div v-if="isTyping" class="message bot">
-            <div class="message-content">
-              <div class="message-bubble typing">
-                <div class="typing-indicator">
-                  <span></span><span></span><span></span>
-                </div>
-              </div>
+          <!-- Input Area -->
+          <div class="chat-bottom">
+            <div class="quick-actions">
+              <button
+                v-for="action in quickActions"
+                :key="action.id"
+                @click="sendQuickMessage(action.text)"
+                class="quick-btn"
+              >
+                <i :class="action.icon"></i>
+                {{ action.text }}
+              </button>
+            </div>
+
+            <div class="input-row">
+              <input
+                v-model="currentMessage"
+                @keyup.enter="sendMessage"
+                @input="handleTyping"
+                type="text"
+                placeholder="Nhập câu hỏi cho Haru..."
+                class="message-input"
+                :disabled="isTyping"
+              />
+              <button
+                @click="sendMessage"
+                :disabled="!currentMessage.trim() || isTyping"
+                class="send-btn"
+              >
+                <i class="fas fa-paper-plane"></i>
+              </button>
             </div>
           </div>
         </div>
 
-        <!-- Input Area -->
-        <div class="chat-bottom">
-          <div class="quick-actions">
-            <button
-              v-for="action in quickActions"
-              :key="action.id"
-              @click="sendQuickMessage(action.text)"
-              class="quick-btn"
-            >
-              <i :class="action.icon"></i>
-              {{ action.text }}
-            </button>
-          </div>
-
-          <div class="input-row">
-            <input
-              v-model="currentMessage"
-              @keyup.enter="sendMessage"
-              @input="handleTyping"
-              type="text"
-              placeholder="Nhập câu hỏi cho Haru..."
-              class="message-input"
-              :disabled="isTyping"
-            />
-            <button
-              @click="sendMessage"
-              :disabled="!currentMessage.trim() || isTyping"
-              class="send-btn"
-            >
-              <i class="fas fa-paper-plane"></i>
-            </button>
-          </div>
+        <!-- Staff Tab -->
+        <div v-show="activeTab === 'staff'" class="chat-tab-content">
+          <StaffChatPanel ref="staffChatRef" />
         </div>
       </div>
     </transition>
@@ -146,12 +171,16 @@
 import { ref, onMounted, onBeforeUnmount, nextTick, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import Live2DAvatar from './Live2DAvatar.vue'
+import StaffChatPanel from './StaffChatPanel.vue'
+import api from '@/services/api.js'
 
 const router = useRouter()
 const CHAT_WIDTH = 380
 const CHAT_GAP = 16     // khoảng cách ngang giữa Haru và chat window
 
 // ---- Reactive state ----
+const activeTab = ref('haru')
+const staffChatRef = ref(null)
 const isOpen = ref(false)
 const isHaruVisible = ref(true)
 const currentMessage = ref('')
@@ -201,8 +230,7 @@ const chatWindowStyle = computed(() => {
     return {
       left: safeLeft + 'px',
       right: 'auto',
-      bottom: chatBottom.value + 'px',
-    }
+      bottom: chatBottom.value + 'px' }
   } else {
     // Haru bên phải → chat nằm bên trái Haru
     const left = haruPos.value.x - CHAT_WIDTH - CHAT_GAP
@@ -210,8 +238,7 @@ const chatWindowStyle = computed(() => {
     return {
       left: safeLeft + 'px',
       right: 'auto',
-      bottom: chatBottom.value + 'px',
-    }
+      bottom: chatBottom.value + 'px' }
   }
 })
 
@@ -335,7 +362,6 @@ const callAIAPI = async (message) => {
     console.warn('Could not parse user from localStorage', e)
   }
 
-  // Also try direct key
   if (!userId) {
     userId = localStorage.getItem('userId') || localStorage.getItem('user_id')
     if (userId) userId = Number(userId)
@@ -348,22 +374,13 @@ const callAIAPI = async (message) => {
     }
   }
 
-  const token = localStorage.getItem('token') || localStorage.getItem('accessToken')
-  const headers = { 'Content-Type': 'application/json' }
-  if (token) headers['Authorization'] = `Bearer ${token}`
+  // api.js interceptor already attaches the Authorization header and
+  // already points at the correct backend baseURL — no need to build
+  // headers or a URL by hand here.
+  const data = await api.post('/ai/chat', { message, userId: Number(userId) })
 
-  const response = await fetch('http://localhost:8080/api/ai/chat', {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ message, userId: Number(userId) })
-  })
-
-  if (!response.ok) throw new Error(`API error: ${response.status}`)
-
-  const data = await response.json()
   if (data.success && data.data) {
     const { response: aiText, products, navigateToProductId, intent } = data.data
-    // Debug log - xoá khi production
     console.log('[Haru] intent:', intent, '| products:', products)
     return {
       text: aiText || 'Xin lỗi, Haru không hiểu. Bạn có thể hỏi lại không?',
@@ -392,7 +409,7 @@ const formatPrice = (price) =>
 
 // Ảnh sản phẩm từ DB có thể là path tương đối (vd: /uploads/abc.jpg)
 // => cần ghép domain backend để hiển thị đúng, nếu đã là URL đầy đủ (http...) thì giữ nguyên.
-const BACKEND_BASE_URL = 'http://localhost:8080'
+const BACKEND_BASE_URL = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "").replace(/\/api$/, "")
 const resolveImageUrl = (link) => {
   if (!link) return ''
   if (/^https?:\/\//i.test(link)) return link
@@ -659,7 +676,7 @@ watch(messages, saveMessages, { deep: true })
 /* ---- Close Button ---- */
 .close-btn {
   position: absolute;
-  top: 10px;
+  top: 15px;
   right: 15px;
   background: none;
   border: none;
@@ -670,11 +687,55 @@ watch(messages, saveMessages, { deep: true })
 }
 .close-btn:hover { color: #ff4757; }
 
+/* ---- Tabs ---- */
+.chat-tabs-header {
+  display: flex;
+  background: #f8f9fa;
+  border-bottom: 1px solid #eee;
+  padding: 0 10px;
+  padding-right: 45px; /* Chỗ cho close button */
+  border-radius: 20px 20px 0 0;
+  flex-shrink: 0;
+}
+.chat-window.speech-bubble.side-right .chat-tabs-header {
+  border-radius: 20px 20px 0 0;
+}
+
+.tab-btn {
+  flex: 1;
+  background: none;
+  border: none;
+  padding: 15px 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #718096;
+  cursor: pointer;
+  transition: all 0.3s;
+  border-bottom: 2px solid transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.tab-btn:hover {
+  color: #4a5568;
+}
+.tab-btn.active {
+  color: #667eea;
+  border-bottom: 2px solid #667eea;
+}
+
+.chat-tab-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 /* ---- Messages ---- */
 .chat-messages {
   flex: 1;
   padding: 20px;
-  padding-top: 35px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;

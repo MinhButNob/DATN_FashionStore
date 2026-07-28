@@ -8,8 +8,7 @@ import {
   softDeleteVoucher,
   restoreVoucher,
   toggleVoucherStatus,
-  getVoucherStatistics,
-} from "../services/api";
+  getVoucherStatistics } from "../services/api";
 
 export const useVoucherStore = defineStore("voucher", () => {
   const vouchers = ref([]);
@@ -24,8 +23,7 @@ export const useVoucherStore = defineStore("voucher", () => {
     totalVouchers: 0,
     activeVouchers: 0,
     inactiveVouchers: 0,
-    totalUsedCount: 0,
-  });
+    totalUsedCount: 0 });
 
   const fetchVouchers = async (
     page = 0,
@@ -165,6 +163,5 @@ export const useVoucherStore = defineStore("voucher", () => {
     removeVoucher,
     restoreVoucherItem,
     toggleStatus,
-    toggleShowDeleted,
-  };
+    toggleShowDeleted };
 });

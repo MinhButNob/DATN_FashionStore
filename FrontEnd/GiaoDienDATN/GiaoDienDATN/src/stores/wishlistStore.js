@@ -1,114 +1,117 @@
 import { defineStore } from "pinia";
-import axios from "axios";
-
-const API_BASE = "http://localhost:8080/api";
+import api from "../api/axios";
+import { useAuthStore } from "./authStore";
 
 export const useWishlistStore = defineStore("wishlist", {
   state: () => ({
-    items: [],
-    loading: false,
-    loaded: false,
+    wishlistItems: [],
+    loading: false
   }),
 
   getters: {
-    totalItems: (state) => state.items.length,
-    productDetailIds: (state) =>
-      new Set(state.items.map((item) => item.productDetailId)),
+    items: (state) => state.wishlistItems,
+
+    isInWishlist: (state) => (productDetailId) => {
+      if (!productDetailId) return false;
+      return state.wishlistItems.some((item) => item.productDetailId === productDetailId);
+    }
   },
 
   actions: {
-    getToken() {
-      return (
-        localStorage.getItem("token") || localStorage.getItem("accessToken")
-      );
-    },
-
-    isInWishlist(productDetailId) {
-      return this.items.some(
-        (item) => item.productDetailId === productDetailId,
-      );
-    },
-
     async fetchWishlist() {
-      const token = this.getToken();
-      if (!token) {
-        this.items = [];
-        this.loaded = true;
+      const authStore = useAuthStore();
+      if (!authStore.isAuthenticated) {
+        this.wishlistItems = [];
         return;
       }
-
       this.loading = true;
       try {
-        const response = await axios.get(`${API_BASE}/wishlist`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-
+        // Backend route is /api/customer/wishlist
+        const response = await api.get("/customer/wishlist");
         if (response.data && response.data.data) {
-          this.items = response.data.data.items || [];
+          // Map response data to expected format
+          this.wishlistItems = response.data.data.items || [];
         }
-        this.loaded = true;
       } catch (error) {
-        console.error("❌ Fetch wishlist error:", error);
+        console.error("Error fetching wishlist:", error);
+        this.wishlistItems = [];
       } finally {
         this.loading = false;
       }
     },
 
     async addToWishlist(productDetailId) {
-      const token = this.getToken();
-      if (!token) {
-        throw new Error("Vui lòng đăng nhập để thêm vào yêu thích");
+      const authStore = useAuthStore();
+      if (!authStore.isAuthenticated) {
+        window.dispatchEvent(
+          new CustomEvent("open-auth-modal", { detail: "login" })
+        );
+        return false;
       }
 
-      const response = await axios.post(
-        `${API_BASE}/wishlist/add`,
-        { productDetailId },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        },
-      );
+      try {
+        // Backend route is /api/customer/wishlist/add
+        const response = await api.post("/customer/wishlist/add", {
+          productDetailId
+        });
 
-      if (response.data && response.data.data) {
-        this.items = response.data.data.items || [];
+        if (response.data && response.data.data) {
+          this.wishlistItems = response.data.data.items || [];
+          return true;
+        }
+      } catch (error) {
+        console.error("Error adding to wishlist:", error);
       }
-      return response.data;
+      return false;
     },
 
     async removeFromWishlist(productDetailId) {
-      const token = this.getToken();
-      if (!token) {
-        throw new Error("Vui lòng đăng nhập");
+      const authStore = useAuthStore();
+      if (!authStore.isAuthenticated) {
+        window.dispatchEvent(
+          new CustomEvent("open-auth-modal", { detail: "login" })
+        );
+        return false;
       }
 
-      const response = await axios.delete(
-        `${API_BASE}/wishlist/items/${productDetailId}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
-      );
+      try {
+        // Backend route is /api/customer/wishlist/items/:id
+        const response = await api.delete(`/customer/wishlist/items/${productDetailId}`);
 
-      if (response.data && response.data.data) {
-        this.items = response.data.data.items || [];
+        if (response.data && response.data.data) {
+          this.wishlistItems = response.data.data.items || [];
+          return true;
+        }
+      } catch (error) {
+        console.error("Error removing from wishlist:", error);
       }
-      return response.data;
+      return false;
     },
 
     async toggleWishlist(productDetailId) {
-      if (this.isInWishlist(productDetailId)) {
-        await this.removeFromWishlist(productDetailId);
+      console.log("📤 Toggling wishlist for productDetailId:", productDetailId);
+      const authStore = useAuthStore();
+      if (!authStore.isAuthenticated) {
+        window.dispatchEvent(
+          new CustomEvent("open-auth-modal", { detail: "login" })
+        );
         return false;
-      } else {
-        await this.addToWishlist(productDetailId);
-        return true;
       }
-    },
 
-    reset() {
-      this.items = [];
-      this.loaded = false;
-    },
-  },
+      try {
+        const isInWishlist = this.isInWishlist(productDetailId);
+        
+        if (isInWishlist) {
+          // Remove from wishlist
+          return await this.removeFromWishlist(productDetailId);
+        } else {
+          // Add to wishlist
+          return await this.addToWishlist(productDetailId);
+        }
+      } catch (error) {
+        console.error("❌ Error toggling wishlist:", error);
+        return false;
+      }
+    }
+  }
 });

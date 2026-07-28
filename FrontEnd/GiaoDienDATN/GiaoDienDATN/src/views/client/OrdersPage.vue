@@ -6,126 +6,26 @@
       <div class="container">
         <h1 class="page-title">ĐƠN HÀNG CỦA TÔI</h1>
 
-        <!-- Tab filters -->
-        <div class="order-tabs">
-          <button 
-            v-for="tab in tabs" 
-            :key="tab.value"
-            :class="['tab-btn', { active: activeTab === tab.value }]"
-            @click="changeTab(tab.value)"
-          >
-            {{ tab.label }}
-          </button>
-        </div>
+        <!-- ===== ORDER TABS ===== -->
+        <OrderTabs 
+          ref="orderTabsRef"
+          :orders="orders"
+          @change-tab="onTabChange"
+        />
 
-        <!-- Loading -->
-        <div v-if="loading" class="loading-state">
-          <div class="spinner"></div>
-          <p>Đang tải đơn hàng...</p>
-        </div>
-
-        <!-- Empty orders -->
-        <div v-else-if="orders.length === 0" class="empty-state">
-          <i class="fas fa-box-open"></i>
-          <h3>Chưa có đơn hàng nào</h3>
-          <p>Bạn chưa có đơn hàng nào trong danh sách này</p>
-          <router-link to="/shop" class="btn-primary">
-            <i class="fas fa-shopping-cart"></i> Mua sắm ngay
-          </router-link>
-        </div>
-
-        <!-- Orders list -->
-        <div v-else>
-          <div v-for="order in orders" :key="order.orderId" class="order-card">
-            <div class="order-header">
-              <div class="order-info">
-                <span class="order-id">#{{ order.orderCode || order.orderId }}</span>
-                <span class="order-date">{{ formatDate(order.orderDate) }}</span>
-              </div>
-              <span :class="['order-status', getStatusClass(order.orderStatus)]">
-                {{ getStatusText(order.orderStatus) }}
-              </span>
-            </div>
-
-            <div class="order-items">
-              <div v-for="item in order.items" :key="item.itemId" class="order-item">
-                <div class="item-image">
-                  <img v-if="item.imageUrl" :src="item.imageUrl" :alt="item.productName" />
-                  <i v-else class="fas fa-tshirt"></i>
-                </div>
-                <div class="item-details">
-                  <h4>{{ item.productName }}</h4>
-                  <p class="item-variant">
-                    {{ item.sizeName || '' }} {{ item.colorName || '' }}
-                  </p>
-                  <p class="item-quantity">x{{ item.quantity }}</p>
-                </div>
-                <div class="item-price">
-                  {{ formatPrice(item.finalAmount) }}
-                </div>
-              </div>
-            </div>
-
-            <!-- ✅ HIỂN THỊ VOUCHER TRONG ĐƠN HÀNG -->
-            <div v-if="order.voucher" class="order-voucher">
-              <i class="fas fa-ticket-alt"></i>
-              <span class="voucher-code">{{ order.voucher.voucherCode }}</span>
-              <span class="voucher-discount">-{{ formatPrice(order.voucher.discountAmount || order.discountAmount || 0) }}</span>
-            </div>
-
-            <div class="order-footer">
-              <div class="order-total">
-                <span>Tổng cộng:</span>
-                <strong>{{ formatPrice(order.totalAmount) }}</strong>
-              </div>
-              <div class="order-actions">
-                <button class="btn btn-outline" @click="viewOrderDetail(order.orderId)">
-                  <i class="fas fa-eye"></i> Xem chi tiết
-                </button>
-                <button 
-                  v-if="order.orderStatus === 'PENDING_PAYMENT'" 
-                  class="btn btn-danger" 
-                  @click="handleCancelOrder(order.orderId)"
-                >
-                  <i class="fas fa-times"></i> Hủy đơn
-                </button>
-                <button 
-                  v-if="order.orderStatus === 'COMPLETED'" 
-                  class="btn btn-primary" 
-                  @click="handleReorder(order)"
-                >
-                  <i class="fas fa-redo"></i> Mua lại
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Pagination -->
-        <div class="pagination" v-if="totalPages > 1">
-          <button 
-            class="page-btn"
-            :disabled="currentPage === 0"
-            @click="goToPage(currentPage - 1)"
-          >
-            <i class="fas fa-chevron-left"></i>
-          </button>
-          <button 
-            v-for="page in displayedPages" 
-            :key="page"
-            :class="['page-btn', { active: currentPage === page }]"
-            @click="goToPage(page)"
-          >
-            {{ page + 1 }}
-          </button>
-          <button 
-            class="page-btn"
-            :disabled="currentPage === totalPages - 1"
-            @click="goToPage(currentPage + 1)"
-          >
-            <i class="fas fa-chevron-right"></i>
-          </button>
-        </div>
+        <!-- ===== ORDER LIST ===== -->
+        <OrderList
+          :orders="filteredOrders"
+          :loading="loading"
+          :current-page="currentPage"
+          :total-pages="totalPages"
+          :show-review-actions="false"
+          @view-detail="viewOrderDetail"
+          @cancel-order="handleCancelOrder"
+          @return-order="handleReturnOrder"
+          @reorder="handleReorder"
+          @change-page="goToPage"
+        />
       </div>
     </main>
 
@@ -154,6 +54,25 @@
             </div>
           </div>
 
+          <!-- ===== ĐỊA CHỈ GIAO HÀNG - HIỂN THỊ CHI TIẾT ===== -->
+          <div class="address-section">
+            <h4>📍 Địa chỉ giao hàng</h4>
+            <div class="address-detail-card">
+              <div class="address-row">
+                <span class="address-label">👤 Người nhận:</span>
+                <span class="address-value">{{ selectedOrder?.shippingAddress?.fullName || '---' }}</span>
+              </div>
+              <div class="address-row">
+                <span class="address-label">📞 Số điện thoại:</span>
+                <span class="address-value">{{ selectedOrder?.shippingAddress?.phone || '---' }}</span>
+              </div>
+              <div class="address-row full-address-row">
+                <span class="address-label">📦 Địa chỉ đầy đủ:</span>
+                <span class="address-value highlight">{{ getOrderFullAddress(selectedOrder?.shippingAddress) }}</span>
+              </div>
+            </div>
+          </div>
+
           <div class="order-items-section">
             <h4>Sản phẩm</h4>
             <table class="items-table">
@@ -170,7 +89,7 @@
                   <td>
                     <div class="item-info">
                       <div class="item-image">
-                        <img v-if="item.imageUrl" :src="item.imageUrl" :alt="item.productName" />
+                        <img v-if="item.imageUrl" :src="getImageUrl(item.imageUrl)" :alt="item.productName" />
                         <i v-else class="fas fa-tshirt"></i>
                       </div>
                       <div>
@@ -189,7 +108,6 @@
                   <td colspan="3" class="text-right">Tạm tính:</td>
                   <td>{{ formatPrice(selectedOrder?.subtotalAmount) }}</td>
                 </tr>
-                <!-- ✅ HIỂN THỊ GIẢM GIÁ TỪ VOUCHER -->
                 <tr v-if="selectedOrder?.discountAmount && selectedOrder?.discountAmount > 0" class="discount-row">
                   <td colspan="3" class="text-right">
                     <span class="voucher-label">
@@ -211,7 +129,6 @@
             </table>
           </div>
 
-          <!-- ✅ HIỂN THỊ THÔNG TIN VOUCHER RIÊNG -->
           <div v-if="selectedOrder?.voucher" class="voucher-info-section">
             <h4><i class="fas fa-ticket-alt"></i> Mã giảm giá đã áp dụng</h4>
             <div class="voucher-detail">
@@ -235,7 +152,7 @@
         </div>
         <div class="modal-body">
           <div class="form-group">
-            <label>Lý do hủy</label>
+            <label>Lý do hủy <span class="required">*</span></label>
             <textarea v-model="cancelReason" rows="3" placeholder="Nhập lý do hủy đơn hàng..."></textarea>
           </div>
         </div>
@@ -247,6 +164,14 @@
         </div>
       </div>
     </div>
+
+    <!-- Return Request Modal -->
+    <ReturnRequestModal
+      :visible="showReturnModal"
+      :order="selectedOrderForReturn"
+      @close="closeReturnModal"
+      @submitted="onReturnSubmitted"
+    />
 
     <!-- Toast -->
     <div :class="['toast', { show: showToast, 'toast-error': toastType === 'error' }]">
@@ -260,38 +185,56 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import ClientHeader from '../../components/client/ClientHeader.vue'
 import ClientFooter from '../../components/client/ClientFooter.vue'
+import OrderTabs from '../../components/client/OrderTabs.vue'
+import OrderList from '../../components/client/OrderList.vue'
+import ReturnRequestModal from '../../components/client/ReturnRequestModal.vue'
 import { useCartStore } from '../../stores/cartStore'
 import { orderService } from '../../services/orderService'
+import { useNotification } from '../../composables/useNotification'
 
 const router = useRouter()
 const cartStore = useCartStore()
+const { showNotification } = useNotification()
 
+// ===== CONSTANTS =====
+const IMAGE_BASE = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "").replace(/\/api$/, "");
+
+// ===== STATE =====
 const loading = ref(false)
 const cancelLoading = ref(false)
 const orders = ref([])
 const currentPage = ref(0)
 const totalPages = ref(0)
-const totalElements = ref(0)
-const activeTab = ref('all')
+const orderTabsRef = ref(null)
 
+// ===== TAB STATE =====
+const activeMainTab = ref('all')
+const activeSubTab = ref('all')
+
+// ===== MODAL STATE =====
 const showDetailModal = ref(false)
 const showCancelModal = ref(false)
+const showReturnModal = ref(false)
 const selectedOrder = ref(null)
+const selectedOrderForReturn = ref(null)
 const cancelOrderId = ref(null)
 const cancelReason = ref('')
 
+// ===== TOAST =====
 const showToast = ref(false)
 const toastMessage = ref('')
 const toastType = ref('success')
 let toastTimer = null
 
-const tabs = [
-  { value: 'all', label: 'Tất cả' },
-  { value: 'PENDING_PAYMENT', label: 'Chờ thanh toán' },
-  { value: 'PROCESSING', label: 'Đang xử lý' },
-  { value: 'COMPLETED', label: 'Hoàn thành' },
-  { value: 'CANCELLED', label: 'Đã hủy' }
-]
+// ===== HELPERS =====
+const getImageUrl = (imagePath) => {
+  if (!imagePath) return ''
+  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+    return imagePath
+  }
+  const cleanPath = imagePath.startsWith('/') ? imagePath : '/' + imagePath
+  return IMAGE_BASE + cleanPath
+}
 
 const formatPrice = (price) => {
   if (!price && price !== 0) return '0₫'
@@ -311,24 +254,41 @@ const formatDate = (dateString) => {
 const getStatusText = (status) => {
   const map = {
     'PENDING_PAYMENT': 'Chờ thanh toán',
+    'CONFIRMED': 'Đã xác nhận',
     'PROCESSING': 'Đang xử lý',
+    'SHIPPING': 'Đang giao hàng',
+    'DELIVERED': 'Đã giao hàng',
     'COMPLETED': 'Hoàn thành',
-    'CANCELLED': 'Đã hủy'
+    'CANCELLED': 'Đã hủy',
+    'RETURN_REQUESTED': 'Yêu cầu hoàn hàng',
+    'RETURN_APPROVED': 'Đã duyệt hoàn hàng',
+    'RETURN_RECEIVED': 'Đã nhận hàng trả',
+    'RETURN_PENDING': 'Đang thu hồi hàng',
+    'RETURNED': 'Đã hoàn trả',
+    'REJECTED': 'Từ chối hoàn trả'
   }
   return map[status] || status
 }
 
-const getStatusClass = (status) => {
-  const map = {
-    'PENDING_PAYMENT': 'status-pending',
-    'PROCESSING': 'status-processing',
-    'COMPLETED': 'status-completed',
-    'CANCELLED': 'status-cancelled'
+// ===== GET ORDER FULL ADDRESS =====
+const getOrderFullAddress = (shippingAddress) => {
+  if (!shippingAddress) return '---'
+  
+  // Nếu đã có addressLine (backend đã gộp) thì dùng luôn
+  if (shippingAddress.addressLine) {
+    return shippingAddress.addressLine
   }
-  return map[status] || ''
+  
+  // Nếu không, tự gộp từ các thành phần
+  const parts = []
+  if (shippingAddress.addressLine) parts.push(shippingAddress.addressLine)
+  if (shippingAddress.ward) parts.push(shippingAddress.ward)
+  if (shippingAddress.city) parts.push(shippingAddress.city)
+  
+  return parts.length > 0 ? parts.join(', ') : '---'
 }
 
-const showNotification = (message, type = 'success') => {
+const showNotificationMsg = (message, type = 'success') => {
   if (toastTimer) clearTimeout(toastTimer)
   toastMessage.value = message
   toastType.value = type
@@ -338,44 +298,85 @@ const showNotification = (message, type = 'success') => {
   }, 3000)
 }
 
-// Fetch orders
+// ===== FILTER ORDERS =====
+const filteredOrders = computed(() => {
+  let result = [...orders.value]
+  
+  if (activeMainTab.value === 'orders') {
+    result = result.filter(o => 
+      !['RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED', 'REJECTED', 'CANCELLED'].includes(o.orderStatus)
+    )
+  } else if (activeMainTab.value === 'returns') {
+    result = result.filter(o => 
+      ['RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED', 'REJECTED'].includes(o.orderStatus)
+    )
+  } else if (activeMainTab.value === 'cancelled') {
+    result = result.filter(o => o.orderStatus === 'CANCELLED')
+  }
+  
+  if (activeSubTab.value !== 'all' && activeMainTab.value !== 'all') {
+    result = result.filter(o => o.orderStatus === activeSubTab.value)
+  }
+  
+  return result
+})
+
+// ===== TAB HANDLER =====
+const onTabChange = ({ mainTab, subTab }) => {
+  activeMainTab.value = mainTab
+  activeSubTab.value = subTab
+  currentPage.value = 0
+  fetchOrders()
+}
+
+// ===== FETCH ORDERS =====
 const fetchOrders = async () => {
   loading.value = true
   try {
     const token = localStorage.getItem('token')
     if (!token) {
-      showNotification('Vui lòng đăng nhập để xem đơn hàng', 'error')
+      showNotificationMsg('Vui lòng đăng nhập để xem đơn hàng', 'error')
       router.push('/login')
       return
     }
 
-    const status = activeTab.value === 'all' ? null : activeTab.value
-    const response = await orderService.getMyOrders(status, currentPage.value, 10)
+    let statusFilter = null
+    
+    if (activeMainTab.value === 'orders') {
+      if (activeSubTab.value === 'all') {
+        statusFilter = 'PENDING_PAYMENT,CONFIRMED,PROCESSING,SHIPPING,DELIVERED,COMPLETED'
+      } else {
+        statusFilter = activeSubTab.value
+      }
+    } else if (activeMainTab.value === 'returns') {
+      if (activeSubTab.value === 'all') {
+        statusFilter = 'RETURN_REQUESTED,RETURN_APPROVED,RETURN_RECEIVED,RETURN_PENDING,RETURNED,REJECTED'
+      } else {
+        statusFilter = activeSubTab.value
+      }
+    } else if (activeMainTab.value === 'cancelled') {
+      statusFilter = 'CANCELLED'
+    }
+
+    const response = await orderService.getMyOrders(statusFilter, currentPage.value, 10)
     
     console.log('📦 Orders response:', response.data)
     
     if (response.data) {
       orders.value = response.data.content || []
       totalPages.value = response.data.totalPages || 0
-      totalElements.value = response.data.totalElements || 0
       currentPage.value = response.data.number || 0
-      console.log('✅ Loaded', orders.value.length, 'orders')
     }
   } catch (error) {
     console.error('Error fetching orders:', error)
-    showNotification(error.response?.data?.message || 'Không thể tải đơn hàng', 'error')
+    showNotificationMsg(error.response?.data?.message || 'Không thể tải đơn hàng', 'error')
     orders.value = []
   } finally {
     loading.value = false
   }
 }
 
-const changeTab = (tab) => {
-  activeTab.value = tab
-  currentPage.value = 0
-  fetchOrders()
-}
-
+// ===== PAGINATION =====
 const goToPage = (page) => {
   if (page >= 0 && page < totalPages.value) {
     currentPage.value = page
@@ -383,6 +384,7 @@ const goToPage = (page) => {
   }
 }
 
+// ===== ORDER DETAIL =====
 const viewOrderDetail = async (orderId) => {
   try {
     const response = await orderService.getOrderDetail(orderId)
@@ -390,7 +392,7 @@ const viewOrderDetail = async (orderId) => {
     showDetailModal.value = true
   } catch (error) {
     console.error('Error fetching order detail:', error)
-    showNotification('Không thể tải chi tiết đơn hàng', 'error')
+    showNotificationMsg('Không thể tải chi tiết đơn hàng', 'error')
   }
 }
 
@@ -399,6 +401,7 @@ const closeDetailModal = () => {
   selectedOrder.value = null
 }
 
+// ===== CANCEL ORDER =====
 const handleCancelOrder = (orderId) => {
   cancelOrderId.value = orderId
   cancelReason.value = ''
@@ -413,24 +416,52 @@ const closeCancelModal = () => {
 
 const confirmCancelOrder = async () => {
   if (!cancelReason.value.trim()) {
-    showNotification('Vui lòng nhập lý do hủy đơn hàng', 'error')
+    showNotificationMsg('Vui lòng nhập lý do hủy đơn hàng', 'error')
     return
   }
   
   cancelLoading.value = true
   try {
     await orderService.cancelOrder(cancelOrderId.value, cancelReason.value)
-    showNotification('Hủy đơn hàng thành công!', 'success')
+    showNotificationMsg('Hủy đơn hàng thành công!', 'success')
     closeCancelModal()
     await fetchOrders()
   } catch (error) {
     console.error('Error canceling order:', error)
-    showNotification(error.response?.data?.message || 'Không thể hủy đơn hàng', 'error')
+    showNotificationMsg(error.response?.data?.message || 'Không thể hủy đơn hàng', 'error')
   } finally {
     cancelLoading.value = false
   }
 }
 
+// ===== RETURN ORDER =====
+const handleReturnOrder = (order) => {
+  if (!order) {
+    showNotificationMsg('Không tìm thấy đơn hàng', 'error')
+    return
+  }
+  
+  if (order.orderStatus !== 'COMPLETED') {
+    showNotificationMsg('Chỉ có thể yêu cầu hoàn hàng khi đơn hàng đã hoàn thành', 'warning')
+    return
+  }
+  
+  selectedOrderForReturn.value = order
+  showReturnModal.value = true
+}
+
+const closeReturnModal = () => {
+  showReturnModal.value = false
+  selectedOrderForReturn.value = null
+}
+
+const onReturnSubmitted = (data) => {
+  showNotificationMsg('Yêu cầu hoàn hàng đã được gửi!', 'success')
+  closeReturnModal()
+  fetchOrders()
+}
+
+// ===== REORDER =====
 const handleReorder = (order) => {
   if (order.items && order.items.length > 0) {
     order.items.forEach(item => {
@@ -445,37 +476,12 @@ const handleReorder = (order) => {
         colorName: item.colorName
       })
     })
-    showNotification('Đã thêm sản phẩm vào giỏ hàng!', 'success')
+    showNotificationMsg('Đã thêm sản phẩm vào giỏ hàng!', 'success')
     router.push('/cart')
   }
 }
 
-const displayedPages = computed(() => {
-  const total = totalPages.value
-  const current = currentPage.value
-  const delta = 2
-  const range = []
-  const rangeWithDots = []
-  let l
-
-  for (let i = 0; i < total; i++) {
-    if (i === 0 || i === total - 1 || (i >= current - delta && i <= current + delta)) {
-      range.push(i)
-    }
-  }
-
-  range.forEach((i) => {
-    if (l) {
-      if (i - l === 2) rangeWithDots.push(l + 1)
-      else if (i - l !== 1) rangeWithDots.push('...')
-    }
-    rangeWithDots.push(i)
-    l = i
-  })
-
-  return rangeWithDots
-})
-
+// ===== LIFECYCLE =====
 onMounted(() => {
   fetchOrders()
 })
@@ -504,347 +510,7 @@ main {
   margin-bottom: 30px;
 }
 
-.order-tabs {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 25px;
-  flex-wrap: wrap;
-  background: white;
-  padding: 10px;
-  border-radius: 12px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-}
-
-.tab-btn {
-  padding: 10px 20px;
-  background: none;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 500;
-  color: #666;
-  transition: all 0.3s;
-}
-
-.tab-btn:hover {
-  background: #f0f0f0;
-}
-
-.tab-btn.active {
-  background: #e63946;
-  color: white;
-}
-
-.loading-state {
-  text-align: center;
-  padding: 60px;
-  background: white;
-  border-radius: 15px;
-}
-
-.spinner {
-  width: 50px;
-  height: 50px;
-  border: 4px solid #f3f3f3;
-  border-top: 4px solid #e63946;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin: 0 auto 15px;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-.empty-state {
-  text-align: center;
-  padding: 80px 20px;
-  background: white;
-  border-radius: 15px;
-}
-
-.empty-state i {
-  font-size: 60px;
-  color: #ccc;
-  margin-bottom: 20px;
-}
-
-.empty-state h3 {
-  color: #2c3e50;
-  margin-bottom: 10px;
-}
-
-.empty-state p {
-  color: #666;
-  margin-bottom: 25px;
-}
-
-.order-card {
-  background: white;
-  border-radius: 12px;
-  padding: 20px;
-  margin-bottom: 20px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-  transition: all 0.3s;
-}
-
-.order-card:hover {
-  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
-}
-
-.order-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-bottom: 15px;
-  border-bottom: 1px solid #eee;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.order-info {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
-
-.order-id {
-  font-weight: 700;
-  color: #e63946;
-  font-size: 16px;
-}
-
-.order-date {
-  color: #999;
-  font-size: 14px;
-}
-
-.order-status {
-  padding: 5px 15px;
-  border-radius: 20px;
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.status-pending {
-  background: #fff3cd;
-  color: #856404;
-}
-
-.status-processing {
-  background: #cce5ff;
-  color: #004085;
-}
-
-.status-completed {
-  background: #d4edda;
-  color: #155724;
-}
-
-.status-cancelled {
-  background: #f8d7da;
-  color: #721c24;
-}
-
-.order-items {
-  padding: 15px 0;
-}
-
-.order-item {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  padding: 10px 0;
-  border-bottom: 1px solid #f5f5f5;
-}
-
-.order-item:last-child {
-  border-bottom: none;
-}
-
-.item-image {
-  width: 60px;
-  height: 60px;
-  background: #f5f5f5;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  flex-shrink: 0;
-}
-
-.item-image img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.item-image i {
-  font-size: 30px;
-  color: #ccc;
-}
-
-.item-details {
-  flex: 1;
-}
-
-.item-details h4 {
-  font-size: 15px;
-  color: #2c3e50;
-  margin-bottom: 3px;
-}
-
-.item-variant {
-  font-size: 13px;
-  color: #999;
-}
-
-.item-quantity {
-  font-size: 13px;
-  color: #999;
-}
-
-.item-price {
-  font-weight: 600;
-  color: #e63946;
-  font-size: 15px;
-}
-
-/* ✅ VOUCHER STYLES */
-.order-voucher {
-  background: #e8f5e9;
-  padding: 10px 15px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 5px 0 15px;
-  border-left: 4px solid #2e7d32;
-}
-
-.order-voucher i {
-  color: #2e7d32;
-  font-size: 18px;
-}
-
-.order-voucher .voucher-code {
-  font-weight: 700;
-  color: #2e7d32;
-  background: white;
-  padding: 2px 10px;
-  border-radius: 4px;
-  font-size: 14px;
-}
-
-.order-voucher .voucher-discount {
-  color: #e63946;
-  font-weight: 700;
-  margin-left: auto;
-}
-
-.order-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-top: 15px;
-  border-top: 1px solid #eee;
-  flex-wrap: wrap;
-  gap: 15px;
-}
-
-.order-total {
-  font-size: 16px;
-}
-
-.order-total strong {
-  color: #e63946;
-  font-size: 18px;
-  margin-left: 5px;
-}
-
-.order-actions {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.btn {
-  padding: 8px 16px;
-  border: none;
-  border-radius: 8px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s;
-  font-size: 13px;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.btn-outline {
-  background: #f0f0f0;
-  color: #666;
-}
-
-.btn-outline:hover {
-  background: #e0e0e0;
-}
-
-.btn-primary {
-  background: #e63946;
-  color: white;
-}
-
-.btn-primary:hover {
-  background: #c62828;
-}
-
-.btn-danger {
-  background: #dc3545;
-  color: white;
-}
-
-.btn-danger:hover {
-  background: #c82333;
-}
-
-.pagination {
-  display: flex;
-  justify-content: center;
-  gap: 8px;
-  margin-top: 30px;
-}
-
-.page-btn {
-  min-width: 36px;
-  height: 36px;
-  border: 1px solid #ddd;
-  background: white;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.3s;
-}
-
-.page-btn:hover:not(:disabled) {
-  background: #e63946;
-  color: white;
-  border-color: #e63946;
-}
-
-.page-btn.active {
-  background: #e63946;
-  color: white;
-  border-color: #e63946;
-}
-
-.page-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* Modal Styles */
+/* ===== MODAL ===== */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -924,6 +590,38 @@ main {
   border-radius: 0 0 12px 12px;
 }
 
+.btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s;
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-outline {
+  background: #f0f0f0;
+  color: #666;
+}
+
+.btn-outline:hover {
+  background: #e0e0e0;
+}
+
+.btn-danger {
+  background: #dc3545;
+  color: white;
+}
+
+.btn-danger:hover {
+  background: #c82333;
+}
+
+/* ===== ORDER INFO GRID ===== */
 .order-info-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -950,6 +648,64 @@ main {
   color: #666;
 }
 
+/* ===== ADDRESS SECTION ===== */
+.address-section {
+  margin-bottom: 20px;
+  padding: 16px 20px;
+  background: #f8f9fa;
+  border-radius: 12px;
+  border: 1px solid #e9ecef;
+}
+
+.address-section h4 {
+  margin-top: 0;
+  margin-bottom: 12px;
+  color: #2c3e50;
+  font-size: 15px;
+}
+
+.address-detail-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.address-row {
+  display: flex;
+  align-items: flex-start;
+  padding: 4px 0;
+  font-size: 14px;
+}
+
+.address-row .address-label {
+  font-weight: 600;
+  color: #2c3e50;
+  min-width: 120px;
+  flex-shrink: 0;
+}
+
+.address-row .address-value {
+  color: #444;
+  word-break: break-word;
+}
+
+.address-row.full-address-row {
+  background: #e8f0fe;
+  padding: 8px 12px;
+  border-radius: 6px;
+  margin-top: 4px;
+}
+
+.address-row.full-address-row .address-label {
+  color: #1a3a6a;
+}
+
+.address-row.full-address-row .address-value.highlight {
+  color: #1a3a6a;
+  font-weight: 500;
+}
+
+/* ===== ORDER ITEMS ===== */
 .order-items-section h4 {
   color: #2c3e50;
   margin-bottom: 15px;
@@ -994,7 +750,6 @@ main {
   color: #e63946;
 }
 
-/* ✅ Discount row */
 .discount-row td {
   color: #28a745;
   font-weight: 600;
@@ -1012,7 +767,6 @@ main {
   font-weight: 700;
 }
 
-/* ✅ Voucher info section */
 .voucher-info-section {
   background: #e8f5e9;
   padding: 15px 20px;
@@ -1077,6 +831,38 @@ main {
   color: #999;
 }
 
+/* ===== FORM ===== */
+.form-group {
+  margin-bottom: 15px;
+}
+
+.form-group label {
+  display: block;
+  font-weight: 600;
+  color: #2c3e50;
+  margin-bottom: 5px;
+}
+
+.required {
+  color: #e63946;
+}
+
+.form-group textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.form-group textarea:focus {
+  outline: none;
+  border-color: #e63946;
+}
+
+/* ===== TOAST ===== */
 .toast {
   position: fixed;
   bottom: 30px;
@@ -1102,24 +888,7 @@ main {
   transform: translateY(0);
 }
 
-.btn-primary {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  background: linear-gradient(135deg, #e63946, #ff6b6b);
-  color: white;
-  padding: 12px 24px;
-  border-radius: 8px;
-  text-decoration: none;
-  font-weight: 600;
-  transition: all 0.3s;
-}
-
-.btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 5px 15px rgba(230, 57, 70, 0.3);
-}
-
+/* ===== RESPONSIVE ===== */
 @media (max-width: 768px) {
   main {
     margin-top: 200px;
@@ -1127,30 +896,6 @@ main {
 
   .page-title {
     font-size: 24px;
-  }
-
-  .order-tabs {
-    overflow-x: auto;
-    flex-wrap: nowrap;
-  }
-
-  .order-header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .order-footer {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .order-actions {
-    width: 100%;
-  }
-
-  .order-actions .btn {
-    flex: 1;
-    justify-content: center;
   }
 
   .order-info-grid {
@@ -1162,12 +907,19 @@ main {
     margin: 10px;
   }
 
-  .order-voucher {
-    flex-wrap: wrap;
+  .address-row {
+    flex-direction: column;
+    padding: 2px 0;
   }
   
-  .order-voucher .voucher-discount {
-    margin-left: 0;
+  .address-row .address-label {
+    min-width: auto;
+    font-size: 12px;
+  }
+  
+  .address-row .address-value {
+    font-size: 13px;
+    padding-left: 10px;
   }
 }
 </style>

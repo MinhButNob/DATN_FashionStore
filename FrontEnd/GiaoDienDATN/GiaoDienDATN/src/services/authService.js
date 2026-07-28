@@ -23,5 +23,4 @@ export const authService = {
 
   updateProfile(data) {
     return api.put("/auth/profile", data);
-  },
-};
+  } };

@@ -8,11 +8,8 @@ import {
   softDeletePromotion,
   restorePromotion,
   togglePromotionStatus,
-  getPromotionStatistics,
-} from "../services/api";
-import axios from "axios";
-
-const API_BASE = "http://localhost:8080/api";
+  getPromotionStatistics } from "../services/api";
+import api from "../api/axios";
 
 export const usePromotionStore = defineStore("promotion", () => {
   // ==================== STATE HIỆN TẠI (GIỮ NGUYÊN) ====================
@@ -27,8 +24,7 @@ export const usePromotionStore = defineStore("promotion", () => {
   const statistics = ref({
     totalPromotions: 0,
     activePromotions: 0,
-    inactivePromotions: 0,
-  });
+    inactivePromotions: 0 });
 
   // ==================== CUSTOMER STATE (THÊM MỚI) ====================
   const activePromotions = ref([]);
@@ -160,7 +156,7 @@ export const usePromotionStore = defineStore("promotion", () => {
   const fetchActivePromotions = async () => {
     promotionLoading.value = true;
     try {
-      const response = await axios.get(`${API_BASE}/promotions/active`);
+      const response = await api.get("/promotions/active");
       let promotionsData = [];
       if (response.data?.data) {
         promotionsData = response.data.data;
@@ -183,9 +179,7 @@ export const usePromotionStore = defineStore("promotion", () => {
   const fetchPromotionsByProduct = async (productId) => {
     promotionLoading.value = true;
     try {
-      const response = await axios.get(
-        `${API_BASE}/products/${productId}/promotions`,
-      );
+      const response = await api.get(`/products/${productId}/promotions`);
       let promotionsData = [];
       if (response.data?.data) {
         promotionsData = response.data.data;
@@ -206,8 +200,8 @@ export const usePromotionStore = defineStore("promotion", () => {
 
   const fetchPromotionByProductDetail = async (productDetailId) => {
     try {
-      const response = await axios.get(
-        `${API_BASE}/product-details/${productDetailId}/promotion`,
+      const response = await api.get(
+        `/product-details/${productDetailId}/promotion`,
       );
       return response.data?.data || response.data || null;
     } catch (error) {
@@ -245,6 +239,5 @@ export const usePromotionStore = defineStore("promotion", () => {
     promotionLoading,
     fetchActivePromotions,
     fetchPromotionsByProduct,
-    fetchPromotionByProductDetail,
-  };
+    fetchPromotionByProductDetail };
 });

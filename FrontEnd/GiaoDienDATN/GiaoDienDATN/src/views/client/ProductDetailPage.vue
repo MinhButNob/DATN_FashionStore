@@ -157,6 +157,15 @@
                 <button class="buy-now-btn" @click="buyNow" :disabled="!selectedVariant || selectedVariant.quantity === 0">
                   <i class="fas fa-bolt"></i> Mua ngay
                 </button>
+                <button
+                  class="wishlist-btn"
+                  :class="{ active: isWishlisted }"
+                  @click="handleToggleWishlist"
+                  :disabled="wishlistToggling"
+                  :title="isWishlisted ? 'Bỏ khỏi yêu thích' : 'Thêm vào yêu thích'"
+                >
+                  <i :class="isWishlisted ? 'fas fa-heart' : 'far fa-heart'"></i>
+                </button>
               </div>
             </div>
           </div>
@@ -334,19 +343,20 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useCartStore } from '../../stores/cartStore'
+import { useWishlistStore } from '../../stores/wishlistStore'
 import { useNotification } from '../../composables/useNotification'
 import ClientHeader from '../../components/client/ClientHeader.vue'
 import ClientFooter from '../../components/client/ClientFooter.vue'
 import CartModal from '../../components/client/CartModal.vue'
 import CartPopup from '../../components/client/CartPopup.vue'
-import axios from 'axios'
+import api from "@/api/axios";
 
 const route = useRoute()
 const router = useRouter()
 const cartStore = useCartStore()
+const wishlistStore = useWishlistStore()
 const { showNotification } = useNotification()
-const API_BASE = "http://localhost:8080/api"
-const IMAGE_BASE = "http://localhost:8080"
+const IMAGE_BASE = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "").replace(/\/api$/, "");
 
 const loading = ref(true)
 const product = ref(null)
@@ -354,6 +364,7 @@ const currentImage = ref(0)
 const quantity = ref(1)
 const selectedColorId = ref(null)
 const selectedSizeId = ref(null)
+const wishlistToggling = ref(false)
 
 // State cho popup
 const showCartPopup = ref(false)
@@ -479,6 +490,39 @@ const selectedVariant = computed(() => {
   return product.value.variants[0]
 })
 
+// Biến thể dùng để xác định trạng thái yêu thích (ưu tiên biến thể đang chọn)
+const wishlistDetailId = computed(() => {
+  return selectedVariant.value?.productDetailId
+    || product.value?.variants?.[0]?.productDetailId
+    || null
+})
+
+const isWishlisted = computed(() => wishlistStore.isInWishlist(wishlistDetailId.value))
+
+const handleToggleWishlist = async () => {
+  if (!wishlistDetailId.value) {
+    showNotification('Sản phẩm hiện chưa có biến thể để thêm vào yêu thích!', 'error')
+    return
+  }
+
+  wishlistToggling.value = true
+  const wasWishlisted = isWishlisted.value
+  try {
+    const ok = await wishlistStore.toggleWishlist(wishlistDetailId.value)
+    if (ok) {
+      showNotification(
+        wasWishlisted ? 'Đã xóa khỏi danh sách yêu thích' : 'Đã thêm vào danh sách yêu thích',
+        'success'
+      )
+    }
+  } catch (error) {
+    console.error('❌ Toggle wishlist error:', error)
+    showNotification('Có lỗi xảy ra, vui lòng thử lại!', 'error')
+  } finally {
+    wishlistToggling.value = false
+  }
+}
+
 // Theo dõi selectedVariant
 watch(selectedVariant, (newVariant) => {
   if (newVariant) {
@@ -581,7 +625,7 @@ const loadProductDetail = async () => {
       return
     }
     
-    const response = await axios.get(`${API_BASE}/customer/home/products/${productId}`)
+    const response = await api.get(`/customer/home/products/${productId}`)
     product.value = response.data
     
     const firstInStockVariant = product.value.variants?.find(v => v.quantity > 0)
@@ -627,7 +671,7 @@ const loadReviews = async (productId, reset = true) => {
     }
 
     // ✅ Gọi API gộp theo productId (tất cả biến thể màu/size): /api/reviews/product-all/{productId}
-    const response = await axios.get(`${API_BASE}/reviews/product-all/${productId}`, {
+    const response = await api.get(`/reviews/product-all/${productId}`, {
       params: {
         page: reviewsPage.value,
         size: 5
@@ -658,7 +702,7 @@ const loadRatingStats = async (productId) => {
   try {
     if (!productId) return
 
-    const response = await axios.get(`${API_BASE}/reviews/product-all/${productId}/rating`)
+    const response = await api.get(`/reviews/product-all/${productId}/rating`)
     ratingStats.value = response.data
   } catch (error) {
     console.error('❌ Lỗi tải thống kê rating:', error)
@@ -741,6 +785,9 @@ const buyNow = () => {
 
 onMounted(() => {
   loadProductDetail()
+  if (wishlistStore.items.length === 0) {
+    wishlistStore.fetchWishlist()
+  }
 })
 </script>
 
@@ -1195,6 +1242,40 @@ main {
   transform: translateY(-2px);
 }
 
+.wishlist-btn {
+  flex: 0 0 54px;
+  width: 54px;
+  height: 54px;
+  padding: 0;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  background: white;
+  color: #666;
+  font-size: 20px;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.wishlist-btn:hover:not(:disabled) {
+  border-color: #e63946;
+  color: #e63946;
+  transform: translateY(-2px);
+}
+
+.wishlist-btn.active {
+  border-color: #e63946;
+  background: #fdeaec;
+  color: #e63946;
+}
+
+.wishlist-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* HÀNG DƯỚI: MÔ TẢ SẢN PHẨM */
 .product-description-section {
   background: white;
@@ -1627,6 +1708,11 @@ main {
 
   .product-actions {
     flex-direction: column;
+  }
+
+  .wishlist-btn {
+    width: 100%;
+    flex: none;
   }
   
   .variant-info {

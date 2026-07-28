@@ -104,4 +104,11 @@ public interface EmployeeRepository extends JpaRepository<Employee, Integer> {
     // ✅ Kiểm tra tồn tại Employee theo userId - SỬA employeeUser.userId THÀNH user.userId
     @Query("SELECT COUNT(e) > 0 FROM Employee e WHERE e.user.userId = :userId")
     boolean existsByEmployeeUserId(@Param("userId") Integer userId);
+
+    // ✅ Lấy danh sách staff rảnh rỗi (load balancing)
+    @Query("SELECT e FROM Employee e " +
+           "WHERE e.user.status = 'ACTIVE' " +
+           "AND (e.currentChatCount IS NULL OR e.currentChatCount < e.maxChatCount) " +
+           "ORDER BY e.currentChatCount ASC, e.lastActiveAt ASC")
+    Page<Employee> findAvailableStaffForChat(Pageable pageable);
 }

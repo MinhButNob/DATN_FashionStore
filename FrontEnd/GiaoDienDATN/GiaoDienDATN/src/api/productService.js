@@ -1,9 +1,10 @@
 // src/api/productService.js
-import axios from "axios";
+import api from "./axios";
 
-const API_BASE = "http://localhost:8080/api/v1";
-const ADMIN_API_BASE = "http://localhost:8080/api/admin";
-const CUSTOMER_API_BASE = "http://localhost:8080/api/customer/home";
+// Các tiền tố endpoint (baseURL "/api" đã nằm trong axios.js dùng chung)
+const V1 = "/v1";
+const ADMIN = "/admin";
+const CUSTOMER_HOME = "/customer/home";
 
 const productService = {
   // ==================== SẢN PHẨM ====================
@@ -18,12 +19,10 @@ const productService = {
         page: 0,
         size: 10,
         sortBy: "productId",
-        sortDir: "DESC",
-      };
+        sortDir: "DESC" };
       const queryParams = { ...defaultParams, ...params };
-      const response = await axios.get(`${API_BASE}/products`, {
-        params: queryParams,
-      });
+      const response = await api.get(`${V1}/products`, {
+        params: queryParams });
       return response;
     } catch (error) {
       console.error("Lỗi lấy danh sách sản phẩm:", error);
@@ -37,7 +36,7 @@ const productService = {
    */
   async getProductById(id) {
     try {
-      const response = await axios.get(`${API_BASE}/products/${id}`);
+      const response = await api.get(`${V1}/products/${id}`);
       return response;
     } catch (error) {
       console.error(`Lỗi lấy sản phẩm ID ${id}:`, error);
@@ -50,7 +49,7 @@ const productService = {
    */
   async getStatistics() {
     try {
-      const response = await axios.get(`${API_BASE}/products/statistics`);
+      const response = await api.get(`${V1}/products/statistics`);
       return response;
     } catch (error) {
       console.error("Lỗi lấy thống kê sản phẩm:", error);
@@ -64,7 +63,7 @@ const productService = {
    */
   async createProduct(data) {
     try {
-      const response = await axios.post(`${API_BASE}/products`, data);
+      const response = await api.post(`${V1}/products`, data);
       return response;
     } catch (error) {
       console.error("Lỗi tạo sản phẩm:", error);
@@ -79,7 +78,7 @@ const productService = {
    */
   async updateProduct(id, data) {
     try {
-      const response = await axios.put(`${API_BASE}/products/${id}`, data);
+      const response = await api.put(`${V1}/products/${id}`, data);
       return response;
     } catch (error) {
       console.error(`Lỗi cập nhật sản phẩm ID ${id}:`, error);
@@ -93,9 +92,7 @@ const productService = {
    */
   async toggleProductStatus(id) {
     try {
-      const response = await axios.patch(
-        `${API_BASE}/products/${id}/toggle-status`,
-      );
+      const response = await api.patch(`${V1}/products/${id}/toggle-status`);
       return response;
     } catch (error) {
       console.error(`Lỗi chuyển trạng thái sản phẩm ID ${id}:`, error);
@@ -109,7 +106,7 @@ const productService = {
    */
   async deleteProduct(id) {
     try {
-      const response = await axios.delete(`${API_BASE}/products/${id}`);
+      const response = await api.delete(`${V1}/products/${id}`);
       return response;
     } catch (error) {
       console.error(`Lỗi xóa sản phẩm ID ${id}:`, error);
@@ -124,7 +121,7 @@ const productService = {
    */
   async getAllCategories() {
     try {
-      const response = await axios.get(`${API_BASE}/categories`);
+      const response = await api.get(`${V1}/categories`);
       return response;
     } catch (error) {
       console.error("Lỗi lấy danh sách danh mục:", error);
@@ -137,7 +134,7 @@ const productService = {
    */
   async getActiveCategories() {
     try {
-      const response = await axios.get(`${API_BASE}/categories/active`);
+      const response = await api.get(`${V1}/categories/active`);
       return response;
     } catch (error) {
       console.error("Lỗi lấy danh mục hoạt động:", error);
@@ -150,7 +147,7 @@ const productService = {
    */
   async getCategoryById(id) {
     try {
-      const response = await axios.get(`${API_BASE}/categories/${id}`);
+      const response = await api.get(`${V1}/categories/${id}`);
       return response;
     } catch (error) {
       console.error(`Lỗi lấy danh mục ID ${id}:`, error);
@@ -165,9 +162,8 @@ const productService = {
    */
   async getAllColors(page = 0, size = 100) {
     try {
-      const response = await axios.get(`${API_BASE}/colors`, {
-        params: { page, size },
-      });
+      const response = await api.get(`${V1}/colors`, {
+        params: { page, size } });
       return response;
     } catch (error) {
       console.error("Lỗi lấy danh sách màu:", error);
@@ -180,7 +176,7 @@ const productService = {
    */
   async getActiveColors() {
     try {
-      const response = await axios.get(`${API_BASE}/colors/active`);
+      const response = await api.get(`${V1}/colors/active`);
       return response;
     } catch (error) {
       console.error("Lỗi lấy màu hoạt động:", error);
@@ -193,7 +189,7 @@ const productService = {
    */
   async getColorById(id) {
     try {
-      const response = await axios.get(`${API_BASE}/colors/${id}`);
+      const response = await api.get(`${V1}/colors/${id}`);
       return response;
     } catch (error) {
       console.error(`Lỗi lấy màu ID ${id}:`, error);
@@ -208,9 +204,8 @@ const productService = {
    */
   async getAllSizes(page = 0, size = 100) {
     try {
-      const response = await axios.get(`${API_BASE}/sizes`, {
-        params: { page, size },
-      });
+      const response = await api.get(`${V1}/sizes`, {
+        params: { page, size } });
       return response;
     } catch (error) {
       console.error("Lỗi lấy danh sách kích thước:", error);
@@ -223,7 +218,7 @@ const productService = {
    */
   async getActiveSizes() {
     try {
-      const response = await axios.get(`${API_BASE}/sizes/active`);
+      const response = await api.get(`${V1}/sizes/active`);
       return response;
     } catch (error) {
       console.error("Lỗi lấy kích thước hoạt động:", error);
@@ -236,7 +231,7 @@ const productService = {
    */
   async getSizeById(id) {
     try {
-      const response = await axios.get(`${API_BASE}/sizes/${id}`);
+      const response = await api.get(`${V1}/sizes/${id}`);
       return response;
     } catch (error) {
       console.error(`Lỗi lấy kích thước ID ${id}:`, error);
@@ -253,9 +248,8 @@ const productService = {
     try {
       const defaultParams = { page: 0, size: 100 };
       const queryParams = { ...defaultParams, ...params };
-      const response = await axios.get(`${ADMIN_API_BASE}/promotions`, {
-        params: queryParams,
-      });
+      const response = await api.get(`${ADMIN}/promotions`, {
+        params: queryParams });
       return response;
     } catch (error) {
       console.error("Lỗi lấy danh sách khuyến mãi:", error);
@@ -268,7 +262,7 @@ const productService = {
    */
   async getActivePromotions() {
     try {
-      const response = await axios.get(`${API_BASE}/promotions/active`);
+      const response = await api.get(`${V1}/promotions/active`);
       return response;
     } catch (error) {
       console.error("Lỗi lấy khuyến mãi hoạt động:", error);
@@ -281,7 +275,7 @@ const productService = {
    */
   async getPromotionById(id) {
     try {
-      const response = await axios.get(`${ADMIN_API_BASE}/promotions/${id}`);
+      const response = await api.get(`${ADMIN}/promotions/${id}`);
       return response;
     } catch (error) {
       console.error(`Lỗi lấy khuyến mãi ID ${id}:`, error);
@@ -294,8 +288,8 @@ const productService = {
    */
   async getPromotionsByProduct(productId) {
     try {
-      const response = await axios.get(
-        `${API_BASE}/products/${productId}/promotions`,
+      const response = await api.get(
+        `${V1}/products/${productId}/promotions`,
       );
       return response;
     } catch (error) {
@@ -304,7 +298,7 @@ const productService = {
     }
   },
 
-  // ==================== CUSTOMER / HOME API (THÊM MỚI - KHÔNG ẢNH HƯỞNG CODE CŨ) ====================
+  // ==================== CUSTOMER / HOME API ====================
 
   /**
    * Lấy danh sách sản phẩm trang chủ (có phân trang và lọc)
@@ -314,12 +308,10 @@ const productService = {
     try {
       const defaultParams = {
         page: 0,
-        size: 12,
-      };
+        size: 12 };
       const queryParams = { ...defaultParams, ...params };
-      const response = await axios.get(`${CUSTOMER_API_BASE}/products`, {
-        params: queryParams,
-      });
+      const response = await api.get(`${CUSTOMER_HOME}/products`, {
+        params: queryParams });
       return response;
     } catch (error) {
       console.error("Lỗi lấy sản phẩm trang chủ:", error);
@@ -334,9 +326,8 @@ const productService = {
    */
   async getLatestProducts(page = 0, size = 12) {
     try {
-      const response = await axios.get(`${CUSTOMER_API_BASE}/latest-products`, {
-        params: { page, size },
-      });
+      const response = await api.get(`${CUSTOMER_HOME}/latest-products`, {
+        params: { page, size } });
       return response;
     } catch (error) {
       console.error("Lỗi lấy sản phẩm mới nhất:", error);
@@ -351,12 +342,8 @@ const productService = {
    */
   async getFeaturedProducts(page = 0, size = 8) {
     try {
-      const response = await axios.get(
-        `${CUSTOMER_API_BASE}/featured-products`,
-        {
-          params: { page, size },
-        },
-      );
+      const response = await api.get(`${CUSTOMER_HOME}/featured-products`, {
+        params: { page, size } });
       return response;
     } catch (error) {
       console.error("Lỗi lấy sản phẩm nổi bật:", error);
@@ -372,11 +359,10 @@ const productService = {
    */
   async getProductsByCategory(categoryId, page = 0, size = 12) {
     try {
-      const response = await axios.get(
-        `${CUSTOMER_API_BASE}/categories/${categoryId}/products`,
+      const response = await api.get(
+        `${CUSTOMER_HOME}/categories/${categoryId}/products`,
         {
-          params: { page, size },
-        },
+          params: { page, size } },
       );
       return response;
     } catch (error) {
@@ -391,9 +377,7 @@ const productService = {
    */
   async getCustomerProductDetail(productId) {
     try {
-      const response = await axios.get(
-        `${CUSTOMER_API_BASE}/products/${productId}`,
-      );
+      const response = await api.get(`${CUSTOMER_HOME}/products/${productId}`);
       return response;
     } catch (error) {
       console.error(`Lỗi lấy chi tiết sản phẩm ID ${productId}:`, error);
@@ -420,13 +404,11 @@ const productService = {
         categories: categories.data || [],
         colors: colors.data || [],
         sizes: sizes.data || [],
-        promotions: promotions.data || [],
-      };
+        promotions: promotions.data || [] };
     } catch (error) {
       console.error("Lỗi lấy dữ liệu form:", error);
       throw error;
     }
-  },
-};
+  } };
 
 export default productService;

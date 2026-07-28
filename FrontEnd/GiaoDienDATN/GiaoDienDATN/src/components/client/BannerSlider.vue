@@ -85,8 +85,7 @@ function startAutoPlay() {
 
 const trackStyle = computed(() => ({
   transform: `translateX(-${current.value * 100}%)`,
-  transition: isTransitioning ? 'transform 0.6s cubic-bezier(0.4, 0, 0.2, 1)' : 'none',
-}))
+  transition: isTransitioning ? 'transform 0.6s cubic-bezier(0.4, 0, 0.2, 1)' : 'none' }))
 
 function next() {
   if (banners.value.length === 0 || isTransitioning) return
@@ -131,12 +130,12 @@ function getImageUrl(path) {
   if (!path) return ''
   if (path.startsWith('http')) return path
   if (path.startsWith('/uploads/')) {
-    return `http://localhost:8080${path}`
+    return `${(import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "").replace(/\/api$/, "")}/${path}`
   }
   if (path.startsWith('uploads/')) {
-    return `http://localhost:8080/${path}`
+    return `${(import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "").replace(/\/api$/, "")}/${path}`
   }
-  return `http://localhost:8080/uploads/${path}`
+  return `${(import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "").replace(/\/api$/, "")}/uploads/${path}`
 }
 
 // ✅ Xử lý lỗi load ảnh

@@ -10,9 +10,8 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface ShippingAddressRepository extends JpaRepository<ShippingAddress, Integer> {
+public interface ShippingAddressRepository extends JpaRepository<ShippingAddress, Long> {
 
-    // ✅ SỬA: Dùng đúng tên field "isDefault"
     List<ShippingAddress> findByCustomer_CustomerId(Integer customerId);
 
     Optional<ShippingAddress> findByCustomer_CustomerIdAndIsDefaultTrue(Integer customerId);
@@ -20,8 +19,10 @@ public interface ShippingAddressRepository extends JpaRepository<ShippingAddress
     @Query("SELECT sa FROM ShippingAddress sa WHERE sa.customer.customerId = :customerId")
     List<ShippingAddress> findAllByCustomerId(@Param("customerId") Integer customerId);
 
-    // Nếu cần lọc theo status
     List<ShippingAddress> findByCustomer_CustomerIdAndStatus(Integer customerId, String status);
 
     Optional<ShippingAddress> findByCustomer_CustomerIdAndIsDefaultTrueAndStatus(Integer customerId, String status);
+
+
+
 }

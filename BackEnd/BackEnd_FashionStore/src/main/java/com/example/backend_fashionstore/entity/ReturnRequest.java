@@ -27,6 +27,14 @@ public class ReturnRequest {
     @Column(name = "customer_id", nullable = false)
     private Integer customerId;
 
+    // ✅ THÊM: Danh sách productDetailIds (lưu dạng JSON)
+    @Column(name = "product_detail_ids", columnDefinition = "TEXT")
+    private String productDetailIds; // JSON array: [1, 2, 3]
+
+    // ✅ THÊM: Số lượng hoàn trả cho từng sản phẩm (lưu dạng JSON)
+    @Column(name = "quantities", columnDefinition = "TEXT")
+    private String quantities; // JSON object: {"1": 2, "2": 1}
+
     @Column(name = "reason", nullable = false)
     private String reason;
 

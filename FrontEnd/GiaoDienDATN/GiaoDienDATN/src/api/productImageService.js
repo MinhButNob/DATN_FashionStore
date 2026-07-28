@@ -14,16 +14,14 @@ export default {
   // Tạo ảnh mới
   createImage(formData) {
     return axiosClient.post("/product-images", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+      headers: { "Content-Type": "multipart/form-data" } });
   },
 
   // Cập nhật ảnh
   updateImage(id, data) {
     if (data instanceof FormData) {
       return axiosClient.put(`/product-images/${id}`, data, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+        headers: { "Content-Type": "multipart/form-data" } });
     }
     return axiosClient.put(`/product-images/${id}`, data);
   },
@@ -33,12 +31,10 @@ export default {
     const formData = new FormData();
     formData.append("isMain", true);
     return axiosClient.put(`/product-images/${id}`, formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+      headers: { "Content-Type": "multipart/form-data" } });
   },
 
   // Xóa ảnh
   deleteImage(id) {
     return axiosClient.delete(`/product-images/${id}`);
-  },
-};
+  } };

@@ -47,7 +47,6 @@ public class SecurityConfig {
 
     @Bean
     public AuthenticationProvider authProvider() {
-        // CÁCH 1: Dùng constructor có tham số (Spring Security 7.x)
         DaoAuthenticationProvider provider = new DaoAuthenticationProvider(customUserDetailsService);
         provider.setPasswordEncoder(passwordEncoder());
         return provider;
@@ -75,11 +74,45 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(authProvider())
                 .authorizeHttpRequests(auth -> auth
+                        // ===== PUBLIC ENDPOINTS =====
                         .requestMatchers("/api/auth/**", "/oauth2/**", "/error", "/favicon.ico").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
+                        // ===== CLIENT ENDPOINTS (Khách hàng) =====
+                        .requestMatchers("/api/customer/home/**").permitAll()
+                        .requestMatchers("/api/products/**").permitAll()
+                        .requestMatchers("/api/categories/**").permitAll()
+                        .requestMatchers("/api/colors/**").permitAll()
+                        .requestMatchers("/api/sizes/**").permitAll()
+                        .requestMatchers("/api/promotions/active/**").permitAll()
+                        .requestMatchers("/api/banners/active/**").permitAll()
+                        .requestMatchers("/api/reviews/product/**").permitAll()
+                        .requestMatchers("/api/vouchers/available/**").permitAll()
+
+                        // ===== CUSTOMER AUTHENTICATED =====
+                        .requestMatchers("/api/cart/**").authenticated()
+                        .requestMatchers("/api/orders/**").authenticated()
+                        .requestMatchers("/api/customers/profile/**").authenticated()
+                        .requestMatchers("/api/wishlist/**").authenticated()
+                        .requestMatchers("/api/reviews/**").authenticated()
+                        .requestMatchers("/api/chat/**").authenticated()
+
+                        // ===== ADMIN ENDPOINTS (Chỉ ADMIN) =====
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
+
+                        // ===== STAFF ENDPOINTS (ADMIN + STAFF) =====
                         .requestMatchers("/api/staff/**").hasAnyRole("ADMIN", "STAFF")
+
+                        // ===== SALE STAFF ENDPOINTS (ADMIN + STAFF + SALE_STAFF) =====
+                        .requestMatchers("/api/sale-staff/**").hasAnyRole("ADMIN", "STAFF", "SALE_STAFF")
+
+                        // ===== POS ENDPOINTS (ADMIN + STAFF + SALE_STAFF) =====
+                        .requestMatchers("/api/pos/**").hasAnyRole("ADMIN", "STAFF", "SALE_STAFF")
+
+                        // ===== USER ENDPOINTS =====
                         .requestMatchers("/api/user/**").authenticated()
+
+                        // ===== ALL OTHER REQUESTS =====
                         .anyRequest().permitAll()
                 )
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);

@@ -305,8 +305,7 @@ const pendingVnpayOrder = reactive({
   snapshotSubtotal: 0,
   snapshotDiscount: 0,
   snapshotTotal: 0,
-  snapshotCustomer: '',
-});
+  snapshotCustomer: '' });
 
 // Kết quả sau callback VNPay
 const vnpayResult = reactive({
@@ -315,8 +314,7 @@ const vnpayResult = reactive({
   txnRef: null,
   amount: 0,
   paidAt: null,
-  errorMsg: null,
-});
+  errorMsg: null });
 
 // --- State dữ liệu ---
 const currentOrder = ref(null);
@@ -858,8 +856,7 @@ const vnpayErrorMsg = (code) => {
     '51': 'Tài khoản không đủ số dư.',
     '65': 'Vượt hạn mức giao dịch trong ngày.',
     '75': 'Ngân hàng đang bảo trì.',
-    '79': 'Sai mật khẩu quá số lần quy định.',
-  };
+    '79': 'Sai mật khẩu quá số lần quy định.' };
   return msgs[code] || `Giao dịch thất bại (mã: ${code}).`;
 };
 

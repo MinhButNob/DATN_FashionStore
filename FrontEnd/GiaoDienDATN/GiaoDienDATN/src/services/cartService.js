@@ -1,63 +1,40 @@
 // src/services/cartService.js
-import axios from "axios";
-
-const API_BASE = "http://localhost:8080/api";
-
-const getAuthHeader = () => {
-  const token =
-    localStorage.getItem("token") || localStorage.getItem("accessToken");
-  return token ? { Authorization: `Bearer ${token}` } : {};
-};
+import api from "@/api/axios";
 
 export const cartService = {
   // Áp dụng voucher
   applyVoucher(voucherCode) {
-    return axios.post(`${API_BASE}/cart/apply-voucher`, null, {
-      params: { voucherCode },
-      headers: getAuthHeader(),
-    });
+    return api.post("/cart/apply-voucher", null, {
+      params: { voucherCode } });
   },
 
   // Xóa voucher
   removeVoucher() {
-    return axios.delete(`${API_BASE}/cart/remove-voucher`, {
-      headers: getAuthHeader(),
-    });
+    return api.delete("/cart/remove-voucher");
   },
 
   // Lấy giỏ hàng
   getCart() {
-    return axios.get(`${API_BASE}/cart`, {
-      headers: getAuthHeader(),
-    });
+    return api.get("/cart");
   },
 
   // Thêm vào giỏ
   addToCart(data) {
-    return axios.post(`${API_BASE}/cart/add`, data, {
-      headers: getAuthHeader(),
-    });
+    return api.post("/cart/add", data);
   },
 
   // Cập nhật số lượng
   updateCartItem(cartItemId, quantity) {
-    return axios.put(`${API_BASE}/cart/items/${cartItemId}`, null, {
-      params: { quantity },
-      headers: getAuthHeader(),
-    });
+    return api.put(`/cart/items/${cartItemId}`, null, {
+      params: { quantity } });
   },
 
   // Xóa khỏi giỏ
   removeFromCart(cartItemId) {
-    return axios.delete(`${API_BASE}/cart/items/${cartItemId}`, {
-      headers: getAuthHeader(),
-    });
+    return api.delete(`/cart/items/${cartItemId}`);
   },
 
   // Xóa toàn bộ giỏ
   clearCart() {
-    return axios.delete(`${API_BASE}/cart/clear`, {
-      headers: getAuthHeader(),
-    });
-  },
-};
+    return api.delete("/cart/clear");
+  } };

@@ -12,10 +12,16 @@
     <div class="product-detail-selector">
       <div class="input-group">
         <label>📦 Chọn sản phẩm:</label>
+        <input 
+          type="text" 
+          v-model="productSearchKeyword" 
+          placeholder="🔍 Tìm nhanh sản phẩm..." 
+          class="product-search-input"
+        />
         <select v-model="selectedProductId" @change="loadProductDetails" class="detail-select">
           <option :value="null">-- Chọn sản phẩm --</option>
           <option 
-            v-for="product in productList" 
+            v-for="product in filteredProductList" 
             :key="product.productId" 
             :value="product.productId"
           >
@@ -259,9 +265,7 @@
 </template>
 
 <script>
-import axios from 'axios';
-
-const API_BASE = 'http://localhost:8080/api';
+import api from "@/api/axios";
 
 export default {
   name: 'AdminImages',
@@ -272,6 +276,7 @@ export default {
       productDetailsList: [],
       selectedProductDetailId: null,
       loadingProducts: false,
+      productSearchKeyword: '',
       
       allImages: [],
       images: [],
@@ -296,6 +301,15 @@ export default {
     };
   },
   computed: {
+    filteredProductList() {
+      if (!this.productSearchKeyword || !this.productSearchKeyword.trim()) {
+        return this.productList;
+      }
+      const kw = this.productSearchKeyword.trim().toLowerCase();
+      return this.productList.filter(product => 
+        product.productName?.toLowerCase().includes(kw)
+      );
+    },
     mainImageCount() {
       return this.images.filter(img => img.isMain === true && !img._deletedAt).length;
     },
@@ -343,22 +357,22 @@ export default {
       
       let cleanPath = path;
       if (cleanPath.startsWith('uploads/')) {
-        return `http://localhost:8080/${cleanPath}`;
+        return `${(import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "").replace(/\/api$/, "")}/${cleanPath}`;
       }
       if (cleanPath.startsWith('/uploads/')) {
-        return `http://localhost:8080${cleanPath}`;
+        return `${(import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "").replace(/\/api$/, "")}/${cleanPath}`;
       }
       if (cleanPath.startsWith('product-images/')) {
-        return `http://localhost:8080/uploads/${cleanPath}`;
+        return `${(import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "").replace(/\/api$/, "")}/uploads/${cleanPath}`;
       }
       if (cleanPath.startsWith('/product-images/')) {
-        return `http://localhost:8080/uploads${cleanPath}`;
+        return `${(import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "").replace(/\/api$/, "")}/uploads${cleanPath}`;
       }
       
       if (!cleanPath.startsWith('/')) {
         cleanPath = '/' + cleanPath;
       }
-      return `http://localhost:8080/uploads${cleanPath}`;
+      return `${(import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "").replace(/\/api$/, "")}/uploads${cleanPath}`;
     },
 
     handleImageError(e) {
@@ -377,7 +391,7 @@ export default {
     async loadProducts() {
       this.loadingProducts = true;
       try {
-        const response = await axios.get(`${API_BASE}/products`, { 
+        const response = await api.get(`/products`, { 
           params: { page: 0, size: 100 } 
         });
         
@@ -412,7 +426,7 @@ export default {
       }
       
       try {
-        const response = await axios.get(`${API_BASE}/products/${this.selectedProductId}`);
+        const response = await api.get(`/products/${this.selectedProductId}`);
         const product = response.data?.data;
         
         if (product && product.variants) {
@@ -445,7 +459,7 @@ export default {
       
       this.loading = true;
       try {
-        const response = await axios.get(`${API_BASE}/product-images`, {
+        const response = await api.get(`/product-images`, {
           params: { productDetailId: this.selectedProductDetailId, page: 0, size: 100 }
         });
         
@@ -490,7 +504,7 @@ export default {
         formData.append('productImageType', image.productImageType || 'gallery');
         formData.append('isMain', image.isMain || false);
         
-        await axios.put(`${API_BASE}/product-images/${image.productImageId}`, formData, {
+        await api.put(`/product-images/${image.productImageId}`, formData, {
           headers: { 'Content-Type': 'multipart/form-data' }
         });
         this.showNotification('Cập nhật số thứ tự thành công!', 'success');
@@ -571,7 +585,7 @@ export default {
           formData.append('imageFile', file);
           formData.append('productImageType', 'gallery');
           
-          await axios.post(`${API_BASE}/product-images`, formData, {
+          await api.post(`/product-images`, formData, {
             headers: { 'Content-Type': 'multipart/form-data' }
           });
           successCount++;
@@ -601,7 +615,7 @@ export default {
       try {
         const formData = new FormData();
         formData.append('isMain', true);
-        await axios.put(`${API_BASE}/product-images/${image.productImageId}`, formData, {
+        await api.put(`/product-images/${image.productImageId}`, formData, {
           headers: { 'Content-Type': 'multipart/form-data' }
         });
         
@@ -630,7 +644,7 @@ export default {
     async deleteImage() {
       try {
         // ✅ GỌI API SOFT DELETE
-        await axios.delete(`${API_BASE}/product-images/${this.deleteImageId}`);
+        await api.delete(`/product-images/${this.deleteImageId}`);
         
         // ✅ CẬP NHẬT TRẠNG THÁI (KHÔNG XÓA KHỎI DANH SÁCH)
         const index = this.images.findIndex(img => img.productImageId === this.deleteImageId);
@@ -666,7 +680,7 @@ export default {
     async restoreImage() {
       try {
         // ✅ GỌI API RESTORE
-        await axios.patch(`${API_BASE}/product-images/${this.restoreImageId}/restore`);
+        await api.patch(`/product-images/${this.restoreImageId}/restore`);
         
         // ✅ CẬP NHẬT TRẠNG THÁI
         const index = this.images.findIndex(img => img.productImageId === this.restoreImageId);
@@ -768,6 +782,22 @@ export default {
 .detail-select:focus {
   outline: none;
   border-color: #3498db;
+}
+
+.product-search-input {
+  width: 250px;
+  padding: 10px 12px;
+  border: 1px solid #e0e6ed;
+  border-radius: 8px;
+  font-size: 14px;
+  background: white;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.product-search-input:focus {
+  outline: none;
+  border-color: #3498db;
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
 }
 
 .info-note {

@@ -9,7 +9,6 @@
       <div v-for="section in menuSections" :key="section.title">
         <div class="menu-category">{{ section.title }}</div>
         
-        <!-- ✅ SỬA: Đổi a tag thành router-link -->
         <router-link
           v-for="item in section.items"
           :key="item.path"
@@ -19,6 +18,7 @@
         >
           <i :class="item.icon"></i>
           <span>{{ item.name }}</span>
+          <span v-if="item.badge" class="menu-badge">{{ item.badge }}</span>
         </router-link>
       </div>
     </nav>
@@ -33,17 +33,16 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'  // ✅ THÊM: import ref
+import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/authStore'
 
-// ✅ THÊM: Định nghĩa biến sidebarCollapsed
 const sidebarCollapsed = ref(false)
-
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 
+// Menu items cho sidebar admin
 const menuSections = [
   {
     title: "MAIN",
@@ -52,8 +51,7 @@ const menuSections = [
       { name: "Quản lý sản phẩm", path: "/admin/products", icon: "fas fa-tshirt" },
       { name: "Quản lý đơn hàng", path: "/admin/orders", icon: "fas fa-shopping-cart" },
       { name: "Quản lý khách hàng", path: "/admin/customers", icon: "fas fa-users" },
-    ],
-  },
+    ] },
   {
     title: "MANAGE",
     items: [
@@ -67,15 +65,18 @@ const menuSections = [
       { name: "Quản lý đánh giá", path: "/admin/reviews", icon: "fas fa-star" },
       { name: "Quản lý khuyến mãi", path: "/admin/promotions", icon: "fas fa-percent" },
       { name: "Voucher", path: "/admin/vouchers", icon: "fas fa-ticket-alt" },
-    ],
-  },
+    ] },
   {
-    title: "SYSTEM",
+    title: "REPORTS & SYSTEM",
     items: [
+      { 
+        name: "Báo cáo thống kê", 
+        path: "/admin/statistics", 
+        icon: "fas fa-chart-pie",
+        badge: "Mới"
+      },
       { name: "Cài đặt", path: "/admin/settings", icon: "fas fa-cog" },
-      { name: "Báo cáo", path: "/admin/reports", icon: "fas fa-chart-bar" },
-    ],
-  },
+    ] },
 ]
 
 const isActive = (path) => {
@@ -142,7 +143,6 @@ const handleLogout = () => {
   overflow-x: hidden;
 }
 
-/* Custom scrollbar */
 .sidebar-nav::-webkit-scrollbar {
   width: 4px;
 }
@@ -228,6 +228,25 @@ const handleLogout = () => {
   white-space: nowrap;
 }
 
+.menu-badge {
+  background: #e63946;
+  color: white;
+  font-size: 10px;
+  padding: 1px 8px;
+  border-radius: 12px;
+  font-weight: 600;
+  animation: pulseBadge 2s ease-in-out infinite;
+}
+
+@keyframes pulseBadge {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
 .sidebar-footer {
   padding: 16px 20px 24px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
@@ -260,7 +279,6 @@ const handleLogout = () => {
   font-size: 16px;
 }
 
-/* ===== RESPONSIVE ===== */
 @media (max-width: 768px) {
   .admin-sidebar {
     width: 0;
@@ -301,7 +319,6 @@ const handleLogout = () => {
   }
 }
 
-/* ===== ANIMATION ===== */
 @keyframes slideIn {
   from {
     opacity: 0;

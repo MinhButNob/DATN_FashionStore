@@ -47,10 +47,6 @@ public class CustomerProfileController {
         return ResponseEntity.ok(updated);
     }
 
-    /**
-     * ✅ Đổi mật khẩu
-     * Endpoint: PUT /api/customers/change-password
-     */
     @PutMapping("/change-password")
     public ResponseEntity<Map<String, String>> changePassword(
             @AuthenticationPrincipal UserDetails userDetails,

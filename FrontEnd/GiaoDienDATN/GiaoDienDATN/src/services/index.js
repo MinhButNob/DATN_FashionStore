@@ -15,8 +15,7 @@ export const authService = {
 
   updateProfile(data) {
     return api.put("/auth/profile", data);
-  },
-};
+  } };
 
 export const productService = {
   getAllProducts(params = {}) {
@@ -25,5 +24,4 @@ export const productService = {
 
   getProductById(id) {
     return api.get(`/products/${id}`);
-  },
-};
+  } };

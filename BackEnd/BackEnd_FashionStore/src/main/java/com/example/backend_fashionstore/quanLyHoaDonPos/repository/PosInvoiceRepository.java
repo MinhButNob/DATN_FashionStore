@@ -65,4 +65,17 @@ public interface PosInvoiceRepository extends JpaRepository<PosOrder, Integer> {
                 "AND pos_order_customer_id IS NOT NULL", nativeQuery = true)
         Long getTotalCustomers(@Param("startDate") LocalDateTime startDate,
                                @Param("endDate") LocalDateTime endDate);
+
+        // Thêm vào PosOrderRepository.java
+        @Query("SELECT COALESCE(SUM(p.posOrderTotalAmount), 0) FROM PosOrder p " +
+                "WHERE p.posOrderStatus = 'COMPLETED' " +
+                "AND p.posOrderCreatedAt BETWEEN :startDate AND :endDate")
+        BigDecimal getPosRevenueBetween(@Param("startDate") LocalDateTime startDate,
+                                        @Param("endDate") LocalDateTime endDate);
+
+        @Query("SELECT COUNT(p) FROM PosOrder p " +
+                "WHERE p.posOrderStatus = 'COMPLETED' " +
+                "AND p.posOrderCreatedAt BETWEEN :startDate AND :endDate")
+        Long getPosOrderCountBetween(@Param("startDate") LocalDateTime startDate,
+                                     @Param("endDate") LocalDateTime endDate);
 }

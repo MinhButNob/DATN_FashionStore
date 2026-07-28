@@ -12,7 +12,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class WishlistResponseDTO {
-    private Long wishlistId;
+    private Integer wishlistId;
     private Integer customerId;
     private Integer totalItems;
     private List<WishlistItemResponseDTO> items;

@@ -49,8 +49,7 @@ export const employeeService = {
       return {
         success: false,
         error:
-          parseError(error) || "Thêm nhân viên thất bại. Vui lòng thử lại.",
-      };
+          parseError(error) || "Thêm nhân viên thất bại. Vui lòng thử lại." };
     }
   },
 
@@ -77,8 +76,7 @@ export const employeeService = {
         if (toggleResult.status !== 200) {
           return {
             success: false,
-            error: "Không thể cập nhật trạng thái tài khoản",
-          };
+            error: "Không thể cập nhật trạng thái tài khoản" };
         }
         // Xóa userStatus khỏi data để không gửi lên update thông thường
         delete data.userStatus;
@@ -91,8 +89,7 @@ export const employeeService = {
       return {
         success: false,
         error:
-          parseError(error) || "Cập nhật nhân viên thất bại. Vui lòng thử lại.",
-      };
+          parseError(error) || "Cập nhật nhân viên thất bại. Vui lòng thử lại." };
     }
   },
 
@@ -101,13 +98,11 @@ export const employeeService = {
       const response = await employeeApi.delete(id);
       return {
         success: true,
-        message: response.data?.message || "Xoá thành công",
-      };
+        message: response.data?.message || "Xoá thành công" };
     } catch (error) {
       return {
         success: false,
-        error: parseError(error) || "Xoá thất bại. Vui lòng thử lại.",
-      };
+        error: parseError(error) || "Xoá thất bại. Vui lòng thử lại." };
     }
   },
 
@@ -118,8 +113,7 @@ export const employeeService = {
     } catch (error) {
       return {
         success: false,
-        error: parseError(error) || "Không tìm thấy nhân viên.",
-      };
+        error: parseError(error) || "Không tìm thấy nhân viên." };
     }
   },
 
@@ -130,8 +124,7 @@ export const employeeService = {
     } catch (error) {
       return {
         success: false,
-        error: parseError(error) || "Tìm kiếm thất bại.",
-      };
+        error: parseError(error) || "Tìm kiếm thất bại." };
     }
   },
 
@@ -142,8 +135,6 @@ export const employeeService = {
     } catch (error) {
       return {
         success: false,
-        error: parseError(error) || "Lấy thống kê thất bại.",
-      };
+        error: parseError(error) || "Lấy thống kê thất bại." };
     }
-  },
-};
+  } };

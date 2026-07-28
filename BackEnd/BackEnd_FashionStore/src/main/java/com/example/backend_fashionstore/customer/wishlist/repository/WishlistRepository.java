@@ -9,8 +9,11 @@ import org.springframework.stereotype.Repository;
 import java.util.Optional;
 
 @Repository
-public interface WishlistRepository extends JpaRepository<Wishlist, Long> {
+public interface WishlistRepository extends JpaRepository<Wishlist, Integer> {
+
+    Optional<Wishlist> findByCustomer_CustomerIdAndWishlistStatus(Integer customerId, String status);
 
     @Query("SELECT w FROM Wishlist w WHERE w.customer.customerId = :customerId AND w.deletedAt IS NULL")
     Optional<Wishlist> findByCustomerIdAndDeletedAtIsNull(@Param("customerId") Integer customerId);
+
 }

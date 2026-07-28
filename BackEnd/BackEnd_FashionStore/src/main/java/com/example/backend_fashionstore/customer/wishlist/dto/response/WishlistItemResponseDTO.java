@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class WishlistItemResponseDTO {
-    private Long wishlistItemId;
+    private Integer wishlistItemId;
     private Integer productDetailId;
     private Integer productId;
     private String productName;

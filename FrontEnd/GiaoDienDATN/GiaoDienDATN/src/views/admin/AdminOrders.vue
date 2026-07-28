@@ -9,8 +9,9 @@
       </div>
     </div>
 
-    <!-- Thống kê nhanh -->
+    <!-- ===== THỐNG KÊ NÂNG CAO ===== -->
     <div class="stats-grid" v-if="statistics">
+      <!-- Cột 1: Tổng đơn hàng -->
       <div class="stat-card">
         <div class="stat-icon blue">
           <i class="fas fa-shopping-bag"></i>
@@ -20,6 +21,8 @@
           <span class="stat-label">Tổng đơn hàng</span>
         </div>
       </div>
+
+      <!-- Cột 2: Chờ xử lý -->
       <div class="stat-card">
         <div class="stat-icon yellow">
           <i class="fas fa-clock"></i>
@@ -29,6 +32,8 @@
           <span class="stat-label">Chờ xử lý</span>
         </div>
       </div>
+
+      <!-- Cột 3: Hoàn thành -->
       <div class="stat-card">
         <div class="stat-icon green">
           <i class="fas fa-check-circle"></i>
@@ -38,15 +43,161 @@
           <span class="stat-label">Hoàn thành</span>
         </div>
       </div>
-      <div class="stat-card">
-        <div class="stat-icon red">
+
+      <!-- ===== THỐNG KÊ DOANH THU ===== -->
+      <div class="stat-card stat-card-highlight">
+        <div class="stat-icon purple">
+          <i class="fas fa-chart-line"></i>
+        </div>
+        <div class="stat-info">
+          <span class="stat-number stat-revenue">{{ formatPrice(statistics.totalRevenue) }}</span>
+          <span class="stat-label">💰 Tổng doanh thu</span>
+        </div>
+      </div>
+
+      <div class="stat-card stat-card-highlight">
+        <div class="stat-icon teal">
+          <i class="fas fa-laptop"></i>
+        </div>
+        <div class="stat-info">
+          <span class="stat-number stat-revenue">{{ formatPrice(statistics.onlineRevenue) }}</span>
+          <span class="stat-label">🛒 Doanh thu online</span>
+        </div>
+      </div>
+
+      <div class="stat-card stat-card-highlight">
+        <div class="stat-icon orange">
+          <i class="fas fa-undo-alt"></i>
+        </div>
+        <div class="stat-info">
+          <span class="stat-number stat-return">{{ formatPrice(statistics.returnRefundAmount) }}</span>
+          <span class="stat-label">↩️ Tiền hoàn trả</span>
+        </div>
+      </div>
+
+      <div class="stat-card stat-card-highlight">
+        <div class="stat-icon success">
+          <i class="fas fa-hand-holding-usd"></i>
+        </div>
+        <div class="stat-info">
+          <span class="stat-number stat-net">{{ formatPrice(statistics.netRevenue) }}</span>
+          <span class="stat-label">📊 Doanh thu thực tế</span>
+        </div>
+      </div>
+
+      <!-- ===== THỐNG KÊ HOÀN HÀNG ===== -->
+      <div class="stat-card stat-card-return">
+        <div class="stat-icon return">
+          <i class="fas fa-clipboard-list"></i>
+        </div>
+        <div class="stat-info">
+          <span class="stat-number">{{ statistics.returnRequested || 0 }}</span>
+          <span class="stat-label">📋 Yêu cầu hoàn</span>
+        </div>
+      </div>
+
+      <div class="stat-card stat-card-return">
+        <div class="stat-icon return-approved">
+          <i class="fas fa-check-circle"></i>
+        </div>
+        <div class="stat-info">
+          <span class="stat-number">{{ statistics.returnApproved || 0 }}</span>
+          <span class="stat-label">✅ Đã duyệt</span>
+        </div>
+      </div>
+
+      <div class="stat-card stat-card-return">
+        <div class="stat-icon return-received">
+          <i class="fas fa-box"></i>
+        </div>
+        <div class="stat-info">
+          <span class="stat-number">{{ statistics.returnReceived || 0 }}</span>
+          <span class="stat-label">📦 Đã nhận hàng</span>
+        </div>
+      </div>
+
+      <div class="stat-card stat-card-return">
+        <div class="stat-icon return-completed">
+          <i class="fas fa-check-double"></i>
+        </div>
+        <div class="stat-info">
+          <span class="stat-number">{{ statistics.returnCompleted || 0 }}</span>
+          <span class="stat-label">✅ Hoàn thành</span>
+        </div>
+      </div>
+
+      <div class="stat-card stat-card-return">
+        <div class="stat-icon return-rejected">
           <i class="fas fa-times-circle"></i>
         </div>
         <div class="stat-info">
-          <span class="stat-number">{{ statistics.cancelledOrders || 0 }}</span>
-          <span class="stat-label">Đã hủy</span>
+          <span class="stat-number">{{ statistics.returnRejected || 0 }}</span>
+          <span class="stat-label">❌ Từ chối</span>
         </div>
       </div>
+
+      <!-- ===== THỐNG KÊ ĐÃ HỦY ===== -->
+      <div class="stat-card stat-card-cancelled">
+        <div class="stat-icon cancelled">
+          <i class="fas fa-user-times"></i>
+        </div>
+        <div class="stat-info">
+          <span class="stat-number">{{ statistics.cancelledByCustomer || 0 }}</span>
+          <span class="stat-label">👤 Khách hủy</span>
+        </div>
+      </div>
+
+      <div class="stat-card stat-card-cancelled">
+        <div class="stat-icon cancelled-admin">
+          <i class="fas fa-user-shield"></i>
+        </div>
+        <div class="stat-info">
+          <span class="stat-number">{{ statistics.cancelledByAdmin || 0 }}</span>
+          <span class="stat-label">🛡️ Admin hủy</span>
+        </div>
+      </div>
+
+      <div class="stat-card stat-card-cancelled">
+        <div class="stat-icon cancelled-system">
+          <i class="fas fa-robot"></i>
+        </div>
+        <div class="stat-info">
+          <span class="stat-number">{{ statistics.cancelledBySystem || 0 }}</span>
+          <span class="stat-label">🤖 Hệ thống hủy</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== MAIN TABS ===== -->
+    <div class="main-tabs">
+      <button
+        v-for="mainTab in mainTabs"
+        :key="mainTab.value"
+        class="main-tab-btn"
+        :class="{ active: activeMainTab === mainTab.value }"
+        @click="changeMainTab(mainTab.value)"
+      >
+        <i :class="mainTab.icon"></i>
+        {{ mainTab.label }}
+        <span class="tab-badge" :class="mainTab.badgeClass">
+          {{ getMainTabCount(mainTab.value) }}
+        </span>
+      </button>
+    </div>
+
+    <!-- ===== SUB TABS ===== -->
+    <div class="sub-tabs" v-if="subTabs.length > 0">
+      <button
+        v-for="subTab in subTabs"
+        :key="subTab.value"
+        class="sub-tab-btn"
+        :class="{ active: activeSubTab === subTab.value }"
+        @click="changeSubTab(subTab.value)"
+      >
+        <i :class="subTab.icon"></i>
+        {{ subTab.label }}
+        <span class="tab-count">{{ getSubTabCount(subTab.value) }}</span>
+      </button>
     </div>
 
     <!-- Filters -->
@@ -58,23 +209,33 @@
           v-model="filters.search"
           placeholder="Tìm kiếm theo mã đơn, tên khách hàng..."
           @input="applyFilters"
-        >
+        />
       </div>
 
       <select v-model="filters.status" @change="applyFilters">
         <option value="all">Tất cả trạng thái</option>
-        <option value="PENDING_PAYMENT">Chờ thanh toán</option>
-        <option value="CONFIRMED">Đã xác nhận</option>
-        <option value="PROCESSING">Đang xử lý</option>
-        <option value="SHIPPING">Đang giao</option>
-        <option value="DELIVERED">Đã giao</option>
-        <option value="COMPLETED">Hoàn thành</option>
-        <option value="CANCELLED">Đã hủy</option>
-        <option value="RETURN_REQUESTED">Yêu cầu hoàn hàng</option>
-        <option value="RETURN_APPROVED">Đã duyệt hoàn hàng</option>
-        <option value="RETURN_RECEIVED">Đã nhận hàng trả</option>
-        <option value="REJECTED">Đã từ chối hoàn trả</option>
-        <option value="RETURNED">Đã hoàn hàng</option>
+        <!-- Đơn hàng -->
+        <template v-if="activeMainTab === 'orders'">
+          <option value="PENDING_PAYMENT">Chờ thanh toán</option>
+          <option value="CONFIRMED">Đã xác nhận</option>
+          <option value="PROCESSING">Đang xử lý</option>
+          <option value="SHIPPING">Đang giao</option>
+          <option value="DELIVERED">Đã giao</option>
+          <option value="COMPLETED">Hoàn thành</option>
+        </template>
+        <!-- Hoàn hàng -->
+        <template v-if="activeMainTab === 'returns'">
+          <option value="RETURN_REQUESTED">Yêu cầu hoàn hàng</option>
+          <option value="RETURN_APPROVED">Đã duyệt hoàn hàng</option>
+          <option value="RETURN_RECEIVED">Đã nhận hàng trả</option>
+          <option value="RETURN_PENDING">Đang thu hồi hàng</option>
+          <option value="RETURNED">Đã hoàn hàng</option>
+          <option value="REJECTED">Từ chối hoàn trả</option>
+        </template>
+        <!-- Hủy đơn -->
+        <template v-if="activeMainTab === 'cancelled'">
+          <option value="CANCELLED">Đã hủy</option>
+        </template>
       </select>
 
       <button class="btn-search" @click="fetchOrders">
@@ -117,7 +278,10 @@
                 <div class="customer-name">{{ order.customer?.customerName || 'Khách vãng lai' }}</div>
               </div>
             </td>
-            <td>{{ order.customer?.phone || '---' }}</td>
+            <td>
+              <!-- ✅ SỬA: Ưu tiên lấy số điện thoại từ shippingAddress -->
+              <span class="phone-number">{{ order.shippingAddress?.phone || order.customer?.phone || '---' }}</span>
+            </td>
             <td>
               <div class="product-count">{{ order.items?.length || 0 }} sản phẩm</div>
               <button class="view-items-btn" @click="viewOrderItems(order)" title="Xem chi tiết">
@@ -140,8 +304,8 @@
             </td>
             <td>
               <div class="action-buttons">
-                <!-- Nút Cập nhật trạng thái -->
                 <button 
+                  v-if="activeMainTab === 'orders'"
                   class="action-btn update-status-btn" 
                   @click="openUpdateStatusModal(order)"
                   :disabled="updatingOrderIds.has(order.orderId) || !canUpdateStatus(order.orderStatus)"
@@ -149,25 +313,44 @@
                 >
                   <i class="fas fa-edit"></i>
                 </button>
+                
                 <button class="action-btn view-btn" @click="viewOrderDetail(order)" title="Xem chi tiết">
                   <i class="fas fa-eye"></i>
                 </button>
-                <!-- Nút Xem yêu cầu hoàn hàng -->
+                
                 <button 
-                  v-if="['RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING'].includes(order.orderStatus)" 
-                  class="action-btn return-btn" 
+                  v-if="activeMainTab === 'returns' && isReturnOrder(order.orderStatus)"
+                  class="action-btn return-detail-btn" 
                   @click="viewReturnRequest(order)"
-                  title="Xem yêu cầu hoàn hàng"
+                  title="Xem chi tiết hoàn hàng"
                 >
                   <i class="fas fa-undo-alt"></i>
                 </button>
-                <!-- Nút In hóa đơn -->
+                
                 <button 
                   class="action-btn invoice-btn" 
                   @click="viewInvoice(order)"
                   title="Xem hóa đơn"
                 >
                   <i class="fas fa-file-invoice"></i>
+                </button>
+                
+                <button 
+                  v-if="activeMainTab === 'orders' && canAdminCancel(order.orderStatus)"
+                  class="action-btn cancel-btn" 
+                  @click="openCancelOrderModal(order)"
+                  title="Hủy đơn hàng"
+                >
+                  <i class="fas fa-times"></i>
+                </button>
+
+                <button 
+                  v-if="activeMainTab === 'cancelled' && order.orderStatus === 'CANCELLED'"
+                  class="action-btn restore-order-btn" 
+                  @click="openRestoreOrderModal(order)"
+                  title="Khôi phục đơn hàng"
+                >
+                  <i class="fas fa-undo"></i>
                 </button>
               </div>
             </td>
@@ -193,8 +376,9 @@
       </button>
     </div>
 
+    <!-- ===== MODALS ===== -->
     <!-- Order Detail Modal -->
-    <div v-if="showDetailModal" class="modal" @click.self="closeDetailModal">
+    <div v-if="showDetailModal" class="modal-overlay" @click.self="closeDetailModal">
       <div class="modal-content modal-lg">
         <div class="modal-header">
           <h2>Chi tiết đơn hàng #{{ selectedOrder?.orderCode || selectedOrder?.orderId }}</h2>
@@ -205,7 +389,7 @@
             <div class="info-section">
               <h3>Thông tin khách hàng</h3>
               <p><strong>Họ tên:</strong> {{ selectedOrder?.customer?.customerName || 'Khách hàng' }}</p>
-              <p><strong>SĐT:</strong> {{ selectedOrder?.customer?.phone || '---' }}</p>
+              <p><strong>SĐT:</strong> {{ selectedOrder?.shippingAddress?.phone || selectedOrder?.customer?.phone || '---' }}</p>
               <p><strong>Email:</strong> {{ selectedOrder?.customer?.email || '---' }}</p>
             </div>
             <div class="info-section">
@@ -214,16 +398,24 @@
               <p><strong>Trạng thái:</strong> {{ getStatusText(selectedOrder?.orderStatus) }}</p>
               <p><strong>Thanh toán:</strong> {{ getPaymentStatusText(selectedOrder?.paymentStatus) }}</p>
             </div>
-            <div class="info-section">
-              <h3>Địa chỉ giao hàng</h3>
-              <p><strong>Người nhận:</strong> {{ selectedOrder?.shippingAddress?.fullName || '---' }}</p>
-              <p><strong>SĐT:</strong> {{ selectedOrder?.shippingAddress?.phone || '---' }}</p>
-              <p><strong>Địa chỉ:</strong> 
-                {{ selectedOrder?.shippingAddress?.addressLine || '---' }},
-                {{ selectedOrder?.shippingAddress?.ward || '' }},
-                {{ selectedOrder?.shippingAddress?.district || '' }},
-                {{ selectedOrder?.shippingAddress?.city || '' }}
-              </p>
+          </div>
+
+          <!-- Địa chỉ giao hàng -->
+          <div class="address-section">
+            <h3>📍 Địa chỉ giao hàng</h3>
+            <div class="address-detail-card">
+              <div class="address-row">
+                <span class="address-label">👤 Người nhận:</span>
+                <span class="address-value">{{ selectedOrder?.shippingAddress?.fullName || '---' }}</span>
+              </div>
+              <div class="address-row">
+                <span class="address-label">📞 Số điện thoại:</span>
+                <span class="address-value">{{ selectedOrder?.shippingAddress?.phone || '---' }}</span>
+              </div>
+              <div class="address-row full-address-row">
+                <span class="address-label">📦 Địa chỉ đầy đủ:</span>
+                <span class="address-value highlight">{{ selectedOrder?.shippingAddress?.fullAddress || getFullAddress(selectedOrder?.shippingAddress) }}</span>
+              </div>
             </div>
           </div>
 
@@ -303,7 +495,7 @@
     </div>
 
     <!-- Order Items Modal -->
-    <div v-if="showItemsModal" class="modal" @click.self="closeItemsModal">
+    <div v-if="showItemsModal" class="modal-overlay" @click.self="closeItemsModal">
       <div class="modal-content">
         <div class="modal-header">
           <h2>Sản phẩm trong đơn hàng #{{ selectedOrder?.orderCode || selectedOrder?.orderId }}</h2>
@@ -346,7 +538,7 @@
       </div>
     </div>
 
-    <!-- ✅ Update Status Modal -->
+    <!-- Update Status Modal -->
     <UpdateStatusModal
       :visible="showUpdateModal"
       :order="selectedOrderForUpdate"
@@ -354,16 +546,64 @@
       @updated="onStatusUpdated"
     />
 
-    <!-- ✅ Return Request Detail Modal -->
-    <div v-if="showReturnModal" class="modal" @click.self="closeReturnModal">
+    <!-- Admin Cancel Order Modal -->
+    <div v-if="showCancelModal" class="modal-overlay" @click.self="closeCancelModal">
+      <div class="modal-container modal-sm">
+        <div class="modal-header">
+          <h3>Hủy đơn hàng</h3>
+          <button class="close-btn" @click="closeCancelModal">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Lý do hủy <span class="required">*</span></label>
+            <textarea v-model="cancelReason" rows="3" placeholder="Nhập lý do hủy đơn hàng..."></textarea>
+          </div>
+          <div class="warning-text">
+            <i class="fas fa-exclamation-triangle"></i>
+            <span>Hành động này sẽ hủy đơn hàng và hoàn lại số lượng sản phẩm vào kho (nếu đã trừ).</span>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" @click="closeCancelModal">Đóng</button>
+          <button class="btn btn-danger" @click="confirmCancelOrder" :disabled="cancelLoading">
+            {{ cancelLoading ? 'Đang xử lý...' : 'Xác nhận hủy' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Restore Order Modal -->
+    <div v-if="showRestoreModal" class="modal-overlay" @click.self="closeRestoreModal">
+      <div class="modal-container modal-sm">
+        <div class="modal-header">
+          <h3>Khôi phục đơn hàng</h3>
+          <button class="close-btn" @click="closeRestoreModal">✕</button>
+        </div>
+        <div class="modal-body">
+          <p>Bạn có chắc muốn khôi phục đơn hàng <strong>#{{ restoreOrder?.orderCode || restoreOrder?.orderId }}</strong>?</p>
+          <p class="warning-text success-text">
+            <i class="fas fa-info-circle"></i>
+            Sau khi khôi phục, đơn hàng sẽ chuyển về trạng thái <strong>PENDING_PAYMENT</strong> và có thể xử lý lại.
+          </p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" @click="closeRestoreModal">Hủy</button>
+          <button class="btn btn-success" @click="confirmRestoreOrder" :disabled="restoreLoading">
+            {{ restoreLoading ? 'Đang xử lý...' : 'Khôi phục' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Return Request Detail Modal -->
+    <div v-if="showReturnModal" class="modal-overlay" @click.self="closeReturnModal">
       <div class="modal-content modal-lg">
         <div class="modal-header">
-          <h2>Yêu cầu hoàn hàng</h2>
+          <h2>Chi tiết yêu cầu hoàn hàng</h2>
           <button class="close-btn" @click="closeReturnModal">✕</button>
         </div>
         <div class="modal-body">
           <div v-if="returnRequestDetail" class="return-detail">
-            <!-- Thông tin khách hàng -->
             <div class="return-info-grid">
               <div class="info-section">
                 <h3>Thông tin khách hàng</h3>
@@ -383,7 +623,6 @@
               </div>
             </div>
 
-            <!-- Lý do và mô tả -->
             <div class="return-reason">
               <h3>Lý do hoàn hàng</h3>
               <div class="reason-content">
@@ -393,7 +632,6 @@
               </div>
             </div>
 
-            <!-- Hình ảnh -->
             <div v-if="returnRequestDetail.images && returnRequestDetail.images.length > 0" class="return-images">
               <h3>Hình ảnh minh họa</h3>
               <div class="image-list">
@@ -407,11 +645,9 @@
               </div>
             </div>
 
-            <!-- Admin Actions -->
-            <div class="admin-actions">
+            <div v-if="activeMainTab === 'returns'" class="admin-actions">
               <h3>Xử lý yêu cầu</h3>
               
-              <!-- Trường hợp PENDING - Chờ duyệt -->
               <template v-if="returnRequestDetail.status === 'PENDING'">
                 <div class="action-group">
                   <div class="form-group">
@@ -431,7 +667,6 @@
                 </div>
               </template>
 
-              <!-- Trường hợp APPROVED - Đã duyệt, chờ nhận hàng -->
               <template v-if="returnRequestDetail.status === 'APPROVED'">
                 <div class="action-group">
                   <div class="form-group">
@@ -447,7 +682,6 @@
                 </div>
               </template>
 
-              <!-- Trường hợp RECEIVED - Đã nhận hàng, chờ hoàn tất -->
               <template v-if="returnRequestDetail.status === 'RECEIVED'">
                 <div class="action-group">
                   <div class="form-group">
@@ -463,7 +697,6 @@
                 </div>
               </template>
 
-              <!-- Trường hợp COMPLETED - Đã hoàn tất -->
               <template v-if="returnRequestDetail.status === 'COMPLETED'">
                 <div class="status-info-box status-success">
                   <i class="fas fa-check-circle"></i>
@@ -471,16 +704,14 @@
                 </div>
               </template>
 
-              <!-- Trường hợp REJECTED - Từ chối -->
               <template v-if="returnRequestDetail.status === 'REJECTED'">
                 <div class="status-info-box status-danger">
                   <i class="fas fa-times-circle"></i>
-                  <span>Đã từ chối yêu cầu hoàn hàng. Đơn hàng đã được chuyển về trạng thái <strong>Hoàn thành</strong>.</span>
+                  <span>Đã từ chối yêu cầu hoàn hàng.</span>
                 </div>
               </template>
             </div>
 
-            <!-- Status History -->
             <div class="return-status">
               <h3>Trạng thái hiện tại</h3>
               <div class="status-info">
@@ -504,8 +735,8 @@
       </div>
     </div>
 
-    <!-- ✅ Invoice Modal -->
-    <div v-if="showInvoiceModal" class="modal" @click.self="closeInvoiceModal">
+    <!-- Invoice Modal -->
+    <div v-if="showInvoiceModal" class="modal-overlay" @click.self="closeInvoiceModal">
       <div class="modal-content modal-lg">
         <div class="modal-header">
           <h2>Hóa đơn #{{ invoiceData?.orderCode || invoiceData?.orderId }}</h2>
@@ -518,7 +749,6 @@
         </div>
         <div class="modal-body" id="invoice-content">
           <div v-if="invoiceData" class="invoice-container">
-            <!-- Header -->
             <div class="invoice-header">
               <div class="company-info">
                 <h1>FASHION STORE</h1>
@@ -534,7 +764,6 @@
               </div>
             </div>
 
-            <!-- Thông tin khách hàng -->
             <div class="customer-info">
               <h3>Thông tin khách hàng</h3>
               <div class="info-row">
@@ -544,17 +773,11 @@
               </div>
               <div class="info-row">
                 <span><strong>Địa chỉ giao hàng:</strong> 
-                  {{ invoiceData.shippingFullName || '' }}
-                  {{ invoiceData.shippingPhone ? '- SĐT: ' + invoiceData.shippingPhone : '' }}
-                  {{ invoiceData.shippingAddress ? '- ' + invoiceData.shippingAddress : '' }}
-                  {{ invoiceData.shippingWard ? ', ' + invoiceData.shippingWard : '' }}
-                  {{ invoiceData.shippingDistrict ? ', ' + invoiceData.shippingDistrict : '' }}
-                  {{ invoiceData.shippingCity ? ', ' + invoiceData.shippingCity : '' }}
+                  {{ getInvoiceFullAddress(invoiceData) }}
                 </span>
               </div>
             </div>
 
-            <!-- Danh sách sản phẩm -->
             <div class="invoice-items">
               <h3>Chi tiết sản phẩm</h3>
               <table class="invoice-table">
@@ -619,13 +842,11 @@
               </table>
             </div>
 
-            <!-- Ghi chú -->
             <div v-if="invoiceData.notes" class="invoice-notes">
               <h4>Ghi chú:</h4>
               <p>{{ invoiceData.notes }}</p>
             </div>
 
-            <!-- Footer -->
             <div class="invoice-footer">
               <p>Cảm ơn quý khách đã mua hàng tại Fashion Store!</p>
             </div>
@@ -645,7 +866,7 @@
     </div>
 
     <!-- Image Viewer Modal -->
-    <div v-if="showImageViewer" class="modal" @click.self="closeImageViewer">
+    <div v-if="showImageViewer" class="modal-overlay" @click.self="closeImageViewer">
       <div class="image-viewer-container">
         <img :src="viewingImage" alt="Return image" />
         <button class="close-btn" @click="closeImageViewer">✕</button>
@@ -661,10 +882,10 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { adminOrderService } from '../../services/adminOrderService'
 import UpdateStatusModal from '../../components/admin/UpdateStatusModal.vue'
-import axios from 'axios'
+import api from "@/api/axios";
 
 // ===== STATE =====
 const loading = ref(false)
@@ -676,67 +897,87 @@ const pageSize = ref(10)
 const statistics = ref(null)
 const updatingOrderIds = ref(new Set())
 
-// Filters
+// ===== MAIN TABS =====
+const activeMainTab = ref('orders')
+const mainTabs = [
+  { value: 'orders', label: 'Đơn hàng', icon: 'fas fa-shopping-bag', badgeClass: 'badge-blue' },
+  { value: 'returns', label: 'Hoàn hàng', icon: 'fas fa-undo-alt', badgeClass: 'badge-orange' },
+  { value: 'cancelled', label: 'Đã hủy', icon: 'fas fa-times-circle', badgeClass: 'badge-red' },
+]
+
+// ===== SUB TABS =====
+const activeSubTab = ref('all')
+
+const subTabsMap = {
+  orders: [
+    { value: 'all', label: 'Tất cả', icon: 'fas fa-list' },
+    { value: 'PENDING_PAYMENT', label: 'Chờ thanh toán', icon: 'fas fa-clock' },
+    { value: 'CONFIRMED', label: 'Đã xác nhận', icon: 'fas fa-check' },
+    { value: 'PROCESSING', label: 'Đang xử lý', icon: 'fas fa-spinner' },
+    { value: 'SHIPPING', label: 'Đang giao', icon: 'fas fa-truck' },
+    { value: 'DELIVERED', label: 'Đã giao', icon: 'fas fa-box' },
+    { value: 'COMPLETED', label: 'Hoàn thành', icon: 'fas fa-check-circle' },
+  ],
+  returns: [
+    { value: 'all', label: 'Tất cả', icon: 'fas fa-list' },
+    { value: 'RETURN_REQUESTED', label: 'Yêu cầu hoàn hàng', icon: 'fas fa-clock' },
+    { value: 'RETURN_APPROVED', label: 'Đã duyệt', icon: 'fas fa-check' },
+    { value: 'RETURN_RECEIVED', label: 'Đã nhận hàng trả', icon: 'fas fa-box' },
+    { value: 'RETURN_PENDING', label: 'Đang thu hồi', icon: 'fas fa-spinner' },
+    { value: 'RETURNED', label: 'Đã hoàn hàng', icon: 'fas fa-check-circle' },
+    { value: 'REJECTED', label: 'Từ chối', icon: 'fas fa-times-circle' },
+  ],
+  cancelled: [
+    { value: 'all', label: 'Tất cả', icon: 'fas fa-list' },
+    { value: 'CANCELLED', label: 'Đã hủy', icon: 'fas fa-times-circle' },
+  ]
+}
+
+const subTabs = computed(() => {
+  return subTabsMap[activeMainTab.value] || []
+})
+
+// ===== FILTERS =====
 const filters = ref({
   search: '',
   status: 'all'
 })
 
-// Modal state
+// ===== MODAL STATE =====
 const showDetailModal = ref(false)
 const showItemsModal = ref(false)
 const showUpdateModal = ref(false)
 const showReturnModal = ref(false)
 const showInvoiceModal = ref(false)
+const showCancelModal = ref(false)
+const showRestoreModal = ref(false)
 const showImageViewer = ref(false)
 const selectedOrder = ref(null)
 const selectedOrderForUpdate = ref(null)
 const returnRequestDetail = ref(null)
 const invoiceData = ref(null)
+const cancelOrderId = ref(null)
+const cancelReason = ref('')
+const cancelLoading = ref(false)
+const restoreOrder = ref(null)
+const restoreLoading = ref(false)
 const adminNote = ref('')
 const processingReturn = ref(false)
 const receivingReturn = ref(false)
 const completingReturn = ref(false)
 const viewingImage = ref('')
 
-// Toast
+// ===== TOAST =====
 const showToast = ref(false)
 const toastMessage = ref('')
 const toastType = ref('success')
 let toastTimer = null
 
-// BASE URL CHO ẢNH
-const IMAGE_BASE = "http://localhost:8080"
-const API_BASE = "http://localhost:8080/api"
-
-// Các trạng thái Admin KHÔNG thể cập nhật
+// ===== CONSTANTS =====
+const IMAGE_BASE = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "").replace(/\/api$/, "");
 const ADMIN_CANNOT_UPDATE = ['CANCELLED', 'RETURNED', 'RETURN_REQUESTED', 'RETURN_PENDING']
 
-// HÀM LẤY URL ẢNH
-const getImageUrl = (imagePath) => {
-  if (!imagePath) return ''
-  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
-    return imagePath
-  }
-  const cleanPath = imagePath.startsWith('/') ? imagePath : '/' + imagePath
-  return IMAGE_BASE + cleanPath
-}
-
-const handleImageError = (event) => {
-  event.target.style.display = 'none'
-}
-
-// ===== UTILITY FUNCTIONS =====
-const showNotification = (message, type = 'success') => {
-  if (toastTimer) clearTimeout(toastTimer)
-  toastMessage.value = message
-  toastType.value = type
-  showToast.value = true
-  toastTimer = setTimeout(() => {
-    showToast.value = false
-  }, 3000)
-}
-
+// ===== HELPER FUNCTIONS =====
 const formatPrice = (price) => {
   if (!price && price !== 0) return '0₫'
   const num = Number(price)
@@ -752,11 +993,48 @@ const formatDate = (dateString) => {
          date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
 }
 
-const canUpdateStatus = (status) => {
-  return !ADMIN_CANNOT_UPDATE.includes(status)
+const getImageUrl = (imagePath) => {
+  if (!imagePath) return ''
+  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+    return imagePath
+  }
+  const cleanPath = imagePath.startsWith('/') ? imagePath : '/' + imagePath
+  return IMAGE_BASE + cleanPath
 }
 
-// ✅ Cập nhật getStatusText - Thêm REJECTED
+const handleImageError = (event) => {
+  event.target.style.display = 'none'
+}
+
+const getFullAddress = (shippingAddress) => {
+  if (!shippingAddress) return '---'
+  const parts = []
+  if (shippingAddress.addressLine) parts.push(shippingAddress.addressLine)
+  if (shippingAddress.ward) parts.push(shippingAddress.ward)
+  if (shippingAddress.district) parts.push(shippingAddress.district)
+  if (shippingAddress.city) parts.push(shippingAddress.city)
+  if (shippingAddress.fullAddress) {
+    return shippingAddress.fullAddress
+  }
+  return parts.length > 0 ? parts.join(', ') : '---'
+}
+
+const getInvoiceFullAddress = (invoice) => {
+  if (!invoice) return '---'
+  const parts = []
+  if (invoice.shippingAddress) parts.push(invoice.shippingAddress)
+  if (invoice.shippingWard) parts.push(invoice.shippingWard)
+  if (invoice.shippingDistrict) parts.push(invoice.shippingDistrict)
+  if (invoice.shippingCity) parts.push(invoice.shippingCity)
+  if (invoice.shippingFullAddress) {
+    return invoice.shippingFullAddress
+  }
+  const address = parts.length > 0 ? parts.join(', ') : '---'
+  const name = invoice.shippingFullName || ''
+  const phone = invoice.shippingPhone ? '- SĐT: ' + invoice.shippingPhone : ''
+  return [name, phone, address].filter(Boolean).join(' ')
+}
+
 const getStatusText = (status) => {
   const map = {
     'PENDING_PAYMENT': 'Chờ thanh toán',
@@ -771,16 +1049,13 @@ const getStatusText = (status) => {
     'RETURN_RECEIVED': 'Đã nhận hàng trả',
     'RETURN_PENDING': 'Đang thu hồi hàng',
     'RETURNED': 'Đã hoàn hàng',
-    'REJECTED': 'Đã từ chối hoàn trả',
+    'REJECTED': 'Từ chối hoàn trả',
     'PENDING': 'Chờ duyệt',
     'APPROVED': 'Đã duyệt',
-    'RECEIVED': 'Đã nhận hàng',
-    'COMPLETED': 'Hoàn tất'
-  }
+    'RECEIVED': 'Đã nhận hàng' }
   return map[status] || status
 }
 
-// ✅ Cập nhật getStatusClass - Thêm REJECTED
 const getStatusClass = (status) => {
   const map = {
     'PENDING_PAYMENT': 'status-pending',
@@ -795,11 +1070,7 @@ const getStatusClass = (status) => {
     'RETURN_RECEIVED': 'status-return-received',
     'RETURN_PENDING': 'status-return-pending',
     'RETURNED': 'status-returned',
-    'REJECTED': 'status-rejected',
-    'PENDING': 'status-pending',
-    'APPROVED': 'status-approved',
-    'RECEIVED': 'status-return-received'
-  }
+    'REJECTED': 'status-rejected' }
   return map[status] || ''
 }
 
@@ -819,21 +1090,102 @@ const getPaymentClass = (status) => {
   return map[status] || ''
 }
 
-// ===== API CALLS =====
+const showNotification = (message, type = 'success') => {
+  if (toastTimer) clearTimeout(toastTimer)
+  toastMessage.value = message
+  toastType.value = type
+  showToast.value = true
+  toastTimer = setTimeout(() => {
+    showToast.value = false
+  }, 3000)
+}
+
+const canUpdateStatus = (status) => {
+  return !ADMIN_CANNOT_UPDATE.includes(status)
+}
+
+const canAdminCancel = (status) => {
+  return status !== 'COMPLETED' && status !== 'CANCELLED' && status !== 'RETURNED'
+}
+
+const isReturnOrder = (status) => {
+  return ['RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED', 'REJECTED'].includes(status)
+}
+
+const getMainTabCount = (tab) => {
+  if (tab === 'orders') {
+    return orders.value.filter(o => 
+      !['RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED', 'REJECTED', 'CANCELLED'].includes(o.orderStatus)
+    ).length
+  }
+  if (tab === 'returns') {
+    return orders.value.filter(o => 
+      ['RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED', 'REJECTED'].includes(o.orderStatus)
+    ).length
+  }
+  if (tab === 'cancelled') {
+    return orders.value.filter(o => o.orderStatus === 'CANCELLED').length
+  }
+  return 0
+}
+
+const getSubTabCount = (status) => {
+  if (status === 'all') {
+    return getMainTabCount(activeMainTab.value)
+  }
+  return orders.value.filter(o => o.orderStatus === status).length
+}
+
+// ===== FETCH ORDERS =====
 const fetchOrders = async () => {
   loading.value = true
   try {
     const params = {
       page: currentPage.value,
       size: pageSize.value,
-      _t: Date.now() // Thêm timestamp để tránh cache
+      _t: Date.now()
+    }
+    
+    let statusFilters = []
+    
+    if (activeMainTab.value === 'orders') {
+      const normalStatuses = ['PENDING_PAYMENT', 'CONFIRMED', 'PROCESSING', 'SHIPPING', 'DELIVERED', 'COMPLETED']
+      if (activeSubTab.value === 'all') {
+        statusFilters = normalStatuses
+      } else {
+        statusFilters = [activeSubTab.value]
+      }
+    } else if (activeMainTab.value === 'returns') {
+      const returnStatuses = ['RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED', 'REJECTED']
+      if (activeSubTab.value === 'all') {
+        statusFilters = returnStatuses
+      } else {
+        statusFilters = [activeSubTab.value]
+      }
+    } else if (activeMainTab.value === 'cancelled') {
+      if (activeSubTab.value === 'all' || activeSubTab.value === 'CANCELLED') {
+        statusFilters = ['CANCELLED']
+      } else {
+        statusFilters = [activeSubTab.value]
+      }
+    }
+    
+    if (filters.value.status !== 'all') {
+      if (statusFilters.length === 0) {
+        statusFilters = [filters.value.status]
+      } else if (!statusFilters.includes(filters.value.status)) {
+        statusFilters = [filters.value.status]
+      } else {
+        statusFilters = [filters.value.status]
+      }
+    }
+    
+    if (statusFilters.length > 0) {
+      params.status = statusFilters.join(',')
     }
     
     if (filters.value.search) {
       params.keyword = filters.value.search
-    }
-    if (filters.value.status !== 'all') {
-      params.status = filters.value.status
     }
     
     console.log('📤 Fetching orders with params:', params)
@@ -855,7 +1207,9 @@ const fetchOrders = async () => {
     }
   } catch (error) {
     console.error('❌ Error fetching orders:', error)
-    showNotification(error.response?.data?.message || 'Không thể tải danh sách đơn hàng', 'error')
+    if (error.code !== 'ERR_NETWORK') {
+      showNotification(error.response?.data?.message || 'Không thể tải danh sách đơn hàng', 'error')
+    }
     orders.value = []
   } finally {
     loading.value = false
@@ -870,6 +1224,46 @@ const fetchStatistics = async () => {
     }
   } catch (error) {
     console.error('❌ Error fetching statistics:', error)
+  }
+}
+
+// ===== TAB CHANGE =====
+const changeMainTab = (tab) => {
+  activeMainTab.value = tab
+  activeSubTab.value = 'all'
+  filters.value.status = 'all'
+  currentPage.value = 0
+  fetchOrders()
+}
+
+const changeSubTab = (tab) => {
+  activeSubTab.value = tab
+  filters.value.status = 'all'
+  currentPage.value = 0
+  fetchOrders()
+}
+
+// ===== FILTERS =====
+const applyFilters = () => {
+  currentPage.value = 0
+  fetchOrders()
+}
+
+const resetFilters = () => {
+  filters.value = {
+    search: '',
+    status: 'all'
+  }
+  activeSubTab.value = 'all'
+  currentPage.value = 0
+  fetchOrders()
+}
+
+// ===== PAGINATION =====
+const goToPage = (page) => {
+  if (page >= 0 && page < totalPages.value) {
+    currentPage.value = page
+    fetchOrders()
   }
 }
 
@@ -921,17 +1315,13 @@ const closeItemsModal = () => {
   selectedOrder.value = null
 }
 
-// ===== INVOICE FUNCTIONS =====
+// ===== INVOICE =====
 const viewInvoice = async (order) => {
   try {
     const token = localStorage.getItem('token')
-    const response = await axios.get(
-      `${API_BASE}/admin/orders/${order.orderId}/invoice`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      }
+    const response = await api.get(
+      `/admin/orders/${order.orderId}/invoice`,
+      {}
     )
     
     if (response.data) {
@@ -962,68 +1352,42 @@ const printInvoice = () => {
     return
   }
   
-  printWindow.document.write(`
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <title>Hóa đơn #${invoiceData.value?.orderCode}</title>
-      <style>
-        * { box-sizing: border-box; }
-        body { 
-          font-family: 'Times New Roman', Arial, sans-serif; 
-          padding: 40px; 
-          max-width: 800px; 
-          margin: 0 auto;
-          background: white;
-          color: #333;
-        }
-        .invoice-header { display: flex; justify-content: space-between; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 3px solid #e63946; }
-        .company-info h1 { color: #e63946; margin: 0; font-size: 28px; }
-        .company-info p { margin: 5px 0; color: #666; font-size: 13px; }
-        .invoice-title { text-align: right; }
-        .invoice-title h2 { color: #333; margin: 0; font-size: 22px; }
-        .invoice-title p { margin: 5px 0; color: #666; font-size: 14px; }
-        .customer-info { background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
-        .customer-info h3 { margin-top: 0; color: #333; font-size: 16px; margin-bottom: 10px; }
-        .info-row { margin: 5px 0; font-size: 14px; }
-        .info-row span { margin-right: 20px; }
-        .invoice-items h3 { font-size: 16px; color: #333; margin-bottom: 15px; }
-        .invoice-table { width: 100%; border-collapse: collapse; margin: 15px 0; }
-        .invoice-table th { background: #f8f9fa; padding: 10px; text-align: left; border-bottom: 2px solid #dee2e6; font-weight: 600; font-size: 14px; }
-        .invoice-table td { padding: 10px; border-bottom: 1px solid #dee2e6; vertical-align: middle; font-size: 14px; }
-        .text-right { text-align: right; }
-        .text-center { text-align: center; }
-        .total-row { font-weight: bold; background: #fafafa; }
-        .grand-total { font-size: 18px; color: #e63946; }
-        .discount-amount { color: #28a745; font-weight: bold; }
-        .payment-status-paid { color: #28a745; font-weight: bold; padding: 8px; background: #d4edda; border-radius: 4px; display: inline-block; margin-top: 10px; }
-        .payment-status-unpaid { color: #dc3545; font-weight: bold; padding: 8px; background: #f8d7da; border-radius: 4px; display: inline-block; margin-top: 10px; }
-        .product-info { display: flex; align-items: center; gap: 10px; }
-        .product-image { width: 40px; height: 40px; background: #f5f5f5; border-radius: 5px; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; }
-        .product-image img { width: 100%; height: 100%; object-fit: cover; }
-        .product-image i { font-size: 20px; color: #ccc; }
-        .product-name { font-weight: 600; }
-        .product-variant { font-size: 12px; color: #999; }
-        .voucher-code { color: #28a745; font-weight: 600; background: #e8f5e9; padding: 2px 8px; border-radius: 4px; }
-        .invoice-footer { margin-top: 30px; text-align: center; color: #666; border-top: 1px solid #eee; padding-top: 20px; font-style: italic; }
-        .invoice-notes { background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 15px 0; }
-        .invoice-notes h4 { margin: 0 0 5px 0; color: #333; font-size: 14px; }
-        .invoice-notes p { margin: 0; color: #666; }
-        @media print { 
-          body { padding: 20px; } 
-          .no-print { display: none; } 
-          .btn { display: none; }
-        }
-      </style>
-    </head>
-    <body>
-      ${content.innerHTML}
-      <div style="margin-top: 20px; text-align: center; color: #999; font-size: 11px; border-top: 1px solid #eee; padding-top: 10px;">
-        Hóa đơn được tạo tự động từ hệ thống Fashion Store
-      </div>
-    </body>
-    </html>
-  `)
+  printWindow.document.write(`<!DOCTYPE html><html><head><title>Hóa đơn #${invoiceData.value?.orderCode}</title><style>
+    * { box-sizing: border-box; }
+    body { font-family: 'Times New Roman', Arial, sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; background: white; color: #333; }
+    .invoice-header { display: flex; justify-content: space-between; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 3px solid #e63946; }
+    .company-info h1 { color: #e63946; margin: 0; font-size: 28px; }
+    .company-info p { margin: 5px 0; color: #666; font-size: 13px; }
+    .invoice-title { text-align: right; }
+    .invoice-title h2 { color: #333; margin: 0; font-size: 22px; }
+    .invoice-title p { margin: 5px 0; color: #666; font-size: 14px; }
+    .customer-info { background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+    .customer-info h3 { margin-top: 0; color: #333; font-size: 16px; margin-bottom: 10px; }
+    .info-row { margin: 5px 0; font-size: 14px; }
+    .invoice-items h3 { font-size: 16px; color: #333; margin-bottom: 15px; }
+    .invoice-table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+    .invoice-table th { background: #f8f9fa; padding: 10px; text-align: left; border-bottom: 2px solid #dee2e6; font-weight: 600; font-size: 14px; }
+    .invoice-table td { padding: 10px; border-bottom: 1px solid #dee2e6; vertical-align: middle; font-size: 14px; }
+    .text-right { text-align: right; }
+    .text-center { text-align: center; }
+    .total-row { font-weight: bold; background: #fafafa; }
+    .grand-total { font-size: 18px; color: #e63946; }
+    .discount-amount { color: #28a745; font-weight: bold; }
+    .payment-status-paid { color: #28a745; font-weight: bold; padding: 8px; background: #d4edda; border-radius: 4px; display: inline-block; margin-top: 10px; }
+    .payment-status-unpaid { color: #dc3545; font-weight: bold; padding: 8px; background: #f8d7da; border-radius: 4px; display: inline-block; margin-top: 10px; }
+    .product-info { display: flex; align-items: center; gap: 10px; }
+    .product-image { width: 40px; height: 40px; background: #f5f5f5; border-radius: 5px; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; }
+    .product-image img { width: 100%; height: 100%; object-fit: cover; }
+    .product-image i { font-size: 20px; color: #ccc; }
+    .product-name { font-weight: 600; }
+    .product-variant { font-size: 12px; color: #999; }
+    .voucher-code { color: #28a745; font-weight: 600; background: #e8f5e9; padding: 2px 8px; border-radius: 4px; }
+    .invoice-footer { margin-top: 30px; text-align: center; color: #666; border-top: 1px solid #eee; padding-top: 20px; font-style: italic; }
+    .invoice-notes { background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 15px 0; }
+    .invoice-notes h4 { margin: 0 0 5px 0; color: #333; font-size: 14px; }
+    .invoice-notes p { margin: 0; color: #666; }
+    @media print { body { padding: 20px; } .no-print { display: none; } .btn { display: none; } }
+  </style></head><body>${content.innerHTML}<div style="margin-top:20px;text-align:center;color:#999;font-size:11px;border-top:1px solid #eee;padding-top:10px;">Hóa đơn được tạo tự động từ hệ thống Fashion Store</div></body></html>`)
   
   printWindow.document.close()
   setTimeout(() => {
@@ -1032,15 +1396,110 @@ const printInvoice = () => {
   }, 500)
 }
 
-// ===== RETURN REQUEST FUNCTIONS =====
+// ===== CANCEL ORDER =====
+const openCancelOrderModal = (order) => {
+  cancelOrderId.value = order.orderId
+  cancelReason.value = ''
+  showCancelModal.value = true
+}
+
+const closeCancelModal = () => {
+  showCancelModal.value = false
+  cancelOrderId.value = null
+  cancelReason.value = ''
+  cancelLoading.value = false
+}
+
+const confirmCancelOrder = async () => {
+  if (!cancelReason.value.trim()) {
+    showNotification('Vui lòng nhập lý do hủy đơn hàng', 'error')
+    return
+  }
+
+  cancelLoading.value = true
+  try {
+    const token = localStorage.getItem('token')
+    const payload = {
+      reason: cancelReason.value.trim()
+    }
+
+    const response = await api.put(
+      `/admin/orders/${cancelOrderId.value}/cancel`,
+      payload,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    )
+
+    console.log('✅ Order cancelled:', response.data)
+    showNotification('✅ Hủy đơn hàng thành công!', 'success')
+    closeCancelModal()
+    await fetchOrders()
+    await fetchStatistics()
+  } catch (error) {
+    console.error('❌ Error canceling order:', error)
+    showNotification(error.response?.data?.message || 'Không thể hủy đơn hàng', 'error')
+  } finally {
+    cancelLoading.value = false
+  }
+}
+
+// ===== RESTORE ORDER =====
+const openRestoreOrderModal = (order) => {
+  restoreOrder.value = order
+  showRestoreModal.value = true
+}
+
+const closeRestoreModal = () => {
+  showRestoreModal.value = false
+  restoreOrder.value = null
+  restoreLoading.value = false
+}
+
+const confirmRestoreOrder = async () => {
+  if (!restoreOrder.value) return
+
+  restoreLoading.value = true
+  try {
+    const token = localStorage.getItem('token')
+    
+    const payload = {
+      orderStatus: 'PENDING_PAYMENT',
+      notes: 'Admin khôi phục đơn hàng từ trạng thái đã hủy'
+    }
+
+    const response = await api.put(
+      `/admin/orders/${restoreOrder.value.orderId}/status`,
+      payload,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    )
+
+    console.log('✅ Order restored:', response.data)
+    showNotification('✅ Khôi phục đơn hàng thành công!', 'success')
+    closeRestoreModal()
+    await fetchOrders()
+    await fetchStatistics()
+  } catch (error) {
+    console.error('❌ Error restoring order:', error)
+    showNotification(error.response?.data?.message || 'Không thể khôi phục đơn hàng', 'error')
+  } finally {
+    restoreLoading.value = false
+  }
+}
+
+// ===== RETURN REQUEST =====
 const viewReturnRequest = async (order) => {
   try {
     const token = localStorage.getItem('token')
-    const response = await axios.get(`${API_BASE}/admin/orders/return-requests/order/${order.orderId}`, {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    })
+    const response = await api.get(`/admin/orders/return-requests/order/${order.orderId}`, {})
     
     if (response.data) {
       returnRequestDetail.value = response.data
@@ -1051,7 +1510,6 @@ const viewReturnRequest = async (order) => {
     }
   } catch (error) {
     console.error('❌ Error fetching return request:', error)
-    console.error('❌ Response:', error.response?.data)
     showNotification(error.response?.data?.message || 'Không thể tải yêu cầu hoàn hàng', 'error')
   }
 }
@@ -1080,11 +1538,8 @@ const processReturn = async (status) => {
       adminNote: adminNote.value.trim() || null
     }
     
-    console.log('📤 Processing return request:', payload)
-    console.log('📤 Order ID:', returnRequestDetail.value.orderId)
-    
-    const response = await axios.put(
-      `${API_BASE}/admin/orders/return-requests/${returnRequestDetail.value.orderId}/process`,
+    const response = await api.put(
+      `/admin/orders/return-requests/${returnRequestDetail.value.orderId}/process`,
       payload,
       {
         headers: {
@@ -1095,33 +1550,24 @@ const processReturn = async (status) => {
     )
     
     console.log('✅ Return request processed:', response.data)
-    
-    // Cập nhật lại thông tin chi tiết
     returnRequestDetail.value = response.data
     
-    // Hiển thị thông báo khác nhau
     if (status === 'APPROVED') {
       showNotification('✅ Đã duyệt yêu cầu hoàn hàng thành công!', 'success')
     } else {
-      showNotification('❌ Đã từ chối yêu cầu hoàn hàng. Đơn hàng đã được chuyển về trạng thái "Hoàn thành".', 'info')
+      showNotification('❌ Đã từ chối yêu cầu hoàn hàng.', 'info')
     }
     
-    // Refresh danh sách
     await fetchOrders()
     await fetchStatistics()
-    
-    // Không đóng modal để admin thấy kết quả
-    // closeReturnModal()
   } catch (error) {
     console.error('❌ Error processing return request:', error)
-    console.error('❌ Response:', error.response?.data)
     showNotification(error.response?.data?.message || `Không thể ${actionText} yêu cầu hoàn hàng`, 'error')
   } finally {
     processingReturn.value = false
   }
 }
 
-// Xác nhận đã nhận hàng trả
 const receiveReturnedItems = async () => {
   if (!returnRequestDetail.value) return
   
@@ -1135,10 +1581,8 @@ const receiveReturnedItems = async () => {
       note: adminNote.value.trim() || null
     }
     
-    console.log('📤 Receiving returned items:', payload)
-    
-    const response = await axios.put(
-      `${API_BASE}/admin/orders/return-requests/${returnRequestDetail.value.orderId}/receive`,
+    const response = await api.put(
+      `/admin/orders/return-requests/${returnRequestDetail.value.orderId}/receive`,
       payload,
       {
         headers: {
@@ -1149,7 +1593,6 @@ const receiveReturnedItems = async () => {
     )
     
     console.log('✅ Returned items received:', response.data)
-    
     showNotification('✅ Đã xác nhận nhận hàng trả thành công!', 'success')
     
     await fetchOrders()
@@ -1157,14 +1600,12 @@ const receiveReturnedItems = async () => {
     closeReturnModal()
   } catch (error) {
     console.error('❌ Error receiving returned items:', error)
-    console.error('❌ Response:', error.response?.data)
     showNotification(error.response?.data?.message || 'Không thể xác nhận nhận hàng trả', 'error')
   } finally {
     receivingReturn.value = false
   }
 }
 
-// Hoàn tất hoàn hàng
 const completeReturn = async () => {
   if (!returnRequestDetail.value) return
   
@@ -1180,11 +1621,8 @@ const completeReturn = async () => {
       notes: adminNote.value.trim() || 'Hoàn tất hoàn hàng'
     }
     
-    console.log('📤 Completing return for order:', returnRequestDetail.value.orderId)
-    console.log('📤 Payload:', payload)
-    
-    const response = await axios.put(
-      `${API_BASE}/admin/orders/${returnRequestDetail.value.orderId}/status`,
+    const response = await api.put(
+      `/admin/orders/${returnRequestDetail.value.orderId}/status`,
       payload,
       {
         headers: {
@@ -1195,7 +1633,6 @@ const completeReturn = async () => {
     )
     
     console.log('✅ Return completed:', response.data)
-    
     showNotification('✅ Đã hoàn tất hoàn hàng thành công!', 'success')
     
     await fetchOrders()
@@ -1203,7 +1640,6 @@ const completeReturn = async () => {
     closeReturnModal()
   } catch (error) {
     console.error('❌ Error completing return:', error)
-    console.error('❌ Response:', error.response?.data)
     showNotification(error.response?.data?.message || 'Không thể hoàn tất hoàn hàng', 'error')
   } finally {
     completingReturn.value = false
@@ -1221,34 +1657,15 @@ const closeImageViewer = () => {
   viewingImage.value = ''
 }
 
-// ===== PAGINATION =====
-const goToPage = (page) => {
-  if (page >= 0 && page < totalPages.value) {
-    currentPage.value = page
-    fetchOrders()
-  }
-}
-
-// ===== FILTERS =====
-const applyFilters = () => {
-  currentPage.value = 0
-  fetchOrders()
-}
-
-const resetFilters = () => {
-  filters.value = {
-    search: '',
-    status: 'all'
-  }
-  currentPage.value = 0
-  fetchOrders()
-}
-
 // ===== LIFECYCLE =====
 onMounted(() => {
   console.log('🚀 AdminOrders mounted')
   fetchOrders()
   fetchStatistics()
+})
+
+watch([activeMainTab, activeSubTab], () => {
+  fetchOrders()
 })
 </script>
 
@@ -1294,20 +1711,21 @@ onMounted(() => {
 /* ===== STATS ===== */
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 20px;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 15px;
   margin-bottom: 25px;
 }
 
 .stat-card {
   background: white;
-  padding: 20px;
+  padding: 18px 20px;
   border-radius: 12px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
   display: flex;
   align-items: center;
   gap: 15px;
   transition: all 0.3s;
+  border-left: 4px solid transparent;
 }
 
 .stat-card:hover {
@@ -1315,36 +1733,192 @@ onMounted(() => {
   box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
 }
 
+.stat-card-highlight {
+  border-left-color: #6c5ce7;
+  background: linear-gradient(135deg, #ffffff 0%, #f8f0ff 100%);
+}
+
+.stat-card-return {
+  border-left-color: #f39c12;
+  background: linear-gradient(135deg, #ffffff 0%, #fff8e1 100%);
+}
+
+.stat-card-cancelled {
+  border-left-color: #e74c3c;
+  background: linear-gradient(135deg, #ffffff 0%, #fde8e8 100%);
+}
+
 .stat-icon {
-  width: 50px;
-  height: 50px;
+  width: 48px;
+  height: 48px;
   border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 22px;
+  font-size: 20px;
   color: white;
+  flex-shrink: 0;
 }
 
 .stat-icon.blue { background: #3498db; }
 .stat-icon.yellow { background: #f39c12; }
 .stat-icon.green { background: #2ecc71; }
-.stat-icon.red { background: #e74c3c; }
+.stat-icon.purple { background: #6c5ce7; }
+.stat-icon.teal { background: #00b894; }
+.stat-icon.orange { background: #e17055; }
+.stat-icon.success { background: #00b894; }
+.stat-icon.return { background: #fdcb6e; color: #2d3436; }
+.stat-icon.return-approved { background: #00b894; }
+.stat-icon.return-received { background: #0984e3; }
+.stat-icon.return-completed { background: #00b894; }
+.stat-icon.return-rejected { background: #e74c3c; }
+.stat-icon.cancelled { background: #fd79a8; }
+.stat-icon.cancelled-admin { background: #6c5ce7; }
+.stat-icon.cancelled-system { background: #636e72; }
 
 .stat-info {
   flex: 1;
+  min-width: 0;
 }
 
 .stat-number {
   display: block;
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 700;
   color: #2c3e50;
+  line-height: 1.2;
+}
+
+.stat-number.stat-revenue {
+  color: #6c5ce7;
+}
+
+.stat-number.stat-return {
+  color: #e17055;
+}
+
+.stat-number.stat-net {
+  color: #00b894;
 }
 
 .stat-label {
-  font-size: 13px;
+  font-size: 12px;
   color: #999;
+  display: block;
+  margin-top: 2px;
+}
+
+/* ===== MAIN TABS ===== */
+.main-tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+  background: white;
+  padding: 10px 15px;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.main-tab-btn {
+  padding: 10px 24px;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 15px;
+  color: #666;
+  background: transparent;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+}
+
+.main-tab-btn:hover {
+  background: #f0f0f0;
+}
+
+.main-tab-btn.active {
+  background: #e63946;
+  color: white;
+  box-shadow: 0 4px 12px rgba(230, 57, 70, 0.3);
+}
+
+.main-tab-btn .tab-badge {
+  padding: 1px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-left: 4px;
+}
+
+.main-tab-btn .tab-badge.badge-blue {
+  background: rgba(52, 152, 219, 0.2);
+  color: #2980b9;
+}
+
+.main-tab-btn .tab-badge.badge-orange {
+  background: rgba(230, 126, 34, 0.2);
+  color: #d35400;
+}
+
+.main-tab-btn .tab-badge.badge-red {
+  background: rgba(231, 76, 60, 0.2);
+  color: #c0392b;
+}
+
+.main-tab-btn.active .tab-badge {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+/* ===== SUB TABS ===== */
+.sub-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 15px;
+  padding: 8px 12px;
+  background: #f8f9fa;
+  border-radius: 10px;
+  flex-wrap: wrap;
+  border: 1px solid #e9ecef;
+}
+
+.sub-tab-btn {
+  padding: 6px 16px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 13px;
+  color: #666;
+  background: transparent;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sub-tab-btn:hover {
+  background: #e9ecef;
+}
+
+.sub-tab-btn.active {
+  background: #2c3e50;
+  color: white;
+}
+
+.sub-tab-btn .tab-count {
+  font-size: 11px;
+  background: rgba(0, 0, 0, 0.08);
+  padding: 0 8px;
+  border-radius: 12px;
+  font-weight: 600;
+}
+
+.sub-tab-btn.active .tab-count {
+  background: rgba(255, 255, 255, 0.2);
 }
 
 /* ===== FILTERS ===== */
@@ -1387,7 +1961,7 @@ onMounted(() => {
   border: 1px solid #e0e6ed;
   border-radius: 8px;
   outline: none;
-  min-width: 150px;
+  min-width: 180px;
   cursor: pointer;
   background: white;
 }
@@ -1417,29 +1991,6 @@ onMounted(() => {
 
 .btn-reset:hover {
   background: #e0e0e0;
-}
-
-/* ===== LOADING ===== */
-.loading-state {
-  text-align: center;
-  padding: 60px;
-  background: white;
-  border-radius: 15px;
-}
-
-.spinner {
-  width: 50px;
-  height: 50px;
-  border: 4px solid #f3f3f3;
-  border-top: 4px solid #e63946;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin: 0 auto 15px;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
 }
 
 /* ===== TABLE ===== */
@@ -1478,6 +2029,11 @@ onMounted(() => {
 
 .customer-name {
   font-weight: 600;
+  color: #2c3e50;
+}
+
+.phone-number {
+  font-weight: 500;
   color: #2c3e50;
 }
 
@@ -1563,14 +2119,9 @@ onMounted(() => {
   background: #d4edda;
   color: #155724;
 }
-/* ✅ Thêm style cho REJECTED */
 .status-badge.status-rejected {
   background: #f8d7da;
   color: #721c24;
-}
-.status-badge.status-approved {
-  background: #d4edda;
-  color: #155724;
 }
 
 .payment-status {
@@ -1594,7 +2145,8 @@ onMounted(() => {
 /* ===== ACTION BUTTONS ===== */
 .action-buttons {
   display: flex;
-  gap: 8px;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 
 .action-btn {
@@ -1634,12 +2186,12 @@ onMounted(() => {
   transform: translateY(-2px);
 }
 
-.return-btn {
+.return-detail-btn {
   background: #ffc107;
   color: #333;
 }
 
-.return-btn:hover {
+.return-detail-btn:hover {
   background: #e0a800;
   transform: translateY(-2px);
 }
@@ -1651,6 +2203,26 @@ onMounted(() => {
 
 .invoice-btn:hover {
   background: #5a4bd1;
+  transform: translateY(-2px);
+}
+
+.cancel-btn {
+  background: #dc3545;
+  color: white;
+}
+
+.cancel-btn:hover {
+  background: #c82333;
+  transform: translateY(-2px);
+}
+
+.restore-order-btn {
+  background: #28a745;
+  color: white;
+}
+
+.restore-order-btn:hover {
+  background: #1e7e34;
   transform: translateY(-2px);
 }
 
@@ -1702,7 +2274,7 @@ onMounted(() => {
 }
 
 /* ===== MODAL ===== */
-.modal {
+.modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
@@ -1730,6 +2302,20 @@ onMounted(() => {
   max-width: 1000px;
 }
 
+.modal-container {
+  background: white;
+  border-radius: 15px;
+  width: 90%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: slideUp 0.3s;
+}
+
+.modal-container.modal-sm {
+  max-width: 450px;
+}
+
 .modal-header {
   padding: 20px 25px;
   border-bottom: 1px solid #eee;
@@ -1743,7 +2329,7 @@ onMounted(() => {
   z-index: 1;
 }
 
-.modal-header h2 {
+.modal-header h2, .modal-header h3 {
   font-size: 20px;
   color: #2c3e50;
   margin: 0;
@@ -1775,12 +2361,81 @@ onMounted(() => {
   gap: 10px;
 }
 
-/* ===== ORDER DETAIL ===== */
+/* ===== ADDRESS SECTION ===== */
+.address-section {
+  margin-top: 10px;
+  margin-bottom: 20px;
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 12px;
+  border: 1px solid #e9ecef;
+}
+
+.address-section h3 {
+  margin-top: 0;
+  color: #2c3e50;
+  font-size: 16px;
+  margin-bottom: 15px;
+}
+
+.address-detail-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.address-row {
+  display: flex;
+  align-items: flex-start;
+  padding: 6px 0;
+  border-bottom: 1px solid #f1f3f5;
+}
+
+.address-row:last-child {
+  border-bottom: none;
+}
+
+.address-row .address-label {
+  font-weight: 600;
+  color: #2c3e50;
+  min-width: 140px;
+  flex-shrink: 0;
+  font-size: 14px;
+}
+
+.address-row .address-value {
+  color: #444;
+  font-size: 14px;
+  word-break: break-word;
+}
+
+.address-row .address-value.highlight {
+  color: #1a3a6a;
+  font-weight: 500;
+}
+
+.full-address-row {
+  background: #e8f0fe;
+  padding: 10px 14px;
+  border-radius: 6px;
+  margin-top: 4px;
+}
+
+.full-address-row .address-label {
+  color: #1a3a6a;
+}
+
+.full-address-row .address-value {
+  color: #1a3a6a;
+  font-weight: 500;
+}
+
+/* ===== ORDER INFO GRID ===== */
 .order-info-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: 1fr 1fr;
   gap: 20px;
-  margin-bottom: 30px;
+  margin-bottom: 20px;
 }
 
 .info-section {
@@ -1790,27 +2445,29 @@ onMounted(() => {
 }
 
 .info-section h3 {
-  font-size: 16px;
   color: #2c3e50;
+  margin-top: 0;
   margin-bottom: 10px;
-  padding-bottom: 5px;
+  font-size: 15px;
   border-bottom: 1px solid #eee;
+  padding-bottom: 8px;
 }
 
 .info-section p {
-  margin-bottom: 5px;
+  margin: 6px 0;
   font-size: 14px;
-  color: #666;
+  color: #555;
 }
 
+/* ===== ORDER ITEMS ===== */
 .order-items-section {
-  margin-bottom: 30px;
+  margin-top: 20px;
 }
 
 .order-items-section h3 {
-  font-size: 16px;
   color: #2c3e50;
   margin-bottom: 15px;
+  font-size: 16px;
 }
 
 .items-table {
@@ -1820,18 +2477,66 @@ onMounted(() => {
 
 .items-table th {
   background: #f8f9fa;
-  padding: 12px;
+  padding: 10px;
   text-align: left;
-  font-size: 14px;
   font-weight: 600;
   color: #2c3e50;
   border-bottom: 2px solid #eee;
+  font-size: 13px;
 }
 
 .items-table td {
-  padding: 12px;
+  padding: 10px;
   border-bottom: 1px solid #eee;
   vertical-align: middle;
+  font-size: 14px;
+}
+
+.items-table tfoot td {
+  border-bottom: none;
+  padding: 8px 10px;
+}
+
+.price-cell, .total-cell {
+  text-align: right;
+}
+
+.quantity-cell {
+  text-align: center;
+}
+
+.text-right {
+  text-align: right;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.total-row {
+  font-weight: 700;
+}
+
+.grand-total {
+  font-size: 18px;
+  color: #e63946;
+}
+
+.discount-row td {
+  color: #28a745;
+  font-weight: 600;
+}
+
+.discount-row .voucher-label {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.discount-amount {
+  color: #28a745;
+  font-weight: 700;
 }
 
 .item-info {
@@ -1841,14 +2546,15 @@ onMounted(() => {
 }
 
 .item-image {
-  width: 40px;
-  height: 40px;
+  width: 50px;
+  height: 50px;
+  border-radius: 8px;
+  overflow: hidden;
   background: #f5f5f5;
-  border-radius: 5px;
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
+  flex-shrink: 0;
 }
 
 .item-image img {
@@ -1858,14 +2564,13 @@ onMounted(() => {
 }
 
 .item-image i {
-  font-size: 20px;
+  font-size: 24px;
   color: #ccc;
 }
 
 .item-name {
   font-weight: 600;
   color: #2c3e50;
-  margin-bottom: 3px;
 }
 
 .item-variant {
@@ -1873,41 +2578,7 @@ onMounted(() => {
   color: #999;
 }
 
-.price-cell, .quantity-cell, .total-cell {
-  text-align: right;
-}
-
-.text-right {
-  text-align: right;
-}
-
-.grand-total {
-  font-size: 18px;
-  font-weight: 700;
-}
-
-.total-row {
-  font-weight: 700;
-  background: #fafafa;
-}
-
-.discount-row td {
-  color: #28a745;
-  font-weight: 600;
-}
-
-.discount-amount {
-  color: #28a745;
-  font-weight: 700;
-}
-
-.voucher-label {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 6px;
-}
-
+/* ===== VOUCHER ===== */
 .voucher-info-section {
   background: #e8f5e9;
   padding: 15px 20px;
@@ -1946,126 +2617,122 @@ onMounted(() => {
   font-size: 15px;
 }
 
+/* ===== ORDER NOTES ===== */
 .order-notes {
-  background: #f8f9fa;
-  padding: 15px;
-  border-radius: 8px;
   margin-top: 20px;
+  padding: 15px;
+  background: #fff8e1;
+  border-radius: 8px;
+  border-left: 4px solid #f9a825;
 }
 
 .order-notes h3 {
+  margin-top: 0;
   font-size: 14px;
   color: #2c3e50;
-  margin-bottom: 8px;
 }
 
 .order-notes p {
-  font-size: 14px;
-  color: #666;
-  line-height: 1.6;
+  margin: 0;
+  color: #555;
 }
 
-/* ===== RETURN DETAIL ===== */
-.return-detail {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
+/* ===== RETURN REQUEST ===== */
 .return-info-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 20px;
+  margin-bottom: 20px;
 }
 
 .return-reason {
   background: #f8f9fa;
-  padding: 15px 20px;
+  padding: 15px;
   border-radius: 8px;
+  margin-bottom: 20px;
 }
 
 .return-reason h3 {
-  font-size: 16px;
+  margin-top: 0;
   color: #2c3e50;
-  margin-bottom: 10px;
+  font-size: 15px;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 8px;
 }
 
 .return-reason .reason-content p {
-  margin-bottom: 8px;
-  font-size: 14px;
+  margin: 6px 0;
   color: #555;
 }
 
+.return-images {
+  margin-bottom: 20px;
+}
+
 .return-images h3 {
-  font-size: 16px;
   color: #2c3e50;
+  font-size: 15px;
   margin-bottom: 10px;
 }
 
 .return-images .image-list {
   display: flex;
-  flex-wrap: wrap;
   gap: 10px;
+  flex-wrap: wrap;
 }
 
 .return-images .return-image {
-  width: 120px;
-  height: 120px;
+  width: 100px;
+  height: 100px;
   object-fit: cover;
   border-radius: 8px;
   cursor: pointer;
-  border: 1px solid #e9ecef;
+  border: 2px solid transparent;
   transition: all 0.3s;
 }
 
 .return-images .return-image:hover {
+  border-color: #e63946;
   transform: scale(1.05);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .admin-actions {
   background: #f8f9fa;
-  padding: 20px;
+  padding: 15px;
   border-radius: 8px;
+  margin-bottom: 20px;
 }
 
 .admin-actions h3 {
-  font-size: 16px;
+  margin-top: 0;
   color: #2c3e50;
-  margin-bottom: 15px;
+  font-size: 15px;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 8px;
 }
 
 .admin-actions .action-group {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
+  margin-top: 10px;
 }
 
 .admin-actions .form-group {
-  margin-bottom: 0;
+  margin-bottom: 10px;
 }
 
 .admin-actions .form-group label {
   display: block;
   font-weight: 500;
-  color: #2c3e50;
-  margin-bottom: 6px;
+  margin-bottom: 5px;
+  font-size: 13px;
 }
 
 .admin-actions .form-control {
   width: 100%;
-  padding: 10px 14px;
+  padding: 10px 12px;
   border: 1px solid #ddd;
-  border-radius: 8px;
+  border-radius: 6px;
   font-size: 14px;
-  font-family: inherit;
-  transition: all 0.3s;
-}
-
-.admin-actions .form-control:focus {
-  outline: none;
-  border-color: #e63946;
-  box-shadow: 0 0 0 3px rgba(230, 57, 70, 0.1);
+  resize: vertical;
 }
 
 .admin-actions .button-group {
@@ -2074,17 +2741,12 @@ onMounted(() => {
   flex-wrap: wrap;
 }
 
-.admin-actions .button-group .btn {
-  min-width: 120px;
-}
-
 .status-info-box {
   padding: 12px 16px;
   border-radius: 8px;
   display: flex;
   align-items: center;
   gap: 10px;
-  font-weight: 500;
 }
 
 .status-info-box.status-success {
@@ -2099,19 +2761,9 @@ onMounted(() => {
   border: 1px solid #f5c6cb;
 }
 
-.status-info-box i {
-  font-size: 20px;
-}
-
-.return-status {
-  background: #f8f9fa;
-  padding: 15px 20px;
-  border-radius: 8px;
-}
-
 .return-status h3 {
-  font-size: 16px;
   color: #2c3e50;
+  font-size: 15px;
   margin-bottom: 10px;
 }
 
@@ -2119,8 +2771,6 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 15px;
-  flex-wrap: wrap;
-  margin-bottom: 8px;
 }
 
 .return-status .update-time {
@@ -2130,7 +2780,7 @@ onMounted(() => {
 
 /* ===== INVOICE ===== */
 .invoice-container {
-  padding: 10px;
+  padding: 10px 0;
 }
 
 .invoice-header {
@@ -2138,7 +2788,7 @@ onMounted(() => {
   justify-content: space-between;
   margin-bottom: 30px;
   padding-bottom: 20px;
-  border-bottom: 2px solid #e63946;
+  border-bottom: 3px solid #e63946;
 }
 
 .company-info h1 {
@@ -2150,6 +2800,7 @@ onMounted(() => {
 .company-info p {
   margin: 5px 0;
   color: #666;
+  font-size: 13px;
 }
 
 .invoice-title {
@@ -2159,42 +2810,19 @@ onMounted(() => {
 .invoice-title h2 {
   color: #333;
   margin: 0;
-  font-size: 24px;
+  font-size: 22px;
 }
 
 .invoice-title p {
   margin: 5px 0;
   color: #666;
-}
-
-.customer-info {
-  background: #f8f9fa;
-  padding: 15px;
-  border-radius: 8px;
-  margin-bottom: 20px;
-}
-
-.customer-info h3 {
-  margin-top: 0;
-  color: #333;
-  font-size: 16px;
-  margin-bottom: 10px;
-}
-
-.info-row {
-  margin: 5px 0;
   font-size: 14px;
-}
-
-.invoice-items h3 {
-  font-size: 16px;
-  color: #333;
-  margin-bottom: 15px;
 }
 
 .invoice-table {
   width: 100%;
   border-collapse: collapse;
+  margin: 15px 0;
 }
 
 .invoice-table th {
@@ -2213,12 +2841,59 @@ onMounted(() => {
   font-size: 14px;
 }
 
+.product-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.product-image {
+  width: 40px;
+  height: 40px;
+  background: #f5f5f5;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.product-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.product-image i {
+  font-size: 20px;
+  color: #ccc;
+}
+
+.product-name {
+  font-weight: 600;
+}
+
+.product-variant {
+  font-size: 12px;
+  color: #999;
+}
+
+.voucher-code {
+  color: #28a745;
+  font-weight: 600;
+  background: #e8f5e9;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
 .invoice-footer {
   margin-top: 30px;
   text-align: center;
   color: #666;
   border-top: 1px solid #eee;
   padding-top: 20px;
+  font-style: italic;
 }
 
 .invoice-notes {
@@ -2231,6 +2906,7 @@ onMounted(() => {
 .invoice-notes h4 {
   margin: 0 0 5px 0;
   color: #333;
+  font-size: 14px;
 }
 
 .invoice-notes p {
@@ -2241,7 +2917,7 @@ onMounted(() => {
 .payment-status-paid {
   color: #28a745;
   font-weight: bold;
-  padding: 5px 10px;
+  padding: 8px;
   background: #d4edda;
   border-radius: 4px;
   display: inline-block;
@@ -2251,26 +2927,18 @@ onMounted(() => {
 .payment-status-unpaid {
   color: #dc3545;
   font-weight: bold;
-  padding: 5px 10px;
+  padding: 8px;
   background: #f8d7da;
   border-radius: 4px;
   display: inline-block;
   margin-top: 10px;
 }
 
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.header-actions .btn-sm {
-  padding: 6px 12px;
-  font-size: 12px;
-}
-
 /* ===== IMAGE VIEWER ===== */
 .image-viewer-container {
+  background: white;
+  border-radius: 15px;
+  padding: 20px;
   max-width: 90vw;
   max-height: 90vh;
   position: relative;
@@ -2278,84 +2946,28 @@ onMounted(() => {
 
 .image-viewer-container img {
   max-width: 100%;
-  max-height: 85vh;
-  object-fit: contain;
+  max-height: 80vh;
   border-radius: 8px;
 }
 
 .image-viewer-container .close-btn {
   position: absolute;
-  top: -40px;
-  right: -40px;
-  background: white;
-  color: #333;
+  top: 10px;
+  right: 10px;
+  background: rgba(0, 0, 0, 0.5);
+  color: white;
   border: none;
-  border-radius: 50%;
   width: 40px;
   height: 40px;
+  border-radius: 50%;
   font-size: 20px;
   cursor: pointer;
   transition: all 0.3s;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
 }
 
 .image-viewer-container .close-btn:hover {
+  background: rgba(0, 0, 0, 0.8);
   transform: rotate(90deg);
-  background: #e63946;
-  color: white;
-}
-
-/* ===== BUTTONS ===== */
-.btn {
-  padding: 10px 20px;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 14px;
-  transition: all 0.3s;
-}
-
-.btn-primary {
-  background: #e63946;
-  color: white;
-}
-
-.btn-primary:hover {
-  background: #c82333;
-}
-
-.btn-success {
-  background: #28a745;
-  color: white;
-}
-
-.btn-success:hover {
-  background: #1e7e34;
-}
-
-.btn-danger {
-  background: #dc3545;
-  color: white;
-}
-
-.btn-danger:hover {
-  background: #c82333;
-}
-
-.btn-outline {
-  background: none;
-  border: 1px solid #ddd;
-  color: #666;
-}
-
-.btn-outline:hover {
-  border-color: #e63946;
-  color: #e63946;
-}
-
-.btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
 }
 
 /* ===== TOAST ===== */
@@ -2387,6 +2999,132 @@ onMounted(() => {
   transform: translateY(0);
 }
 
+/* ===== LOADING ===== */
+.loading-state {
+  text-align: center;
+  padding: 40px;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #e63946;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 15px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* ===== BUTTONS ===== */
+.btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.3s;
+}
+
+.btn-primary {
+  background: #e63946;
+  color: white;
+}
+
+.btn-primary:hover {
+  background: #c82333;
+}
+
+.btn-success {
+  background: #28a745;
+  color: white;
+}
+
+.btn-success:hover {
+  background: #1e7e34;
+}
+
+.btn-danger {
+  background: #dc3545;
+  color: white;
+}
+
+.btn-danger:hover {
+  background: #c82333;
+}
+
+.btn-outline {
+  background: transparent;
+  color: #666;
+  border: 1px solid #ddd;
+}
+
+.btn-outline:hover {
+  background: #f5f5f5;
+}
+
+.btn-sm {
+  padding: 6px 14px;
+  font-size: 13px;
+}
+
+/* ===== WARNING TEXT ===== */
+.warning-text {
+  margin-top: 15px;
+  padding: 12px 16px;
+  background: #fff3cd;
+  border-radius: 8px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: #856404;
+  font-size: 14px;
+}
+
+.warning-text i {
+  margin-top: 3px;
+  font-size: 18px;
+}
+
+.warning-text.success-text {
+  background: #d4edda;
+  color: #155724;
+}
+
+.required {
+  color: #e63946;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+.form-group label {
+  display: block;
+  font-weight: 500;
+  margin-bottom: 5px;
+  font-size: 14px;
+}
+
+.form-group textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.form-group textarea:focus {
+  outline: none;
+  border-color: #e63946;
+}
+
 /* ===== ANIMATIONS ===== */
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(20px); }
@@ -2399,9 +3137,19 @@ onMounted(() => {
 }
 
 /* ===== RESPONSIVE ===== */
+@media (max-width: 1400px) {
+  .stats-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
 @media (max-width: 1024px) {
   .stats-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(3, 1fr);
+  }
+  
+  .order-info-grid {
+    grid-template-columns: 1fr;
   }
   
   .return-info-grid {
@@ -2430,49 +3178,126 @@ onMounted(() => {
     width: 100%;
   }
 
-  .order-info-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .modal-content {
-    width: 95%;
-  }
-
   .stats-grid {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, 1fr);
     gap: 10px;
   }
 
   .stat-card {
-    padding: 15px;
+    padding: 14px 16px;
+  }
+
+  .stat-icon {
+    width: 40px;
+    height: 40px;
+    font-size: 16px;
   }
 
   .stat-number {
-    font-size: 20px;
+    font-size: 18px;
   }
   
-  .admin-actions .button-group {
+  .main-tabs {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+  }
+  
+  .main-tab-btn {
+    white-space: nowrap;
+    font-size: 13px;
+    padding: 8px 16px;
+  }
+  
+  .sub-tabs {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+  }
+  
+  .sub-tab-btn {
+    white-space: nowrap;
+    font-size: 12px;
+    padding: 4px 12px;
+  }
+
+  .address-row {
     flex-direction: column;
+    padding: 4px 0;
   }
   
-  .admin-actions .button-group .btn {
-    width: 100%;
+  .address-row .address-label {
+    min-width: auto;
+    font-size: 12px;
   }
   
-  .return-images .return-image {
-    width: 80px;
-    height: 80px;
+  .address-row .address-value {
+    font-size: 13px;
+    padding-left: 10px;
+  }
+  
+  .full-address-row .address-value {
+    padding-left: 0;
+  }
+
+  .modal-content,
+  .modal-container {
+    width: 95%;
+    max-height: 95vh;
+  }
+
+  .action-buttons {
+    flex-wrap: wrap;
   }
 }
 
 @media (max-width: 480px) {
   .stats-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  
+  .stat-card {
+    padding: 12px 14px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .stat-icon {
+    width: 36px;
+    height: 36px;
+    font-size: 14px;
+  }
+  
+  .stat-number {
+    font-size: 16px;
+  }
+  
+  .stat-label {
+    font-size: 11px;
   }
 
-  .action-buttons {
+  .modal-header h2 {
+    font-size: 18px;
+  }
+  
+  .modal-body {
+    padding: 15px;
+  }
+
+  .items-table th,
+  .items-table td {
+    padding: 6px 8px;
+    font-size: 12px;
+  }
+  
+  .item-info {
     flex-direction: column;
-    align-items: center;
+    align-items: flex-start;
+  }
+  
+  .item-image {
+    width: 40px;
+    height: 40px;
   }
 }
 </style>

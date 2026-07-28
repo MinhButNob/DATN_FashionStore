@@ -1,3 +1,5 @@
+// ChatHistoryService.java
+// VỊ TRÍ: com/example/backend_fashionstore/ai_chat/service/ChatHistoryService.java (THAY THẾ file cũ)
 package com.example.backend_fashionstore.ai_chat.service;
 
 import com.example.backend_fashionstore.ai_chat.repository.ChatRepository;
@@ -52,13 +54,16 @@ public class ChatHistoryService {
         // Khởi tạo UserContext nếu chưa có
         if (!userContexts.containsKey(userId)) {
             UserContext ctx = new UserContext();
-            // Có thể load giới tính từ Customer nếu có trường giới tính trong DB
-            // ctx.setGender(customer.getGender() != null ? customer.getGender() : "UNKNOWN");
             ctx.setGender("UNKNOWN");
             userContexts.put(userId, ctx);
         }
 
-        Optional<Chat> activeChatOpt = chatRepository.findByCustomer_CustomerIdAndStatus(customer.getCustomerId(), "ACTIVE");
+        // FIX: thêm điều kiện channel="AI" - trước đây chỉ lọc theo customerId+status,
+        // nên vô tình nhặt trúng chat ACTIVE của "chat_nhan_vien" (nhân viên thật) nếu
+        // khách đang có sẵn 1 cuộc chat như vậy. Đây là nguyên nhân gây bug tin nhắn
+        // Haru bị lẫn vào tab "Nhân viên tư vấn" và ngược lại.
+        Optional<Chat> activeChatOpt = chatRepository.findByCustomer_CustomerIdAndStatusAndChannel(
+                customer.getCustomerId(), "ACTIVE", "AI");
 
         if (activeChatOpt.isPresent()) {
             return activeChatOpt.get();
@@ -67,6 +72,7 @@ public class ChatHistoryService {
         Chat newChat = new Chat();
         newChat.setCustomer(customer);
         newChat.setStatus("ACTIVE");
+        newChat.setChannel("AI"); // FIX: đánh dấu rõ đây là chat với Haru
 
         return chatRepository.save(newChat);
     }

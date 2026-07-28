@@ -137,7 +137,7 @@
 
           <!-- Image -->
           <div class="form-group">
-            <label>Ảnh banner <span class="required">*</span> <span class="hint">(Khuyến nghị: 1920×600px)</span></label>
+            <label>Ảnh banner <span class="required">*</span> <span class="hint">(Khuyến nghị: 1920×660px, tỉ lệ 16:5.5 – tối thiểu 1200×412px để không bị mờ)</span></label>
             <div 
               class="upload-area" 
               @click="$refs.fileInput.click()" 
@@ -155,6 +155,7 @@
               </div>
             </div>
             <span v-if="validationErrors.image" class="error-text">{{ validationErrors.image }}</span>
+            <span v-if="imageQualityWarning" class="warning-text">⚠️ {{ imageQualityWarning }}</span>
             <input 
               type="file" 
               ref="fileInput" 
@@ -176,32 +177,68 @@
           </div>
 
           <!-- Category -->
-          <div v-if="form.linkType === 'CATEGORY'" class="form-group">
+          <div v-if="form.linkType === 'CATEGORY'" class="form-group category-search-group">
             <label>Chọn danh mục <span class="required">*</span></label>
-            <select 
-              v-model="form.categoryId" 
-              :class="{ 'input-error': validationErrors.categoryId }"
-            >
-              <option :value="null">-- Chọn danh mục --</option>
-              <option v-for="cat in categories" :key="cat.categoryId" :value="cat.categoryId">
-                {{ cat.categoryName }}
-              </option>
-            </select>
+            <div class="category-search-box" ref="categorySearchBoxRef">
+              <input
+                type="text"
+                v-model="categorySearchQuery"
+                placeholder="Gõ để tìm danh mục..."
+                autocomplete="off"
+                :class="{ 'input-error': validationErrors.categoryId }"
+                @focus="showCategorySuggestions = true"
+                @input="showCategorySuggestions = true"
+              />
+              <ul v-if="showCategorySuggestions" class="category-suggestions">
+                <li v-if="filteredCategorySuggestions.length === 0" class="no-result">
+                  Không tìm thấy danh mục phù hợp
+                </li>
+                <li
+                  v-for="cat in filteredCategorySuggestions"
+                  :key="cat.categoryId"
+                  @click="selectCategorySuggestion(cat)"
+                >
+                  {{ cat.categoryName }}
+                </li>
+              </ul>
+            </div>
             <span v-if="validationErrors.categoryId" class="error-text">{{ validationErrors.categoryId }}</span>
           </div>
 
           <!-- Product -->
-          <div v-if="form.linkType === 'PRODUCT'" class="form-group">
+          <div v-if="form.linkType === 'PRODUCT'" class="form-group category-search-group">
             <label>Chọn sản phẩm <span class="required">*</span></label>
-            <select 
-              v-model="form.productId" 
-              :class="{ 'input-error': validationErrors.productId }"
-            >
-              <option :value="null">-- Chọn sản phẩm --</option>
-              <option v-for="p in products" :key="p.productId" :value="p.productId">
-                {{ p.productName }}
-              </option>
-            </select>
+            <div class="category-search-box" ref="productSearchBoxRef">
+              <input
+                type="text"
+                v-model="productSearchQuery"
+                placeholder="Gõ để tìm sản phẩm..."
+                autocomplete="off"
+                :class="{ 'input-error': validationErrors.productId }"
+                @focus="onProductSearchFocus"
+                @input="showProductSuggestions = true"
+              />
+              <ul v-if="showProductSuggestions" class="category-suggestions">
+                <li v-if="loadingFeaturedProducts && filteredProductSuggestions.length === 0" class="no-result">
+                  ⏳ Đang tải gợi ý...
+                </li>
+                <li v-else-if="filteredProductSuggestions.length === 0" class="no-result">
+                  Không tìm thấy sản phẩm phù hợp
+                </li>
+                <template v-else>
+                  <li v-if="isShowingFeaturedSuggestions" class="suggestion-header">
+                    ⭐ Sản phẩm tiêu biểu
+                  </li>
+                  <li
+                    v-for="p in filteredProductSuggestions"
+                    :key="p.productId"
+                    @click="selectProductSuggestion(p)"
+                  >
+                    {{ p.productName }}
+                  </li>
+                </template>
+              </ul>
+            </div>
             <span v-if="validationErrors.productId" class="error-text">{{ validationErrors.productId }}</span>
           </div>
 
@@ -251,9 +288,10 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onErrorCaptured } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, onErrorCaptured } from 'vue'
 import { useBannerStore } from '../../stores/bannerStore'
-import axios from 'axios'
+import api from "@/api/axios";
+import productService from '../../api/productService'
 
 onErrorCaptured((err, instance, info) => {
   console.error('❌ AdminBanners Error:', err)
@@ -262,16 +300,25 @@ onErrorCaptured((err, instance, info) => {
 })
 
 const store = useBannerStore()
-const API_BASE = 'http://localhost:8080/api'
-
 // ========== STATE ==========
 const keyword = ref('')
 const showModal = ref(false)
 const editingBanner = ref(null)
 const imagePreview = ref(null)
 const selectedFile = ref(null)
+const imageQualityWarning = ref('')
 const categories = ref([])
 const products = ref([])
+// Danh sách sản phẩm tiêu biểu (nổi bật) - gợi ý ngay khi click vào ô tìm kiếm, chưa cần gõ gì
+const featuredProducts = ref([])
+const loadingFeaturedProducts = ref(false)
+// Tìm kiếm/gợi ý danh mục & sản phẩm (thay cho combobox) - giống bên Quản lý sản phẩm
+const categorySearchQuery = ref('')
+const showCategorySuggestions = ref(false)
+const categorySearchBoxRef = ref(null)
+const productSearchQuery = ref('')
+const showProductSuggestions = ref(false)
+const productSearchBoxRef = ref(null)
 const validationErrors = reactive({})
 
 const form = reactive({
@@ -282,27 +329,89 @@ const form = reactive({
   productId: null,
   customUrl: '',
   displayOrder: 0,
-  status: 'ACTIVE',
-})
+  status: 'ACTIVE' })
+
+// ========== CLICK RA NGOÀI ĐỂ ĐÓNG GỢI Ý (thay cho @blur + setTimeout) ==========
+// Lý do đổi cách làm cũ: @blur kết hợp setTimeout dễ bị tranh chấp (race condition)
+// với sự kiện click chọn gợi ý, khiến ô input bị mất focus liên tục / "nháy" màn hình
+// và không gõ được. Dùng document click để phát hiện click-ra-ngoài sẽ ổn định hơn.
+function handleClickOutsideSearchBoxes(event) {
+  if (categorySearchBoxRef.value && !categorySearchBoxRef.value.contains(event.target)) {
+    showCategorySuggestions.value = false
+    const current = categories.value.find(c => c.categoryId === form.categoryId)
+    categorySearchQuery.value = current?.categoryName || ''
+  }
+  if (productSearchBoxRef.value && !productSearchBoxRef.value.contains(event.target)) {
+    showProductSuggestions.value = false
+    const current = products.value.find(p => p.productId === form.productId)
+    productSearchQuery.value = current?.productName || ''
+  }
+}
 
 // ========== LIFECYCLE ==========
 onMounted(async () => {
+  document.addEventListener('click', handleClickOutsideSearchBoxes)
   try {
     console.log('✅ AdminBanners mounted')
     await store.fetchBanners()
     
-    const [catRes, prodRes] = await Promise.all([
-      axios.get(`${API_BASE}/categories/active`),
-      axios.get(`${API_BASE}/products`, { params: { size: 200 } })
+    const [catRes, prodRes, parentCatRes] = await Promise.all([
+      api.get(`/categories/active`),
+      api.get(`/products`, { params: { size: 200 } }),
+      api.get(`/category-hierarchy/parents`).catch(() => ({ data: [] }))
     ])
-    categories.value = catRes.data?.content || catRes.data || []
-    products.value = prodRes.data?.content || prodRes.data || []
+    // ⚠️ Backend bọc dữ liệu 2 lớp: ApiResponse { data: PageResponse { content: [...] } }
+    // Trước đây code chỉ bóc 1 lớp (res.data.content) nên products.value bị gán nhầm
+    // thành cả object thay vì mảng -> gây lỗi "products.value.slice is not a function"
+    // khi click vào ô "Chọn sản phẩm".
+    categories.value = catRes.data?.content || catRes.data?.data?.content || catRes.data || []
+    products.value = prodRes.data?.data?.content || prodRes.data?.content || []
+    // Chốt an toàn: nếu backend đổi cấu trúc lần nữa mà không khớp field nào ở trên,
+    // ép về mảng rỗng thay vì để lọt object vào -> tránh crash toàn trang khi gọi .slice()/.filter()
+    if (!Array.isArray(categories.value)) categories.value = []
+    if (!Array.isArray(products.value)) products.value = []
+
+    // ✅ Loại bỏ 3 danh mục lớn (Áo, Quần, Phụ kiện...) khỏi danh sách gợi ý chọn danh mục
+    // của banner - vì đó là danh mục cha dùng để phân cấp, không phải danh mục để gán banner.
+    // Các danh mục cha được lấy từ /api/category-hierarchy/parents.
+    const parentList = parentCatRes.data?.content || parentCatRes.data?.data?.content || parentCatRes.data || []
+    const parentCategoryIds = new Set(
+      (Array.isArray(parentList) ? parentList : []).map(p => p.categoryId)
+    )
+    if (parentCategoryIds.size > 0) {
+      categories.value = categories.value.filter(c => !parentCategoryIds.has(c.categoryId))
+    }
+
     console.log('✅ Loaded categories:', categories.value.length)
     console.log('✅ Loaded products:', products.value.length)
   } catch (e) {
     console.error('❌ Failed to load data:', e)
   }
+
+  // Tải sẵn sản phẩm tiêu biểu để gợi ý ngay khi admin click vào ô "Chọn sản phẩm"
+  loadFeaturedProducts()
 })
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutsideSearchBoxes)
+})
+
+// ========== SẢN PHẨM TIÊU BIỂU (gợi ý khi click vào ô tìm kiếm, chưa gõ gì) ==========
+async function loadFeaturedProducts() {
+  loadingFeaturedProducts.value = true
+  try {
+    const res = await productService.getFeaturedProducts(0, 8)
+    // HomeProductResponse trả field tên "products", không phải "content"
+    const list = res.data?.products || res.data?.data?.products || res.data?.content || []
+    featuredProducts.value = Array.isArray(list) ? list : []
+    console.log('✅ Loaded featured products:', featuredProducts.value.length)
+  } catch (e) {
+    console.error('❌ Failed to load featured products, fallback to danh sách sản phẩm:', e)
+    featuredProducts.value = []
+  } finally {
+    loadingFeaturedProducts.value = false
+  }
+}
 
 // ========== MODAL FUNCTIONS ==========
 function openCreate() {
@@ -310,6 +419,8 @@ function openCreate() {
   resetForm()
   imagePreview.value = null
   selectedFile.value = null
+  categorySearchQuery.value = ''
+  productSearchQuery.value = ''
   showModal.value = true
   clearValidationErrors()
 }
@@ -324,11 +435,16 @@ function openEdit(banner) {
     productId: banner.productId || null,
     customUrl: banner.customUrl || '',
     displayOrder: banner.displayOrder || 0,
-    status: banner.status || 'ACTIVE',
-  })
+    status: banner.status || 'ACTIVE' })
   // ✅ SỬA: Hiển thị ảnh preview đúng cách
   imagePreview.value = getImageUrl(banner.imagePath)
   selectedFile.value = null
+
+  const currentCategory = categories.value.find(c => c.categoryId === form.categoryId)
+  categorySearchQuery.value = currentCategory?.categoryName || ''
+  const currentProduct = products.value.find(p => p.productId === form.productId)
+  productSearchQuery.value = currentProduct?.productName || ''
+
   showModal.value = true
   clearValidationErrors()
 }
@@ -352,8 +468,55 @@ function resetForm() {
     productId: null,
     customUrl: '',
     displayOrder: 0,
-    status: 'ACTIVE',
-  })
+    status: 'ACTIVE' })
+  categorySearchQuery.value = ''
+  productSearchQuery.value = ''
+  showCategorySuggestions.value = false
+  showProductSuggestions.value = false
+  imageQualityWarning.value = ''
+}
+
+// ========== DANH MỤC / SẢN PHẨM - Ô TÌM KIẾM GỢI Ý ==========
+const filteredCategorySuggestions = computed(() => {
+  const query = categorySearchQuery.value.trim().toLowerCase()
+  if (!query) return categories.value.slice(0, 8)
+  return categories.value.filter(c => (c.categoryName || '').toLowerCase().includes(query))
+})
+
+function selectCategorySuggestion(cat) {
+  form.categoryId = cat.categoryId
+  categorySearchQuery.value = cat.categoryName
+  showCategorySuggestions.value = false
+}
+
+// Khi chưa gõ gì (query rỗng): ưu tiên hiển thị sản phẩm tiêu biểu/nổi bật.
+// Khi đã gõ: tìm kiếm trong toàn bộ danh sách sản phẩm như bình thường.
+const isShowingFeaturedSuggestions = computed(() => {
+  return !productSearchQuery.value.trim() && featuredProducts.value.length > 0
+})
+
+const filteredProductSuggestions = computed(() => {
+  const query = productSearchQuery.value.trim().toLowerCase()
+  if (!query) {
+    return featuredProducts.value.length > 0
+      ? featuredProducts.value
+      : products.value.slice(0, 8)
+  }
+  return products.value.filter(p => (p.productName || '').toLowerCase().includes(query))
+})
+
+function onProductSearchFocus() {
+  showProductSuggestions.value = true
+  // Nếu chưa tải được sản phẩm tiêu biểu (ví dụ lần trước lỗi), thử tải lại khi admin click vào ô
+  if (!productSearchQuery.value.trim() && featuredProducts.value.length === 0 && !loadingFeaturedProducts.value) {
+    loadFeaturedProducts()
+  }
+}
+
+function selectProductSuggestion(p) {
+  form.productId = p.productId
+  productSearchQuery.value = p.productName
+  showProductSuggestions.value = false
 }
 
 // ========== VALIDATION ==========
@@ -444,6 +607,23 @@ function handleFile(file) {
   }
   imagePreview.value = URL.createObjectURL(file)
   delete validationErrors.image
+
+  // ✅ Kiểm tra độ phân giải thực tế của ảnh - banner được kéo giãn full chiều rộng
+  // màn hình trên trang chủ, nếu ảnh gốc quá nhỏ sẽ bị vỡ/mờ khi phóng to.
+  checkImageResolution(imagePreview.value)
+}
+
+function checkImageResolution(url) {
+  imageQualityWarning.value = ''
+  const img = new Image()
+  img.onload = () => {
+    const { naturalWidth: w, naturalHeight: h } = img
+    const MIN_WIDTH = 1200
+    if (w < MIN_WIDTH) {
+      imageQualityWarning.value = `Ảnh của bạn chỉ ${w}×${h}px – khá nhỏ so với chiều rộng màn hình. Banner sẽ được phóng to full màn hình trên trang chủ nên ảnh dễ bị mờ/vỡ. Nên dùng ảnh tối thiểu 1200×412px, lý tưởng là 1920×660px trở lên.`
+    }
+  }
+  img.src = url
 }
 
 // ========== SAVE BANNER ==========
@@ -539,12 +719,12 @@ function getImageUrl(path) {
   if (!path) return ''
   if (path.startsWith('http')) return path
   if (path.startsWith('/uploads/')) {
-    return `http://localhost:8080${path}`
+    return `${(import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "").replace(/\/api$/, "")}/${path}`
   }
   if (path.startsWith('uploads/')) {
-    return `http://localhost:8080/${path}`
+    return `${(import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "").replace(/\/api$/, "")}/${path}`
   }
-  return `http://localhost:8080/uploads/${path}`
+  return `${(import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "").replace(/\/api$/, "")}/uploads/${path}`
 }
 
 // ✅ THÊM: Xử lý lỗi ảnh thumb
@@ -918,10 +1098,88 @@ function resolvedLabel(banner) {
 .form-group select.input-error {
   border-color: #ef4444;
 }
+.category-search-group {
+  position: relative;
+}
+.category-search-box {
+  position: relative;
+}
+.category-search-box input {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  transition: border-color 0.3s;
+}
+.category-search-box input:focus {
+  outline: none;
+  border-color: #6366f1;
+}
+.category-suggestions {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+}
+.category-suggestions li {
+  padding: 9px 14px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: #333;
+}
+.category-suggestions li:hover {
+  background: #eef0ff;
+  color: #6366f1;
+}
+.category-suggestions li.no-result {
+  color: #999;
+  cursor: default;
+}
+.category-suggestions li.no-result:hover {
+  background: transparent;
+  color: #999;
+}
+.category-suggestions li.suggestion-header {
+  padding: 6px 14px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #a16207;
+  background: #fffbeb;
+  cursor: default;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.category-suggestions li.suggestion-header:hover {
+  background: #fffbeb;
+  color: #a16207;
+}
+
 .error-text {
   color: #ef4444;
   font-size: 0.8rem;
   margin-top: 2px;
+}
+.warning-text {
+  color: #b45309;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 0.8rem;
+  margin-top: 4px;
+  display: block;
+  line-height: 1.4;
 }
 .form-row { 
   display: flex; 

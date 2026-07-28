@@ -1,8 +1,13 @@
+// ⚠️ CẢNH BÁO: File này định nghĩa defineStore("cart", ...) TRÙNG với
+// cartStore.js (cùng store id "cart", cùng tên export useCartStore).
+// Pinia sẽ chỉ nhận 1 trong 2 tùy theo file nào được import sau cùng,
+// gây khó debug. Khuyến nghị: kiểm tra xem trang nào đang import từ
+// "orderStore" và chuyển sang import từ "cartStore", rồi XÓA file này.
+// Mình vẫn sửa để dùng chung axios instance, phòng khi vẫn còn nơi
+// đang import từ file này.
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
-import axios from "axios";
-
-const API_BASE = "http://localhost:8080/api";
+import api from "../api/axios";
 
 export const useCartStore = defineStore("cart", () => {
   const items = ref([]);
@@ -17,7 +22,7 @@ export const useCartStore = defineStore("cart", () => {
   const fetchCart = async () => {
     loading.value = true;
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("accessToken");
 
       if (!token) {
         console.log("❌ No token found");
@@ -26,12 +31,7 @@ export const useCartStore = defineStore("cart", () => {
       }
 
       console.log("🟡 Fetching cart from API...");
-      const response = await axios.get(`${API_BASE}/cart`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
+      const response = await api.get("/cart");
 
       console.log("✅ API Response:", response.data);
 
@@ -50,8 +50,7 @@ export const useCartStore = defineStore("cart", () => {
             size: item.sizeName,
             color: item.colorName,
             imageUrl: item.imageUrl,
-            image: item.imageUrl,
-          }));
+            image: item.imageUrl }));
         } else if (cartData.items && Array.isArray(cartData.items)) {
           items.value = cartData.items.map((item) => ({
             cartItemId: item.cartItemId,
@@ -61,8 +60,7 @@ export const useCartStore = defineStore("cart", () => {
             quantity: item.quantity,
             size: item.sizeName,
             color: item.colorName,
-            image: item.imageUrl,
-          }));
+            image: item.imageUrl }));
         } else {
           items.value = [];
         }
@@ -91,7 +89,7 @@ export const useCartStore = defineStore("cart", () => {
     size = null,
     color = null,
   ) => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("accessToken");
 
     if (!token) {
       console.log("❌ Need login to add to cart");
@@ -104,24 +102,13 @@ export const useCartStore = defineStore("cart", () => {
         productDetailId: product.id,
         quantity,
         size,
-        color,
-      });
+        color });
 
-      const response = await axios.post(
-        `${API_BASE}/cart/add`,
-        {
-          productDetailId: product.id,
-          quantity: quantity,
-          size: size,
-          color: color,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        },
-      );
+      const response = await api.post("/cart/add", {
+        productDetailId: product.id,
+        quantity: quantity,
+        size: size,
+        color: color });
 
       console.log("✅ Add to cart response:", response.data);
 
@@ -147,17 +134,15 @@ export const useCartStore = defineStore("cart", () => {
     size,
     color,
   ) => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("accessToken");
 
     if (!token || !cartItemId) return;
 
     try {
       console.log("🟡 Updating quantity:", { cartItemId, quantity });
 
-      await axios.put(`${API_BASE}/cart/items/${cartItemId}`, null, {
-        params: { quantity: quantity },
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await api.put(`/cart/items/${cartItemId}`, null, {
+        params: { quantity: quantity } });
 
       await fetchCart(); // Refresh cart
     } catch (error) {
@@ -170,16 +155,14 @@ export const useCartStore = defineStore("cart", () => {
 
   // ✅ Remove from cart
   const removeFromCart = async (cartItemId, productId, size, color) => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("accessToken");
 
     if (!token || !cartItemId) return;
 
     try {
       console.log("🟡 Removing from cart:", { cartItemId });
 
-      await axios.delete(`${API_BASE}/cart/items/${cartItemId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await api.delete(`/cart/items/${cartItemId}`);
 
       await fetchCart(); // Refresh cart
     } catch (error) {
@@ -192,16 +175,14 @@ export const useCartStore = defineStore("cart", () => {
 
   // ✅ Clear cart
   const clearCart = async () => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("accessToken");
 
     if (!token) return;
 
     try {
       console.log("🟡 Clearing cart...");
 
-      await axios.delete(`${API_BASE}/cart/clear`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await api.delete("/cart/clear");
 
       items.value = [];
       saveCart();
@@ -265,6 +246,5 @@ export const useCartStore = defineStore("cart", () => {
     updateQuantity,
     updateQuantityItem,
     clearCart,
-    toggleCart,
-  };
+    toggleCart };
 });

@@ -4,11 +4,14 @@ import com.example.backend_fashionstore.QuanLyDonHang.dto.OrderStatisticsDTO;
 import com.example.backend_fashionstore.QuanLyDonHang.dto.response.*;
 import com.example.backend_fashionstore.QuanLyDonHang.repository.OrderDetailRepository;
 import com.example.backend_fashionstore.QuanLyDonHang.repository.OrderRepository;
+import com.example.backend_fashionstore.QuanLySanPham.repository.ProductDetail.ProductDetailRepository;
 import com.example.backend_fashionstore.customer.order.repository.OrderHistoryRepository;
 import com.example.backend_fashionstore.customer.order.repository.ReturnRequestRepository;
+import com.example.backend_fashionstore.customer.order.service.CustomerOrderServiceImpl;
 import com.example.backend_fashionstore.entity.*;
 import com.example.backend_fashionstore.enums.OrderStatus;
 import com.example.backend_fashionstore.enums.PaymentStatus;
+import com.example.backend_fashionstore.quanLyVoucher.repository.VoucherRepository;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -20,10 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -36,6 +36,9 @@ public class AdminOrderServiceImpl implements AdminOrderService {
     private final OrderDetailRepository orderDetailRepository;
     private final OrderHistoryRepository orderHistoryRepository;
     private final ReturnRequestRepository returnRequestRepository;
+    private final ProductDetailRepository productDetailRepository;
+    private final CustomerOrderServiceImpl customerOrderService;
+    private final VoucherRepository voucherRepository;
 
     // ================================================================
     // ===== ĐƠN HÀNG =====
@@ -48,9 +51,7 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         log.info("getAllOrders - status: {}, fromDate: {}, toDate: {}, keyword: {}, pageable: {}",
                 status, fromDate, toDate, keyword, pageable);
 
-        // 🆕 Xử lý trường hợp filter REJECTED
         if ("REJECTED".equals(status)) {
-            // Lấy danh sách order_id từ return_requests có status = REJECTED
             List<Long> orderIds = returnRequestRepository.findOrderIdsByStatus("REJECTED");
             if (orderIds.isEmpty()) {
                 return Page.empty(pageable);
@@ -96,18 +97,23 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         String oldStatus = order.getOrderStatus().toString();
         String newStatus = request.getOrderStatus();
 
-        // Kiểm tra chuyển trạng thái hợp lệ
         if (!isValidAdminStatusTransition(oldStatus, newStatus)) {
             throw new RuntimeException("Không thể chuyển trạng thái từ '" + oldStatus + "' sang '" + newStatus + "'");
         }
 
-        // Cập nhật trạng thái
+        if ("PROCESSING".equals(oldStatus) && "SHIPPING".equals(newStatus)) {
+            try {
+                customerOrderService.deductStockForOrder(orderId);
+            } catch (Exception e) {
+                log.error("❌ Failed to deduct stock for order {}: {}", orderId, e.getMessage());
+                throw new RuntimeException("Không thể trừ số lượng sản phẩm trong kho: " + e.getMessage());
+            }
+        }
+
         order.setOrderStatus(OrderStatus.valueOf(newStatus));
         order.setUpdatedAt(LocalDateTime.now());
 
-        // Nếu chuyển từ RETURN_RECEIVED sang RETURNED, cập nhật trạng thái return request
         if ("RETURN_RECEIVED".equals(oldStatus) && "RETURNED".equals(newStatus)) {
-            // Cập nhật trạng thái return request thành COMPLETED
             returnRequestRepository.findFirstByOrderIdAndDeletedAtIsNull(orderId)
                     .ifPresent(returnRequest -> {
                         returnRequest.setStatus("COMPLETED");
@@ -117,19 +123,12 @@ public class AdminOrderServiceImpl implements AdminOrderService {
                     });
         }
 
-        // Nếu đơn hàng bị hủy, hoàn lại số lượng sản phẩm
-        if ("CANCELLED".equals(newStatus)) {
-            List<OrderDetail> details = orderDetailRepository.findByOrder_OrderId(orderId);
-            for (OrderDetail detail : details) {
-                ProductDetail pd = detail.getProductDetail();
-                pd.setQuantity(pd.getQuantity() + detail.getQuantity());
-                log.info("✅ Restored {} units for product detail: {}", detail.getQuantity(), pd.getProductDetailId());
-            }
+        if ("CANCELLED".equals(newStatus) && isStockDeducted(oldStatus)) {
+            restoreStockForOrder(orderId);
         }
 
         orderRepository.save(order);
 
-        // Ghi lịch sử
         OrderHistory history = new OrderHistory();
         history.setOrder(order);
         history.setOrderStatus(newStatus);
@@ -147,6 +146,17 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         }
 
         return convertToAdminResponse(order);
+    }
+
+    private void restoreStockForOrder(Long orderId) {
+        log.info("📦 Restoring stock for order: {}", orderId);
+        List<OrderDetail> details = orderDetailRepository.findByOrder_OrderId(orderId);
+        for (OrderDetail detail : details) {
+            ProductDetail pd = detail.getProductDetail();
+            pd.setQuantity(pd.getQuantity() + detail.getQuantity());
+            productDetailRepository.save(pd);
+            log.info("✅ Restored {} units for product detail: {}", detail.getQuantity(), pd.getProductDetailId());
+        }
     }
 
     @Override
@@ -182,13 +192,45 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         long confirmedOrders = orderRepository.countByOrderStatus(OrderStatus.CONFIRMED);
         long deliveredOrders = orderRepository.countByOrderStatus(OrderStatus.DELIVERED);
         long returnedOrders = orderRepository.countByOrderStatus(OrderStatus.RETURNED);
-        long rejectedOrders = orderRepository.countByOrderStatus(OrderStatus.REJECTED);
 
+        // 🆕 THỐNG KÊ HOÀN HÀNG CHI TIẾT
+        long returnRequested = orderRepository.countByOrderStatus(OrderStatus.RETURN_REQUESTED);
+        long returnApproved = orderRepository.countByOrderStatus(OrderStatus.RETURN_APPROVED);
+        long returnReceived = orderRepository.countByOrderStatus(OrderStatus.RETURN_RECEIVED);
+        long returnPending = orderRepository.countByOrderStatus(OrderStatus.RETURN_PENDING);
+        long returnCompleted = orderRepository.countByOrderStatus(OrderStatus.RETURNED);
+        long returnRejected = orderRepository.countByOrderStatus(OrderStatus.REJECTED);
+
+        // 🆕 THỐNG KÊ DOANH THU
         BigDecimal todayRevenue = orderRepository.getTodayRevenue();
+        if (todayRevenue == null) todayRevenue = BigDecimal.ZERO;
+
         BigDecimal monthlyRevenue = orderRepository.getMonthlyRevenue(
                 LocalDateTime.now().getYear(),
                 LocalDateTime.now().getMonthValue()
         );
+        if (monthlyRevenue == null) monthlyRevenue = BigDecimal.ZERO;
+
+        // Tổng doanh thu từ đơn hàng COMPLETED
+        BigDecimal totalRevenue = orderRepository.getTotalRevenue();
+        if (totalRevenue == null) totalRevenue = BigDecimal.ZERO;
+
+        // Doanh thu online (không phải POS)
+        BigDecimal onlineRevenue = orderRepository.getOnlineRevenue();
+        if (onlineRevenue == null) onlineRevenue = BigDecimal.ZERO;
+
+        // Tổng tiền hoàn trả
+        BigDecimal returnRefundAmount = orderRepository.getReturnRefundAmount();
+        if (returnRefundAmount == null) returnRefundAmount = BigDecimal.ZERO;
+
+        // Doanh thu thực tế
+        BigDecimal netRevenue = onlineRevenue.subtract(returnRefundAmount);
+        if (netRevenue.compareTo(BigDecimal.ZERO) < 0) netRevenue = BigDecimal.ZERO;
+
+        // Thống kê hủy đơn chi tiết
+        long cancelledByCustomer = orderRepository.countCancelledByType("Khách hàng hủy");
+        long cancelledByAdmin = orderRepository.countCancelledByType("Admin hủy");
+        long cancelledBySystem = orderRepository.countCancelledByType("Hệ thống hủy");
 
         return OrderStatisticsDTO.builder()
                 .totalOrders(totalOrders)
@@ -200,9 +242,21 @@ public class AdminOrderServiceImpl implements AdminOrderService {
                 .confirmedOrders(confirmedOrders)
                 .deliveredOrders(deliveredOrders)
                 .returnedOrders(returnedOrders)
-                .rejectedOrders(rejectedOrders)
-                .todayRevenue(todayRevenue != null ? todayRevenue : BigDecimal.ZERO)
-                .monthlyRevenue(monthlyRevenue != null ? monthlyRevenue : BigDecimal.ZERO)
+                .returnRequested(returnRequested)
+                .returnApproved(returnApproved)
+                .returnReceived(returnReceived)
+                .returnPending(returnPending)
+                .returnCompleted(returnCompleted)
+                .returnRejected(returnRejected)
+                .todayRevenue(todayRevenue)
+                .monthlyRevenue(monthlyRevenue)
+                .totalRevenue(totalRevenue)
+                .onlineRevenue(onlineRevenue)
+                .returnRefundAmount(returnRefundAmount)
+                .netRevenue(netRevenue)
+                .cancelledByCustomer(cancelledByCustomer)
+                .cancelledByAdmin(cancelledByAdmin)
+                .cancelledBySystem(cancelledBySystem)
                 .build();
     }
 
@@ -228,23 +282,20 @@ public class AdminOrderServiceImpl implements AdminOrderService {
     }
 
     // ================================================================
-    // ===== 🆕 QUẢN LÝ HOÀN HÀNG =====
+    // ===== QUẢN LÝ HOÀN HÀNG =====
     // ================================================================
 
     @Override
     public ReturnRequestDetailDTO getReturnRequestByOrderId(Long orderId) {
         log.info("📋 Getting return request for order: {}", orderId);
 
-        // Tìm yêu cầu hoàn hàng
         ReturnRequest returnRequest = returnRequestRepository
                 .findFirstByOrderIdAndDeletedAtIsNull(orderId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy yêu cầu hoàn hàng cho đơn hàng này"));
 
-        // Lấy thông tin đơn hàng
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng"));
 
-        // Parse images từ JSON
         List<String> images = null;
         if (returnRequest.getImages() != null && !returnRequest.getImages().isEmpty()) {
             try {
@@ -258,7 +309,6 @@ public class AdminOrderServiceImpl implements AdminOrderService {
             }
         }
 
-        // Tạo DTO
         return ReturnRequestDetailDTO.builder()
                 .orderId(returnRequest.getOrderId())
                 .orderCode("ORD" + String.format("%08d", order.getOrderId()))
@@ -281,17 +331,14 @@ public class AdminOrderServiceImpl implements AdminOrderService {
     public ReturnRequestDetailDTO processReturnRequest(Long orderId, String status, String adminNote) {
         log.info("🔄 Processing return request for order: {}, status: {}", orderId, status);
 
-        // 1. Kiểm tra yêu cầu tồn tại
         ReturnRequest returnRequest = returnRequestRepository
                 .findFirstByOrderIdAndDeletedAtIsNull(orderId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy yêu cầu hoàn hàng"));
 
-        // 2. Kiểm tra trạng thái hiện tại
         if (!"PENDING".equals(returnRequest.getStatus())) {
             throw new RuntimeException("Yêu cầu hoàn hàng đã được xử lý trước đó");
         }
 
-        // 3. Cập nhật trạng thái return request
         returnRequest.setStatus(status);
         if (adminNote != null && !adminNote.isEmpty()) {
             String currentNote = returnRequest.getAdminNote();
@@ -300,7 +347,6 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         returnRequest.setUpdatedAt(LocalDateTime.now());
         returnRequestRepository.save(returnRequest);
 
-        // 4. Cập nhật trạng thái đơn hàng
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng"));
 
@@ -308,7 +354,6 @@ public class AdminOrderServiceImpl implements AdminOrderService {
             order.setOrderStatus(OrderStatus.RETURN_APPROVED);
             log.info("✅ Return request APPROVED for order {}", orderId);
         } else if ("REJECTED".equals(status)) {
-            // Khi từ chối, đặt trạng thái là REJECTED
             order.setOrderStatus(OrderStatus.REJECTED);
             log.info("❌ Return request REJECTED for order {}", orderId);
         } else {
@@ -317,7 +362,6 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         order.setUpdatedAt(LocalDateTime.now());
         orderRepository.save(order);
 
-        // 5. Ghi lịch sử
         OrderHistory history = new OrderHistory();
         history.setOrder(order);
         history.setOrderStatus(order.getOrderStatus().toString());
@@ -340,17 +384,14 @@ public class AdminOrderServiceImpl implements AdminOrderService {
     public ReturnRequestDetailDTO receiveReturnedItems(Long orderId, String note) {
         log.info("📦 Admin received returned items for order: {}", orderId);
 
-        // 1. Kiểm tra yêu cầu tồn tại
         ReturnRequest returnRequest = returnRequestRepository
                 .findFirstByOrderIdAndDeletedAtIsNull(orderId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy yêu cầu hoàn hàng"));
 
-        // 2. Kiểm tra trạng thái hiện tại (chỉ cho phép từ APPROVED)
         if (!"APPROVED".equals(returnRequest.getStatus())) {
             throw new RuntimeException("Chỉ có thể xác nhận nhận hàng khi yêu cầu đã được duyệt");
         }
 
-        // 3. Cập nhật trạng thái return request thành RECEIVED
         returnRequest.setStatus("RECEIVED");
         if (note != null && !note.isEmpty()) {
             String adminNote = returnRequest.getAdminNote() != null ?
@@ -360,7 +401,6 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         returnRequest.setUpdatedAt(LocalDateTime.now());
         returnRequestRepository.save(returnRequest);
 
-        // 4. Cập nhật trạng thái đơn hàng
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng"));
 
@@ -368,7 +408,6 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         order.setUpdatedAt(LocalDateTime.now());
         orderRepository.save(order);
 
-        // 5. Ghi lịch sử
         OrderHistory history = new OrderHistory();
         history.setOrder(order);
         history.setOrderStatus("RETURN_RECEIVED");
@@ -406,33 +445,41 @@ public class AdminOrderServiceImpl implements AdminOrderService {
     // ===== HELPER METHODS =====
     // ================================================================
 
-    // Cập nhật phương thức isValidAdminStatusTransition
     private boolean isValidAdminStatusTransition(String oldStatus, String newStatus) {
-        // Admin không thể chuyển sang CANCELLED (do khách hàng hủy)
         if ("CANCELLED".equals(newStatus)) {
             return false;
         }
 
-        // Admin có thể chuyển từ RETURN_APPROVED -> RETURN_RECEIVED
         if ("RETURN_APPROVED".equals(oldStatus) && "RETURN_RECEIVED".equals(newStatus)) {
             return true;
         }
 
-        // Admin có thể chuyển từ RETURN_RECEIVED -> RETURNED
         if ("RETURN_RECEIVED".equals(oldStatus) && "RETURNED".equals(newStatus)) {
             return true;
         }
 
-        // Admin chỉ có thể chuyển theo thứ tự:
-        // PENDING_PAYMENT -> CONFIRMED -> PROCESSING -> SHIPPING -> DELIVERED -> COMPLETED
+        if ("PROCESSING".equals(oldStatus) && "SHIPPING".equals(newStatus)) {
+            return true;
+        }
+
         List<String> validSequence = Arrays.asList(
                 "PENDING_PAYMENT", "CONFIRMED", "PROCESSING", "SHIPPING", "DELIVERED", "COMPLETED"
         );
         int oldIndex = validSequence.indexOf(oldStatus);
         int newIndex = validSequence.indexOf(newStatus);
 
-        // Chỉ cho phép chuyển sang trạng thái tiếp theo trong chuỗi
         return newIndex == oldIndex + 1;
+    }
+
+    private boolean isStockDeducted(String orderStatus) {
+        return "SHIPPING".equals(orderStatus) ||
+                "DELIVERED".equals(orderStatus) ||
+                "COMPLETED".equals(orderStatus) ||
+                "RETURN_REQUESTED".equals(orderStatus) ||
+                "RETURN_APPROVED".equals(orderStatus) ||
+                "RETURN_RECEIVED".equals(orderStatus) ||
+                "RETURN_PENDING".equals(orderStatus) ||
+                "RETURNED".equals(orderStatus);
     }
 
     private void sendOrderStatusNotification(Order order, String oldStatus, String newStatus, String notes) {
@@ -477,6 +524,33 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         return statusMap.getOrDefault(status, status);
     }
 
+    // ================================================================
+    // ===== XÂY DỰNG ĐỊA CHỈ ĐẦY ĐỦ =====
+    // ================================================================
+
+    private String buildFullAddress(String streetAddress, String ward, String district, String city) {
+        StringBuilder sb = new StringBuilder();
+        if (streetAddress != null && !streetAddress.isEmpty()) {
+            sb.append(streetAddress);
+        }
+        if (ward != null && !ward.isEmpty()) {
+            if (sb.length() > 0) sb.append(", ");
+            sb.append(ward);
+        }
+        if (district != null && !district.isEmpty()) {
+            if (sb.length() > 0) sb.append(", ");
+            sb.append(district);
+        }
+        if (city != null && !city.isEmpty()) {
+            if (sb.length() > 0) sb.append(", ");
+            sb.append(city);
+        }
+        return sb.length() > 0 ? sb.toString() : null;
+    }
+
+    // ================================================================
+    // ===== CONVERT TO ADMIN RESPONSE (ĐÃ SỬA) =====
+    // ================================================================
     private AdminOrderResponseDTO convertToAdminResponse(Order order) {
         List<OrderDetail> details = orderDetailRepository.findByOrder_OrderId(order.getOrderId());
 
@@ -506,36 +580,73 @@ public class AdminOrderServiceImpl implements AdminOrderService {
                 .collect(Collectors.toList());
 
         // ✅ LẤY SHIPPING ADDRESS TỪ ORDER
-        ShippingAddress addr = order.getShippingAddress();
+        String shippingAddressStr = order.getShippingAddress();
         AdminShippingAddressDTO shippingDTO = null;
 
-        if (addr != null) {
-            shippingDTO = AdminShippingAddressDTO.builder()
-                    .addressId(addr.getShippingAddressId().intValue())
-                    .fullName(addr.getShippingAddressFullName())
-                    .phone(addr.getShippingAddressPhone())
-                    .addressLine(addr.getShippingAddressAddressLine())
-                    .city(addr.getShippingAddressCity())
-                    .district(addr.getShippingAddressDistrict())
-                    .ward(addr.getShippingAddressWard())
-                    .build();
-            log.info("📦 Shipping address found for order {}: {}", order.getOrderId(), shippingDTO);
-        } else {
-            // ✅ NẾU KHÔNG CÓ SHIPPING ADDRESS, LẤY THÔNG TIN TỪ CUSTOMER
+        // ✅ Biến lưu số điện thoại và tên
+        String shippingPhone = null;
+        String shippingFullName = null;
+        String shippingFullAddress = shippingAddressStr;
+
+        if (shippingAddressStr != null && !shippingAddressStr.isEmpty()) {
             Customer customer = order.getCustomer();
             if (customer != null) {
+                shippingFullName = customer.getCustomerName();
+                shippingPhone = customer.getPhone();
+            }
+
+            String city = order.getShippingCity() != null ? order.getShippingCity() : "";
+            String district = order.getShippingDistrict() != null ? order.getShippingDistrict() : "";
+            String ward = order.getShippingWard() != null ? order.getShippingWard() : "";
+            shippingFullAddress = shippingAddressStr; // Đã là địa chỉ đầy đủ từ lúc tạo đơn hàng
+
+            shippingDTO = AdminShippingAddressDTO.builder()
+                    .addressId(null)
+                    .fullName(shippingFullName)
+                    .phone(shippingPhone)
+                    .addressLine(shippingAddressStr)
+                    .city(city)
+                    .district(district)
+                    .ward(ward)
+                    .fullAddress(shippingFullAddress)
+                    .build();
+
+            log.debug("📞 Shipping address phone for order {}: {}", order.getOrderId(), shippingPhone);
+        } else {
+            Customer customer = order.getCustomer();
+            if (customer != null) {
+                shippingFullName = customer.getCustomerName();
+                shippingPhone = customer.getPhone();
+                shippingFullAddress = customer.getAddress();
+
                 shippingDTO = AdminShippingAddressDTO.builder()
                         .addressId(null)
-                        .fullName(customer.getCustomerName())
-                        .phone(customer.getPhone())
+                        .fullName(shippingFullName)
+                        .phone(shippingPhone)
                         .addressLine(customer.getAddress())
                         .city("")
                         .district("")
                         .ward("")
+                        .fullAddress(shippingFullAddress)
                         .build();
-                log.info("📦 Using customer address for order {}: {}", order.getOrderId(), shippingDTO);
+
+                log.debug("📞 Customer phone for order {}: {}", order.getOrderId(), shippingPhone);
             }
         }
+
+        // ✅ Xác định số điện thoại hiển thị trên bảng
+        // Ưu tiên: shipping address phone > customer phone
+        String displayPhone = shippingPhone;
+        if (displayPhone == null || displayPhone.isEmpty()) {
+            Customer customer = order.getCustomer();
+            if (customer != null) {
+                displayPhone = customer.getPhone();
+                log.debug("📞 Using customer phone for order {}: {}", order.getOrderId(), displayPhone);
+            }
+        }
+
+        // ✅ Log để debug
+        log.debug("📞 Final display phone for order {}: {}", order.getOrderId(), displayPhone);
 
         BigDecimal subtotal = order.getOrderSubtotalAmount() != null ? order.getOrderSubtotalAmount() : BigDecimal.ZERO;
         BigDecimal discount = order.getOrderDiscountAmount() != null ? order.getOrderDiscountAmount() : BigDecimal.ZERO;
@@ -553,6 +664,15 @@ public class AdminOrderServiceImpl implements AdminOrderService {
                     .build();
         }
 
+        // ✅ Lấy tên khách hàng
+        String customerName = order.getCustomer() != null ? order.getCustomer().getCustomerName() : "Khách vãng lai";
+
+        // ✅ Lấy email khách hàng
+        String customerEmail = null;
+        if (order.getCustomer() != null && order.getCustomer().getUser() != null) {
+            customerEmail = order.getCustomer().getUser().getEmail();
+        }
+
         return AdminOrderResponseDTO.builder()
                 .orderId(order.getOrderId())
                 .orderCode("ORD" + String.format("%08d", order.getOrderId()))
@@ -568,19 +688,18 @@ public class AdminOrderServiceImpl implements AdminOrderService {
                 .createdAt(order.getCreatedAt())
                 .updatedAt(order.getUpdatedAt())
                 .customer(AdminCustomerInfoDTO.builder()
-                        .customerId(order.getCustomer().getCustomerId())
-                        .customerName(order.getCustomer().getCustomerName())
-                        .phone(order.getCustomer().getPhone())
-                        .email(order.getCustomer().getUser() != null ? order.getCustomer().getUser().getEmail() : null)
+                        .customerId(order.getCustomer() != null ? order.getCustomer().getCustomerId() : null)
+                        .customerName(customerName)
+                        .phone(displayPhone)  // ✅ SỬA: Hiển thị số điện thoại từ shipping address hoặc customer
+                        .email(customerEmail)
                         .build())
-                .shippingAddress(shippingDTO) // ✅ ĐẢM BẢO GÁN SHIPPING ADDRESS
+                .shippingAddress(shippingDTO)
                 .voucher(voucherDTO)
                 .items(itemResponses)
                 .build();
     }
 
     private ReturnRequestDetailDTO convertToReturnRequestDetailDTO(ReturnRequest returnRequest, Order order) {
-        // Parse images từ JSON
         List<String> images = null;
         if (returnRequest.getImages() != null && !returnRequest.getImages().isEmpty()) {
             try {
@@ -622,7 +741,6 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng với ID: " + orderId));
 
-        // Lấy danh sách sản phẩm
         List<OrderDetail> details = orderDetailRepository.findByOrder_OrderId(orderId);
 
         List<InvoiceItemDTO> items = details.stream()
@@ -647,33 +765,33 @@ public class AdminOrderServiceImpl implements AdminOrderService {
                 })
                 .collect(Collectors.toList());
 
-        // Thông tin địa chỉ giao hàng
-        ShippingAddress addr = order.getShippingAddress();
+        String shippingAddressStr = order.getShippingAddress();
         String shippingAddress = "";
         String shippingCity = "";
         String shippingDistrict = "";
         String shippingWard = "";
         String shippingFullName = "";
         String shippingPhone = "";
+        String shippingFullAddress = "";
 
-        if (addr != null) {
-            shippingFullName = addr.getShippingAddressFullName() != null ? addr.getShippingAddressFullName() : "";
-            shippingPhone = addr.getShippingAddressPhone() != null ? addr.getShippingAddressPhone() : "";
-            shippingAddress = addr.getShippingAddressAddressLine() != null ? addr.getShippingAddressAddressLine() : "";
-            shippingCity = addr.getShippingAddressCity() != null ? addr.getShippingAddressCity() : "";
-            shippingDistrict = addr.getShippingAddressDistrict() != null ? addr.getShippingAddressDistrict() : "";
-            shippingWard = addr.getShippingAddressWard() != null ? addr.getShippingAddressWard() : "";
+        if (shippingAddressStr != null && !shippingAddressStr.isEmpty()) {
+            Customer customer = order.getCustomer();
+            if (customer != null) {
+                shippingFullName = customer.getCustomerName() != null ? customer.getCustomerName() : "";
+                shippingPhone = customer.getPhone() != null ? customer.getPhone() : "";
+            }
+            shippingAddress = shippingAddressStr;
+            shippingFullAddress = shippingAddressStr;
         } else {
-            // Nếu không có shipping address, lấy từ customer
             Customer customer = order.getCustomer();
             if (customer != null) {
                 shippingFullName = customer.getCustomerName() != null ? customer.getCustomerName() : "";
                 shippingPhone = customer.getPhone() != null ? customer.getPhone() : "";
                 shippingAddress = customer.getAddress() != null ? customer.getAddress() : "";
+                shippingFullAddress = customer.getAddress();
             }
         }
 
-        // Thông tin voucher
         Voucher voucher = order.getVoucher();
         String voucherCode = null;
         BigDecimal voucherDiscountAmount = null;
@@ -682,7 +800,6 @@ public class AdminOrderServiceImpl implements AdminOrderService {
             voucherDiscountAmount = voucher.getVoucherDiscountAmount();
         }
 
-        // Tính tổng tiền
         BigDecimal subtotal = order.getOrderSubtotalAmount() != null ? order.getOrderSubtotalAmount() : BigDecimal.ZERO;
         BigDecimal discount = order.getOrderDiscountAmount() != null ? order.getOrderDiscountAmount() : BigDecimal.ZERO;
         BigDecimal shippingFee = order.getOrderShippingFee() != null ? order.getOrderShippingFee() : BigDecimal.ZERO;
@@ -709,9 +826,72 @@ public class AdminOrderServiceImpl implements AdminOrderService {
                 .shippingCity(shippingCity)
                 .shippingDistrict(shippingDistrict)
                 .shippingWard(shippingWard)
+                .shippingFullAddress(shippingFullAddress)
                 .voucherCode(voucherCode)
                 .voucherDiscountAmount(voucherDiscountAmount)
                 .items(items)
                 .build();
+    }
+
+    // ================================================================
+    // ===== ADMIN HỦY ĐƠN HÀNG =====
+    // ================================================================
+
+    @Override
+    @Transactional
+    public AdminOrderResponseDTO adminCancelOrder(Long orderId, String reason) {
+        log.info("🗑️ Admin cancelling order: {}, reason: {}", orderId, reason);
+
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng với ID: " + orderId));
+
+        String oldStatus = order.getOrderStatus().toString();
+
+        if ("CANCELLED".equals(oldStatus)) {
+            throw new RuntimeException("Đơn hàng đã bị hủy trước đó");
+        }
+
+        if ("COMPLETED".equals(oldStatus)) {
+            throw new RuntimeException("Không thể hủy đơn hàng đã hoàn thành");
+        }
+
+        if (isStockDeducted(oldStatus)) {
+            log.info("📦 Restoring stock for order {} before cancellation", orderId);
+            List<OrderDetail> details = orderDetailRepository.findByOrder_OrderId(orderId);
+            for (OrderDetail detail : details) {
+                ProductDetail pd = detail.getProductDetail();
+                pd.setQuantity(pd.getQuantity() + detail.getQuantity());
+                productDetailRepository.save(pd);
+                log.info("✅ Restored {} units for product detail: {}", detail.getQuantity(), pd.getProductDetailId());
+            }
+        }
+
+        Voucher voucher = order.getVoucher();
+        if (voucher != null) {
+            voucher.setVoucherUsedCount(Math.max(0, voucher.getVoucherUsedCount() - 1));
+            voucherRepository.save(voucher);
+            log.info("🔄 Restored voucher usage: {}", voucher.getVoucherCode());
+        }
+
+        order.setOrderStatus(OrderStatus.CANCELLED);
+        order.setUpdatedAt(LocalDateTime.now());
+        orderRepository.save(order);
+
+        OrderHistory history = new OrderHistory();
+        history.setOrder(order);
+        history.setOrderStatus("CANCELLED");
+        history.setNote("Admin hủy đơn hàng. Lý do: " + reason);
+        history.setTimestamp(LocalDateTime.now());
+        orderHistoryRepository.save(history);
+
+        log.info("✅ Order {} cancelled by admin. Old status: {}", orderId, oldStatus);
+
+        try {
+            sendOrderStatusNotification(order, oldStatus, "CANCELLED", "Admin hủy đơn hàng. Lý do: " + reason);
+        } catch (Exception e) {
+            log.warn("⚠️ Không thể gửi thông báo cho khách hàng: {}", e.getMessage());
+        }
+
+        return convertToAdminResponse(order);
     }
 }

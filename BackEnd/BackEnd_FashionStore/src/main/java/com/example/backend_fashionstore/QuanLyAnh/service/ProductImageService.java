@@ -1,5 +1,7 @@
 package com.example.backend_fashionstore.QuanLyAnh.service;
 
+import com.cloudinary.Cloudinary;
+import com.cloudinary.utils.ObjectUtils;
 import com.example.backend_fashionstore.QuanLyAnh.dto.ProductImageDto;
 import com.example.backend_fashionstore.QuanLyAnh.repository.ProductImageRepository;
 import com.example.backend_fashionstore.entity.ProductDetail;
@@ -17,11 +19,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
-import java.util.UUID;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -32,7 +31,7 @@ public class ProductImageService {
 
     private final ProductImageRepository productImageRepository;
     private final ProductDetailRepository productDetailRepository;
-    private final String UPLOAD_DIR = "uploads/product-images/";
+    private final Cloudinary cloudinary;
 
     // Lấy danh sách có phân trang và lọc
     public Page<ProductImageDto.ProductImageResponse> getImages(
@@ -158,7 +157,7 @@ public class ProductImageService {
             throw new RuntimeException("Không thể xóa ảnh với ID: " + id);
         }
 
-        // Xóa file vật lý
+        // Xóa file trên Cloudinary
         deleteOldImageFile(image.getProductImagePath());
 
         // Nếu xóa ảnh chính, set ảnh đầu tiên làm main
@@ -196,36 +195,56 @@ public class ProductImageService {
         }
     }
 
-    // Helper: Lưu file ảnh
+    // Helper: Lưu file ảnh lên Cloudinary
     private String saveImageFile(MultipartFile file) throws IOException {
-        Path uploadPath = Paths.get(UPLOAD_DIR);
-        if (!Files.exists(uploadPath)) {
-            Files.createDirectories(uploadPath);
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("File không được rỗng");
         }
-
-        String originalFilename = file.getOriginalFilename();
-        String extension = "";
-        if (originalFilename != null && originalFilename.contains(".")) {
-            extension = originalFilename.substring(originalFilename.lastIndexOf("."));
-        }
-        String newFilename = UUID.randomUUID().toString() + extension;
-
-        Path filePath = uploadPath.resolve(newFilename);
-        Files.copy(file.getInputStream(), filePath);
-
-        return UPLOAD_DIR + newFilename;
+        @SuppressWarnings("rawtypes")
+        Map uploadResult = cloudinary.uploader().upload(
+                file.getBytes(),
+                ObjectUtils.asMap("folder", "product-images")
+        );
+        return uploadResult.get("secure_url").toString();
     }
 
-    // Helper: Xóa file cũ
+    // Helper: Xóa file ảnh cũ trên Cloudinary
     private void deleteOldImageFile(String imagePath) {
         try {
-            if (imagePath != null) {
-                Path path = Paths.get(imagePath);
-                Files.deleteIfExists(path);
+            if (imagePath != null && !imagePath.trim().isEmpty()) {
+                String publicId = extractPublicId(imagePath);
+                if (publicId != null && !publicId.trim().isEmpty()) {
+                    cloudinary.uploader().destroy(publicId, ObjectUtils.emptyMap());
+                    log.info("Xóa ảnh thành công trên Cloudinary với public_id: {}", publicId);
+                }
             }
-        } catch (IOException e) {
-            log.warn("Không thể xóa file ảnh cũ: {}", e.getMessage());
+        } catch (Exception e) {
+            log.warn("Không thể xóa file ảnh cũ trên Cloudinary: {}", e.getMessage());
         }
+    }
+
+    // Helper: Trích xuất public_id từ URL Cloudinary
+    private String extractPublicId(String imagePath) {
+        if (imagePath == null || !imagePath.startsWith("http")) {
+            return null;
+        }
+        int uploadIndex = imagePath.indexOf("/upload/");
+        if (uploadIndex == -1) {
+            return null;
+        }
+        String pathAfterUpload = imagePath.substring(uploadIndex + "/upload/".length());
+
+        // Loại bỏ version prefix nếu có (ví dụ: v1612345678/)
+        if (pathAfterUpload.matches("^v\\d+/.*")) {
+            pathAfterUpload = pathAfterUpload.substring(pathAfterUpload.indexOf('/') + 1);
+        }
+
+        // Loại bỏ phần mở rộng file (ví dụ: .jpg, .png)
+        int lastDotIndex = pathAfterUpload.lastIndexOf('.');
+        if (lastDotIndex != -1) {
+            pathAfterUpload = pathAfterUpload.substring(0, lastDotIndex);
+        }
+        return pathAfterUpload;
     }
 
     // Helper: Lấy field sort

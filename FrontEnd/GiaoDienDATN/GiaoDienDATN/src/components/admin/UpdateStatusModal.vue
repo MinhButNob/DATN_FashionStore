@@ -69,7 +69,7 @@
 
 <script setup>
 import { ref, watch, computed } from 'vue'
-import axios from 'axios'
+import api from "@/api/axios";
 
 const props = defineProps({
   visible: Boolean,
@@ -77,8 +77,6 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['close', 'updated'])
-
-const API_BASE = "http://localhost:8080/api/admin/orders"
 
 const loading = ref(false)
 const error = ref('')
@@ -205,8 +203,8 @@ const updateStatus = async () => {
 
     console.log('📤 Updating order status:', payload)
 
-    const response = await axios.put(
-      `${API_BASE}/${props.order.orderId}/status`,
+    const response = await api.put(
+      `/admin/orders/${props.order.orderId}/status`,
       payload,
       {
         headers: {

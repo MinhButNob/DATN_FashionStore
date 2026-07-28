@@ -47,16 +47,14 @@ const menuSections = [
       { name: "Thống kê hôm nay", path: "/staff", icon: "fas fa-chart-line" },
       { name: "Bán hàng tại quầy", path: "/staff/pos", icon: "fas fa-cash-register" },
       { name: "Đơn hàng", path: "/staff/orders", icon: "fas fa-shopping-cart" },
-    ],
-  },
+    ] },
   {
     title: "WORK",
     items: [
       { name: "Khách hàng", path: "/staff/customers", icon: "fas fa-users" },
       { name: "Đổi trả", path: "/staff/returns", icon: "fas fa-undo-alt" },
       { name: "Chat khách hàng", path: "/staff/chat", icon: "fas fa-comments" },
-    ],
-  },
+    ] },
 ];
 
 const isActive = (path) => route.path === path;

@@ -7,10 +7,6 @@
         (Mở lúc: {{ formatDate(currentSession.startTime) }})
       </span>
     </div>
-    <div class="session-info-banner error" v-else-if="!loadingSession">
-      <i class="fas fa-exclamation-triangle"></i>
-      <span>Bạn chưa vào ca hoặc không có phiên/quầy nào đang mở! Vui lòng mở ca trước.</span>
-    </div>
 
     <div class="filters-bar">
       <div class="search-box">
@@ -20,25 +16,24 @@
           @input="debouncedSearch" 
           type="text" 
           placeholder="Tìm trong quầy: mã đơn, khách, SĐT..." 
-          :disabled="!currentSession"
         />
       </div>
 
-      <select v-model="filter.orderStatus" @change="handleFilterChange" :disabled="!currentSession">
+      <select v-model="filter.orderStatus" @change="handleFilterChange">
         <option value="">Tất cả trạng thái</option>
         <option value="COMPLETED">Hoàn thành</option>
         <option value="PENDING">Chờ xử lý</option>
         <option value="CANCELLED">Đã hủy</option>
       </select>
 
-      <select v-model="filter.paymentStatus" @change="handleFilterChange" :disabled="!currentSession">
+      <select v-model="filter.paymentStatus" @change="handleFilterChange">
         <option value="">Tất cả thanh toán</option>
         <option value="PAID">Đã thanh toán</option>
         <option value="UNPAID">Chưa thanh toán</option>
         <option value="CANCELLED">Đã hủy</option>
       </select>
 
-      <button class="btn btn-primary" @click="resetFilter" :disabled="!currentSession">
+      <button class="btn btn-primary" @click="resetFilter">
         <i class="fas fa-undo"></i>
         Làm mới
       </button>
@@ -183,10 +178,11 @@ const fetchCurrentSession = async () => {
       currentSession.value = session;
       // Đảm bảo gán chính xác ID phiên đang mở của ngày hôm nay vào bộ lọc
       filter.value.posSessionId = session.posSessionId; 
-      await fetchInvoicesData();
     }
+    await fetchInvoicesData();
   } catch (error) {
     console.error(error);
+    await fetchInvoicesData();
   } finally {
     loadingSession.value = false;
   }

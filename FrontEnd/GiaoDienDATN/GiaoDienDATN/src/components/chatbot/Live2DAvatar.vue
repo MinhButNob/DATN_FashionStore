@@ -38,8 +38,7 @@ const HANDLE_OFFSET_X = -20
 const handleStyle = computed(() => ({
   left: (haruX.value + haruWidth.value / 2 - HANDLE_WIDTH / 2 + HANDLE_OFFSET_X) + 'px',
   bottom: (haruBottom.value + haruHeight.value - 10) + 'px',
-  cursor: isDragging.value ? 'grabbing' : 'grab',
-}))
+  cursor: isDragging.value ? 'grabbing' : 'grab' }))
 
 // ---- Drag state ----
 const isDragging = ref(false)
@@ -106,8 +105,7 @@ const syncOverlayToOml2d = () => {
     x: rect.left,
     centerX: rect.left + rect.width / 2,
     width: rect.width,
-    bottom: haruBottom.value,
-  })
+    bottom: haruBottom.value })
 }
 
 // ---- Kéo thả ----
@@ -182,8 +180,7 @@ const onDragMove = (e) => {
     x: newLeft,
     centerX: newLeft + (oml2dRootEl.offsetWidth || 200) / 2,
     width: oml2dRootEl.offsetWidth || 200,
-    bottom: newBottom,
-  })
+    bottom: newBottom })
 }
 
 const onTouchMove = (e) => {
@@ -226,8 +223,7 @@ const initLive2D = async () => {
       tips: { style: { display: 'none' } },
       stageStyle: {
         width: '280px',
-        height: '420px',
-      }
+        height: '420px' }
     })
 
     console.log('✅ oh-my-live2d initialized successfully')
@@ -279,8 +275,7 @@ const EMOTION_MAP = {
   thinking:  { motion: 2, expression: 'normal', duration: 3000 },
   sad:       { motion: 4, expression: 'normal', duration: 4000 },
   surprised: { motion: 3, expression: 'happy',  duration: 3000 },
-  sorry:     { motion: 4, expression: 'normal', duration: 4000 },
-}
+  sorry:     { motion: 4, expression: 'normal', duration: 4000 } }
 let emotionTimer = null
 
 const _triggerMotionRaw = (index) => {
@@ -356,8 +351,7 @@ defineExpose({
     x: haruX.value,
     centerX: haruX.value + haruWidth.value / 2,
     width: haruWidth.value,
-    bottom: haruBottom.value,
-  })
+    bottom: haruBottom.value })
 })
 
 onMounted(() => {

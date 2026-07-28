@@ -1,7 +1,14 @@
 import axios from "axios";
 
+// ⚠️ Trước đây file này dùng biến "VITE_API_URL" (SAI TÊN, không khớp với
+// biến đã set trên Vercel là "VITE_API_BASE_URL") và fallback là chuỗi
+// rỗng "" -> khi biến không tồn tại, mọi request tương đối (vd: "/chat/...")
+// bị trình duyệt tự nối vào origin hiện tại (localhost:3000 lúc dev,
+// hoặc domain Vercel lúc build) thay vì gọi sang backend thật.
+// Đã đổi lại cho ĐÚNG và ĐỒNG BỘ với src/api/axios.js.
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "http://localhost:8080/api",
+  baseURL:
+    import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api",
   timeout: 10000,
   headers: {
     "Content-Type": "application/json",
@@ -12,8 +19,10 @@ const api = axios.create({
 // Request interceptor
 api.interceptors.request.use(
   (config) => {
+    // Đồng bộ tên key với axios.js: ưu tiên "accessToken" (chuẩn mới),
+    // vẫn đọc "token" để không phá vỡ session cũ nếu còn sót đâu đó.
     const token =
-      localStorage.getItem("token") || localStorage.getItem("accessToken");
+      localStorage.getItem("accessToken") || localStorage.getItem("token");
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -36,6 +45,7 @@ api.interceptors.response.use(
       if (status === 401) {
         localStorage.removeItem("token");
         localStorage.removeItem("accessToken");
+        localStorage.removeItem("refreshToken");
         localStorage.removeItem("user");
         window.dispatchEvent(new CustomEvent("auth:unauthorized"));
       }
@@ -99,8 +109,9 @@ export const getPromotions = (
   sortBy = "promotionId",
   sortDir = "asc",
 ) => {
+  const trimmedKeyword = keyword ? keyword.trim() : "";
   return api.get("/admin/promotions", {
-    params: { page, size, status, keyword, sortBy, sortDir },
+    params: { page, size, status, keyword: trimmedKeyword, sortBy, sortDir },
   });
 };
 
@@ -147,8 +158,9 @@ export const getVouchers = (
   sortBy = "voucherId",
   sortDir = "asc",
 ) => {
+  const trimmedKeyword = keyword ? keyword.trim() : "";
   return api.get("/admin/vouchers", {
-    params: { page, size, status, keyword, sortBy, sortDir },
+    params: { page, size, status, keyword: trimmedKeyword, sortBy, sortDir },
   });
 };
 

@@ -1,118 +1,112 @@
-import axios from "axios";
-
-const API_BASE = "http://localhost:8080/api";
-
-// Get auth token
-const getAuthHeader = () => {
-  const token = localStorage.getItem("token");
-  return token ? { Authorization: `Bearer ${token}` } : {};
-};
+// src/services/orderService.js
+import api from "@/api/axios";
 
 // ============= CUSTOMER ORDER =============
 export const orderService = {
   // Tạo đơn hàng mới
   createOrder(orderData) {
-    return axios.post(`${API_BASE}/orders/create`, orderData, {
-      headers: getAuthHeader(),
-    });
+    return api.post("/orders/create", orderData);
   },
 
   // Lấy danh sách đơn hàng của tôi
   getMyOrders(status = null, page = 0, size = 10) {
     const params = { page, size };
-    if (status && status !== "all") params.status = status;
-    return axios.get(`${API_BASE}/orders`, {
-      params,
-      headers: getAuthHeader(),
-    });
+    if (status && status !== "all") {
+      params.status = status;
+    }
+    return api.get("/orders", { params });
   },
 
   // Lấy chi tiết đơn hàng
   getOrderDetail(orderId) {
-    return axios.get(`${API_BASE}/orders/${orderId}`, {
-      headers: getAuthHeader(),
-    });
+    return api.get(`/orders/${orderId}`);
   },
 
   // Hủy đơn hàng
   cancelOrder(orderId, reason) {
-    return axios.put(`${API_BASE}/orders/${orderId}/cancel`, null, {
-      params: { reason },
-      headers: getAuthHeader(),
-    });
+    return api.put(`/orders/${orderId}/cancel`, null, {
+      params: { reason } });
   },
-};
+
+  // Yêu cầu hoàn hàng (có ảnh)
+  requestReturn(orderId, data) {
+    return api.post(`/orders/${orderId}/return-request`, data);
+  },
+
+  // Lấy danh sách yêu cầu hoàn hàng của tôi
+  getMyReturnRequests(page = 0, size = 10) {
+    return api.get("/orders/return-requests", {
+      params: { page, size } });
+  } };
 
 // ============= ADMIN ORDER =============
 export const adminOrderService = {
   // Lấy tất cả đơn hàng
-  getAllOrders(
-    status = null,
-    fromDate = null,
-    toDate = null,
-    keyword = null,
-    page = 0,
-    size = 10,
-  ) {
-    const params = { page, size };
-    if (status) params.status = status;
-    if (fromDate) params.fromDate = fromDate;
-    if (toDate) params.toDate = toDate;
-    if (keyword) params.keyword = keyword;
-    return axios.get(`${API_BASE}/admin/orders`, {
-      params,
-      headers: getAuthHeader(),
-    });
+  getAllOrders(params = {}) {
+    const queryParams = {
+      page: params.page || 0,
+      size: params.size || 10 };
+    if (params.status && params.status !== "all") {
+      queryParams.status = params.status;
+    }
+    if (params.keyword) {
+      queryParams.keyword = params.keyword;
+    }
+    if (params.fromDate) {
+      queryParams.fromDate = params.fromDate;
+    }
+    if (params.toDate) {
+      queryParams.toDate = params.toDate;
+    }
+    return api.get("/admin/orders", {
+      params: queryParams });
   },
 
   // Lấy chi tiết đơn hàng
   getOrderDetail(orderId) {
-    return axios.get(`${API_BASE}/admin/orders/${orderId}`, {
-      headers: getAuthHeader(),
-    });
+    return api.get(`/admin/orders/${orderId}`);
   },
 
   // Cập nhật trạng thái đơn hàng
   updateOrderStatus(orderId, data) {
     const requestData = {
       orderStatus: data.orderStatus || data,
-      notes: data.notes || "",
-    };
-    return axios.put(
-      `${API_BASE}/admin/orders/${orderId}/status`,
-      requestData,
-      {
-        headers: {
-          ...getAuthHeader(),
-          "Content-Type": "application/json",
-        },
-      },
-    );
+      notes: data.notes || "" };
+    return api.put(`/admin/orders/${orderId}/status`, requestData);
   },
 
   // Cập nhật trạng thái thanh toán
   updatePaymentStatus(orderId, paymentStatus) {
-    return axios.put(
-      `${API_BASE}/admin/orders/${orderId}/payment-status`,
-      null,
-      {
-        params: { paymentStatus },
-        headers: getAuthHeader(),
-      },
-    );
+    return api.put(`/admin/orders/${orderId}/payment-status`, null, {
+      params: { paymentStatus } });
   },
 
   // Lấy thống kê đơn hàng
   getStatistics() {
-    return axios.get(`${API_BASE}/admin/orders/statistics`, {
-      headers: getAuthHeader(),
-    });
+    return api.get("/admin/orders/statistics");
   },
 
   // Lấy số lượng theo trạng thái
   getStatusCounts() {
-    return axios.get(`${API_BASE}/admin/orders/status/counts`, {
-      headers: getAuthHeader(),
-    });
+    return api.get("/admin/orders/status/counts");
   },
-};
+
+  // Admin hủy đơn hàng
+  adminCancelOrder(orderId, data) {
+    return api.put(`/admin/orders/${orderId}/cancel`, data);
+  },
+
+  // Khôi phục đơn hàng
+  restoreOrder(orderId) {
+    return api.put(`/admin/orders/${orderId}/restore`, {});
+  },
+
+  // Xóa đơn hàng (soft delete)
+  deleteOrder(orderId) {
+    return api.delete(`/admin/orders/${orderId}`);
+  },
+
+  // Gửi thông báo cho khách hàng
+  notifyCustomer(orderId, data) {
+    return api.post(`/admin/orders/${orderId}/notify`, data);
+  } };

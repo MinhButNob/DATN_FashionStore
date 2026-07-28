@@ -10,20 +10,24 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface WishlistItemRepository extends JpaRepository<WishlistItem, Long> {
+public interface WishlistItemRepository extends JpaRepository<WishlistItem, Integer> {
+    List<WishlistItem> findByWishlist_WishlistIdAndWishlistItemStatus(Integer wishlistId, String status);
+
+    Optional<WishlistItem> findByWishlist_WishlistIdAndProductDetail_Product_ProductIdAndWishlistItemStatus(
+            Integer wishlistId, Integer productId, String status);
 
     @Query("SELECT wi FROM WishlistItem wi WHERE wi.wishlist.wishlistId = :wishlistId " +
             "AND wi.wishlistItemDeletedAt IS NULL ORDER BY wi.wishlistItemAddedAt DESC")
-    List<WishlistItem> findActiveByWishlistId(@Param("wishlistId") Long wishlistId);
+    List<WishlistItem> findActiveByWishlistId(@Param("wishlistId") Integer wishlistId);
 
     @Query("SELECT wi FROM WishlistItem wi WHERE wi.wishlist.wishlistId = :wishlistId " +
             "AND wi.productDetail.productDetailId = :productDetailId AND wi.wishlistItemDeletedAt IS NULL")
-    Optional<WishlistItem> findActiveItem(@Param("wishlistId") Long wishlistId,
+    Optional<WishlistItem> findActiveItem(@Param("wishlistId") Integer wishlistId,
                                           @Param("productDetailId") Integer productDetailId);
 
-    // ⭐ THÊM METHOD NÀY - Tìm item kể cả đã bị xóa mềm (QUAN TRỌNG)
     @Query("SELECT wi FROM WishlistItem wi WHERE wi.wishlist.wishlistId = :wishlistId " +
             "AND wi.productDetail.productDetailId = :productDetailId")
-    Optional<WishlistItem> findByWishlistIdAndProductDetailId(@Param("wishlistId") Long wishlistId,
+    Optional<WishlistItem> findByWishlistIdAndProductDetailId(@Param("wishlistId") Integer wishlistId,
                                                               @Param("productDetailId") Integer productDetailId);
+
 }

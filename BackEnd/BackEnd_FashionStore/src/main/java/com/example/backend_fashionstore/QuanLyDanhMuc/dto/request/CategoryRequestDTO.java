@@ -19,4 +19,9 @@ public class CategoryRequestDTO {
     private String categoryDescription;
 
     private String status;
+
+    // (Thêm mới - không ảnh hưởng dữ liệu cũ) Cho phép gán trực tiếp vào 1 trong
+    // 3 danh mục lớn mặc định (Áo/Quần/Phụ kiện) ngay khi thêm/sửa ở màn Quản lý danh mục.
+    // null = danh mục độc lập, không thuộc danh mục lớn nào (giữ nguyên hành vi cũ).
+    private Integer parentCategoryId;
 }

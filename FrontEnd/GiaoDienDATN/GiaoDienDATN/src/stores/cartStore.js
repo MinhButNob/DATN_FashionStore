@@ -1,8 +1,6 @@
 // stores/cartStore.js
 import { defineStore } from "pinia";
-import axios from "axios";
-
-const API_BASE = "http://localhost:8080/api";
+import api from "../api/axios";
 
 export const useCartStore = defineStore("cart", {
   state: () => ({
@@ -53,8 +51,7 @@ export const useCartStore = defineStore("cart", {
       return (
         subtotal - (state.voucherDiscount || 0) + (state.shippingFee || 30000)
       );
-    },
-  },
+    } },
 
   actions: {
     async addToCart(productOrId, quantity = 1, size, color) {
@@ -91,8 +88,7 @@ export const useCartStore = defineStore("cart", {
           throw new Error("Không tìm thấy thông tin sản phẩm");
         }
 
-        const token =
-          localStorage.getItem("token") || localStorage.getItem("accessToken");
+        const token = localStorage.getItem("accessToken");
 
         if (!token) {
           console.log("ℹ️ Chưa đăng nhập, lưu vào localStorage");
@@ -108,8 +104,7 @@ export const useCartStore = defineStore("cart", {
             color: color || null,
             image: image,
             imageUrl: image,
-            stock: stock,
-          };
+            stock: stock };
 
           let localCart = JSON.parse(localStorage.getItem("cart") || "[]");
           const existingIndex = localCart.findIndex(
@@ -130,19 +125,9 @@ export const useCartStore = defineStore("cart", {
           return { success: true, local: true };
         }
 
-        const response = await axios.post(
-          `${API_BASE}/cart/add`,
-          {
-            productDetailId: productDetailId,
-            quantity: quantity,
-          },
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          },
-        );
+        const response = await api.post("/cart/add", {
+          productDetailId: productDetailId,
+          quantity: quantity });
 
         console.log("✅ Add to cart response:", response.data);
         await this.fetchCart();
@@ -160,20 +145,11 @@ export const useCartStore = defineStore("cart", {
       }
 
       try {
-        const token =
-          localStorage.getItem("token") || localStorage.getItem("accessToken");
-
-        const response = await axios({
-          method: "put",
-          url: `${API_BASE}/cart/items/${cartItemId}`,
-          params: { quantity: quantity },
-          headers: token
-            ? {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json",
-              }
-            : {},
-        });
+        const response = await api.put(
+          `/cart/items/${cartItemId}`,
+          null,
+          { params: { quantity: quantity } },
+        );
 
         console.log("✅ Update response:", response.data);
         await this.fetchCart();
@@ -191,15 +167,7 @@ export const useCartStore = defineStore("cart", {
       }
 
       try {
-        const token =
-          localStorage.getItem("token") || localStorage.getItem("accessToken");
-
-        const response = await axios.delete(
-          `${API_BASE}/cart/items/${cartItemId}`,
-          {
-            headers: token ? { Authorization: `Bearer ${token}` } : {},
-          },
-        );
+        const response = await api.delete(`/cart/items/${cartItemId}`);
 
         console.log("✅ Remove response:", response.data);
         await this.fetchCart();
@@ -213,21 +181,14 @@ export const useCartStore = defineStore("cart", {
     // ✅ THÊM ACTION ÁP DỤNG VOUCHER
     async applyVoucher(voucherCode) {
       try {
-        const token =
-          localStorage.getItem("token") || localStorage.getItem("accessToken");
+        const token = localStorage.getItem("accessToken");
         if (!token) {
           throw new Error("Vui lòng đăng nhập để áp dụng voucher");
         }
 
-        const response = await axios.post(
-          `${API_BASE}/cart/apply-voucher?voucherCode=${voucherCode}`,
+        const response = await api.post(
+          `/cart/apply-voucher?voucherCode=${voucherCode}`,
           {},
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          },
         );
 
         console.log("✅ Apply voucher response:", response.data);
@@ -250,8 +211,7 @@ export const useCartStore = defineStore("cart", {
             image: item.imageUrl || null,
             imageUrl: item.imageUrl || null,
             price: item.price || 0,
-            discountedPrice: item.discountedPrice || item.price || 0,
-          }));
+            discountedPrice: item.discountedPrice || item.price || 0 }));
 
           this.subtotal = this.items.reduce((sum, item) => {
             const price = item.discountedPrice || item.price || 0;
@@ -276,18 +236,12 @@ export const useCartStore = defineStore("cart", {
     // ✅ THÊM ACTION XÓA VOUCHER
     async removeVoucher() {
       try {
-        const token =
-          localStorage.getItem("token") || localStorage.getItem("accessToken");
+        const token = localStorage.getItem("accessToken");
         if (!token) {
           throw new Error("Vui lòng đăng nhập");
         }
 
-        const response = await axios.delete(`${API_BASE}/cart/remove-voucher`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        });
+        const response = await api.delete("/cart/remove-voucher");
 
         console.log("✅ Remove voucher response:", response.data);
 
@@ -309,8 +263,7 @@ export const useCartStore = defineStore("cart", {
             image: item.imageUrl || null,
             imageUrl: item.imageUrl || null,
             price: item.price || 0,
-            discountedPrice: item.discountedPrice || item.price || 0,
-          }));
+            discountedPrice: item.discountedPrice || item.price || 0 }));
 
           this.subtotal = this.items.reduce((sum, item) => {
             const price = item.discountedPrice || item.price || 0;
@@ -334,13 +287,10 @@ export const useCartStore = defineStore("cart", {
 
     async clearCart() {
       try {
-        const token =
-          localStorage.getItem("token") || localStorage.getItem("accessToken");
+        const token = localStorage.getItem("accessToken");
 
         if (token) {
-          await axios.delete(`${API_BASE}/cart/clear`, {
-            headers: token ? { Authorization: `Bearer ${token}` } : {},
-          });
+          await api.delete("/cart/clear");
         }
 
         this.items = [];
@@ -360,8 +310,7 @@ export const useCartStore = defineStore("cart", {
     async fetchCart() {
       this.loading = true;
       try {
-        const token =
-          localStorage.getItem("token") || localStorage.getItem("accessToken");
+        const token = localStorage.getItem("accessToken");
 
         if (!token) {
           console.log("ℹ️ No token, loading from localStorage");
@@ -371,12 +320,7 @@ export const useCartStore = defineStore("cart", {
         }
 
         console.log("🔄 Fetching cart...");
-        const response = await axios.get(`${API_BASE}/cart`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        });
+        const response = await api.get("/cart");
 
         console.log("✅ Cart response:", response.data);
 
@@ -393,8 +337,7 @@ export const useCartStore = defineStore("cart", {
             image: item.imageUrl || null,
             imageUrl: item.imageUrl || null,
             price: item.price || 0,
-            discountedPrice: item.discountedPrice || item.price || 0,
-          }));
+            discountedPrice: item.discountedPrice || item.price || 0 }));
 
           // ✅ Tính subtotal dựa trên discountedPrice
           this.subtotal = this.items.reduce((sum, item) => {
@@ -419,8 +362,7 @@ export const useCartStore = defineStore("cart", {
             voucherCode: this.voucherCode,
             voucherId: this.voucherId,
             shippingFee: this.shippingFee,
-            total: this.total,
-          });
+            total: this.total });
 
           this.saveToLocalStorage();
         }
@@ -480,6 +422,4 @@ export const useCartStore = defineStore("cart", {
     syncCartAfterLogin() {
       console.log("🔄 Syncing cart after login");
       this.fetchCart();
-    },
-  },
-});
+    } } });

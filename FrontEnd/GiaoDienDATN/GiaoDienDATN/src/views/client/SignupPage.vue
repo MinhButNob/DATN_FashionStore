@@ -30,7 +30,7 @@
             <form @submit.prevent="handleRegister" class="auth-form">
               <div class="form-row">
                 <div class="form-group">
-                  <label>Họ</label>
+                  <label>Họ <span class="required">*</span></label>
                   <div class="input-wrapper">
                     <i class="fas fa-user"></i>
                     <input
@@ -39,12 +39,15 @@
                       placeholder="Họ"
                       required
                       :disabled="loading"
+                      @input="validateFirstName"
+                      @blur="validateFirstName"
                     />
                   </div>
+                  <span v-if="errors.firstName" class="error-text">{{ errors.firstName }}</span>
                 </div>
 
                 <div class="form-group">
-                  <label>Tên</label>
+                  <label>Tên <span class="required">*</span></label>
                   <div class="input-wrapper">
                     <i class="fas fa-user"></i>
                     <input
@@ -53,13 +56,16 @@
                       placeholder="Tên"
                       required
                       :disabled="loading"
+                      @input="validateLastName"
+                      @blur="validateLastName"
                     />
                   </div>
+                  <span v-if="errors.lastName" class="error-text">{{ errors.lastName }}</span>
                 </div>
               </div>
 
               <div class="form-group">
-                <label>Email</label>
+                <label>Email <span class="required">*</span></label>
                 <div class="input-wrapper">
                   <i class="fas fa-envelope"></i>
                   <input
@@ -68,8 +74,10 @@
                     placeholder="Nhập email của bạn"
                     required
                     :disabled="loading"
+                    @input="errors.email = ''"
                   />
                 </div>
+                <span v-if="errors.email" class="error-text">{{ errors.email }}</span>
               </div>
 
               <div class="form-group">
@@ -83,7 +91,8 @@
                     maxlength="10"
                     required
                     :disabled="loading"
-                    @input="errors.phone = ''"
+                    @input="handlePhoneInput"
+                    @blur="validatePhone"
                   />
                 </div>
                 <span v-if="errors.phone" class="error-text">{{ errors.phone }}</span>
@@ -317,8 +326,7 @@ const form = ref({
   phone: "",
   password: "",
   confirmPassword: "",
-  agreeTerms: false,
-});
+  agreeTerms: false });
 
 const loading = ref(false);
 const error = ref("");
@@ -327,7 +335,10 @@ const showPassword = ref(false);
 const showConfirmPassword = ref(false);
 
 const errors = ref({
-  phone: ''
+  phone: '',
+  email: '',
+  firstName: '',
+  lastName: ''
 });
 
 // Computed
@@ -348,6 +359,14 @@ const hasMatch = computed(
 
 const isFormValid = computed(() => {
   return (
+    form.value.firstName.trim() !== "" &&
+    form.value.lastName.trim() !== "" &&
+    form.value.email.trim() !== "" &&
+    form.value.phone.trim() !== "" &&
+    !errors.value.firstName &&
+    !errors.value.lastName &&
+    !errors.value.phone &&
+    !errors.value.email &&
     hasMinLength.value &&
     hasUpperCase.value &&
     hasLowerCase.value &&
@@ -379,8 +398,7 @@ const strengthText = computed(() => {
     weak: "Yếu",
     fair: "Trung bình",
     good: "Khá",
-    strong: "Mạnh",
-  };
+    strong: "Mạnh" };
   return texts[strengthClass.value];
 });
 
@@ -388,25 +406,68 @@ const validatePassword = () => {
   // Auto validate on input
 };
 
+const validateFirstName = () => {
+  const value = form.value.firstName.trim();
+  if (!value) {
+    errors.value.firstName = 'Họ không được để trống';
+  } else if (/[^\p{L}\s]/u.test(value)) {
+    errors.value.firstName = 'Họ không được chứa số hoặc ký tự đặc biệt';
+  } else {
+    errors.value.firstName = '';
+  }
+};
+
+const validateLastName = () => {
+  const value = form.value.lastName.trim();
+  if (!value) {
+    errors.value.lastName = 'Tên không được để trống';
+  } else if (/[^\p{L}\s]/u.test(value)) {
+    errors.value.lastName = 'Tên không được chứa số hoặc ký tự đặc biệt';
+  } else {
+    errors.value.lastName = '';
+  }
+};
+
+const validatePhone = () => {
+  const phoneVal = form.value.phone.trim();
+  if (!phoneVal) {
+    errors.value.phone = 'Vui lòng nhập số điện thoại';
+  } else if (!/^(0[3|5|7|8|9])+([0-9]{8})$/.test(phoneVal)) {
+    errors.value.phone = 'Số điện thoại không hợp lệ (VD: 0912345678)';
+  } else {
+    errors.value.phone = '';
+  }
+};
+
+const handlePhoneInput = () => {
+  // Chỉ nhận các ký tự số
+  form.value.phone = form.value.phone.replace(/\D/g, '');
+  errors.value.phone = '';
+  // Nếu đã nhập đủ 10 chữ số thì tự động kiểm tra định dạng luôn
+  if (form.value.phone.length === 10) {
+    validatePhone();
+  }
+};
+
 const handleRegister = async () => {
+  // Chạy toàn bộ validate trước khi submit
+  validateFirstName();
+  validateLastName();
+  validatePhone();
+
+  if (
+    errors.value.firstName ||
+    errors.value.lastName ||
+    errors.value.phone ||
+    errors.value.email
+  ) {
+    showNotification("Vui lòng kiểm tra và sửa lại thông tin không hợp lệ", "error");
+    return;
+  }
+
   error.value = "";
   success.value = "";
   loading.value = true;
-
-  // Required check
-  if (!form.value.phone || form.value.phone.trim() === '') {
-    errors.value.phone = 'Vui lòng nhập số điện thoại'
-    loading.value = false
-    return
-  }
-  // Format check - Vietnamese phone numbers
-  else if (!/^(0[3|5|7|8|9])+([0-9]{8})$/.test(form.value.phone.trim())) {
-    errors.value.phone = 'Số điện thoại không hợp lệ (VD: 0912345678)'
-    loading.value = false
-    return
-  } else {
-    errors.value.phone = ''
-  }
 
   try {
     // Register
@@ -414,8 +475,7 @@ const handleRegister = async () => {
       name: fullName.value,
       email: form.value.email,
       phone: form.value.phone.trim(),
-      password: form.value.password,
-    });
+      password: form.value.password });
 
     success.value = "Đăng ký thành công! Đang chuyển hướng...";
     showNotification("Đăng ký thành công!", "success");
@@ -425,10 +485,14 @@ const handleRegister = async () => {
       router.push("/login");
     }, 2000);
   } catch (err) {
-    if (err.response?.data?.message?.includes('Số điện thoại')) {
-      errors.value.phone = err.response.data.message;
+    const errorMsg = err.response?.data?.message || err.message || "";
+    if (errorMsg.includes('Số điện thoại')) {
+      errors.value.phone = errorMsg;
     }
-    error.value = err.response?.data?.message || err.message || "Đăng ký thất bại. Vui lòng thử lại.";
+    if (errorMsg.includes('Email') || errorMsg.includes('email')) {
+      errors.value.email = "Email đã được sử dụng bởi tài khoản khác";
+    }
+    error.value = errorMsg || "Đăng ký thất bại. Vui lòng thử lại.";
     showNotification(error.value, "error");
   } finally {
     loading.value = false;
@@ -564,6 +628,13 @@ main {
 
 .form-group {
   margin-bottom: 20px;
+}
+
+.error-text {
+  color: #dc3545;
+  font-size: 13px;
+  margin-top: 5px;
+  display: block;
 }
 
 .form-group label {
