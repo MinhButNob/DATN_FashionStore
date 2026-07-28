@@ -172,6 +172,7 @@ import { ref, onMounted, onBeforeUnmount, nextTick, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import Live2DAvatar from './Live2DAvatar.vue'
 import StaffChatPanel from './StaffChatPanel.vue'
+import api from '@/services/api.js'
 
 const router = useRouter()
 const CHAT_WIDTH = 380
@@ -361,7 +362,6 @@ const callAIAPI = async (message) => {
     console.warn('Could not parse user from localStorage', e)
   }
 
-  // Also try direct key
   if (!userId) {
     userId = localStorage.getItem('userId') || localStorage.getItem('user_id')
     if (userId) userId = Number(userId)
@@ -374,22 +374,13 @@ const callAIAPI = async (message) => {
     }
   }
 
-  const token = localStorage.getItem('token') || localStorage.getItem('accessToken')
-  const headers = { 'Content-Type': 'application/json' }
-  if (token) headers['Authorization'] = `Bearer ${token}`
+  // api.js interceptor already attaches the Authorization header and
+  // already points at the correct backend baseURL — no need to build
+  // headers or a URL by hand here.
+  const data = await api.post('/ai/chat', { message, userId: Number(userId) })
 
-  const response = await fetch('/ai/chat', {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ message, userId: Number(userId) })
-  })
-
-  if (!response.ok) throw new Error(`API error: ${response.status}`)
-
-  const data = await response.json()
   if (data.success && data.data) {
     const { response: aiText, products, navigateToProductId, intent } = data.data
-    // Debug log - xoá khi production
     console.log('[Haru] intent:', intent, '| products:', products)
     return {
       text: aiText || 'Xin lỗi, Haru không hiểu. Bạn có thể hỏi lại không?',

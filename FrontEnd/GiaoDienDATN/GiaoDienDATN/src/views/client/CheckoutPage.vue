@@ -345,8 +345,10 @@ const onProvinceChange = async () => {
 const fetchAddresses = async () => {
   addressLoading.value = true
   try {
-    const token = localStorage.getItem('token')
-    if (!token) {
+    // FIX: trước đây đọc localStorage.getItem('token') - SAI key, authStore
+    // lưu token dưới key 'accessToken' -> luôn null -> return sớm, không
+    // bao giờ load được địa chỉ đã lưu. Dùng chung trạng thái với authStore.
+    if (!authStore.isAuthenticated) {
       addressLoading.value = false
       return
     }
@@ -389,8 +391,8 @@ const updateProfileFromAddress = (addr) => {
 // ===== LẤY THÔNG TIN PROFILE =====
 const fetchProfile = async () => {
   try {
-    const token = localStorage.getItem('token')
-    if (!token) return
+    // FIX: cùng lỗi sai key 'token' như fetchAddresses ở trên
+    if (!authStore.isAuthenticated) return
 
     const response = await api.get(`/customers/profile`, {})
 
@@ -480,8 +482,11 @@ const saveProfileInfo = async () => {
 
   saving.value = true
   try {
-    const token = localStorage.getItem('token')
-    if (!token) {
+    // FIX: đây chính là nguyên nhân toast "Vui lòng đăng nhập để lưu thông
+    // tin" hiện ra dù người dùng ĐÃ đăng nhập - do đọc sai key localStorage
+    // ('token' thay vì 'accessToken'), luôn trả về null. Dùng authStore
+    // (đã có sẵn, đồng bộ với toàn bộ app) thay vì tự đọc localStorage.
+    if (!authStore.isAuthenticated) {
       showNotification('Vui lòng đăng nhập để lưu thông tin', 'error')
       return
     }
@@ -580,13 +585,14 @@ const placeOrder = async () => {
   placingOrder.value = true
 
   try {
-    const token = localStorage.getItem('token')
-    const response = await api.post(`/orders/create`, orderPayload, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    })
+    // FIX: trước đây tự đọc localStorage.getItem('token') (SAI key, luôn
+    // null) rồi tự set header Authorization: 'Bearer null' - header này ĐÈ
+    // LÊN header đúng mà interceptor của `api` (axios instance dùng chung,
+    // xem @/api/axios) đã tự động gắn sẵn từ key 'accessToken'. Kết quả:
+    // request tạo đơn hàng bị gửi đi với token rỗng, có thể khiến backend
+    // trả 401/xử lý sai người đặt hàng dù UI vẫn tưởng đã đăng nhập.
+    // Bỏ hẳn phần tự set header - để interceptor lo, giống mọi request khác.
+    const response = await api.post(`/orders/create`, orderPayload)
 
     console.log('✅ Order created:', response.data)
 

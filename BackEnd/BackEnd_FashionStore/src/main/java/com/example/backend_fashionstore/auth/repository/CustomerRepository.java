@@ -23,5 +23,5 @@ public interface CustomerRepository
 
     java.util.Optional<Customer> findByPhone(String phone);
 
-    java.util.Optional<Customer> findByUser_Email(String email);
+//    java.util.Optional<Customer> findByUser_Email(String email);
 }
