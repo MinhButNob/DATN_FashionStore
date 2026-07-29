@@ -6,48 +6,20 @@
 
     <!-- Statistics Cards -->
     <div class="stats-grid">
-      <StatsCard
-        title="Tổng khách hàng"
-        :value="statistics?.totalCustomers || 0"
-        icon="fas fa-users"
-        color="#e63946"
-      />
-      <StatsCard
-        title="Đang hoạt động"
-        :value="statistics?.activeCustomers || 0"
-        icon="fas fa-user-check"
-        color="#28a745"
-      />
-      <StatsCard
-        title="Tạm khóa"
-        :value="statistics?.lockedCustomers || 0"
-        icon="fas fa-user-lock"
-        color="#dc3545"
-      />
-      <StatsCard
-        title="Danh mục có SP"
-        :value="statistics?.categoriesWithProducts || 0"
-        icon="fas fa-boxes"
-        color="#17a2b8"
-      />
+      <StatsCard title="Tổng khách hàng" :value="statistics?.totalCustomers || 0" icon="fas fa-users" color="#e63946" />
+      <StatsCard title="Đang hoạt động" :value="statistics?.activeCustomers || 0" icon="fas fa-user-check"
+        color="#28a745" />
+      <StatsCard title="Tạm khóa" :value="statistics?.lockedCustomers || 0" icon="fas fa-user-lock" color="#dc3545" />
+      <StatsCard title="Đã xóa" :value="statistics?.deletedCustomers || 0" icon="fas fa-user-slash" color="#6c757d" />
     </div>
 
     <!-- Filters -->
     <div class="filters-bar">
       <div class="search-box">
         <i class="fas fa-search"></i>
-        <input
-          type="text"
-          v-model="keyword"
-          placeholder="Tìm kiếm theo tên, email, SĐT..."
-          @input="onSearch"
-        />
+        <input type="text" v-model="keyword" placeholder="Tìm kiếm theo tên, email, SĐT..." @input="onSearch" />
       </div>
-      <select
-        v-model="filterStatus"
-        @change="onFilterStatus"
-        class="filter-select"
-      >
+      <select v-model="filterStatus" @change="onFilterStatus" class="filter-select">
         <option value="">Tất cả trạng thái</option>
         <option value="ACTIVE">Hoạt động</option>
         <option value="LOCKED">Tạm khóa</option>
@@ -80,12 +52,8 @@
           </tr>
         </thead>
         <tbody>
-          <tr
-            v-for="customer in customerStore.customers"
-            :key="customer.customerId"
-            class="table-row"
-            :class="{ 'row-deleted': !customer.isLocked && (customer.isActive === false || customer.isActive === 0) }"
-          >
+          <tr v-for="customer in customerStore.customers" :key="customer.customerId" class="table-row"
+            :class="{ 'row-deleted': customer.isActive === 0 || customer.isActive === false }">
             <td>#{{ customer.customerId }}</td>
             <td>
               <div class="customer-info">
@@ -99,59 +67,51 @@
             <td>{{ customer.phone || "---" }}</td>
             <td>{{ customer.address || "---" }}</td>
             <td>
-              <span
-                class="status-badge"
-                :class="
-                  customer.isLocked
-                    ? 'status-locked'
-                    : (customer.isActive === false || customer.isActive === 0)
+              <span class="status-badge" :class="customer.isLocked
+                  ? 'status-locked'
+                  : (customer.isActive === 0 || customer.isActive === false)
                     ? 'status-deleted'
                     : 'status-active'
-                "
-              >
+                ">
                 {{
                   customer.isLocked
                     ? "Tạm khóa"
-                    : (customer.isActive === false || customer.isActive === 0)
-                    ? "Đã xóa"
-                    : "Hoạt động"
+                    : (customer.isActive === 0 || customer.isActive === false)
+                      ? "Đã xóa"
+                      : "Hoạt động"
                 }}
               </span>
             </td>
             <td>{{ formatDate(customer.createdAt) }}</td>
             <td>
               <div class="action-buttons">
-                <button
-                  class="action-btn view-btn"
-                  @click="viewCustomerDetail(customer)"
-                  title="Xem chi tiết"
-                >
+                <!-- Xem chi tiết - Luôn hiển thị -->
+                <button class="action-btn view-btn" @click="viewCustomerDetail(customer)" title="Xem chi tiết">
                   <i class="fas fa-eye"></i>
                 </button>
-                <!-- Nút Sửa / Xóa: chỉ hiện khi chưa bị xóa -->
-                <template v-if="customer.isLocked || (customer.isActive !== false && customer.isActive !== 0)">
-                  <button
-                    class="action-btn edit-btn"
-                    @click="openEditModal(customer)"
-                    title="Sửa thông tin"
-                  >
-                    <i class="fas fa-edit"></i>
+                
+                <!-- Đổi trạng thái: HIỂN THỊ CHO TẤT CẢ -->
+                <button class="action-btn edit-btn" @click="openEditModal(customer)" title="Đổi trạng thái">
+                  <i class="fas fa-exchange-alt"></i>
+                </button>
+                
+                <!-- Nút Mở khóa: Chỉ hiện khi đang bị tạm khóa -->
+                <template v-if="customer.isLocked === true">
+                  <button class="action-btn unlock-btn" @click="confirmUnlock(customer.customerId)" title="Mở khóa tài khoản">
+                    <i class="fas fa-unlock"></i>
                   </button>
-                  <button
-                    class="action-btn delete-btn"
-                    @click="confirmDelete(customer.customerId)"
-                    title="Xóa"
-                  >
+                </template>
+                
+                <!-- Nút Xóa: Chỉ hiện khi chưa bị xóa -->
+                <template v-if="customer.isActive !== 0 && customer.isActive !== false">
+                  <button class="action-btn delete-btn" @click="confirmDelete(customer.customerId)" title="Xóa">
                     <i class="fas fa-trash"></i>
                   </button>
                 </template>
-                <!-- Đã xóa: cho phép khôi phục -->
-                <template v-else>
-                  <button
-                    class="action-btn restore-btn"
-                    @click="confirmRestore(customer.customerId)"
-                    title="Khôi phục"
-                  >
+                
+                <!-- Nút Khôi phục: Chỉ hiện khi đã bị xóa -->
+                <template v-if="customer.isActive === 0 || customer.isActive === false">
+                  <button class="action-btn restore-btn" @click="confirmRestore(customer.customerId)" title="Khôi phục">
                     <i class="fas fa-undo"></i>
                   </button>
                 </template>
@@ -167,27 +127,16 @@
 
     <!-- Pagination -->
     <div class="pagination" v-if="customerStore.totalPages > 0">
-      <button
-        class="page-btn"
-        :disabled="customerStore.currentPage === 0"
-        @click="goToPage(customerStore.currentPage - 1)"
-      >
+      <button class="page-btn" :disabled="customerStore.currentPage === 0"
+        @click="goToPage(customerStore.currentPage - 1)">
         <i class="fas fa-chevron-left"></i>
       </button>
-      <button
-        v-for="page in displayedPages"
-        :key="page"
-        class="page-btn"
-        :class="{ active: customerStore.currentPage === page }"
-        @click="goToPage(page)"
-      >
+      <button v-for="page in displayedPages" :key="page" class="page-btn"
+        :class="{ active: customerStore.currentPage === page }" @click="goToPage(page)">
         {{ page + 1 }}
       </button>
-      <button
-        class="page-btn"
-        :disabled="customerStore.currentPage === customerStore.totalPages - 1"
-        @click="goToPage(customerStore.currentPage + 1)"
-      >
+      <button class="page-btn" :disabled="customerStore.currentPage === customerStore.totalPages - 1"
+        @click="goToPage(customerStore.currentPage + 1)">
         <i class="fas fa-chevron-right"></i>
       </button>
     </div>
@@ -219,7 +168,13 @@
           </div>
           <div class="detail-item">
             <strong>Trạng thái:</strong>
-            {{ selectedCustomer?.isLocked ? "Tạm khóa" : "Hoạt động" }}
+            {{
+              selectedCustomer?.isLocked
+                ? "Tạm khóa"
+                : (selectedCustomer?.isActive === 0 || selectedCustomer?.isActive === false)
+                  ? "Đã xóa"
+                  : "Hoạt động"
+            }}
           </div>
           <div class="detail-item">
             <strong>Ngày tạo:</strong>
@@ -235,22 +190,12 @@
     </div>
 
     <!-- Edit Modal -->
-    <CustomerModal
-      :visible="showCustomerModal"
-      :initial-data="editingCustomer"
-      @close="closeCustomerModal"
-      @submit="handleCustomerSubmit"
-    />
+    <CustomerModal :visible="showCustomerModal" :initial-data="editingCustomer" @close="closeCustomerModal"
+      @submit="handleCustomerSubmit" />
 
     <!-- Confirm Dialog -->
-    <ConfirmDialog
-      :visible="showConfirmDialog"
-      :title="confirmTitle"
-      :message="confirmMessage"
-      :confirm-text="confirmButtonText"
-      @confirm="handleConfirm"
-      @cancel="closeConfirmDialog"
-    />
+    <ConfirmDialog :visible="showConfirmDialog" :title="confirmTitle" :message="confirmMessage"
+      :confirm-text="confirmButtonText" @confirm="handleConfirm" @cancel="closeConfirmDialog" />
   </div>
 </template>
 
@@ -310,8 +255,9 @@ const displayedPages = computed(() => {
 // Methods
 const loadData = async () => {
   try {
+    const status = filterStatus.value || null;
     await Promise.all([
-      customerStore.fetchCustomers(0, 10, keyword.value, filterStatus.value || null),
+      customerStore.fetchCustomers(0, 10, keyword.value, status),
       customerStore.fetchStatistics(),
     ]);
   } catch (error) {
@@ -320,11 +266,13 @@ const loadData = async () => {
 };
 
 const onSearch = () => {
-  customerStore.fetchCustomers(0, 10, keyword.value, filterStatus.value || null);
+  const status = filterStatus.value || null;
+  customerStore.fetchCustomers(0, 10, keyword.value, status);
 };
 
 const onFilterStatus = () => {
-  customerStore.fetchCustomers(0, 10, keyword.value, filterStatus.value || null);
+  const status = filterStatus.value || null;
+  customerStore.fetchCustomers(0, 10, keyword.value, status);
 };
 
 const refreshData = () => {
@@ -334,7 +282,8 @@ const refreshData = () => {
 };
 
 const goToPage = (page) => {
-  customerStore.fetchCustomers(page, 10, keyword.value, filterStatus.value || null);
+  const status = filterStatus.value || null;
+  customerStore.fetchCustomers(page, 10, keyword.value, status);
 };
 
 const formatDate = (dateString) => {
@@ -353,7 +302,7 @@ const closeDetailModal = () => {
 };
 
 const openEditModal = (customer) => {
-  editingCustomer.value = { 
+  editingCustomer.value = {
     ...customer,
     phone: customer.phone || '',
     address: customer.address || ''
@@ -366,28 +315,23 @@ const closeCustomerModal = () => {
   editingCustomer.value = null;
 };
 
-// ✅ SỬA: Hàm xử lý submit từ CustomerModal
 const handleCustomerSubmit = async (data) => {
   try {
-    // Nếu đang sửa khách hàng -> chỉ cho phép cập nhật trạng thái
     if (editingCustomer.value?.customerId) {
       const currentIsLocked = !!editingCustomer.value.isLocked;
       const newIsLocked = !!data.isLocked;
 
       if (currentIsLocked !== newIsLocked) {
-        // Backend chỉ hỗ trợ toggle khóa/mở khóa tài khoản
         await customerStore.toggleLock(editingCustomer.value.customerId);
         showNotification("Cập nhật trạng thái thành công!", "success");
       } else {
         showNotification("Không có thay đổi để cập nhật", "warning");
       }
     } else {
-      // Thêm mới khách hàng
       await customerStore.addCustomer(data);
       showNotification("Thêm khách hàng thành công!", "success");
     }
-    
-    // Reload dữ liệu
+
     await loadData();
     closeCustomerModal();
   } catch (error) {
@@ -397,15 +341,27 @@ const handleCustomerSubmit = async (data) => {
   }
 };
 
+// ✅ Xác nhận mở khóa
+const confirmUnlock = (id) => {
+  pendingCustomerId = id;
+  confirmTitle.value = "Xác nhận mở khóa";
+  confirmMessage.value = "Bạn có chắc chắn muốn mở khóa tài khoản khách hàng này?";
+  confirmButtonText.value = "Mở khóa";
+  confirmAction.value = "unlock";
+  showConfirmDialog.value = true;
+};
+
+// ✅ Xác nhận xóa (chỉ xóa mềm)
 const confirmDelete = (id) => {
   pendingCustomerId = id;
   confirmTitle.value = "Xác nhận xóa";
-  confirmMessage.value = "Bạn có chắc chắn muốn xóa khách hàng này?";
+  confirmMessage.value = "Bạn có chắc chắn muốn xóa khách hàng này? Khách hàng sẽ chuyển sang trạng thái 'Đã xóa' và có thể khôi phục sau.";
   confirmButtonText.value = "Xóa";
   confirmAction.value = "delete";
   showConfirmDialog.value = true;
 };
 
+// ✅ Xác nhận khôi phục
 const confirmRestore = (id) => {
   pendingCustomerId = id;
   confirmTitle.value = "Xác nhận khôi phục";
@@ -421,12 +377,16 @@ const closeConfirmDialog = () => {
   confirmAction.value = "";
 };
 
-// ✅ SỬA: Hàm xác nhận từ ConfirmDialog
+// ✅ Xử lý xác nhận từ ConfirmDialog
 const handleConfirm = async () => {
   try {
     if (confirmAction.value === "delete") {
       await customerStore.removeCustomer(pendingCustomerId);
       showNotification("Xóa khách hàng thành công!", "success");
+      await loadData();
+    } else if (confirmAction.value === "unlock") {
+      await customerStore.toggleLock(pendingCustomerId);
+      showNotification("Mở khóa tài khoản thành công!", "success");
       await loadData();
     } else if (confirmAction.value === "restore") {
       await customerStore.restoreCustomer(pendingCustomerId);
@@ -452,23 +412,27 @@ onMounted(() => {
 .admin-customers {
   padding: 20px;
 }
+
 .admin-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 25px;
 }
+
 .page-title {
   font-size: 28px;
   color: #333;
   margin: 0;
 }
+
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 20px;
   margin-bottom: 25px;
 }
+
 .filters-bar {
   background: white;
   padding: 20px;
@@ -480,6 +444,7 @@ onMounted(() => {
   flex-wrap: wrap;
   align-items: center;
 }
+
 .filter-select {
   padding: 10px 14px;
   border: 1px solid #e0e6ed;
@@ -490,10 +455,13 @@ onMounted(() => {
   font-size: 14px;
   color: #555;
   transition: border-color 0.2s;
+  min-width: 160px;
 }
+
 .filter-select:focus {
   border-color: #e63946;
 }
+
 .search-box {
   flex: 1;
   display: flex;
@@ -501,24 +469,35 @@ onMounted(() => {
   background: #f5f5f5;
   border-radius: 8px;
   padding: 0 15px;
+  min-width: 200px;
 }
+
 .search-box input {
   border: none;
   background: none;
   padding: 12px;
   width: 100%;
   outline: none;
+  font-size: 14px;
 }
+
+.search-box i {
+  color: #999;
+}
+
 .table-container {
   background: white;
   border-radius: 15px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
   overflow-x: auto;
 }
+
 .customer-table {
   width: 100%;
   border-collapse: collapse;
+  font-size: 14px;
 }
+
 .customer-table th {
   background: #f8f9fa;
   padding: 15px;
@@ -526,20 +505,25 @@ onMounted(() => {
   font-weight: 600;
   color: #555;
   border-bottom: 2px solid #eee;
+  white-space: nowrap;
 }
+
 .customer-table td {
   padding: 15px;
   border-bottom: 1px solid #eee;
   color: #666;
 }
+
 .customer-table tr:hover {
   background: #f8f9fa;
 }
+
 .customer-info {
   display: flex;
   align-items: center;
   gap: 10px;
 }
+
 .customer-avatar {
   width: 40px;
   height: 40px;
@@ -548,55 +532,62 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
+
 .customer-avatar i {
   font-size: 24px;
   color: #e63946;
 }
+
 .customer-name {
   font-weight: 500;
   color: #333;
 }
+
 .status-badge {
   display: inline-block;
   padding: 5px 12px;
   border-radius: 20px;
   font-size: 12px;
   font-weight: 600;
+  white-space: nowrap;
 }
+
 .status-active {
   background: #d4edda;
   color: #155724;
 }
+
 .status-locked {
   background: #f8d7da;
   color: #721c24;
 }
+
 .status-deleted {
   background: #f3f4f6;
   color: #9ca3af;
 }
+
 .row-deleted {
-  opacity: 0.55;
+  opacity: 0.6;
   background-color: #fafafa;
 }
+
 .row-deleted td {
   color: #9ca3af;
 }
-.readonly-label {
-  font-size: 12px;
+
+.row-deleted .customer-name {
   color: #9ca3af;
-  font-style: italic;
-  padding: 4px 8px;
-  background: #f3f4f6;
-  border-radius: 6px;
-  white-space: nowrap;
 }
+
 .action-buttons {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
 }
+
 .action-btn {
   width: 32px;
   height: 32px;
@@ -607,49 +598,59 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   transition: all 0.3s;
+  font-size: 14px;
 }
+
+.action-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
 .view-btn {
   background: #17a2b8;
   color: white;
 }
+
 .view-btn:hover {
   background: #138496;
 }
+
 .edit-btn {
-  background: #ffc107;
-  color: #333;
-}
-.edit-btn:hover {
-  background: #e0a800;
-}
-.lock-btn {
-  background: #dc3545;
+  background: #6f42c1;
   color: white;
 }
-.lock-btn:hover {
-  background: #c82333;
+
+.edit-btn:hover {
+  background: #5a32a3;
 }
+
 .unlock-btn {
   background: #28a745;
   color: white;
 }
+
 .unlock-btn:hover {
   background: #218838;
 }
+
 .delete-btn {
-  background: #6c757d;
+  background: #dc3545;
   color: white;
 }
+
 .delete-btn:hover {
-  background: #5a6268;
+  background: #c82333;
 }
+
 .restore-btn {
   background: #17a2b8;
   color: white;
 }
+
 .restore-btn:hover {
   background: #138496;
 }
+
 .loading-container {
   display: flex;
   flex-direction: column;
@@ -659,6 +660,7 @@ onMounted(() => {
   background: white;
   border-radius: 15px;
 }
+
 .spinner {
   width: 40px;
   height: 40px;
@@ -667,6 +669,7 @@ onMounted(() => {
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
+
 @keyframes spin {
   0% {
     transform: rotate(0deg);
@@ -675,39 +678,50 @@ onMounted(() => {
     transform: rotate(360deg);
   }
 }
+
 .no-data {
   text-align: center;
   padding: 40px;
   color: #999;
+  font-style: italic;
 }
+
 .pagination {
   display: flex;
   justify-content: center;
   gap: 8px;
   margin-top: 20px;
+  flex-wrap: wrap;
 }
+
 .page-btn {
-  padding: 8px 12px;
+  padding: 8px 14px;
   border: 1px solid #ddd;
   background: white;
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.3s;
+  font-size: 14px;
+  min-width: 36px;
 }
+
 .page-btn:hover:not(:disabled) {
   background: #e63946;
   color: white;
   border-color: #e63946;
 }
+
 .page-btn.active {
   background: #e63946;
   color: white;
   border-color: #e63946;
 }
+
 .page-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
 .btn {
   padding: 10px 20px;
   border: none;
@@ -715,22 +729,28 @@ onMounted(() => {
   cursor: pointer;
   font-size: 14px;
   transition: all 0.3s;
+  font-weight: 500;
 }
+
 .btn-primary {
   background: #e63946;
   color: white;
 }
+
 .btn-primary:hover {
   background: #c82333;
 }
+
 .btn-outline {
   background: none;
   border: 1px solid #ddd;
   color: #666;
 }
+
 .btn-outline:hover {
   background: #f5f5f5;
 }
+
 .modal {
   position: fixed;
   top: 0;
@@ -742,7 +762,9 @@ onMounted(() => {
   justify-content: center;
   align-items: center;
   z-index: 1000;
+  animation: fadeIn 0.3s ease;
 }
+
 .modal-content {
   background: white;
   border-radius: 15px;
@@ -750,7 +772,9 @@ onMounted(() => {
   max-width: 500px;
   max-height: 90vh;
   overflow-y: auto;
+  animation: slideUp 0.3s ease;
 }
+
 .modal-header {
   padding: 20px 25px;
   border-bottom: 1px solid #eee;
@@ -758,29 +782,162 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
 }
+
 .modal-header h2 {
   font-size: 20px;
   color: #333;
   margin: 0;
 }
+
 .close-btn {
   background: none;
   border: none;
-  font-size: 20px;
+  font-size: 24px;
   cursor: pointer;
   color: #999;
+  transition: color 0.3s;
+  padding: 0 5px;
 }
+
+.close-btn:hover {
+  color: #e63946;
+}
+
 .modal-body {
   padding: 25px;
 }
+
 .detail-item {
   margin-bottom: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid #f5f5f5;
 }
+
+.detail-item:last-child {
+  border-bottom: none;
+}
+
+.detail-item strong {
+  display: inline-block;
+  min-width: 120px;
+  color: #555;
+}
+
 .modal-footer {
   padding: 20px 25px;
   border-top: 1px solid #eee;
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(30px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .admin-customers {
+    padding: 10px;
+  }
+
+  .page-title {
+    font-size: 22px;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+  }
+
+  .filters-bar {
+    flex-direction: column;
+    padding: 15px;
+  }
+
+  .search-box {
+    width: 100%;
+  }
+
+  .filter-select {
+    width: 100%;
+  }
+
+  .customer-table th,
+  .customer-table td {
+    padding: 10px;
+    font-size: 13px;
+  }
+
+  .action-buttons {
+    gap: 4px;
+  }
+
+  .action-btn {
+    width: 28px;
+    height: 28px;
+    font-size: 12px;
+  }
+
+  .modal-content {
+    width: 95%;
+    margin: 10px;
+  }
+
+  .detail-item strong {
+    min-width: 80px;
+  }
+}
+
+@media (max-width: 480px) {
+  .stats-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .customer-table {
+    font-size: 12px;
+  }
+
+  .customer-table th,
+  .customer-table td {
+    padding: 8px;
+  }
+
+  .customer-avatar {
+    width: 30px;
+    height: 30px;
+  }
+
+  .customer-avatar i {
+    font-size: 18px;
+  }
+
+  .status-badge {
+    font-size: 10px;
+    padding: 3px 8px;
+  }
+
+  .page-btn {
+    padding: 6px 10px;
+    font-size: 12px;
+    min-width: 30px;
+  }
 }
 </style>
