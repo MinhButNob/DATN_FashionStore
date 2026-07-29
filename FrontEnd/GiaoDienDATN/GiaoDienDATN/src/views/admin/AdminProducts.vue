@@ -87,7 +87,6 @@
             <th>ID</th>
             <th>Tên sản phẩm</th>
             <th>Danh mục</th>
-            <th>Khuyến mãi</th>
             <th>Biến thể & Tồn kho</th>
             <th>Trạng thái</th>
             <th>Thao tác</th>
@@ -99,20 +98,15 @@
             <td class="product-name" :class="{ 'deleted-text': product._deletedAt }">{{ product.productName }}</td>
             <td class="category-cell">{{ product.category?.categoryName || '-' }}</td>
             
-            <td class="promotion-cell">
-              <span v-if="product.promotion && !product._deletedAt" class="promotion-badge">
-                🎁 {{ product.promotion.promotionName }} (-{{ product.promotion.promotionDiscountPercent }}%)
-              </span>
-              <span v-else-if="product._deletedAt" class="deleted-label">Đã xóa</span>
-              <span v-else class="no-promotion">—</span>
-            </td>
-            
             <td class="variants-cell">
               <div class="variants-list">
                 <div v-for="(v, idx) in product.variants" :key="idx" class="variant-item">
                   <div class="variant-info">
                     <span class="variant-color" :style="{ backgroundColor: getColorHex(v.color) }"></span>
                     <span class="variant-name">{{ v.color || '?' }} - {{ v.size || '?' }}</span>
+                    <span v-if="v.promotions && v.promotions.length" class="promotion-badge variant-promotion-badge">
+                      🎁 {{ v.promotions[v.promotions.length - 1].promotionName }} (-{{ v.promotions[v.promotions.length - 1].promotionDiscountPercent }}%)
+                    </span>
                   </div>
                   <div class="variant-price-stock">
                     <div class="variant-prices">
@@ -170,7 +164,7 @@
             </td>
           </tr>
           <tr v-if="allProducts.length === 0 && !loading">
-            <td colspan="7" class="empty-row">
+            <td colspan="6" class="empty-row">
               <div class="empty-state">
                 <div class="empty-icon">📭</div>
                 <p>Không có sản phẩm nào</p>
@@ -240,19 +234,6 @@
               </div>
 
               <div class="form-group">
-                <label>🎁 Khuyến mãi áp dụng</label>
-                <select v-model="form.promotionId" class="promotion-select">
-                  <option :value="null">-- Không áp dụng --</option>
-                  <option v-for="promo in promotionList" :key="promo.promotionId" :value="promo.promotionId">
-                    {{ promo.promotionName }} (-{{ promo.promotionDiscountPercent }}%)
-                  </option>
-                </select>
-                <p class="form-hint" v-if="form.promotionId">
-                  ⚡ Khuyến mãi sẽ được áp dụng cho TẤT CẢ các biến thể của sản phẩm này
-                </p>
-              </div>
-
-              <div class="form-group">
                 <label class="checkbox-label">
                   <input type="checkbox" v-model="form.isActive" />
                   <span>✅ Đang bán</span>
@@ -280,6 +261,7 @@
                       <th>Màu sắc</th>
                       <th>Kích thước</th>
                       <th>Giá gốc (VNĐ)</th>
+                      <th>🎁 Khuyến mãi</th>
                       <th>Giá sau KM (VNĐ)</th>
                       <th>Số lượng</th>
                       <th>SKU</th>
@@ -308,7 +290,15 @@
                         <input type="number" v-model="variant.price" placeholder="Giá gốc" required @input="calculateAllDiscountedPrices" />
                       </td>
                       <td>
-                        <input type="text" :value="formatPrice(getDiscountedPrice(variant.price))" class="discounted-price" readonly disabled />
+                        <select v-model="variant.promotionId" class="promotion-select">
+                          <option :value="null">-- Không áp dụng --</option>
+                          <option v-for="promo in promotionList" :key="promo.promotionId" :value="promo.promotionId">
+                            {{ promo.promotionName }} (-{{ promo.promotionDiscountPercent }}%)
+                          </option>
+                        </select>
+                      </td>
+                      <td>
+                        <input type="text" :value="formatPrice(getDiscountedPrice(variant))" class="discounted-price" readonly disabled />
                       </td>
                       <td>
                         <input type="number" v-model="variant.quantity" placeholder="Số lượng" required min="0" />
@@ -436,7 +426,6 @@ const form = ref({
   categoryId: null,
   description: '',
   isActive: true,
-  promotionId: null,
   variants: []
 });
 
@@ -492,14 +481,15 @@ const formatPrice = (price) => {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
 };
 
-const getCurrentPromotionDiscount = () => {
-  if (!form.value.promotionId) return 0;
-  const promotion = promotionList.value.find(p => p.promotionId === form.value.promotionId);
+const getVariantPromotionDiscount = (variant) => {
+  if (!variant?.promotionId) return 0;
+  const promotion = promotionList.value.find(p => p.promotionId === variant.promotionId);
   return promotion?.promotionDiscountPercent || 0;
 };
 
-const getDiscountedPrice = (originalPrice) => {
-  const discountPercent = getCurrentPromotionDiscount();
+const getDiscountedPrice = (variant) => {
+  const discountPercent = getVariantPromotionDiscount(variant);
+  const originalPrice = variant?.price;
   if (!discountPercent || discountPercent === 0 || !originalPrice) return originalPrice;
   return originalPrice * (1 - discountPercent / 100);
 };
@@ -702,7 +692,8 @@ const addVariant = () => {
     sizeId: null,
     price: 0,
     quantity: 0,
-    sku: ''
+    sku: '',
+    promotionId: null
   });
 };
 
@@ -719,7 +710,6 @@ const openCreateModal = () => {
     categoryId: null,
     description: '',
     isActive: true,
-    promotionId: null,
     variants: []
   };
   categorySearchQuery.value = '';
@@ -764,12 +754,18 @@ const openEditModal = async (product) => {
       sizeId = Number(sizeId);
     }
     
+    // ✅ Khuyến mãi riêng cho từng biến thể (lấy khuyến mãi đang áp dụng gần nhất nếu có)
+    const promotionId = (v.promotions && v.promotions.length)
+      ? v.promotions[v.promotions.length - 1].promotionId
+      : null;
+
     return {
       colorId: colorId,
       sizeId: sizeId,
       price: Number(v.price) || 0,
       quantity: Number(v.quantity) || 0,
-      sku: v.sku || ''
+      sku: v.sku || '',
+      promotionId: promotionId
     };
   });
   
@@ -779,7 +775,6 @@ const openEditModal = async (product) => {
     categoryId: categoryId,
     description: product.description || '',
     isActive: product.status === 'ACTIVE',
-    promotionId: product.promotion?.promotionId || null,
     variants: variants
   };
   
@@ -798,7 +793,6 @@ const closeModal = () => {
     categoryId: null,
     description: '',
     isActive: true,
-    promotionId: null,
     variants: []
   };
   categorySearchQuery.value = '';
@@ -848,13 +842,14 @@ const handleSubmit = async () => {
       categoryId: Number(form.value.categoryId),
       description: form.value.description || '',
       status: form.value.isActive ? 'ACTIVE' : 'INACTIVE',
-      promotionId: form.value.promotionId ? Number(form.value.promotionId) : null,
       variants: form.value.variants.map((v, index) => ({
         colorId: Number(v.colorId),
         sizeId: Number(v.sizeId),
         price: Number(v.price),
         quantity: Number(v.quantity),
-        sku: v.sku || `SKU-${Date.now()}-${index}`
+        sku: v.sku || `SKU-${Date.now()}-${index}`,
+        // ✅ Khuyến mãi áp dụng riêng cho biến thể này
+        promotionIds: v.promotionId ? [Number(v.promotionId)] : []
       }))
     };
     
@@ -1234,8 +1229,14 @@ onMounted(async () => {
 .variant-info {
   display: flex;
   align-items: center;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 6px 8px;
   min-width: 110px;
+}
+
+.variant-promotion-badge {
+  font-size: 11px;
+  padding: 2px 8px;
 }
 
 .variant-color {
