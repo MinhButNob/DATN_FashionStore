@@ -193,7 +193,7 @@
     </div>
 
     <!-- System Image Library Modal -->
-    <div v-if="showLibraryModal" class="library-modal-overlay" @click.self="closeLibraryModal">
+    <div v-if="showLibraryModal" class="library-modal-overlay">
       <div class="library-modal-content">
         <div class="library-modal-header">
           <h3>Chọn hình ảnh từ Thư viện</h3>

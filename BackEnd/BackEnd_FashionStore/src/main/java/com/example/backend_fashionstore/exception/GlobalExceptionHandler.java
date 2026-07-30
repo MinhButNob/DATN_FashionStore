@@ -24,8 +24,15 @@ public class GlobalExceptionHandler {
             errors.put(fieldName, errorMessage);
         });
 
+        // Lấy thông báo lỗi đầu tiên để hiển thị trực tiếp cho user
+        String firstErrorMessage = ex.getBindingResult().getAllErrors().stream()
+                .findFirst()
+                .map(error -> error.getDefaultMessage())
+                .orElse("Dữ liệu không hợp lệ");
+
+        response.put("success", false);
         response.put("status", HttpStatus.BAD_REQUEST.value());
-        response.put("message", "Dữ liệu không hợp lệ");
+        response.put("message", firstErrorMessage);
         response.put("errors", errors);
 
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
@@ -34,6 +41,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<Map<String, Object>> handleRuntimeException(RuntimeException ex) {
         Map<String, Object> response = new HashMap<>();
+        response.put("success", false);
         response.put("status", HttpStatus.BAD_REQUEST.value());
         response.put("message", ex.getMessage());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
@@ -42,6 +50,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGeneralException(Exception ignored) {
         Map<String, Object> response = new HashMap<>();
+        response.put("success", false);
         response.put("status", HttpStatus.INTERNAL_SERVER_ERROR.value());
         response.put("message", "Lỗi server nội bộ");
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);

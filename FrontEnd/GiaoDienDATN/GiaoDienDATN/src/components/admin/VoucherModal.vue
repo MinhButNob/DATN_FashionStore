@@ -1,5 +1,5 @@
 <template>
-  <div v-if="visible" class="modal-overlay" @click.self="close">
+  <div v-if="visible" class="modal-overlay">
     <div class="modal-container">
       <div class="modal-header">
         <h3>{{ isEdit ? "Cập nhật voucher" : "Thêm voucher mới" }}</h3>
@@ -42,7 +42,7 @@
               min="1000"
               step="1000"
               required
-              placeholder="VD: 50000"
+              placeholder="VD: 50000 (Mức giảm trực tiếp vào đơn)"
             />
           </div>
 
@@ -100,7 +100,7 @@
                 class="form-control"
                 min="0"
                 step="1000"
-                placeholder="0"
+                placeholder="VD: 1000000 (Cho đơn từ 1 triệu)"
               />
             </div>
           </div>

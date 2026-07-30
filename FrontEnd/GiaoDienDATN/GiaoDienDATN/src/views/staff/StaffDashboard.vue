@@ -209,7 +209,7 @@ const loadOrderCounts = async () => {
   isLoadingTasks.value = true;
   try {
     const res = await api.get('/admin/orders/status/counts');
-    const d = res.data;
+    const d = res.data ?? res;
     const needAction = (d.PENDING_PAYMENT ?? 0) + (d.CONFIRMED ?? 0) + (d.PROCESSING ?? 0);
     stats.value[2].value = needAction;
     tasks.value[0].count = (d.PENDING_PAYMENT ?? 0) + (d.CONFIRMED ?? 0);

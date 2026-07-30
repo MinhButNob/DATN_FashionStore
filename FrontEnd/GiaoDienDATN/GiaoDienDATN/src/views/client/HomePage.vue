@@ -158,6 +158,12 @@ const goToProductDetail = (productId) => {
 };
 
 const addToCartDirect = (product) => {
+  if (!authStore.isAuthenticated) {
+    window.dispatchEvent(new CustomEvent('open-auth-modal', { detail: 'login' }))
+    showNotification('Vui lòng đăng nhập để thêm vào giỏ hàng', 'info')
+    return
+  }
+
   const stock = product.totalStock || 0
   if (stock === 0) {
     showNotification('Sản phẩm đã hết hàng!', 'error')

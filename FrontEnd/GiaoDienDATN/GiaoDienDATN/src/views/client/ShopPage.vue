@@ -382,6 +382,12 @@ const filteredProducts = computed(() => {
     console.log('  - Sau lọc danh mục:', filtered.length)
   }
 
+  // Lọc theo tag khuyến mãi (sale)
+  if (route.query.tag === 'sale') {
+    filtered = filtered.filter(p => p.discountedPrice != null && p.discountedPrice < p.displayPrice)
+    console.log('  - Sau lọc sale tag:', filtered.length)
+  }
+
   // Lọc theo giá
   filtered = filtered.filter(p => {
     const priceToCompare = p.discountedPrice && p.discountedPrice < p.displayPrice ? p.discountedPrice : p.displayPrice
@@ -479,7 +485,8 @@ const hasActiveFilters = computed(() => {
   return selectedCategoryIds.value.length > 0 ||
          selectedColorIds.value.length > 0 ||
          selectedSizeIds.value.length > 0 ||
-         priceRange.value < 10000000
+         priceRange.value < 10000000 ||
+         route.query.tag === 'sale'
 })
 
 const activeFilters = computed(() => {
@@ -503,6 +510,10 @@ const activeFilters = computed(() => {
     filters.push({ key: 'price', name: `Dưới ${formatPriceVND(priceRange.value)}`, type: 'price' })
   }
 
+  if (route.query.tag === 'sale') {
+    filters.push({ key: 'sale', name: 'Đang khuyến mãi', type: 'tag', value: 'sale' })
+  }
+
   return filters
 })
 
@@ -512,6 +523,12 @@ const goToProductDetail = (productId) => {
 }
 
 const addToCartDirect = (product) => {
+  if (!authStore.isAuthenticated) {
+    window.dispatchEvent(new CustomEvent('open-auth-modal', { detail: 'login' }))
+    showNotification('Vui lòng đăng nhập để thêm vào giỏ hàng', 'info')
+    return
+  }
+
   const stock = product.totalStock || 0
   if (stock === 0) {
     showNotification('Sản phẩm đã hết hàng!', 'error')
@@ -556,6 +573,10 @@ const removeFilter = (filter) => {
     case 'price':
       priceRange.value = 10000000
       break
+    case 'tag':
+      const { tag, ...rest } = route.query
+      router.replace({ query: rest })
+      return
   }
   applyFilters()
 }
@@ -567,6 +588,9 @@ const clearFilters = () => {
   priceRange.value = 10000000
   sortBy.value = 'newest'
   currentPage.value = 1
+  if (route.query.categoryId || route.query.tag) {
+    router.replace({ query: {} })
+  }
   showNotification('Đã xóa tất cả bộ lọc', 'success')
 }
 
@@ -638,15 +662,29 @@ const fetchProducts = async () => {
         })
       }
       
-      const discountPercent = calculateDiscountPercent(p.minPrice, p.discountedPrice)
+      let displayPrice = Number(p.minPrice) || 0;
+      let discountedPrice = null;
+      
+      if (p.variants && p.variants.length > 0) {
+        const minOriginal = Math.min(...p.variants.map(v => v.price || 0));
+        const saleVariants = p.variants.filter(v => v.discountedPrice && v.discountedPrice < v.price);
+        
+        if (saleVariants.length > 0) {
+          const minDiscount = Math.min(...saleVariants.map(v => v.discountedPrice));
+          displayPrice = minOriginal;
+          discountedPrice = minDiscount;
+        }
+      }
+
+      const discountPercent = calculateDiscountPercent(displayPrice, discountedPrice)
       
       return {
         productId: p.productId,
         productName: p.productName,
         categoryName: p.categoryName,
         categoryId: p.categoryId,
-        displayPrice: Number(p.minPrice) || 0,
-        discountedPrice: p.discountedPrice ? Number(p.discountedPrice) : null,
+        displayPrice: displayPrice,
+        discountedPrice: discountedPrice,
         discountPercent: discountPercent,
         maxPrice: Number(p.maxPrice) || 0,
         totalStock: Number(p.totalStock) || 0,
@@ -730,6 +768,11 @@ watch(() => route.query.categoryId, (newCategoryId) => {
     selectedCategoryIds.value = []
   }
 }, { immediate: true })
+
+// Watch URL tag
+watch(() => route.query.tag, () => {
+  currentPage.value = 1
+})
 
 // Wishlist Toggle
 const handleWishlistToggle = async (productId) => {

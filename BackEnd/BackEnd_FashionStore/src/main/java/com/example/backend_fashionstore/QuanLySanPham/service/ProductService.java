@@ -526,12 +526,34 @@ public class ProductService {
                 .mapToInt(d -> d.getQuantity() != null ? d.getQuantity() : 0)
                 .sum();
 
+        String mainImageUrl = null;
+        for (ProductDetail d : details) {
+            if (d.getDeletedAt() == null && d.getProductImages() != null) {
+                for (ProductImage img : d.getProductImages()) {
+                    if (img.getDeletedAt() == null) {
+                        if (Boolean.TRUE.equals(img.getIsMain())) {
+                            mainImageUrl = img.getProductImagePath();
+                            break;
+                        }
+                        if (mainImageUrl == null) {
+                            mainImageUrl = img.getProductImagePath();
+                        }
+                    }
+                }
+                // Nếu tìm được main image thật sự thì dừng, nếu ko cứ duyệt tiếp để tìm main thật sự
+                if (mainImageUrl != null && d.getProductImages().stream().anyMatch(i -> Boolean.TRUE.equals(i.getIsMain()))) {
+                    break;
+                }
+            }
+        }
+
         return ProductResponse.builder()
                 .productId(p.getProductId())
                 .productName(p.getProductName())
                 .description(p.getDescription())
                 .status(p.getStatus())
                 .totalStock(totalStock)
+                .mainImageUrl(mainImageUrl)
                 .createdAt(p.getCreatedAt())
                 .category(p.getCategory() != null
                         ? ProductResponse.CategorySummary.builder()

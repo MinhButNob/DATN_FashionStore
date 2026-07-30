@@ -181,6 +181,14 @@ export const NotificationContainerNhanVien = {
   setup() {
     const { notifications, removeNotification } = useNotificationNhanVien();
     
+    // Tự động nhúng CSS vào trang nếu chưa có
+    if (typeof document !== 'undefined' && !document.getElementById('notification-nhanvien-styles')) {
+      const style = document.createElement('style');
+      style.id = 'notification-nhanvien-styles';
+      style.innerHTML = notificationStyles;
+      document.head.appendChild(style);
+    }
+    
     // Lấy icon theo loại
     const getIcon = (type) => {
       const icons = {

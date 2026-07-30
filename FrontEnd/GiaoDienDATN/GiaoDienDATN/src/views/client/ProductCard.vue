@@ -21,10 +21,16 @@
       <h3 class="product-name">{{ product.productName }}</h3>
 
       <div class="product-price">
-        <span class="current-price">{{ formatPriceVND(product.minPrice) }}</span>
-        <span v-if="product.maxPrice && product.maxPrice !== product.minPrice" class="price-range">
-          - {{ formatPriceVND(product.maxPrice) }}
-        </span>
+        <template v-if="discountedPrice && discountedPrice < displayPrice">
+          <span class="original-price">{{ formatPriceVND(displayPrice) }}</span>
+          <span class="current-price">{{ formatPriceVND(discountedPrice) }}</span>
+        </template>
+        <template v-else>
+          <span class="current-price">{{ formatPriceVND(displayPrice) }}</span>
+          <span v-if="product.maxPrice && product.maxPrice !== product.minPrice" class="price-range">
+            - {{ formatPriceVND(product.maxPrice) }}
+          </span>
+        </template>
       </div>
 
       <div class="product-colors" v-if="product.colorOptions && product.colorOptions.length > 0">
@@ -82,6 +88,27 @@ const { showNotification } = useNotification()
 
 const showCartPopup = ref(false)
 const lastAddedProduct = ref({})
+
+const displayPrice = computed(() => {
+  if (props.product.variants && props.product.variants.length > 0) {
+    const minOriginal = Math.min(...props.product.variants.map(v => v.price || 0));
+    const saleVariants = props.product.variants.filter(v => v.discountedPrice && v.discountedPrice < v.price);
+    if (saleVariants.length > 0) {
+      return minOriginal;
+    }
+  }
+  return props.product.minPrice || 0;
+});
+
+const discountedPrice = computed(() => {
+  if (props.product.variants && props.product.variants.length > 0) {
+    const saleVariants = props.product.variants.filter(v => v.discountedPrice && v.discountedPrice < v.price);
+    if (saleVariants.length > 0) {
+      return Math.min(...saleVariants.map(v => v.discountedPrice));
+    }
+  }
+  return null;
+});
 
 const formatPriceVND = (price) => {
   if (price === undefined || price === null) return '0₫'
@@ -147,6 +174,12 @@ const goToDetail = () => {
 
 const addToCart = async (event) => {
   event.stopPropagation()
+
+  if (!authStore.isAuthenticated) {
+    window.dispatchEvent(new CustomEvent('open-auth-modal', { detail: 'login' }))
+    showNotification('Vui lòng đăng nhập để thêm vào giỏ hàng', 'info')
+    return
+  }
   
   const stock = props.product.totalStock || 0
   if (stock === 0) {
@@ -330,6 +363,13 @@ const toggleWishlist = async (event) => {
 
 .product-price {
   margin-bottom: 12px;
+}
+
+.original-price {
+  font-size: 14px;
+  color: #999;
+  text-decoration: line-through;
+  margin-right: 8px;
 }
 
 .current-price {

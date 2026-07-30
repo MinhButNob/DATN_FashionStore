@@ -17,6 +17,7 @@ public class ProductResponse {
     private String status;
     private Integer totalStock;
     private LocalDateTime createdAt;
+    private String mainImageUrl;
     private CategorySummary category;
     private List<VariantSummary> variants;
     private PromotionSummary promotion;

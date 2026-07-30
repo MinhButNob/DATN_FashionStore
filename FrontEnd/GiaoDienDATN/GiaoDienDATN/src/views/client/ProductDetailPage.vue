@@ -330,7 +330,7 @@
     />
 
     <!-- ✅ Image Viewer Modal -->
-    <div v-if="showImageViewer" class="modal-overlay" @click.self="closeImageViewer">
+    <div v-if="showImageViewer" class="modal-overlay">
       <div class="image-viewer-container">
         <img :src="viewingImage" alt="Review image" />
         <button class="close-btn" @click="closeImageViewer">✕</button>
@@ -344,6 +344,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useCartStore } from '../../stores/cartStore'
 import { useWishlistStore } from '../../stores/wishlistStore'
+import { useAuthStore } from '../../stores/authStore'
 import { useNotification } from '../../composables/useNotification'
 import ClientHeader from '../../components/client/ClientHeader.vue'
 import ClientFooter from '../../components/client/ClientFooter.vue'
@@ -355,6 +356,7 @@ const route = useRoute()
 const router = useRouter()
 const cartStore = useCartStore()
 const wishlistStore = useWishlistStore()
+const authStore = useAuthStore()
 const { showNotification } = useNotification()
 const IMAGE_BASE = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "").replace(/\/api$/, "");
 
@@ -719,6 +721,12 @@ const loadMoreReviews = () => {
 
 // Add to cart
 const addToCart = async () => {
+  if (!authStore.isAuthenticated) {
+    window.dispatchEvent(new CustomEvent('open-auth-modal', { detail: 'login' }))
+    showNotification('Vui lòng đăng nhập để thêm vào giỏ hàng', 'info')
+    return
+  }
+
   if (!selectedVariant.value) {
     showNotification('Vui lòng chọn màu sắc và kích thước!', 'error')
     return

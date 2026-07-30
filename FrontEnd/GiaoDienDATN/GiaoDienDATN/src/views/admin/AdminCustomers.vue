@@ -193,7 +193,7 @@
     </div>
 
     <!-- Detail Modal -->
-    <div v-if="showDetailModal" class="modal" @click.self="closeDetailModal">
+    <div v-if="showDetailModal" class="modal">
       <div class="modal-content">
         <div class="modal-header">
           <h2>Chi tiết khách hàng</h2>

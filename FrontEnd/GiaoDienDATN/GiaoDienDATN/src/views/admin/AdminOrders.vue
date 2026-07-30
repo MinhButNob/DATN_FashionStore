@@ -378,7 +378,7 @@
 
     <!-- ===== MODALS ===== -->
     <!-- Order Detail Modal -->
-    <div v-if="showDetailModal" class="modal-overlay" @click.self="closeDetailModal">
+    <div v-if="showDetailModal" class="modal-overlay">
       <div class="modal-content modal-lg">
         <div class="modal-header">
           <h2>Chi tiết đơn hàng #{{ selectedOrder?.orderCode || selectedOrder?.orderId }}</h2>
@@ -495,7 +495,7 @@
     </div>
 
     <!-- Order Items Modal -->
-    <div v-if="showItemsModal" class="modal-overlay" @click.self="closeItemsModal">
+    <div v-if="showItemsModal" class="modal-overlay">
       <div class="modal-content">
         <div class="modal-header">
           <h2>Sản phẩm trong đơn hàng #{{ selectedOrder?.orderCode || selectedOrder?.orderId }}</h2>
@@ -547,7 +547,7 @@
     />
 
     <!-- Admin Cancel Order Modal -->
-    <div v-if="showCancelModal" class="modal-overlay" @click.self="closeCancelModal">
+    <div v-if="showCancelModal" class="modal-overlay">
       <div class="modal-container modal-sm">
         <div class="modal-header">
           <h3>Hủy đơn hàng</h3>
@@ -573,7 +573,7 @@
     </div>
 
     <!-- Restore Order Modal -->
-    <div v-if="showRestoreModal" class="modal-overlay" @click.self="closeRestoreModal">
+    <div v-if="showRestoreModal" class="modal-overlay">
       <div class="modal-container modal-sm">
         <div class="modal-header">
           <h3>Khôi phục đơn hàng</h3>
@@ -596,7 +596,7 @@
     </div>
 
     <!-- Return Request Detail Modal -->
-    <div v-if="showReturnModal" class="modal-overlay" @click.self="closeReturnModal">
+    <div v-if="showReturnModal" class="modal-overlay">
       <div class="modal-content modal-lg">
         <div class="modal-header">
           <h2>Chi tiết yêu cầu hoàn hàng</h2>
@@ -736,7 +736,7 @@
     </div>
 
     <!-- Invoice Modal -->
-    <div v-if="showInvoiceModal" class="modal-overlay" @click.self="closeInvoiceModal">
+    <div v-if="showInvoiceModal" class="modal-overlay">
       <div class="modal-content modal-lg">
         <div class="modal-header">
           <h2>Hóa đơn #{{ invoiceData?.orderCode || invoiceData?.orderId }}</h2>
@@ -866,7 +866,7 @@
     </div>
 
     <!-- Image Viewer Modal -->
-    <div v-if="showImageViewer" class="modal-overlay" @click.self="closeImageViewer">
+    <div v-if="showImageViewer" class="modal-overlay">
       <div class="image-viewer-container">
         <img :src="viewingImage" alt="Return image" />
         <button class="close-btn" @click="closeImageViewer">✕</button>

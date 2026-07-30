@@ -195,7 +195,7 @@
     </div>
 
     <!-- Product Modal -->
-    <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
+    <div v-if="showModal" class="modal-overlay">
       <div class="modal-container modal-lg">
         <div class="modal-header">
           <h3>{{ isEdit ? '✏️ Sửa sản phẩm' : '➕ Thêm sản phẩm' }}</h3>
@@ -343,7 +343,7 @@
     </div>
 
     <!-- Delete Modal -->
-    <div v-if="showDeleteModal" class="modal-overlay" @click.self="closeDeleteModal">
+    <div v-if="showDeleteModal" class="modal-overlay">
       <div class="modal-container modal-sm">
         <div class="modal-header">
           <h3>Xác nhận xóa</h3>
@@ -361,7 +361,7 @@
     </div>
 
     <!-- Restore Modal -->
-    <div v-if="showRestoreModal" class="modal-overlay" @click.self="closeRestoreModal">
+    <div v-if="showRestoreModal" class="modal-overlay">
       <div class="modal-container modal-sm">
         <div class="modal-header">
           <h3>Xác nhận khôi phục</h3>

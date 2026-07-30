@@ -1,5 +1,5 @@
 <template>
-  <div v-if="visible" class="modal-overlay" @click.self="close">
+  <div v-if="visible" class="modal-overlay">
     <div class="modal-container modal-lg">
       <div class="modal-header">
         <h3>Yêu cầu hoàn hàng</h3>
@@ -312,8 +312,7 @@ const uploadImage = async (file) => {
     const token = localStorage.getItem('token')
     const response = await api.post(`/reviews/upload-image`, formData, {
       headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'multipart/form-data'
+        Authorization: `Bearer ${token}`
       }
     })
     return response.data.url

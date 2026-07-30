@@ -404,7 +404,11 @@ const fetchAvailableVouchers = async () => {
       return
     }
 
-    const response = await api.get(`/vouchers/available`, {})
+    const response = await api.get(`/vouchers/available`, {
+      params: {
+        orderValue: cartStore.subtotal || 0
+      }
+    })
 
     console.log('📦 Voucher API response:', response.data)
 
