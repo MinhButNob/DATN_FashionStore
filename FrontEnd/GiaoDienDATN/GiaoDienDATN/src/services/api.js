@@ -1,11 +1,5 @@
 import axios from "axios";
 
-// ⚠️ Trước đây file này dùng biến "VITE_API_URL" (SAI TÊN, không khớp với
-// biến đã set trên Vercel là "VITE_API_BASE_URL") và fallback là chuỗi
-// rỗng "" -> khi biến không tồn tại, mọi request tương đối (vd: "/chat/...")
-// bị trình duyệt tự nối vào origin hiện tại (localhost:3000 lúc dev,
-// hoặc domain Vercel lúc build) thay vì gọi sang backend thật.
-// Đã đổi lại cho ĐÚNG và ĐỒNG BỘ với src/api/axios.js.
 const api = axios.create({
   baseURL:
     import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api",
@@ -19,8 +13,6 @@ const api = axios.create({
 // Request interceptor
 api.interceptors.request.use(
   (config) => {
-    // Đồng bộ tên key với axios.js: ưu tiên "accessToken" (chuẩn mới),
-    // vẫn đọc "token" để không phá vỡ session cũ nếu còn sót đâu đó.
     const token =
       localStorage.getItem("accessToken") || localStorage.getItem("token");
     if (token) {
@@ -57,6 +49,7 @@ api.interceptors.response.use(
     return Promise.reject(error);
   },
 );
+
 // ======================
 // CUSTOMER APIS
 // ======================
@@ -97,9 +90,15 @@ export const toggleLockCustomer = (id) => {
 export const getCustomerStatistics = () => {
   return api.get("/admin/customers/statistics");
 };
+
 // ======================
 // PROMOTION APIS
 // ======================
+
+// ✅ THÊM: Export createPromotion
+export const createPromotion = (data) => {
+  return api.post("/admin/promotions", data);
+};
 
 export const getPromotions = (
   page = 0,
@@ -123,10 +122,6 @@ export const getPromotionById = (id) => {
   return api.get(`/admin/promotions/${id}`);
 };
 
-export const createPromotion = (data) => {
-  return api.post("/admin/promotions", data);
-};
-
 export const updatePromotion = (id, data) => {
   return api.put(`/admin/promotions/${id}`, data);
 };
@@ -146,6 +141,7 @@ export const togglePromotionStatus = (id) => {
 export const getPromotionStatistics = () => {
   return api.get("/admin/promotions/statistics");
 };
+
 // ======================
 // VOUCHER APIS
 // ======================
