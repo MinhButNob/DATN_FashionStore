@@ -212,7 +212,7 @@
     </div>
 
     <!-- Detail Modal -->
-    <div v-if="showDetailModal" class="modal-overlay" @click.self="closeDetail">
+    <div v-if="showDetailModal" class="modal-overlay">
       <div class="modal-container modal-lg">
         <div class="modal-header">
           <h3>Chi tiết đánh giá #{{ selectedReview?.reviewId }}</h3>
@@ -322,7 +322,7 @@
     </div>
 
     <!-- Reject Modal -->
-    <div v-if="showRejectModalVisible" class="modal-overlay" @click.self="closeRejectModal">
+    <div v-if="showRejectModalVisible" class="modal-overlay">
       <div class="modal-container modal-sm">
         <div class="modal-header">
           <h3>Từ chối đánh giá</h3>
@@ -350,7 +350,7 @@
     </div>
 
     <!-- Image Viewer Modal -->
-    <div v-if="showImageViewer" class="modal-overlay" @click.self="closeImageViewer">
+    <div v-if="showImageViewer" class="modal-overlay">
       <div class="image-viewer-container">
         <img :src="viewingImage" alt="Review image" />
         <button class="close-btn" @click="closeImageViewer">✕</button>

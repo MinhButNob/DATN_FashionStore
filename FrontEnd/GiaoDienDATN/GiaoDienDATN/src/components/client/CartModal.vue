@@ -1,7 +1,7 @@
 <template>
   <Teleport to="body">
     <Transition name="modal">
-      <div v-if="cartStore.isCartOpen" class="modal" @click.self="closeCart">
+      <div v-if="cartStore.isCartOpen" class="modal">
         <div class="modal-content">
           <div class="modal-header">
             <h2>GIỎ HÀNG</h2>

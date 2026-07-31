@@ -77,6 +77,7 @@ import { useRouter } from 'vue-router'
 import axios from 'axios'
 import { useCartStore } from '../../stores/cartStore'
 import { useWishlistStore } from '../../stores/wishlistStore'
+import { useAuthStore } from '../../stores/authStore'
 import { useNotification } from '../../composables/useNotification'
 import ClientHeader from '../../components/client/ClientHeader.vue'
 import ClientFooter from '../../components/client/ClientFooter.vue'
@@ -89,6 +90,7 @@ const API_BASE = 'http://localhost:8080/api'
 const router = useRouter()
 const cartStore = useCartStore()
 const wishlistStore = useWishlistStore()
+const authStore = useAuthStore()
 const { showNotification } = useNotification()
 
 const allProducts = ref([])
@@ -124,6 +126,11 @@ const goToProduct = (productId) => {
 }
 
 const addToCart = async (item) => {
+  if (!authStore.isAuthenticated) {
+    window.dispatchEvent(new CustomEvent('open-auth-modal', { detail: 'login' }))
+    showNotification('Vui lòng đăng nhập để thêm vào giỏ hàng', 'info')
+    return
+  }
   try {
     await cartStore.addToCart({
       id: item.productDetailId,

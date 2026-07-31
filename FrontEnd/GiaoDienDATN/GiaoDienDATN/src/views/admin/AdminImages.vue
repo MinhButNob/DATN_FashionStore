@@ -222,7 +222,7 @@
     </div>
 
     <!-- Delete Modal -->
-    <div v-if="showDeleteModal" class="modal-overlay" @click.self="closeDeleteModal">
+    <div v-if="showDeleteModal" class="modal-overlay">
       <div class="modal-container modal-sm">
         <div class="modal-header">
           <h3>Xác nhận xóa</h3>
@@ -240,7 +240,7 @@
     </div>
 
     <!-- Restore Modal -->
-    <div v-if="showRestoreModal" class="modal-overlay" @click.self="closeRestoreModal">
+    <div v-if="showRestoreModal" class="modal-overlay">
       <div class="modal-container modal-sm">
         <div class="modal-header">
           <h3>Xác nhận khôi phục</h3>
@@ -504,9 +504,7 @@ export default {
         formData.append('productImageType', image.productImageType || 'gallery');
         formData.append('isMain', image.isMain || false);
         
-        await api.put(`/product-images/${image.productImageId}`, formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
+        await api.put(`/product-images/${image.productImageId}`, formData);
         this.showNotification('Cập nhật số thứ tự thành công!', 'success');
         
         this.images.sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
@@ -585,9 +583,7 @@ export default {
           formData.append('imageFile', file);
           formData.append('productImageType', 'gallery');
           
-          await api.post(`/product-images`, formData, {
-            headers: { 'Content-Type': 'multipart/form-data' }
-          });
+          await api.post(`/product-images`, formData);
           successCount++;
         } catch (error) {
           console.error(`Lỗi upload ${file.name}:`, error);
@@ -615,9 +611,7 @@ export default {
       try {
         const formData = new FormData();
         formData.append('isMain', true);
-        await api.put(`/product-images/${image.productImageId}`, formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
+        await api.put(`/product-images/${image.productImageId}`, formData);
         
         this.images.forEach(img => {
           img.isMain = (img.productImageId === image.productImageId);

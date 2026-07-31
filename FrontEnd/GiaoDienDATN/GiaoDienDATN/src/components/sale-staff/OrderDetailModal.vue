@@ -1,6 +1,6 @@
 <!-- components/sale-staff/OrderDetailModal.vue -->
 <template>
-  <div v-if="visible" class="modal-overlay" @click.self="close">
+  <div v-if="visible" class="modal-overlay">
     <div class="modal-container modal-lg">
       <div class="modal-header">
         <h3>Chi tiết đơn hàng #{{ order?.orderCode || order?.orderId }}</h3>

@@ -32,7 +32,7 @@
     <ClientFooter />
 
     <!-- Order Detail Modal -->
-    <div v-if="showDetailModal" class="modal-overlay" @click.self="closeDetailModal">
+    <div v-if="showDetailModal" class="modal-overlay">
       <div class="modal-container modal-lg">
         <div class="modal-header">
           <h3>Chi tiết đơn hàng #{{ selectedOrder?.orderCode || selectedOrder?.orderId }}</h3>
@@ -144,7 +144,7 @@
     </div>
 
     <!-- Cancel Reason Modal -->
-    <div v-if="showCancelModal" class="modal-overlay" @click.self="closeCancelModal">
+    <div v-if="showCancelModal" class="modal-overlay">
       <div class="modal-container modal-sm">
         <div class="modal-header">
           <h3>Hủy đơn hàng</h3>

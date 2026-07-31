@@ -33,7 +33,7 @@
           <div v-for="product in filteredProducts" :key="product.id" class="product-card-pos">
             
             <div class="pc-img-wrapper">
-              <img v-if="product.mainImageUrl" :src="product.mainImageUrl" :alt="product.name" @error="product.mainImageUrl = null" />
+              <img v-if="product.mainImageUrl" :src="getImageUrl(product.mainImageUrl)" :alt="product.name" @error="product.mainImageUrl = null" />
               <div v-else class="no-img">
                 <i :class="product.icon"></i>
               </div>
@@ -277,6 +277,12 @@ import api from "@/api/axios.js";
 
 const { showNotification } = useNotification();
 
+const getImageUrl = (url) => {
+  if (!url) return '';
+  if (url.startsWith('http')) return url;
+  return `http://localhost:8080/api/images/${url}`;
+};
+
 // --- State UI ---
 const keyword = ref("");
 const category = ref("all");
@@ -511,7 +517,8 @@ const initPOSOrder = async () => {
     discountAmount: 0,
     totalAmount: 0,
     customerId: null,
-    voucherCode: null
+    voucherCode: null,
+    appliedVoucher: null
   };
 };
 
@@ -522,6 +529,30 @@ const recalculateCart = () => {
     sub += item.unitPrice * item.quantity;
   });
   currentOrder.value.subtotalAmount = sub;
+  
+  const d = currentOrder.value.appliedVoucher;
+  if (d) {
+    if (d.voucherMinOrderValue && sub < d.voucherMinOrderValue) {
+      showNotification("Đơn hàng không còn đủ điều kiện áp dụng mã giảm giá này!", "warning");
+      currentOrder.value.voucherCode = null;
+      currentOrder.value.appliedVoucher = null;
+      currentOrder.value.discountAmount = 0;
+      voucherCodeInput.value = "";
+    } else {
+      let discount = 0;
+      if (d.voucherDiscountPercent && d.voucherDiscountPercent > 0) {
+        discount = sub * (d.voucherDiscountPercent / 100);
+        if (d.voucherDiscountAmount && d.voucherDiscountAmount > 0 && discount > d.voucherDiscountAmount) {
+          discount = d.voucherDiscountAmount;
+        }
+      } else if (d.voucherDiscountAmount) {
+        discount = d.voucherDiscountAmount;
+      }
+      if (discount > sub) discount = sub;
+      currentOrder.value.discountAmount = discount;
+    }
+  }
+
   currentOrder.value.totalAmount = Math.max(0, sub - (currentOrder.value.discountAmount || 0));
 };
 
@@ -592,20 +623,44 @@ const attachCustomer = () => {
   showNotification("Đã gắn khách hàng vào đơn hàng!", "success");
 };
 
-const applyVoucherCode = () => {
+const applyVoucherCode = async () => {
   if (!currentOrder.value || !voucherCodeInput.value) {
     showNotification("Vui lòng nhập mã giảm giá!", "warning");
     return;
   }
-  currentOrder.value.voucherCode = voucherCodeInput.value;
-  currentOrder.value.discountAmount = 50000;
-  recalculateCart();
-  showNotification("Áp dụng mã giảm giá thành công!", "success");
+  
+  try {
+    const res = await api.get('/vouchers/code/' + voucherCodeInput.value);
+    const d = res.data?.data || res.data;
+    if (!d || d.voucherStatus !== 'ACTIVE') {
+      showNotification("Mã giảm giá không hợp lệ hoặc đã bị tạm dừng!", "error");
+      return;
+    }
+    
+    const subtotal = currentOrder.value.subtotalAmount;
+    if (d.voucherMinOrderValue && subtotal < d.voucherMinOrderValue) {
+      showNotification("Đơn hàng chưa đạt giá trị tối thiểu để áp dụng mã này!", "error");
+      return;
+    }
+    
+    if (d.voucherMaxUsage && d.voucherUsedCount >= d.voucherMaxUsage) {
+      showNotification("Mã giảm giá đã hết lượt sử dụng!", "error");
+      return;
+    }
+    
+    currentOrder.value.appliedVoucher = d;
+    currentOrder.value.voucherCode = voucherCodeInput.value;
+    recalculateCart();
+    showNotification("Áp dụng mã giảm giá thành công!", "success");
+  } catch (error) {
+    showNotification(error.response?.data?.message || "Mã giảm giá không hợp lệ!", "error");
+  }
 };
 
 const removeVoucherCode = () => {
   if (!currentOrder.value) return;
   currentOrder.value.voucherCode = null;
+  currentOrder.value.appliedVoucher = null;
   currentOrder.value.discountAmount = 0;
   voucherCodeInput.value = "";
   recalculateCart();
@@ -647,6 +702,7 @@ const checkout = async () => {
       posOrderCustomerPhone: null,
       posOrderType: "AT_COUNTER",
       posOrderDiscountAmount: discount.value || 0,
+      voucherCode: currentOrder.value.voucherCode || null,
       posOrderTaxAmount: 0,
       posOrderNotes: "Bán lẻ tại quầy",
       items: currentOrder.value.orderDetails.map(item => ({
@@ -665,7 +721,7 @@ const checkout = async () => {
     };
 
     const res = await createPosOrder(request);
-    const orderId = res?.posOrderId || res?.data?.posOrderId;
+    const orderId = res?.posOrderId || res?.data?.posOrderId || res?.data?.data?.posOrderId;
 
     if (orderId) {
       try { await printPosReceipt(orderId, 1); } catch (e) { /* silent */ }
@@ -718,6 +774,7 @@ const checkoutVnpay = async () => {
       posOrderCustomerPhone: null,
       posOrderType: "AT_COUNTER",
       posOrderDiscountAmount: discount.value || 0,
+      voucherCode: currentOrder.value.voucherCode || null,
       posOrderTaxAmount: 0,
       posOrderNotes: "VNPay tại quầy",
       items: currentOrder.value.orderDetails.map(item => ({
@@ -731,7 +788,7 @@ const checkoutVnpay = async () => {
     };
 
     const res = await createPosOrder(request);
-    const orderId = res?.posOrderId || res?.data?.posOrderId;
+    const orderId = res?.posOrderId || res?.data?.posOrderId || res?.data?.data?.posOrderId;
     if (!orderId) throw new Error("Không tạo được đơn hàng");
 
     // Bước 2: Gọi riêng API tạo link VNPay cho đơn vừa tạo

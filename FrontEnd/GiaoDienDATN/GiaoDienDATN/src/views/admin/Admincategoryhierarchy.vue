@@ -65,7 +65,7 @@
     </div>
 
     <!-- Modal Thêm/Sửa -->
-    <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
+    <div v-if="showModal" class="modal-overlay">
       <div class="modal-container">
         <div class="modal-header">
           <h3>{{ isEdit ? 'Sửa danh mục' : 'Thêm danh mục con' }}</h3>
@@ -112,7 +112,7 @@
     </div>
 
     <!-- Modal Thêm danh mục con (chọn từ danh sách đã tạo ở "Quản lý danh mục") -->
-    <div v-if="showPickModal" class="modal-overlay" @click.self="closePickModal">
+    <div v-if="showPickModal" class="modal-overlay">
       <div class="modal-container modal-sm">
         <div class="modal-header">
           <h3>Thêm danh mục con vào "{{ pickParentTarget?.categoryName }}"</h3>
@@ -142,7 +142,7 @@
     </div>
 
     <!-- Modal Gán vào danh mục lớn -->
-    <div v-if="showAssignModal" class="modal-overlay" @click.self="closeAssignModal">
+    <div v-if="showAssignModal" class="modal-overlay">
       <div class="modal-container modal-sm">
         <div class="modal-header">
           <h3>Gán vào danh mục lớn</h3>
@@ -173,7 +173,7 @@
     </div>
 
     <!-- Modal xác nhận Gỡ khỏi danh mục lớn -->
-    <div v-if="showDetachModal" class="modal-overlay" @click.self="showDetachModal = false">
+    <div v-if="showDetachModal" class="modal-overlay">
       <div class="modal-container modal-sm">
         <div class="modal-header">
           <h3>Xác nhận gỡ</h3>
@@ -196,7 +196,7 @@
     </div>
 
     <!-- Delete Modal -->
-    <div v-if="showDeleteModal" class="modal-overlay" @click.self="showDeleteModal = false">
+    <div v-if="showDeleteModal" class="modal-overlay">
       <div class="modal-container modal-sm">
         <div class="modal-header">
           <h3>Xác nhận xóa</h3>

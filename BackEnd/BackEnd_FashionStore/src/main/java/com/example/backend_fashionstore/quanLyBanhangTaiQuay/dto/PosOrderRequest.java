@@ -12,6 +12,7 @@ public class PosOrderRequest {
     private String posOrderCustomerPhone;  // Khách vãng lai
     private String posOrderType;           // AT_COUNTER, TAKEAWAY, DELIVERY
     private BigDecimal posOrderDiscountAmount;
+    private String voucherCode;
     private BigDecimal posOrderTaxAmount;
     private String posOrderNotes;
     private List<PosOrderItemRequest> items;

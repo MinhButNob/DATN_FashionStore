@@ -38,12 +38,13 @@ public class ProductImageController {
     }
 
     @PostMapping
-    public ResponseEntity<ProductImageDto.ProductImageResponse> createImage(@ModelAttribute ProductImageDto.ProductImageRequest request) {
+    public ResponseEntity<?> createImage(@ModelAttribute ProductImageDto.ProductImageRequest request) {
         try {
             ProductImageDto.ProductImageResponse response = productImageService.createImage(request);
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().build();
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
         }
     }
 

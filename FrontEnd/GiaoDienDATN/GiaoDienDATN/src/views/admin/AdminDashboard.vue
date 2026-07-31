@@ -229,7 +229,7 @@
     </template>
 
     <!-- ===== ORDER DETAIL MODAL ===== -->
-    <div v-if="showDetailModal" class="modal-overlay" @click.self="closeDetailModal">
+    <div v-if="showDetailModal" class="modal-overlay">
       <div class="modal-container modal-lg">
         <div class="modal-header">
           <h3>Chi tiết đơn hàng #{{ selectedOrder?.orderCode || selectedOrder?.orderId }}</h3>

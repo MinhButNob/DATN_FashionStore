@@ -1,7 +1,7 @@
 <template>
   <Teleport to="body">
     <Transition name="popup">
-      <div v-if="visible" class="cart-popup-overlay" @click.self="close">
+      <div v-if="visible" class="cart-popup-overlay">
         <div class="cart-popup">
           <div class="popup-header">
             <div class="success-icon">

@@ -1,6 +1,6 @@
 CusModal
 <template>
-  <div v-if="visible" class="modal-overlay" @click.self="close">
+  <div v-if="visible" class="modal-overlay">
     <div class="modal-container">
       <div class="modal-header">
         <h3>{{ isEdit ? 'Cập nhật trạng thái khách hàng' : 'Thêm khách hàng mới' }}</h3>

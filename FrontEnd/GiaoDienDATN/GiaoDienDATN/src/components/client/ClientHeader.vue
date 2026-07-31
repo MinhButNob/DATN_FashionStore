@@ -105,7 +105,7 @@ const wishlistCount = ref(0);
 const menuItemsBefore = [
   { path: "/home", name: "Trang chủ", icon: "fas fa-home" },
   { path: "/shop", name: "Sản phẩm", icon: "fas fa-store" },
-  { path: "/shop?categoryName=" + encodeURIComponent("Khuyến Mãi"), name: "Khuyến mãi", icon: "fas fa-tags" },
+  { path: "/shop?tag=sale", name: "Khuyến mãi", icon: "fas fa-tags" },
 ];
 const menuItemsAfter = [
   { path: "/about", name: "Về chúng tôi", icon: "fas fa-info-circle" },

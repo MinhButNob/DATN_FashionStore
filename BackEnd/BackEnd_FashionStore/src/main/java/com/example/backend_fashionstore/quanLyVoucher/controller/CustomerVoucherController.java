@@ -77,4 +77,20 @@ public class CustomerVoucherController {
             return ResponseEntity.status(500).body(ApiResponse.error("Không thể kiểm tra mã giảm giá"));
         }
     }
+
+    /**
+     * Lấy chi tiết voucher theo mã
+     */
+    @GetMapping("/code/{voucherCode}")
+    public ResponseEntity<ApiResponse<VoucherDTO>> getVoucherByCode(@PathVariable String voucherCode) {
+        log.info("🔍 Getting voucher details for code: {}", voucherCode);
+
+        try {
+            VoucherDTO voucher = customerVoucherService.getVoucherByCode(voucherCode);
+            return ResponseEntity.ok(ApiResponse.success(voucher));
+        } catch (Exception e) {
+            log.error("❌ Error getting voucher: {}", e.getMessage());
+            return ResponseEntity.status(404).body(ApiResponse.error(e.getMessage()));
+        }
+    }
 }

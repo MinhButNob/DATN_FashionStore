@@ -287,6 +287,46 @@ public class CartService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
+    // ✅ Re-validate voucher dynamically
+    private void revalidateVoucher(Cart cart, BigDecimal subtotal) {
+        Voucher voucher = cart.getVoucher();
+        if (voucher == null) {
+            cart.setVoucherDiscount(BigDecimal.ZERO);
+            return;
+        }
+
+        // Kiểm tra điều kiện tối thiểu và trạng thái hợp lệ
+        LocalDateTime now = LocalDateTime.now();
+        boolean isValid = "ACTIVE".equals(voucher.getVoucherStatus()) &&
+                voucher.getVoucherDeletedAt() == null &&
+                now.isAfter(voucher.getVoucherStartDate()) &&
+                now.isBefore(voucher.getVoucherEndDate()) &&
+                (voucher.getVoucherMaxUsage() == null ||
+                        voucher.getVoucherUsedCount() < voucher.getVoucherMaxUsage());
+
+        if (!isValid || (voucher.getVoucherMinOrderValue() != null && subtotal.compareTo(voucher.getVoucherMinOrderValue()) < 0)) {
+            cart.setVoucher(null);
+            cart.setVoucherDiscount(BigDecimal.ZERO);
+            cartRepository.save(cart);
+            return;
+        }
+
+        // Tính lại discount
+        BigDecimal voucherDiscount = BigDecimal.ZERO;
+        if (voucher.getVoucherDiscountAmount() != null && voucher.getVoucherDiscountAmount().compareTo(BigDecimal.ZERO) > 0) {
+            voucherDiscount = voucher.getVoucherDiscountAmount().min(subtotal);
+        } else if (voucher.getVoucherDiscountPercent() != null && voucher.getVoucherDiscountPercent().compareTo(BigDecimal.ZERO) > 0) {
+            voucherDiscount = subtotal.multiply(voucher.getVoucherDiscountPercent())
+                    .divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP);
+            if (voucher.getVoucherDiscountAmount() != null && voucher.getVoucherDiscountAmount().compareTo(BigDecimal.ZERO) > 0) {
+                voucherDiscount = voucherDiscount.min(voucher.getVoucherDiscountAmount());
+            }
+        }
+
+        cart.setVoucherDiscount(voucherDiscount);
+        cartRepository.save(cart);
+    }
+
     private CartResponseDTO convertToResponse(Cart cart) {
         BigDecimal subtotal = cart.getCartItems().stream()
                 .map(item -> {
@@ -295,6 +335,9 @@ public class CartService {
                     return price.multiply(BigDecimal.valueOf(item.getQuantity()));
                 })
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        // ✅ Chạy lại kiểm tra voucher mỗi khi giỏ hàng thay đổi
+        revalidateVoucher(cart, subtotal);
 
         int totalQuantity = cart.getCartItems().stream()
                 .mapToInt(CartItem::getQuantity)
@@ -306,6 +349,7 @@ public class CartService {
 
         // Tính tổng sau khi trừ voucher
         BigDecimal total = subtotal.subtract(voucherDiscount).add(DEFAULT_SHIPPING_FEE);
+        if (total.compareTo(BigDecimal.ZERO) < 0) total = BigDecimal.ZERO;
 
         return CartResponseDTO.builder()
                 .cartId(cart.getCartId())

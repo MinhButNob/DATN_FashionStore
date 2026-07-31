@@ -504,12 +504,7 @@ const saveProfileInfo = async () => {
       ward: ward?.name || editForm.ward
     }
 
-    const response = await api.put(`/customers/profile`, payload, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    })
+    const response = await api.put(`/customers/profile`, payload)
 
     const data = response.data
     profile.fullName = data.fullName || data.customerName || editForm.fullName

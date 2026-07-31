@@ -1,7 +1,7 @@
 <template>
   <Teleport to="body">
     <Transition name="modal">
-      <div v-if="isOpen" class="auth-modal" @click.self="closeModal">
+      <div v-if="isOpen" class="auth-modal">
         <div class="auth-container">
           <button class="close-btn" @click="closeModal">
             <i class="fas fa-times"></i>
@@ -113,7 +113,9 @@
                   v-model="registerForm.name"
                   placeholder="Họ và tên"
                   required
+                  @input="errors.name = ''"
                 />
+                <span v-if="errors.name" class="error-text">{{ errors.name }}</span>
               </div>
 
               <div class="form-group">
@@ -123,7 +125,9 @@
                   v-model="registerForm.email"
                   placeholder="Email"
                   required
+                  @input="errors.email = ''"
                 />
+                <span v-if="errors.email" class="error-text">{{ errors.email }}</span>
               </div>
 
               <div class="form-group">
@@ -133,7 +137,9 @@
                   v-model="registerForm.phone"
                   placeholder="Số điện thoại"
                   required
+                  @input="errors.phone = ''"
                 />
+                <span v-if="errors.phone" class="error-text">{{ errors.phone }}</span>
               </div>
 
               <div class="form-group">
@@ -143,12 +149,14 @@
                   v-model="registerForm.password"
                   placeholder="Mật khẩu"
                   required
+                  @input="errors.password = ''"
                 />
                 <i
                   class="fas fa-eye toggle-password"
                   :class="{ 'fa-eye-slash': showRegisterPassword }"
                   @click="toggleRegisterPassword"
                 ></i>
+                <span v-if="errors.password" class="error-text">{{ errors.password }}</span>
               </div>
 
               <div class="form-group">
@@ -220,7 +228,7 @@
       <div
         v-if="showForgotModal"
         class="auth-modal"
-        @click.self="closeForgotModal"
+       
       >
         <div class="auth-container forgot-container">
           <button class="close-btn" @click="closeForgotModal">
@@ -417,6 +425,13 @@ const registerForm = ref({
   confirmPassword: "",
   agreeTerms: false });
 
+const errors = ref({
+  name: "",
+  email: "",
+  phone: "",
+  password: ""
+});
+
 // Computed
 const isResetFormValid = computed(() => {
   return resetForm.value.otp.length === 6 &&
@@ -429,24 +444,52 @@ const isResetFormValid = computed(() => {
 // ===== GIỮ NGUYÊN CÁC HÀM HIỆN CÓ =====
 const handleRegister = async () => {
   const form = registerForm.value;
+  errors.value = { name: "", email: "", phone: "", password: "" };
 
-  if (!form.name || !form.email || !form.password) {
-    showNotification("Vui lòng nhập đầy đủ thông tin", "error");
-    return;
+  let hasError = false;
+
+  if (!form.name.trim()) {
+    errors.value.name = "Họ và tên không được để trống";
+    hasError = true;
+  } else if (form.name.trim().length < 2) {
+    errors.value.name = "Họ và tên phải có ít nhất 2 ký tự";
+    hasError = true;
   }
 
-  if (form.password.length < 6) {
-    showNotification("Mật khẩu phải ít nhất 6 ký tự", "error");
-    return;
+  if (!form.email.trim()) {
+    errors.value.email = "Email không được để trống";
+    hasError = true;
+  } else if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(form.email.trim())) {
+    errors.value.email = "Email không đúng định dạng";
+    hasError = true;
   }
 
-  if (form.password !== form.confirmPassword) {
-    showNotification("Mật khẩu xác nhận không khớp", "error");
-    return;
+  if (!form.phone.trim()) {
+    errors.value.phone = "Số điện thoại không được để trống";
+    hasError = true;
+  } else if (!/^0[0-9]{9}$/.test(form.phone.trim())) {
+    errors.value.phone = "Số điện thoại không hợp lệ (phải gồm 10 số và bắt đầu bằng 0)";
+    hasError = true;
+  }
+
+  if (!form.password) {
+    errors.value.password = "Mật khẩu không được để trống";
+    hasError = true;
+  } else if (form.password.length < 6) {
+    errors.value.password = "Mật khẩu phải ít nhất 6 ký tự";
+    hasError = true;
+  } else if (form.password !== form.confirmPassword) {
+    errors.value.password = "Mật khẩu xác nhận không khớp";
+    hasError = true;
   }
 
   if (!form.agreeTerms) {
     showNotification("Vui lòng đồng ý điều khoản", "error");
+    hasError = true;
+  }
+
+  if (hasError) {
+    showNotification("Vui lòng kiểm tra lại các thông tin nhập vào", "error");
     return;
   }
 
@@ -456,25 +499,27 @@ const handleRegister = async () => {
     await authStore.register({
       name: form.name,
       email: form.email,
+      phone: form.phone,
       password: form.password });
 
     showNotification("Đăng ký thành công!", "success");
 
-    registerForm.value = {
-      name: "",
-      email: "",
-      phone: "",
-      password: "",
-      confirmPassword: "",
-      agreeTerms: false };
-
+    resetForms();
     activeTab.value = "login";
   } catch (error) {
-    const message =
-      error?.response?.data?.message ||
-      "Email đã tồn tại hoặc đăng ký thất bại";
-
-    showNotification(message, "error");
+    const data = error?.response?.data;
+    if (data?.errors && Object.keys(data.errors).length > 0) {
+      if (data.errors.name) errors.value.name = data.errors.name;
+      if (data.errors.email) errors.value.email = data.errors.email;
+      if (data.errors.phone) errors.value.phone = data.errors.phone;
+      if (data.errors.password) errors.value.password = data.errors.password;
+      showNotification("Dữ liệu không hợp lệ, vui lòng sửa lại!", "error");
+    } else {
+      const message = data?.message || "Email đã tồn tại hoặc đăng ký thất bại";
+      if (message.includes('Số điện thoại')) errors.value.phone = message;
+      if (message.includes('Email') || message.includes('email')) errors.value.email = "Email đã được sử dụng bởi tài khoản khác";
+      showNotification(message, "error");
+    }
   } finally {
     loading.value = false;
   }
@@ -525,6 +570,7 @@ const resetForms = () => {
     password: "",
     confirmPassword: "",
     agreeTerms: false };
+  errors.value = { name: "", email: "", phone: "", password: "" };
 };
 
 const togglePassword = () => {
@@ -936,6 +982,14 @@ onUnmounted(() => {
 
 .toggle-password:hover {
   color: var(--primary-red);
+}
+
+.error-text {
+  color: #dc3545;
+  font-size: 13px;
+  margin-top: 5px;
+  display: block;
+  text-align: left;
 }
 
 /* Form Options */

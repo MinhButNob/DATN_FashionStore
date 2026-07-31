@@ -131,6 +131,12 @@ const goToDetail = () => {
 
 const addToCart = async (event) => {
   event.stopPropagation()
+
+  if (!authStore.isAuthenticated) {
+    window.dispatchEvent(new CustomEvent('open-auth-modal', { detail: 'login' }))
+    showNotification('Vui lòng đăng nhập để thêm vào giỏ hàng', 'info')
+    return
+  }
   
   const stock = props.product.totalStock || 0
   if (stock === 0) {

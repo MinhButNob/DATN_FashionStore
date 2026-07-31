@@ -87,6 +87,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/promotions/active/**").permitAll()
                         .requestMatchers("/api/banners/active/**").permitAll()
                         .requestMatchers("/api/reviews/product/**").permitAll()
+                        .requestMatchers("/api/reviews/product-all/**").permitAll()
                         .requestMatchers("/api/vouchers/available/**").permitAll()
 
                         // ===== CUSTOMER AUTHENTICATED =====
@@ -96,6 +97,10 @@ public class SecurityConfig {
                         .requestMatchers("/api/wishlist/**").authenticated()
                         .requestMatchers("/api/reviews/**").authenticated()
                         .requestMatchers("/api/chat/**").authenticated()
+
+                        // ===== ADMIN & STAFF SHARED ENDPOINTS =====
+                        .requestMatchers("/api/admin/orders/**").hasAnyRole("ADMIN", "STAFF")
+                        .requestMatchers("/api/admin/products/**").hasAnyRole("ADMIN", "STAFF")
 
                         // ===== ADMIN ENDPOINTS (Chỉ ADMIN) =====
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")

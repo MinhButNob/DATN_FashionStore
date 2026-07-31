@@ -74,7 +74,8 @@
                     placeholder="Nhập email của bạn"
                     required
                     :disabled="loading"
-                    @input="errors.email = ''"
+                    @input="validateEmail"
+                    @blur="validateEmail"
                   />
                 </div>
                 <span v-if="errors.email" class="error-text">{{ errors.email }}</span>
@@ -410,6 +411,8 @@ const validateFirstName = () => {
   const value = form.value.firstName.trim();
   if (!value) {
     errors.value.firstName = 'Họ không được để trống';
+  } else if (value.length < 2) {
+    errors.value.firstName = 'Họ phải có ít nhất 2 ký tự';
   } else if (/[^\p{L}\s]/u.test(value)) {
     errors.value.firstName = 'Họ không được chứa số hoặc ký tự đặc biệt';
   } else {
@@ -421,6 +424,8 @@ const validateLastName = () => {
   const value = form.value.lastName.trim();
   if (!value) {
     errors.value.lastName = 'Tên không được để trống';
+  } else if (value.length < 2) {
+    errors.value.lastName = 'Tên phải có ít nhất 2 ký tự';
   } else if (/[^\p{L}\s]/u.test(value)) {
     errors.value.lastName = 'Tên không được chứa số hoặc ký tự đặc biệt';
   } else {
@@ -428,12 +433,23 @@ const validateLastName = () => {
   }
 };
 
+const validateEmail = () => {
+  const value = form.value.email.trim();
+  if (!value) {
+    errors.value.email = 'Email không được để trống';
+  } else if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(value)) {
+    errors.value.email = 'Email không đúng định dạng';
+  } else {
+    errors.value.email = '';
+  }
+};
+
 const validatePhone = () => {
   const phoneVal = form.value.phone.trim();
   if (!phoneVal) {
     errors.value.phone = 'Vui lòng nhập số điện thoại';
-  } else if (!/^(0[3|5|7|8|9])+([0-9]{8})$/.test(phoneVal)) {
-    errors.value.phone = 'Số điện thoại không hợp lệ (VD: 0912345678)';
+  } else if (!/^0[0-9]{9}$/.test(phoneVal)) {
+    errors.value.phone = 'Số điện thoại không hợp lệ (phải gồm 10 số và bắt đầu bằng 0)';
   } else {
     errors.value.phone = '';
   }
@@ -453,6 +469,7 @@ const handleRegister = async () => {
   // Chạy toàn bộ validate trước khi submit
   validateFirstName();
   validateLastName();
+  validateEmail();
   validatePhone();
 
   if (
@@ -485,15 +502,37 @@ const handleRegister = async () => {
       router.push("/login");
     }, 2000);
   } catch (err) {
-    const errorMsg = err.response?.data?.message || err.message || "";
-    if (errorMsg.includes('Số điện thoại')) {
-      errors.value.phone = errorMsg;
+    const data = err.response?.data;
+    
+    // Nếu API trả về list errors theo từng trường (từ GlobalExceptionHandler)
+    if (data?.errors && Object.keys(data.errors).length > 0) {
+      if (data.errors.name) {
+        errors.value.firstName = data.errors.name; // Gán vào firstName để hiển thị dưới ô Họ
+      }
+      if (data.errors.email) {
+        errors.value.email = data.errors.email;
+      }
+      if (data.errors.phone) {
+        errors.value.phone = data.errors.phone;
+      }
+      if (data.errors.password) {
+        error.value = data.errors.password; // Mật khẩu không có span riêng nên hiện trên cùng
+      } else {
+        error.value = "Vui lòng kiểm tra lại thông tin nhập vào.";
+      }
+      showNotification("Dữ liệu không hợp lệ, vui lòng sửa lại!", "error");
+    } else {
+      // Logic cũ hoặc lỗi thông thường (VD: email đã tồn tại)
+      const errorMsg = data?.message || err.message || "";
+      if (errorMsg.includes('Số điện thoại')) {
+        errors.value.phone = errorMsg;
+      }
+      if (errorMsg.includes('Email') || errorMsg.includes('email')) {
+        errors.value.email = "Email đã được sử dụng bởi tài khoản khác";
+      }
+      error.value = errorMsg || "Đăng ký thất bại. Vui lòng thử lại.";
+      showNotification(error.value, "error");
     }
-    if (errorMsg.includes('Email') || errorMsg.includes('email')) {
-      errors.value.email = "Email đã được sử dụng bởi tài khoản khác";
-    }
-    error.value = errorMsg || "Đăng ký thất bại. Vui lòng thử lại.";
-    showNotification(error.value, "error");
   } finally {
     loading.value = false;
   }

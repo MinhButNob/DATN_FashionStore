@@ -1,6 +1,6 @@
 <!-- components/sale-staff/ReturnRequestDetailModal.vue -->
 <template>
-  <div v-if="visible" class="modal-overlay" @click.self="close">
+  <div v-if="visible" class="modal-overlay">
     <div class="modal-container modal-lg">
       <div class="modal-header">
         <h2>Chi tiết yêu cầu hoàn hàng</h2>
@@ -132,7 +132,7 @@
     </div>
 
     <!-- Image Viewer -->
-    <div v-if="showImageViewer" class="modal-overlay" @click.self="closeImageViewer">
+    <div v-if="showImageViewer" class="modal-overlay">
       <div class="image-viewer-container">
         <img :src="viewingImage" alt="Return image" />
         <button class="close-btn" @click="closeImageViewer">✕</button>

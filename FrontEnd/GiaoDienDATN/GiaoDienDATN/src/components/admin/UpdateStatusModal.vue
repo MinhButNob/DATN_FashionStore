@@ -1,5 +1,5 @@
 <template>
-  <div v-if="visible" class="modal-overlay" @click.self="close">
+  <div v-if="visible" class="modal-overlay">
     <div class="modal-container">
       <div class="modal-header">
         <h3>Cập nhật trạng thái đơn hàng</h3>

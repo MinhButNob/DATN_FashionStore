@@ -181,7 +181,7 @@
     </div>
 
     <!-- Modal Thêm/Sửa Size -->
-    <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
+    <div v-if="showModal" class="modal-overlay">
       <div class="modal-content">
         <div class="modal-header">
           <h3>{{ isEditing ? "Cập nhật Size" : "Thêm Size mới" }}</h3>

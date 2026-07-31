@@ -6,6 +6,7 @@ import com.example.backend_fashionstore.config.VNPayConfig;
 import com.example.backend_fashionstore.exception.BusinessException;
 import com.example.backend_fashionstore.quanLyBanhangTaiQuay.dto.*;
 import com.example.backend_fashionstore.quanLyBanhangTaiQuay.repository.*;
+import com.example.backend_fashionstore.quanLyVoucher.repository.VoucherRepository;
 import com.example.backend_fashionstore.quanlyNhanVien.service.EmployeeService;
 import com.example.backend_fashionstore.security.SecurityUtils;
 import lombok.RequiredArgsConstructor;
@@ -37,6 +38,7 @@ public class PosService {
     private final ProductDetailRepository productDetailRepository;
     private final CashRegisterRepository cashRegisterRepository;
     private final EmployeeService employeeService;
+    private final VoucherRepository voucherRepository;
     // Tái sử dụng VNPayConfig từ luồng online — không tạo lại
     private final VNPayConfig vnPayConfig;
     private static final DateTimeFormatter INVOICE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
@@ -72,7 +74,49 @@ public class PosService {
 
         // Tính toán
         BigDecimal subtotal = calculateSubtotal(request.getItems());
-        BigDecimal discountAmount = request.getPosOrderDiscountAmount() != null ? request.getPosOrderDiscountAmount() : BigDecimal.ZERO;
+        
+        // Xác thực voucher
+        BigDecimal discountAmount = BigDecimal.ZERO;
+        if (request.getVoucherCode() != null && !request.getVoucherCode().trim().isEmpty()) {
+            Voucher voucher = voucherRepository.findActiveByVoucherCode(request.getVoucherCode())
+                    .orElseThrow(() -> new BusinessException("Mã giảm giá không tồn tại hoặc không còn hoạt động"));
+            
+            if (!"ACTIVE".equals(voucher.getVoucherStatus()) || voucher.getVoucherDeletedAt() != null) {
+                throw new BusinessException("Mã giảm giá đang bị tạm dừng hoặc đã bị xóa");
+            }
+            LocalDateTime now = LocalDateTime.now();
+            if (now.isBefore(voucher.getVoucherStartDate()) || now.isAfter(voucher.getVoucherEndDate())) {
+                throw new BusinessException("Mã giảm giá đã hết hạn hoặc chưa đến ngày sử dụng");
+            }
+            if (voucher.getVoucherMaxUsage() != null && voucher.getVoucherUsedCount() >= voucher.getVoucherMaxUsage()) {
+                throw new BusinessException("Mã giảm giá đã hết lượt sử dụng");
+            }
+            if (voucher.getVoucherMinOrderValue() != null && subtotal.compareTo(voucher.getVoucherMinOrderValue()) < 0) {
+                throw new BusinessException("Đơn hàng chưa đạt giá trị tối thiểu để áp dụng mã giảm giá này");
+            }
+            
+            if (voucher.getVoucherDiscountPercent() != null && voucher.getVoucherDiscountPercent().compareTo(BigDecimal.ZERO) > 0) {
+                discountAmount = subtotal.multiply(voucher.getVoucherDiscountPercent()).divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP);
+                if (voucher.getVoucherDiscountAmount() != null && voucher.getVoucherDiscountAmount().compareTo(BigDecimal.ZERO) > 0) {
+                    if (discountAmount.compareTo(voucher.getVoucherDiscountAmount()) > 0) {
+                        discountAmount = voucher.getVoucherDiscountAmount();
+                    }
+                }
+            } else if (voucher.getVoucherDiscountAmount() != null) {
+                discountAmount = voucher.getVoucherDiscountAmount();
+            }
+            
+            if (discountAmount.compareTo(subtotal) > 0) {
+                discountAmount = subtotal;
+            }
+            
+            // Tăng số lần sử dụng
+            voucher.setVoucherUsedCount(voucher.getVoucherUsedCount() + 1);
+            voucherRepository.save(voucher);
+        } else {
+            discountAmount = request.getPosOrderDiscountAmount() != null ? request.getPosOrderDiscountAmount() : BigDecimal.ZERO;
+        }
+
         BigDecimal taxAmount = request.getPosOrderTaxAmount() != null ? request.getPosOrderTaxAmount() : BigDecimal.ZERO;
         BigDecimal totalAmount = subtotal.subtract(discountAmount).add(taxAmount);
 

@@ -1,5 +1,5 @@
 <template>
-  <div class="modal-overlay" @click.self="$emit('close')">
+  <div class="modal-overlay">
     <div class="modal-content">
       <div class="modal-header">
         <h3>{{ isEdit ? 'Sửa nhân viên' : 'Thêm nhân viên' }}</h3>

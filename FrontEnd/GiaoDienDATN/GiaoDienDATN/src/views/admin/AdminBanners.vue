@@ -110,7 +110,7 @@
     </div>
 
     <!-- Modal Thêm/Sửa -->
-    <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
+    <div v-if="showModal" class="modal-overlay">
       <div class="modal-box">
         <div class="modal-header">
           <h3>{{ editingBanner ? '✏️ Sửa Banner' : '➕ Thêm Banner Mới' }}</h3>
