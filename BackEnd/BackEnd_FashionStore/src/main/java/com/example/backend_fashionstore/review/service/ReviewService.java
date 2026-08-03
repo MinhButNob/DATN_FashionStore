@@ -100,14 +100,20 @@ public class ReviewService {
                 });
     }
 
-    // ✅ Lấy tất cả review của một sản phẩm (gộp mọi biến thể màu/size)
-    public Page<ReviewResponseDTO> getProductReviewsByProductId(Integer productId, Pageable pageable) {
-        return reviewRepository.findApprovedByProductId(productId, pageable)
-                .map(review -> {
-                    ProductDetail pd = productDetailRepository.findById(review.getProductDetailId()).orElse(null);
-                    Customer customer = customerRepository.findById(review.getCustomerId()).orElse(null);
-                    return convertToResponse(review, pd, customer);
-                });
+    // ✅ Lấy tất cả review của một sản phẩm (gộp mọi biến thể màu/size) và lọc theo rating (nếu có)
+    public Page<ReviewResponseDTO> getProductReviewsByProductId(Integer productId, Integer rating, Pageable pageable) {
+        Page<Review> reviewsPage;
+        if (rating != null && rating > 0) {
+            reviewsPage = reviewRepository.findApprovedByProductIdAndRating(productId, rating, pageable);
+        } else {
+            reviewsPage = reviewRepository.findApprovedByProductId(productId, pageable);
+        }
+
+        return reviewsPage.map(review -> {
+            ProductDetail pd = productDetailRepository.findById(review.getProductDetailId()).orElse(null);
+            Customer customer = customerRepository.findById(review.getCustomerId()).orElse(null);
+            return convertToResponse(review, pd, customer);
+        });
     }
 
     // ✅ Lấy thống kê rating của một sản phẩm (gộp mọi biến thể màu/size)

@@ -197,6 +197,27 @@
               </div>
             </div>
 
+            <!-- ✅ LỌC THEO SỐ SAO -->
+            <div class="rating-filter">
+              <button 
+                class="filter-btn" 
+                :class="{ active: selectedRating === 0 }"
+                @click="filterByRating(0)"
+              >
+                Tất cả
+              </button>
+              <button 
+                v-for="star in 5" 
+                :key="star"
+                class="filter-btn" 
+                :class="{ active: selectedRating === (6 - star) }"
+                @click="filterByRating(6 - star)"
+              >
+                {{ 6 - star }} Sao
+                <i class="fas fa-star" style="color: #fadb14; margin-left: 4px;"></i>
+              </button>
+            </div>
+
             <!-- Loading reviews -->
             <div v-if="reviewsLoading" class="loading-reviews">
               <i class="fas fa-spinner fa-spin"></i>
@@ -255,15 +276,32 @@
                 </div>
               </div>
 
-              <!-- Load more -->
-              <div v-if="reviewsTotalPages > 1 && reviewsPage + 1 < reviewsTotalPages" class="load-more">
+              <!-- Phân trang đánh giá -->
+              <div v-if="reviewsTotalPages > 1" class="reviews-pagination">
                 <button 
-                  class="btn btn-outline" 
-                  @click="loadMoreReviews"
-                  :disabled="reviewsLoadingMore"
+                  class="page-btn" 
+                  :disabled="reviewsPage === 0"
+                  @click="prevPage"
                 >
-                  <i v-if="reviewsLoadingMore" class="fas fa-spinner fa-spin"></i>
-                  {{ reviewsLoadingMore ? 'Đang tải...' : 'Xem thêm đánh giá' }}
+                  <i class="fas fa-chevron-left"></i>
+                </button>
+                
+                <button 
+                  v-for="page in reviewsTotalPages" 
+                  :key="page"
+                  class="page-btn"
+                  :class="{ active: reviewsPage === page - 1 }"
+                  @click="goToPage(page - 1)"
+                >
+                  {{ page }}
+                </button>
+
+                <button 
+                  class="page-btn" 
+                  :disabled="reviewsPage === reviewsTotalPages - 1"
+                  @click="nextPage"
+                >
+                  <i class="fas fa-chevron-right"></i>
                 </button>
               </div>
             </div>
@@ -375,11 +413,12 @@ const lastAddedProduct = ref({})
 // ✅ State cho đánh giá
 const reviews = ref([])
 const reviewsLoading = ref(false)
-const reviewsLoadingMore = ref(false)
+const reviewsLoadingMore = ref(false) // Không còn dùng nhưng giữ lại để khỏi lỗi template nếu xót
 const reviewsPage = ref(0)
 const reviewsTotalPages = ref(0)
 const reviewsTotalElements = ref(0)
 const ratingStats = ref(null)
+const selectedRating = ref(0) // 0 = Tất cả
 
 // ✅ State cho image viewer
 const showImageViewer = ref(false)
@@ -655,39 +694,34 @@ const loadProductDetail = async () => {
 }
 
 // ✅ Load đánh giá sản phẩm - SỬA LẠI ĐÚNG API
-const loadReviews = async (productId, reset = true) => {
-  if (reset) {
-    reviewsPage.value = 0
-    reviews.value = []
-  }
-  
-  reviewsLoading.value = reset
-  reviewsLoadingMore.value = !reset
+const loadReviews = async (productId, page = 0) => {
+  reviewsPage.value = page
+  reviewsLoading.value = true
   
   try {
     if (!productId) {
       console.warn('Không tìm thấy productId')
       reviewsLoading.value = false
-      reviewsLoadingMore.value = false
       return
+    }
+
+    const params = {
+      page: reviewsPage.value,
+      size: 5
+    }
+    if (selectedRating.value > 0) {
+      params.rating = selectedRating.value
     }
 
     // ✅ Gọi API gộp theo productId (tất cả biến thể màu/size): /api/reviews/product-all/{productId}
     const response = await api.get(`/reviews/product-all/${productId}`, {
-      params: {
-        page: reviewsPage.value,
-        size: 5
-      }
+      params: params
     })
     
     console.log('✅ Reviews response:', response.data)
     
     if (response.data && response.data.content) {
-      if (reset) {
-        reviews.value = response.data.content || []
-      } else {
-        reviews.value = [...reviews.value, ...(response.data.content || [])]
-      }
+      reviews.value = response.data.content || []
       reviewsTotalPages.value = response.data.totalPages || 0
       reviewsTotalElements.value = response.data.totalElements || 0
     }
@@ -695,7 +729,14 @@ const loadReviews = async (productId, reset = true) => {
     console.error('❌ Lỗi tải đánh giá:', error)
   } finally {
     reviewsLoading.value = false
-    reviewsLoadingMore.value = false
+  }
+}
+
+// ✅ Hàm lọc theo số sao
+const filterByRating = (rating) => {
+  selectedRating.value = rating
+  if (product.value?.productId) {
+    loadReviews(product.value.productId, 0)
   }
 }
 
@@ -711,11 +752,22 @@ const loadRatingStats = async (productId) => {
   }
 }
 
-// ✅ Load more reviews
-const loadMoreReviews = () => {
-  if (reviewsPage.value + 1 < reviewsTotalPages.value) {
-    reviewsPage.value++
-    loadReviews(product.value?.productId, false)
+// ✅ Các hàm phân trang
+const goToPage = (page) => {
+  if (page >= 0 && page < reviewsTotalPages.value) {
+    loadReviews(product.value?.productId, page)
+  }
+}
+
+const prevPage = () => {
+  if (reviewsPage.value > 0) {
+    goToPage(reviewsPage.value - 1)
+  }
+}
+
+const nextPage = () => {
+  if (reviewsPage.value < reviewsTotalPages.value - 1) {
+    goToPage(reviewsPage.value + 1)
   }
 }
 
@@ -1787,5 +1839,72 @@ main {
     top: 10px;
     right: 10px;
   }
+}
+
+/* CSS cho Rating Filter và Pagination */
+.rating-filter {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.filter-btn {
+  padding: 8px 16px;
+  border: 1px solid #ddd;
+  background: white;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 14px;
+}
+
+.filter-btn:hover {
+  border-color: #2c3e50;
+  color: #2c3e50;
+}
+
+.filter-btn.active {
+  background: #2c3e50;
+  color: white;
+  border-color: #2c3e50;
+}
+
+.reviews-pagination {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 30px;
+}
+
+.page-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #ddd;
+  background: white;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.page-btn:hover:not(:disabled) {
+  border-color: #2c3e50;
+  color: #2c3e50;
+}
+
+.page-btn.active {
+  background: #2c3e50;
+  color: white;
+  border-color: #2c3e50;
+}
+
+.page-btn:disabled {
+  background: #f5f5f5;
+  color: #ccc;
+  cursor: not-allowed;
+  border-color: #eee;
 }
 </style>

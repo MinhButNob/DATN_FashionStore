@@ -77,11 +77,12 @@ public class ReviewController {
     @GetMapping("/product-all/{productId}")
     public ResponseEntity<Page<ReviewResponseDTO>> getAllReviewsByProduct(
             @PathVariable Integer productId,
+            @RequestParam(required = false) Integer rating,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-        Page<ReviewResponseDTO> reviews = reviewService.getProductReviewsByProductId(productId, pageable);
+        Page<ReviewResponseDTO> reviews = reviewService.getProductReviewsByProductId(productId, rating, pageable);
         return ResponseEntity.ok(reviews);
     }
 

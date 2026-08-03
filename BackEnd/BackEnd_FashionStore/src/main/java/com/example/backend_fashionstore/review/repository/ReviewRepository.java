@@ -62,6 +62,12 @@ public interface ReviewRepository extends JpaRepository<Review, Integer> {
             "ORDER BY r.createdAt DESC")
     Page<Review> findApprovedByProductId(@Param("productId") Integer productId, Pageable pageable);
 
+    @Query("SELECT r FROM Review r JOIN ProductDetail pd ON r.productDetailId = pd.productDetailId " +
+            "WHERE pd.product.productId = :productId AND r.rating = :rating AND r.reviewStatus = 'APPROVED' AND r.deletedAt IS NULL " +
+            "ORDER BY r.createdAt DESC")
+    Page<Review> findApprovedByProductIdAndRating(@Param("productId") Integer productId, @Param("rating") Integer rating, Pageable pageable);
+
+
     @Query("SELECT COALESCE(AVG(r.rating), 0) FROM Review r JOIN ProductDetail pd ON r.productDetailId = pd.productDetailId " +
             "WHERE pd.product.productId = :productId AND r.reviewStatus = 'APPROVED' AND r.deletedAt IS NULL")
     Double getAverageRatingByProductId(@Param("productId") Integer productId);
