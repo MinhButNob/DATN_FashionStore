@@ -193,6 +193,8 @@ const handleLogin = async () => {
       window.location.href = "/admin"; // Redirect to admin dashboard
     } else if (authStore.isStaff) {
       window.location.href = "/staff/pos"; // Redirect to staff POS
+    } else if (authStore.userRoles.includes('SALE_STAFF')) {
+      window.location.href = "/sale-staff"; // Redirect to sale staff
     } else {
       // Redirect to previous page or home
       const redirect = router.currentRoute.value.query.redirect || "/home";
@@ -226,6 +228,8 @@ const handleGoogleCallback = async (response) => {
       window.location.href = "/admin";
     } else if (authStore.isStaff) {
       window.location.href = "/staff/pos";
+    } else if (authStore.userRoles.includes('SALE_STAFF')) {
+      window.location.href = "/sale-staff";
     } else {
       const redirect = router.currentRoute.value.query.redirect || "/home";
       router.push(redirect);

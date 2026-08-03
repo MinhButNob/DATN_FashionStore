@@ -150,8 +150,8 @@ const handleLogin = async () => {
   try {
     await authStore.login(form.value.email, form.value.password);
 
-    // Check if user is admin or staff
-    if (!authStore.isAdmin && !authStore.isStaff) {
+    // Check if user is admin, staff or sale staff
+    if (!authStore.isAdmin && !authStore.isStaff && !authStore.userRoles.includes('SALE_STAFF')) {
       authStore.logout();
       throw new Error("Tài khoản không có quyền truy cập hệ thống");
     }
@@ -163,12 +163,15 @@ const handleLogin = async () => {
 
     showNotification("Đăng nhập thành công!", "success");
 
-    // Redirect to admin or staff dashboard
+    // Redirect to admin, staff or sale-staff dashboard
     if (authStore.isAdmin) {
       const redirect = router.currentRoute.value.query.redirect || "/admin";
       router.push(redirect);
-    } else {
+    } else if (authStore.isStaff) {
       const redirect = router.currentRoute.value.query.redirect || "/staff/pos";
+      router.push(redirect);
+    } else {
+      const redirect = router.currentRoute.value.query.redirect || "/sale-staff";
       router.push(redirect);
     }
   } catch (err) {

@@ -110,6 +110,19 @@ public class AdminOrderServiceImpl implements AdminOrderService {
             }
         }
 
+        if ("COMPLETED".equals(newStatus)) {
+            if (order.getPaymentStatus() != PaymentStatus.SUCCESS) {
+                order.setPaymentStatus(PaymentStatus.SUCCESS);
+                OrderHistory paymentHistory = new OrderHistory();
+                paymentHistory.setOrder(order);
+                paymentHistory.setOrderStatus(oldStatus); // keep current status for this history entry
+                paymentHistory.setNote("Hệ thống tự động cập nhật trạng thái thanh toán thành 'SUCCESS' do đơn hàng đã 'COMPLETED'");
+                paymentHistory.setTimestamp(LocalDateTime.now());
+                orderHistoryRepository.save(paymentHistory);
+                log.info("✅ Auto updated payment status to SUCCESS for order {} because it is COMPLETED", orderId);
+            }
+        }
+
         order.setOrderStatus(OrderStatus.valueOf(newStatus));
         order.setUpdatedAt(LocalDateTime.now());
 
