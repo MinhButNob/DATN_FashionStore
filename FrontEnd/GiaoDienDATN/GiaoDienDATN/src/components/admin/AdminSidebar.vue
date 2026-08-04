@@ -77,6 +77,12 @@ const menuSections = [
       },
       { name: "Cài đặt", path: "/admin/settings", icon: "fas fa-cog" },
     ] },
+    {
+  title: 'SUPPORT',
+  items: [
+    { name: 'Chat hỗ trợ', path: '/admin/chat', icon: 'fas fa-comments' },
+  ]
+}
 ]
 
 const isActive = (path) => {

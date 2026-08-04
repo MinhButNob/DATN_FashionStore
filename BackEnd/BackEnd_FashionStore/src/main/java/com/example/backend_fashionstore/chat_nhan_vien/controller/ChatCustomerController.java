@@ -1,5 +1,3 @@
-// ChatCustomerController.java
-// VỊ TRÍ: com/example/backend_fashionstore/chat_nhan_vien/controller/ChatCustomerController.java (THAY THẾ file cũ)
 package com.example.backend_fashionstore.chat_nhan_vien.controller;
 
 import com.example.backend_fashionstore.chat_nhan_vien.dto.ChatDTO;
@@ -26,6 +24,12 @@ public class ChatCustomerController {
 
     private final ChatNhanVienService chatService;
 
+    // ✅ THÊM ENDPOINT NÀY
+    @GetMapping("/types")
+    public ResponseEntity<List<Map<String, String>>> getChatTypes() {
+        return ResponseEntity.ok(chatService.getChatTypes());
+    }
+
     @PostMapping("/create")
     public ResponseEntity<?> createChat(@Valid @RequestBody ChatRequest request) {
         try {
@@ -49,8 +53,6 @@ public class ChatCustomerController {
         return ResponseEntity.ok(chatService.getMessagesByChat(chatId));
     }
 
-    // Không tự bắn WebSocket ở đây nữa - chatService.sendMessage() đã lo việc đó
-    // cho MỌI nơi gọi tới nó (customer, staff, admin controller), tránh sót.
     @PostMapping("/{chatId}/messages")
     public ResponseEntity<?> sendMessage(@PathVariable Long chatId,
                                          @Valid @RequestBody MessageRequest request,

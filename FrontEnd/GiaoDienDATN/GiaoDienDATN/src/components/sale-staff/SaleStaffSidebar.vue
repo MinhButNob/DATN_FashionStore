@@ -49,7 +49,13 @@ const menuSections = [
       { name: 'Quản lý khách hàng', path: '/sale-staff/customers', icon: 'fas fa-users' },
       { name: 'Quản lý tồn kho', path: '/sale-staff/stock', icon: 'fas fa-boxes' },
     ]
-  }
+  },
+  {
+  title: 'SUPPORT',
+  items: [
+    { name: 'Chat hỗ trợ', path: '/sale-staff/chat', icon: 'fas fa-comments' },
+  ]
+}
 ]
 
 const isActive = (path) => {

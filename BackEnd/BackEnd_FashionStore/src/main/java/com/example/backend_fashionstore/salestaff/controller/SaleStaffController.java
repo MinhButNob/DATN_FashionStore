@@ -3,7 +3,9 @@ package com.example.backend_fashionstore.salestaff.controller;
 import com.example.backend_fashionstore.QuanLyDonHang.dto.OrderStatisticsDTO;
 import com.example.backend_fashionstore.QuanLyDonHang.dto.request.ProcessReturnRequestDTO;
 import com.example.backend_fashionstore.QuanLyDonHang.dto.response.*;
+import com.example.backend_fashionstore.QuanLyDonHang.repository.OrderRepository;
 import com.example.backend_fashionstore.QuanLySanPham.dto.response.ApiResponse;
+import com.example.backend_fashionstore.entity.Order;
 import com.example.backend_fashionstore.entity.ProductDetail;
 import com.example.backend_fashionstore.quanLyKhachHang.dto.CustomerDTO;
 import com.example.backend_fashionstore.salestaff.dto.StockUpdateRequest;
@@ -33,6 +35,7 @@ import java.util.Map;
 public class SaleStaffController {
 
     private final SaleStaffService saleStaffService;
+    private final OrderRepository orderRepository;
 
     // =============================================
     // QUẢN LÝ ĐƠN HÀNG (FULL CHỨC NĂNG)
@@ -293,4 +296,22 @@ public class SaleStaffController {
         CustomerDTO customer = saleStaffService.getCustomerById(id);
         return ResponseEntity.ok(ApiResponse.success(customer));
     }
+
+    @GetMapping("/orders/{orderId}/confirmation-status")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getConfirmationStatus(
+            @PathVariable Long orderId
+    ) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng"));
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("isConfirmed", order.getProcessedBy() != null);
+        response.put("processedBy", order.getProcessedBy());
+        response.put("processedByRole", order.getProcessedByRole());
+        response.put("processedAt", order.getProcessedAt());
+        response.put("orderStatus", order.getOrderStatus().toString());
+
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
 }
+
