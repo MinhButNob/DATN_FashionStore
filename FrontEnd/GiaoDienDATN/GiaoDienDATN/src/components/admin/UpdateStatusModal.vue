@@ -1,3 +1,4 @@
+<!-- components/admin/UpdateStatusModal.vue - Full file đã sửa -->
 <template>
   <div v-if="visible" class="modal-overlay">
     <div class="modal-container">
@@ -7,7 +8,29 @@
       </div>
 
       <div class="modal-body">
-        <!-- Thông tin đơn hàng -->
+        <!-- ✅ Hiển thị thông tin người xác nhận -->
+        <div v-if="order?.processedBy" class="processed-warning" :class="{ 'is-other': isConfirmedByOther }">
+          <div class="warning-header">
+            <i class="fas fa-check-circle" :class="{ 'text-success': !isConfirmedByOther, 'text-warning': isConfirmedByOther }"></i>
+            <span>{{ isConfirmedByOther ? '⚠️ Đơn hàng đã được xác nhận bởi người khác' : '✅ Đơn hàng đã được xác nhận' }}</span>
+          </div>
+          <div class="warning-body">
+            <p><strong>Người xác nhận:</strong> {{ order.processedBy }}</p>
+            <p><strong>Email:</strong> {{ order.processedByEmail || 'N/A' }}</p>
+            <p><strong>Vai trò:</strong> {{ order.processedByRole || 'N/A' }}</p>
+            <p><strong>Thời gian:</strong> {{ formatDate(order.processedAt) }}</p>
+            <p v-if="isConfirmedByOther" class="warning-text">
+              <i class="fas fa-exclamation-triangle"></i>
+              Đơn hàng này đã được xác nhận bởi <strong>{{ order.processedBy }}</strong> ({{ order.processedByEmail }}).
+              Bạn không thể cập nhật trạng thái đơn hàng này.
+            </p>
+            <p v-else class="info-text">
+              <i class="fas fa-info-circle"></i>
+              Bạn là người đã xác nhận đơn hàng này. Bạn có thể tiếp tục cập nhật các trạng thái tiếp theo.
+            </p>
+          </div>
+        </div>
+
         <div class="order-info">
           <p><strong>Mã đơn hàng:</strong> #{{ order?.orderCode || order?.orderId }}</p>
           <p><strong>Trạng thái hiện tại:</strong> 
@@ -17,10 +40,13 @@
           </p>
         </div>
 
-        <!-- Chọn trạng thái mới -->
         <div class="form-group">
           <label>Chọn trạng thái mới <span class="required">*</span></label>
-          <select v-model="selectedStatus" class="form-control">
+          <select 
+            v-model="selectedStatus" 
+            class="form-control"
+            :disabled="isConfirmedByOther || availableStatuses.length === 0"
+          >
             <option value="" disabled>-- Chọn trạng thái --</option>
             <option 
               v-for="status in availableStatuses" 
@@ -30,12 +56,14 @@
               {{ status.label }}
             </option>
           </select>
-          <small v-if="availableStatuses.length === 0" class="text-muted">
+          <small v-if="isConfirmedByOther" class="text-danger">
+            ⚠️ Đơn hàng đã được xác nhận bởi người khác, bạn không thể thay đổi trạng thái.
+          </small>
+          <small v-else-if="availableStatuses.length === 0" class="text-muted">
             Không thể cập nhật trạng thái này
           </small>
         </div>
 
-        <!-- Ghi chú -->
         <div class="form-group">
           <label>Ghi chú (tùy chọn)</label>
           <textarea 
@@ -43,7 +71,14 @@
             rows="3" 
             placeholder="Nhập ghi chú cho khách hàng..."
             class="form-control"
+            :disabled="isConfirmedByOther || availableStatuses.length === 0"
           ></textarea>
+        </div>
+
+        <!-- ✅ Thêm thông báo khi chọn DELIVERED -->
+        <div v-if="selectedStatus === 'DELIVERED'" class="info-message">
+          <i class="fas fa-info-circle"></i>
+          <span>Khi chuyển sang trạng thái <strong>Đã giao hàng</strong>, thanh toán sẽ tự động được cập nhật thành <strong>THÀNH CÔNG</strong>.</span>
         </div>
 
         <div v-if="error" class="error-message">
@@ -57,7 +92,7 @@
         <button 
           class="btn btn-primary" 
           @click="updateStatus" 
-          :disabled="loading || !selectedStatus"
+          :disabled="loading || !selectedStatus || isConfirmedByOther || availableStatuses.length === 0"
         >
           <i v-if="loading" class="fas fa-spinner fa-spin"></i>
           {{ loading ? 'Đang cập nhật...' : 'Cập nhật' }}
@@ -83,22 +118,63 @@ const error = ref('')
 const notes = ref('')
 const selectedStatus = ref('')
 
-// ✅ Các trạng thái Admin được phép chuyển tiếp
+// ===== ADMIN STATUS TRANSITIONS =====
 const ADMIN_STATUS_TRANSITIONS = {
   'PENDING_PAYMENT': ['CONFIRMED'],
   'CONFIRMED': ['PROCESSING'],
   'PROCESSING': ['SHIPPING'],
   'SHIPPING': ['DELIVERED'],
   'DELIVERED': ['COMPLETED'],
-  // 🆕 Thêm chuyển đổi cho trạng thái hoàn hàng
   'RETURN_APPROVED': ['RETURN_RECEIVED'],
-  'RETURN_RECEIVED': ['RETURNED']  // Từ Đã nhận hàng trả -> Đã hoàn trả
+  'RETURN_RECEIVED': ['RETURNED']
 }
 
-// ✅ Các trạng thái cuối (không thể cập nhật)
-const FINAL_STATUSES = ['CANCELLED', 'RETURNED', 'RETURN_REQUESTED', 'RETURN_PENDING', 'REJECTED']
+const FINAL_STATUSES = ['CANCELLED', 'RETURNED', 'RETURN_REQUESTED', 'RETURN_PENDING', 'REJECTED', 'COMPLETED']
 
-// ✅ Lấy danh sách trạng thái có thể chọn
+// ✅ Lấy username và email người dùng hiện tại
+const getCurrentUser = () => {
+  return localStorage.getItem('username') || 
+         localStorage.getItem('userName') || 
+         ''
+}
+
+const getCurrentUserEmail = () => {
+  return localStorage.getItem('userEmail') || 
+         localStorage.getItem('email') || 
+         ''
+}
+
+// ✅ Kiểm tra xem đơn hàng đã được xác nhận bởi người khác chưa
+const isConfirmedByOther = computed(() => {
+  if (!props.order || !props.order.processedBy) {
+    return false
+  }
+  
+  const currentUser = getCurrentUser()
+  const currentEmail = getCurrentUserEmail()
+  const status = props.order.orderStatus
+  
+  // ✅ Chỉ chặn khi đơn hàng ở trạng thái CONFIRMED hoặc PROCESSING
+  if (status !== 'CONFIRMED' && status !== 'PROCESSING') {
+    return false
+  }
+  
+  // 🔥 QUAN TRỌNG: So sánh KHÔNG phân biệt chữ hoa/thường
+  const processedByLower = (props.order.processedBy || '').toLowerCase().trim()
+  const processedByEmailLower = (props.order.processedByEmail || '').toLowerCase().trim()
+  const currentUserLower = (currentUser || '').toLowerCase().trim()
+  const currentEmailLower = (currentEmail || '').toLowerCase().trim()
+  
+  // Kiểm tra xem có phải cùng người không
+  const isSameUser = processedByLower === currentUserLower || 
+                     processedByEmailLower === currentEmailLower ||
+                     processedByLower === currentEmailLower ||
+                     processedByEmailLower === currentUserLower
+  
+  // Nếu không cùng người -> là người khác
+  return !isSameUser
+})
+
 const availableStatuses = computed(() => {
   if (!props.order || !props.order.orderStatus) {
     return []
@@ -106,30 +182,25 @@ const availableStatuses = computed(() => {
   
   const currentStatus = props.order.orderStatus
   
-  // Nếu là trạng thái cuối, không hiển thị gì
   if (FINAL_STATUSES.includes(currentStatus)) {
     return []
   }
   
-  // Nếu đang ở DELIVERED, cho phép chuyển sang COMPLETED
+  // Nếu đã được xác nhận bởi người khác, không cho phép chọn
+  if (isConfirmedByOther.value) {
+    return []
+  }
+  
   if (currentStatus === 'DELIVERED') {
-    return [
-      { value: 'COMPLETED', label: 'Hoàn thành' }
-    ]
+    return [{ value: 'COMPLETED', label: 'Hoàn thành' }]
   }
   
-  // Nếu đang ở RETURN_APPROVED, cho phép chuyển sang RETURN_RECEIVED
   if (currentStatus === 'RETURN_APPROVED') {
-    return [
-      { value: 'RETURN_RECEIVED', label: 'Đã nhận hàng trả' }
-    ]
+    return [{ value: 'RETURN_RECEIVED', label: 'Đã nhận hàng trả' }]
   }
   
-  // Nếu đang ở RETURN_RECEIVED, cho phép chuyển sang RETURNED
   if (currentStatus === 'RETURN_RECEIVED') {
-    return [
-      { value: 'RETURNED', label: 'Đã hoàn trả' }
-    ]
+    return [{ value: 'RETURNED', label: 'Đã hoàn trả' }]
   }
   
   const allowed = ADMIN_STATUS_TRANSITIONS[currentStatus] || []
@@ -154,7 +225,7 @@ const getStatusText = (status) => {
     'RETURN_RECEIVED': 'Đã nhận hàng trả',
     'RETURN_PENDING': 'Đang thu hồi hàng',
     'RETURNED': 'Đã hoàn trả',
-    'REJECTED': 'Đã từ chối hoàn trả'  // ✅ Thêm
+    'REJECTED': 'Đã từ chối hoàn trả'
   }
   return map[status] || status
 }
@@ -173,9 +244,17 @@ const getStatusClass = (status) => {
     'RETURN_RECEIVED': 'status-return-received',
     'RETURN_PENDING': 'status-return-pending',
     'RETURNED': 'status-returned',
-    'REJECTED': 'status-rejected'  // ✅ Thêm
+    'REJECTED': 'status-rejected'
   }
   return map[status] || ''
+}
+
+const formatDate = (dateString) => {
+  if (!dateString) return '---'
+  const date = new Date(dateString)
+  if (isNaN(date.getTime())) return '---'
+  return date.toLocaleDateString('vi-VN') + ' ' + 
+         date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
 }
 
 const close = () => {
@@ -234,7 +313,6 @@ const updateStatus = async () => {
   }
 }
 
-// Reset khi modal mở
 watch(() => props.visible, (newVal) => {
   if (newVal && props.order) {
     selectedStatus.value = ''
@@ -350,6 +428,24 @@ watch(() => props.visible, (newVal) => {
 textarea.form-control {
   resize: vertical;
   min-height: 80px;
+}
+
+/* ✅ Style cho info-message */
+.info-message {
+  padding: 12px 16px;
+  background: #e3f2fd;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #0d47a1;
+  font-size: 14px;
+  margin-bottom: 16px;
+  border-left: 4px solid #1976d2;
+}
+
+.info-message i {
+  font-size: 18px;
 }
 
 .text-muted {
@@ -474,5 +570,82 @@ textarea.form-control {
 .status-badge.status-rejected {
   background: #f8d7da;
   color: #721c24;
+}
+
+.processed-warning {
+  background: #f0fff4;
+  border: 1px solid #c6e6d2;
+  border-radius: 10px;
+  padding: 15px;
+  margin-bottom: 16px;
+}
+
+.processed-warning.is-other {
+  background: #fff8e1;
+  border-color: #ffd54f;
+}
+
+.warning-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  font-size: 15px;
+}
+
+.warning-header .text-success {
+  color: #2e7d32;
+}
+
+.warning-header .text-warning {
+  color: #e65100;
+}
+
+.warning-body p {
+  margin: 4px 0;
+  font-size: 14px;
+  color: #333;
+}
+
+.warning-text {
+  color: #c62828;
+  background: #ffebee;
+  padding: 8px 12px;
+  border-radius: 6px;
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+  font-size: 13px;
+}
+
+.info-text {
+  color: #0d47a1;
+  background: #e3f2fd;
+  padding: 8px 12px;
+  border-radius: 6px;
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+  font-size: 13px;
+}
+
+.text-danger {
+  color: #dc3545;
+  font-weight: 500;
+  font-size: 13px;
+  display: block;
+  margin-top: 6px;
+}
+
+.text-muted {
+  color: #999;
+  font-size: 13px;
+  display: block;
+  margin-top: 6px;
 }
 </style>

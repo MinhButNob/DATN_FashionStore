@@ -1,3 +1,4 @@
+<!-- views/admin/AdminOrders.vue -->
 <template>
   <div class="admin-orders">
     <div class="admin-header">
@@ -265,6 +266,7 @@
             <th>Ngày đặt</th>
             <th>Trạng thái</th>
             <th>Thanh toán</th>
+            <th>Xác nhận bởi</th>
             <th>Thao tác</th>
           </tr>
         </thead>
@@ -279,7 +281,6 @@
               </div>
             </td>
             <td>
-              <!-- ✅ SỬA: Ưu tiên lấy số điện thoại từ shippingAddress -->
               <span class="phone-number">{{ order.shippingAddress?.phone || order.customer?.phone || '---' }}</span>
             </td>
             <td>
@@ -303,13 +304,23 @@
               </span>
             </td>
             <td>
+              <div v-if="order.processedBy" class="processed-by-cell">
+                <span class="processed-name">{{ order.processedBy }}</span>
+                <span class="processed-email">{{ order.processedByEmail || '' }}</span>
+                <span class="processed-role">{{ order.processedByRole || '' }}</span>
+                <span class="processed-time">{{ formatDate(order.processedAt) }}</span>
+              </div>
+              <span v-else class="not-processed">---</span>
+            </td>
+            <td>
               <div class="action-buttons">
+                <!-- ✅ Nút cập nhật trạng thái - CHỈ HIỂN THỊ nếu là người xác nhận hoặc đơn chưa được xác nhận -->
                 <button 
-                  v-if="activeMainTab === 'orders'"
+                  v-if="activeMainTab === 'orders' && shouldShowUpdateButton(order)"
                   class="action-btn update-status-btn" 
                   @click="openUpdateStatusModal(order)"
-                  :disabled="updatingOrderIds.has(order.orderId) || !canUpdateStatus(order.orderStatus)"
-                  title="Cập nhật trạng thái"
+                  :disabled="updatingOrderIds.has(order.orderId) || !canUpdateStatus(order)"
+                  :title="getUpdateStatusTooltip(order)"
                 >
                   <i class="fas fa-edit"></i>
                 </button>
@@ -356,7 +367,7 @@
             </td>
           </tr>
           <tr v-if="orders.length === 0 && !loading">
-            <td colspan="9" class="no-data">
+            <td colspan="10" class="no-data">
               <i class="fas fa-box-open"></i>
               <p>Không tìm thấy đơn hàng nào</p>
             </td>
@@ -397,6 +408,19 @@
               <p><strong>Ngày đặt:</strong> {{ formatDate(selectedOrder?.orderDate) }}</p>
               <p><strong>Trạng thái:</strong> {{ getStatusText(selectedOrder?.orderStatus) }}</p>
               <p><strong>Thanh toán:</strong> {{ getPaymentStatusText(selectedOrder?.paymentStatus) }}</p>
+              
+              <div v-if="selectedOrder?.processedBy" class="processed-info">
+                <p class="processed-label">
+                  <i class="fas fa-check-circle" style="color: #28a745;"></i>
+                  <strong>Đã xác nhận bởi:</strong>
+                </p>
+                <div class="processed-detail">
+                  <div><strong>Tên:</strong> {{ selectedOrder.processedBy }}</div>
+                  <div><strong>Email:</strong> {{ selectedOrder.processedByEmail || 'N/A' }}</div>
+                  <div><strong>Vai trò:</strong> {{ selectedOrder.processedByRole || 'N/A' }}</div>
+                  <div><strong>Thời gian:</strong> {{ formatDate(selectedOrder.processedAt) }}</div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -881,6 +905,8 @@
   </div>
 </template>
 
+<!-- views/admin/AdminOrders.vue - Phần script đã sửa hoàn chỉnh -->
+<!-- views/admin/AdminOrders.vue - Phần script đã sửa hoàn chỉnh -->
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { adminOrderService } from '../../services/adminOrderService'
@@ -975,7 +1001,7 @@ let toastTimer = null
 
 // ===== CONSTANTS =====
 const IMAGE_BASE = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "").replace(/\/api$/, "");
-const ADMIN_CANNOT_UPDATE = ['CANCELLED', 'RETURNED', 'RETURN_REQUESTED', 'RETURN_PENDING']
+const ADMIN_CANNOT_UPDATE = ['CANCELLED', 'RETURNED', 'RETURN_REQUESTED', 'RETURN_PENDING', 'REJECTED', 'COMPLETED']
 
 // ===== HELPER FUNCTIONS =====
 const formatPrice = (price) => {
@@ -1052,7 +1078,8 @@ const getStatusText = (status) => {
     'REJECTED': 'Từ chối hoàn trả',
     'PENDING': 'Chờ duyệt',
     'APPROVED': 'Đã duyệt',
-    'RECEIVED': 'Đã nhận hàng' }
+    'RECEIVED': 'Đã nhận hàng' 
+  }
   return map[status] || status
 }
 
@@ -1070,14 +1097,20 @@ const getStatusClass = (status) => {
     'RETURN_RECEIVED': 'status-return-received',
     'RETURN_PENDING': 'status-return-pending',
     'RETURNED': 'status-returned',
-    'REJECTED': 'status-rejected' }
+    'REJECTED': 'status-rejected' 
+  }
   return map[status] || ''
 }
 
 const getPaymentStatusText = (status) => {
   const map = {
     'PAID': 'Đã thanh toán',
-    'UNPAID': 'Chưa thanh toán'
+    'UNPAID': 'Chưa thanh toán',
+    'SUCCESS': 'Đã thanh toán',
+    'PENDING': 'Chờ thanh toán',
+    'FAILED': 'Thanh toán thất bại',
+    'CANCELLED': 'Đã hủy thanh toán',
+    'REFUNDED': 'Đã hoàn tiền'
   }
   return map[status] || status
 }
@@ -1085,9 +1118,154 @@ const getPaymentStatusText = (status) => {
 const getPaymentClass = (status) => {
   const map = {
     'PAID': 'payment-paid',
-    'UNPAID': 'payment-unpaid'
+    'UNPAID': 'payment-unpaid',
+    'SUCCESS': 'payment-paid',
+    'PENDING': 'payment-pending',
+    'FAILED': 'payment-failed',
+    'CANCELLED': 'payment-cancelled',
+    'REFUNDED': 'payment-refunded'
   }
   return map[status] || ''
+}
+
+// ✅ Lấy thông tin người dùng hiện tại
+const getCurrentUser = () => {
+  return localStorage.getItem('username') || 
+         localStorage.getItem('userName') || 
+         ''
+}
+
+const getCurrentUserEmail = () => {
+  return localStorage.getItem('userEmail') || 
+         localStorage.getItem('email') || 
+         ''
+}
+
+// ✅ Kiểm tra xem đơn hàng đã được xác nhận bởi người khác chưa - SO SÁNH CẢ USERNAME VÀ EMAIL
+const isOrderConfirmedByOther = (order) => {
+  if (!order || !order.processedBy) {
+    return false
+  }
+  
+  const currentUser = getCurrentUser()
+  const currentEmail = getCurrentUserEmail()
+  const status = order.orderStatus
+  
+  // Chỉ chặn khi đơn hàng ở trạng thái CONFIRMED hoặc PROCESSING
+  if (status !== 'CONFIRMED' && status !== 'PROCESSING') {
+    return false
+  }
+  
+  // 🔥 QUAN TRỌNG: So sánh KHÔNG phân biệt chữ hoa/thường
+  const processedByLower = (order.processedBy || '').toLowerCase().trim()
+  const processedByEmailLower = (order.processedByEmail || '').toLowerCase().trim()
+  const currentUserLower = (currentUser || '').toLowerCase().trim()
+  const currentEmailLower = (currentEmail || '').toLowerCase().trim()
+  
+  // Kiểm tra xem có phải cùng người không
+  const isSameUser = processedByLower === currentUserLower || 
+                     processedByEmailLower === currentEmailLower ||
+                     processedByLower === currentEmailLower ||
+                     processedByEmailLower === currentUserLower
+  
+  // Nếu không cùng người -> là người khác
+  return !isSameUser
+}
+
+// ✅ Kiểm tra xem có nên hiển thị nút cập nhật không
+const shouldShowUpdateButton = (order) => {
+  if (!order) return false
+  
+  const status = order.orderStatus
+  
+  // Không hiển thị nếu là trạng thái cuối
+  if (ADMIN_CANNOT_UPDATE.includes(status)) {
+    return false
+  }
+  
+  // Nếu đơn hàng chưa được xác nhận -> hiển thị nút
+  if (!order.processedBy) {
+    return true
+  }
+  
+  // Nếu đơn hàng đã được xác nhận -> kiểm tra
+  const currentUser = getCurrentUser()
+  const currentEmail = getCurrentUserEmail()
+  
+  const processedByLower = (order.processedBy || '').toLowerCase().trim()
+  const processedByEmailLower = (order.processedByEmail || '').toLowerCase().trim()
+  const currentUserLower = (currentUser || '').toLowerCase().trim()
+  const currentEmailLower = (currentEmail || '').toLowerCase().trim()
+  
+  // CHỈ hiển thị nếu là người xác nhận
+  const isSameUser = processedByLower === currentUserLower || 
+                     processedByEmailLower === currentEmailLower ||
+                     processedByLower === currentEmailLower ||
+                     processedByEmailLower === currentUserLower
+  
+  return isSameUser
+}
+
+// ✅ Kiểm tra xem có thể cập nhật trạng thái không
+const canUpdateStatus = (order) => {
+  if (!order) return false
+  
+  const status = order.orderStatus
+  
+  if (ADMIN_CANNOT_UPDATE.includes(status)) {
+    return false
+  }
+  
+  if (order.processedBy) {
+    const currentUser = getCurrentUser()
+    const currentEmail = getCurrentUserEmail()
+    
+    const processedByLower = (order.processedBy || '').toLowerCase().trim()
+    const processedByEmailLower = (order.processedByEmail || '').toLowerCase().trim()
+    const currentUserLower = (currentUser || '').toLowerCase().trim()
+    const currentEmailLower = (currentEmail || '').toLowerCase().trim()
+    
+    const isSameUser = processedByLower === currentUserLower || 
+                       processedByEmailLower === currentEmailLower ||
+                       processedByLower === currentEmailLower ||
+                       processedByEmailLower === currentUserLower
+    
+    return isSameUser
+  }
+  
+  return true
+}
+
+// ✅ Tooltip cho nút cập nhật trạng thái
+const getUpdateStatusTooltip = (order) => {
+  if (!order) return ''
+  
+  const status = order.orderStatus
+  
+  if (ADMIN_CANNOT_UPDATE.includes(status)) {
+    return `Không thể cập nhật trạng thái "${getStatusText(status)}"`
+  }
+  
+  if (order.processedBy) {
+    const currentUser = getCurrentUser()
+    const currentEmail = getCurrentUserEmail()
+    
+    const processedByLower = (order.processedBy || '').toLowerCase().trim()
+    const processedByEmailLower = (order.processedByEmail || '').toLowerCase().trim()
+    const currentUserLower = (currentUser || '').toLowerCase().trim()
+    const currentEmailLower = (currentEmail || '').toLowerCase().trim()
+    
+    const isSameUser = processedByLower === currentUserLower || 
+                       processedByEmailLower === currentEmailLower ||
+                       processedByLower === currentEmailLower ||
+                       processedByEmailLower === currentUserLower
+    
+    if ((status === 'CONFIRMED' || status === 'PROCESSING') && !isSameUser) {
+      return `⚠️ Đơn hàng đã được xác nhận bởi ${order.processedBy || order.processedByEmail}\nChỉ người xác nhận mới được cập nhật tiếp!`
+    }
+  }
+  
+  return 'Cập nhật trạng thái đơn hàng'
 }
 
 const showNotification = (message, type = 'success') => {
@@ -1098,10 +1276,6 @@ const showNotification = (message, type = 'success') => {
   toastTimer = setTimeout(() => {
     showToast.value = false
   }, 3000)
-}
-
-const canUpdateStatus = (status) => {
-  return !ADMIN_CANNOT_UPDATE.includes(status)
 }
 
 const canAdminCancel = (status) => {
@@ -1269,8 +1443,9 @@ const goToPage = (page) => {
 
 // ===== UPDATE STATUS =====
 const openUpdateStatusModal = (order) => {
-  if (!canUpdateStatus(order.orderStatus)) {
-    showNotification('Đơn hàng đã ở trạng thái cuối, không thể cập nhật', 'warning')
+  if (!canUpdateStatus(order)) {
+    const tooltip = getUpdateStatusTooltip(order)
+    showNotification(tooltip, 'warning')
     return
   }
   selectedOrderForUpdate.value = order
@@ -1282,8 +1457,22 @@ const closeUpdateStatusModal = () => {
   selectedOrderForUpdate.value = null
 }
 
+// ✅ SỬA: Hàm xử lý sau khi cập nhật trạng thái - THÊM THÔNG BÁO CHO DELIVERED
 const onStatusUpdated = async (data) => {
-  showNotification(`✅ Đã cập nhật trạng thái đơn hàng #${data.orderId} thành "${getStatusText(data.newStatus)}"`, 'success')
+  // Kiểm tra nếu đơn hàng được chuyển sang DELIVERED
+  if (data.newStatus === 'DELIVERED') {
+    showNotification(
+      `✅ Đơn hàng #${data.orderId} đã được giao thành công. Thanh toán đã được tự động cập nhật thành THÀNH CÔNG!`,
+      'success'
+    )
+  } else {
+    showNotification(
+      `✅ Đã cập nhật trạng thái đơn hàng #${data.orderId} thành "${getStatusText(data.newStatus)}"`,
+      'success'
+    )
+  }
+  
+  // Refresh lại dữ liệu để cập nhật UI
   await fetchOrders()
   await fetchStatistics()
 }
@@ -1660,6 +1849,8 @@ const closeImageViewer = () => {
 // ===== LIFECYCLE =====
 onMounted(() => {
   console.log('🚀 AdminOrders mounted')
+  console.log('🔍 Current user:', getCurrentUser())
+  console.log('🔍 Current user email:', getCurrentUserEmail())
   fetchOrders()
   fetchStatistics()
 })
@@ -2005,7 +2196,7 @@ watch([activeMainTab, activeSubTab], () => {
 .data-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 900px;
+  min-width: 1100px;
 }
 
 .data-table th {
@@ -2015,12 +2206,15 @@ watch([activeMainTab, activeSubTab], () => {
   font-weight: 600;
   color: #2c3e50;
   border-bottom: 2px solid #eee;
+  font-size: 13px;
 }
 
 .data-table td {
-  padding: 15px;
+  padding: 12px 15px;
   border-bottom: 1px solid #eee;
   color: #666;
+  font-size: 14px;
+  vertical-align: middle;
 }
 
 .data-table tr:hover {
@@ -2060,6 +2254,44 @@ watch([activeMainTab, activeSubTab], () => {
 .order-total {
   font-weight: 700;
   color: #e63946;
+}
+
+/* ===== PROCESSED BY COLUMN ===== */
+.processed-by-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+}
+
+.processed-by-cell .processed-name {
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.processed-by-cell .processed-email {
+  color: #6c5ce7;
+  font-size: 11px;
+}
+
+.processed-by-cell .processed-role {
+  color: #999;
+  font-size: 10px;
+  background: #f0f0f0;
+  padding: 0 8px;
+  border-radius: 10px;
+  display: inline-block;
+  width: fit-content;
+}
+
+.processed-by-cell .processed-time {
+  color: #aaa;
+  font-size: 10px;
+}
+
+.not-processed {
+  color: #ccc;
+  font-size: 14px;
 }
 
 /* ===== STATUS BADGE ===== */
@@ -2174,6 +2406,7 @@ watch([activeMainTab, activeSubTab], () => {
 .update-status-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  transform: none;
 }
 
 .view-btn {
@@ -2359,6 +2592,36 @@ watch([activeMainTab, activeSubTab], () => {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+}
+
+/* ===== PROCESSED INFO IN MODAL ===== */
+.processed-info {
+  margin-top: 10px;
+  padding: 12px 14px;
+  background: #e8f5e9;
+  border-radius: 8px;
+  border-left: 4px solid #28a745;
+}
+
+.processed-label {
+  font-weight: 600;
+  color: #2e7d32;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.processed-detail {
+  font-size: 13px;
+  color: #333;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 16px;
+}
+
+.processed-detail div {
+  padding: 2px 0;
 }
 
 /* ===== ADDRESS SECTION ===== */
@@ -3247,6 +3510,10 @@ watch([activeMainTab, activeSubTab], () => {
   .action-buttons {
     flex-wrap: wrap;
   }
+  
+  .processed-detail {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 480px) {
@@ -3298,6 +3565,10 @@ watch([activeMainTab, activeSubTab], () => {
   .item-image {
     width: 40px;
     height: 40px;
+  }
+  
+  .processed-by-cell {
+    font-size: 10px;
   }
 }
 </style>

@@ -33,7 +33,7 @@
         :class="{ 'side-right': !chatOnRight }"
         :style="chatWindowStyle"
       >
-        <!-- Thêm Tabs -->
+        <!-- Tabs -->
         <div class="chat-tabs-header">
           <button 
             class="tab-btn" 
@@ -48,6 +48,7 @@
             @click="activeTab = 'staff'"
           >
             <i class="fas fa-headset"></i> Nhân viên tư vấn
+            <span v-if="staffUnreadCount > 0" class="badge-unread">{{ staffUnreadCount }}</span>
           </button>
           <button @click="toggleChat" class="close-btn" title="Đóng">
             <i class="fas fa-times"></i>
@@ -160,7 +161,7 @@
 
         <!-- Staff Tab -->
         <div v-show="activeTab === 'staff'" class="chat-tab-content">
-          <StaffChatPanel ref="staffChatRef" />
+          <StaffChatPanel ref="staffChatRef" @status-change="onStaffStatusChange" />
         </div>
       </div>
     </transition>
@@ -189,6 +190,7 @@ const isTyping = ref(false)
 const messagesContainer = ref(null)
 const hasUnreadMessages = ref(false)
 const live2dRef = ref(null)
+const staffUnreadCount = ref(0)
 
 // Vị trí Haru (từ emit của Live2DAvatar)
 const haruPos = ref({ x: 20, centerX: 120, width: 200, bottom: 0 })
@@ -204,27 +206,18 @@ const unreadCount = computed(() =>
 )
 
 // ---- Vị trí chat: tính toán dựa trên vị trí Haru ----
-// Chat nằm bên PHẢI Haru khi Haru ở nửa trái màn hình, và ngược lại
 const chatOnRight = computed(() => {
   return haruPos.value.centerX <= window.innerWidth / 2
 })
 
-// Bottom của chat bám theo bottom của Haru (canh đáy canvas)
-// haruPos.bottom = window.innerHeight - rect.bottom (khoảng cách từ đáy canvas đến đáy viewport)
-// Chat bottom = bottom của Haru (canh thẳng hàng với đáy Haru)
 const chatBottom = computed(() => {
-  // bottom của oml2d element tính từ đáy viewport
-  // rect.bottom = window.innerHeight - haruPos.bottom
-  // Ta muốn đáy chat ngang đáy Haru → bottom của chat = haruPos.bottom
   return Math.max(10, haruPos.value.bottom)
 })
 
-// Tính left/right của chat window theo vị trí Haru
 const chatWindowStyle = computed(() => {
   const haruRight = haruPos.value.x + haruPos.value.width
 
   if (chatOnRight.value) {
-    // Haru bên trái → chat nằm bên phải Haru
     const left = haruRight + CHAT_GAP
     const safeLeft = Math.min(left, window.innerWidth - CHAT_WIDTH - 10)
     return {
@@ -232,7 +225,6 @@ const chatWindowStyle = computed(() => {
       right: 'auto',
       bottom: chatBottom.value + 'px' }
   } else {
-    // Haru bên phải → chat nằm bên trái Haru
     const left = haruPos.value.x - CHAT_WIDTH - CHAT_GAP
     const safeLeft = Math.max(10, left)
     return {
@@ -242,10 +234,8 @@ const chatWindowStyle = computed(() => {
   }
 })
 
-// Style cho nút toggle (bong bóng nhỏ khi chat đóng) — cũng bám theo Haru
 const chatToggleStyle = computed(() => {
   const haruRight = haruPos.value.x + haruPos.value.width
-  // Toggle hiện giữa chiều cao Haru, cách đáy Haru một chút
   const toggleBottom = chatBottom.value + 60
 
   if (chatOnRight.value) {
@@ -262,6 +252,15 @@ const chatToggleStyle = computed(() => {
 // ---- Callback từ Live2DAvatar khi Haru di chuyển ----
 const onHaruPositionChange = (pos) => {
   haruPos.value = pos
+}
+
+// ---- Staff status change ----
+const onStaffStatusChange = (status) => {
+  console.log('[HaruChatbot] Staff status changed:', status)
+  // Cập nhật unread count từ staff chat nếu cần
+  if (staffChatRef.value) {
+    // staffUnreadCount sẽ được cập nhật từ staff chat component
+  }
 }
 
 // ---- Chat logic ----
@@ -333,8 +332,6 @@ const sendMessage = async () => {
       const emotion = detectEmotion(result.text)
       live2dRef.value.playEmotion(emotion)
     }
-    // Lưu ý: không tự động điều hướng nữa — Haru chỉ hiển thị card sản phẩm,
-    // người dùng bấm vào card mới chuyển sang trang chi tiết.
   } catch (error) {
     console.error('API Error:', error)
     messages.value.push({
@@ -374,9 +371,6 @@ const callAIAPI = async (message) => {
     }
   }
 
-  // api.js interceptor already attaches the Authorization header and
-  // already points at the correct backend baseURL — no need to build
-  // headers or a URL by hand here.
   const data = await api.post('/ai/chat', { message, userId: Number(userId) })
 
   if (data.success && data.data) {
@@ -407,8 +401,7 @@ const formatTime = (date) =>
 const formatPrice = (price) =>
   price ? new Intl.NumberFormat('vi-VN').format(price) : 'Liên hệ'
 
-// Ảnh sản phẩm từ DB có thể là path tương đối (vd: /uploads/abc.jpg)
-// => cần ghép domain backend để hiển thị đúng, nếu đã là URL đầy đủ (http...) thì giữ nguyên.
+// Ảnh sản phẩm từ DB có thể là path tương đối
 const BACKEND_BASE_URL = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "").replace(/\/api$/, "")
 const resolveImageUrl = (link) => {
   if (!link) return ''
@@ -419,7 +412,6 @@ const resolveImageUrl = (link) => {
 const handleTyping = () => {}
 
 // ---- Emotion system ----
-// Phân tích text response của AI để chọn emotion phù hợp
 const detectEmotion = (text) => {
   const t = text.toLowerCase()
   if (/xin lỗi|không thể|lỗi|tiếc|thất bại|không tìm|không hỗ trợ/.test(t)) return 'sorry'
@@ -513,7 +505,6 @@ watch(messages, saveMessages, { deep: true })
   color: #667eea;
   border: 2px solid #667eea;
   padding: 12px 20px;
-  /* Mặc định: Haru bên trái → chat bên phải → đuôi bong bóng bên trái */
   border-radius: 20px 20px 20px 0;
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
   cursor: pointer;
@@ -615,7 +606,6 @@ watch(messages, saveMessages, { deep: true })
   display: flex;
   flex-direction: column;
   border: 2px solid #667eea;
-  /* Mặc định: chat bên phải Haru → đuôi bong bóng góc dưới trái */
   border-radius: 20px 20px 20px 0;
 }
 
@@ -693,7 +683,7 @@ watch(messages, saveMessages, { deep: true })
   background: #f8f9fa;
   border-bottom: 1px solid #eee;
   padding: 0 10px;
-  padding-right: 45px; /* Chỗ cho close button */
+  padding-right: 45px;
   border-radius: 20px 20px 0 0;
   flex-shrink: 0;
 }
@@ -723,6 +713,20 @@ watch(messages, saveMessages, { deep: true })
 .tab-btn.active {
   color: #667eea;
   border-bottom: 2px solid #667eea;
+}
+
+/* ✅ Badge unread cho tab staff */
+.badge-unread {
+  background: #e63946;
+  color: white;
+  border-radius: 50%;
+  padding: 0 6px;
+  font-size: 10px;
+  min-width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .chat-tab-content {
@@ -779,7 +783,8 @@ watch(messages, saveMessages, { deep: true })
 
 .typing-indicator { display: flex; gap: 4px; padding: 4px 8px; }
 .typing-indicator span {
-  width: 6px; height: 6px;
+  width: 6px;
+  height: 6px;
   background: rgba(0,0,0,0.5);
   border-radius: 50%;
   animation: typing 1.4s infinite ease-in-out both;

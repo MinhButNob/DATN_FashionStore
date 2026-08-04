@@ -31,8 +31,9 @@ public class AdminOrderResponseDTO {
     private AdminVoucherInfoDTO voucher;
     private List<AdminOrderItemResponseDTO> items;
 
-    // ✅ THÊM: Thông tin người xử lý đơn hàng
-    private String processedBy;
-    private String processedByRole;
-    private LocalDateTime processedAt;
+    // ✅ THÔNG TIN NGƯỜI XỬ LÝ ĐƠN HÀNG
+    private String processedBy;          // Tên người xác nhận
+    private String processedByEmail;     // Email người xác nhận
+    private String processedByRole;      // Vai trò (ADMIN, STAFF, SALE_STAFF)
+    private LocalDateTime processedAt;   // Thời gian xác nhận
 }

@@ -61,7 +61,6 @@ public class Order {
     @Column(name = "order_shipping_fee", nullable = false)
     private BigDecimal orderShippingFee;
 
-
     @Column(name = "order_total_amount", nullable = true)
     private BigDecimal orderTotalAmount;
 
@@ -81,35 +80,40 @@ public class Order {
     @Column(name = "order_deleted_at")
     private LocalDateTime deletedAt;
 
+    // ✅ THÊM TRƯỜNG EMAIL NGƯỜI XÁC NHẬN
+    @Column(name = "order_processed_by", length = 100)
+    private String processedBy;
+
+    @Column(name = "order_processed_by_email", length = 255)  // ✅ THÊM MỚI
+    private String processedByEmail;
+
+    @Column(name = "order_processed_by_role", length = 50)
+    private String processedByRole;
+
+    @Column(name = "order_processed_at")
+    private LocalDateTime processedAt;
+
     @PrePersist
     protected void onCreate() {
-
         LocalDateTime now = LocalDateTime.now();
-
         if (createdAt == null) {
             createdAt = now;
         }
-
         if (updatedAt == null) {
             updatedAt = now;
         }
-
         if (orderDate == null) {
             orderDate = now;
         }
-
         if (orderStatus == null) {
             orderStatus = OrderStatus.PENDING_PAYMENT;
         }
-
         if (paymentStatus == null) {
             paymentStatus = PaymentStatus.UNPAID;
         }
-
         if (orderDiscountAmount == null) {
             orderDiscountAmount = BigDecimal.ZERO;
         }
-
         if (orderShippingFee == null) {
             orderShippingFee = BigDecimal.ZERO;
         }

@@ -168,37 +168,42 @@ const { showNotification } = useNotification();
 const form = ref({
   email: "",
   password: "",
-  remember: false });
+  remember: false
+});
 
 const loading = ref(false);
 const error = ref("");
 const showPassword = ref(false);
 
 const handleLogin = async () => {
-  // Reset error
   error.value = "";
   loading.value = true;
 
   try {
     const user = await authStore.login(form.value.email, form.value.password);
 
-    // Check if user wants to be remembered
     if (form.value.remember) {
       localStorage.setItem("rememberMe", "true");
     }
 
+    // 🔥 KIỂM TRA: Log thông tin đã lưu
+    console.log('✅ Login successful, localStorage check:');
+    console.log('  - username:', localStorage.getItem('username'));
+    console.log('  - userEmail:', localStorage.getItem('userEmail'));
+    console.log('  - role:', localStorage.getItem('role'));
+
     showNotification("Đăng nhập thành công!", "success");
 
     if (authStore.isAdmin) {
-      window.location.href = "/admin"; // Redirect to admin dashboard
+      window.location.href = "/admin";
     } else if (authStore.isStaff) {
-      window.location.href = "/staff/pos"; // Redirect to staff POS
+      window.location.href = "/staff/pos";
     } else {
-      // Redirect to previous page or home
       const redirect = router.currentRoute.value.query.redirect || "/home";
       router.push(redirect);
     }
   } catch (err) {
+    console.error('Login error:', err);
     error.value = "Email hoặc mật khẩu không đúng";
     showNotification("Đăng nhập thất bại!", "error");
   } finally {

@@ -156,6 +156,7 @@
             <th>Ngày đặt</th>
             <th>Trạng thái</th>
             <th>Thanh toán</th>
+            <th>Xác nhận bởi</th>
             <th>Thao tác</th>
           </tr>
         </thead>
@@ -190,14 +191,24 @@
                 {{ getPaymentStatusText(order.paymentStatus) }}
               </span>
             </td>
+            <!-- ✅ CỘT XÁC NHẬN BỞI -->
+            <td>
+              <div v-if="order.processedBy" class="processed-by-cell">
+                <span class="processed-name">{{ order.processedBy }}</span>
+                <span class="processed-email">{{ order.processedByEmail || '' }}</span>
+                <span class="processed-role">{{ order.processedByRole || '' }}</span>
+                <span class="processed-time">{{ formatDate(order.processedAt) }}</span>
+              </div>
+              <span v-else class="not-processed">---</span>
+            </td>
             <td>
               <div class="action-buttons">
                 <button 
                   v-if="activeMainTab === 'orders'"
                   class="action-btn update-status-btn" 
                   @click="openUpdateStatusModal(order)"
-                  :disabled="updatingOrderIds.has(order.orderId) || !canUpdateStatus(order.orderStatus)"
-                  title="Cập nhật trạng thái"
+                  :disabled="updatingOrderIds.has(order.orderId) || !canUpdateStatus(order)"
+                  :title="getUpdateStatusTooltip(order)"
                 >
                   <i class="fas fa-edit"></i>
                 </button>
@@ -244,7 +255,7 @@
             </td>
           </tr>
           <tr v-if="orders.length === 0 && !loading">
-            <td colspan="9" class="no-data">
+            <td colspan="10" class="no-data">
               <i class="fas fa-box-open"></i>
               <p>Không tìm thấy đơn hàng nào</p>
             </td>
@@ -286,10 +297,24 @@
               <p><strong>Ngày đặt:</strong> {{ formatDate(selectedOrder?.orderDate) }}</p>
               <p><strong>Trạng thái:</strong> {{ getStatusText(selectedOrder?.orderStatus) }}</p>
               <p><strong>Thanh toán:</strong> {{ getPaymentStatusText(selectedOrder?.paymentStatus) }}</p>
+              
+              <!-- ✅ THÊM: Hiển thị người xác nhận đơn hàng -->
+              <div v-if="selectedOrder?.processedBy" class="processed-info">
+                <p class="processed-label">
+                  <i class="fas fa-check-circle" style="color: #28a745;"></i>
+                  <strong>Đã xác nhận bởi:</strong>
+                </p>
+                <div class="processed-detail">
+                  <div><strong>Tên:</strong> {{ selectedOrder.processedBy }}</div>
+                  <div><strong>Email:</strong> {{ selectedOrder.processedByEmail || 'N/A' }}</div>
+                  <div><strong>Vai trò:</strong> {{ selectedOrder.processedByRole || 'N/A' }}</div>
+                  <div><strong>Thời gian:</strong> {{ formatDate(selectedOrder.processedAt) }}</div>
+                </div>
+              </div>
             </div>
           </div>
 
-          <!-- ===== ĐỊA CHỈ GIAO HÀNG - GIỐNG ADMIN ===== -->
+          <!-- Địa chỉ giao hàng -->
           <div class="address-section">
             <h3>📍 Địa chỉ giao hàng</h3>
             <div class="address-detail-card">
@@ -454,7 +479,7 @@
       @updated="onStatusUpdated"
     />
 
-    <!-- Admin Cancel Order Modal -->
+    <!-- Cancel Order Modal -->
     <div v-if="showCancelModal" class="modal-overlay">
       <div class="modal-container modal-sm">
         <div class="modal-header">
@@ -897,7 +922,7 @@ let toastTimer = null
 
 // ===== CONSTANTS =====
 const IMAGE_BASE = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "").replace(/\/api$/, "");
-const CANNOT_UPDATE = ['CANCELLED', 'RETURNED', 'RETURN_REQUESTED', 'RETURN_PENDING', 'COMPLETED']
+const CANNOT_UPDATE = ['CANCELLED', 'RETURNED', 'RETURN_REQUESTED', 'RETURN_PENDING', 'REJECTED', 'COMPLETED']
 
 // ===== HELPERS =====
 const getImageUrl = (imagePath) => {
@@ -939,8 +964,59 @@ const showToastMessage = (message, type = 'success') => {
   }, 3000)
 }
 
-const canUpdateStatus = (status) => {
-  return !CANNOT_UPDATE.includes(status)
+// ✅ Lấy email người dùng hiện tại từ localStorage
+const getCurrentUserEmail = () => {
+  return localStorage.getItem('userEmail') || ''
+}
+
+// ✅ Lấy username người dùng hiện tại
+const getCurrentUsername = () => {
+  return localStorage.getItem('username') || ''
+}
+
+// ✅ Kiểm tra xem có thể cập nhật trạng thái không
+const canUpdateStatus = (order) => {
+  if (!order) return false
+  
+  const status = order.orderStatus
+  
+  // Không thể cập nhật nếu là trạng thái cuối
+  if (CANNOT_UPDATE.includes(status)) {
+    return false
+  }
+  
+  // ✅ Nếu đơn hàng đã được xác nhận bởi người khác và đang ở trạng thái CONFIRMED hoặc PROCESSING
+  if (order.processedBy && order.processedByEmail) {
+    const currentEmail = getCurrentUserEmail()
+    // Chỉ người đã xác nhận mới được tiếp tục cập nhật
+    if ((status === 'CONFIRMED' || status === 'PROCESSING') && 
+        order.processedByEmail !== currentEmail) {
+      return false
+    }
+  }
+  
+  return true
+}
+
+// ✅ Tooltip cho nút cập nhật trạng thái
+const getUpdateStatusTooltip = (order) => {
+  if (!order) return ''
+  
+  const status = order.orderStatus
+  
+  if (CANNOT_UPDATE.includes(status)) {
+    return `Không thể cập nhật trạng thái "${getStatusText(status)}"`
+  }
+  
+  if (order.processedBy && order.processedByEmail) {
+    const currentEmail = getCurrentUserEmail()
+    if ((status === 'CONFIRMED' || status === 'PROCESSING') && 
+        order.processedByEmail !== currentEmail) {
+      return `⚠️ Đơn hàng đã được xác nhận bởi ${order.processedBy} (${order.processedByEmail})\nChỉ người xác nhận mới được cập nhật tiếp!`
+    }
+  }
+  
+  return 'Cập nhật trạng thái đơn hàng'
 }
 
 const canStaffCancel = (status) => {
@@ -1147,8 +1223,9 @@ const closeItemsModal = () => {
 
 // ===== UPDATE STATUS =====
 const openUpdateStatusModal = (order) => {
-  if (!canUpdateStatus(order.orderStatus)) {
-    showToastMessage('Đơn hàng đã ở trạng thái cuối, không thể cập nhật', 'warning')
+  if (!canUpdateStatus(order)) {
+    const tooltip = getUpdateStatusTooltip(order)
+    showToastMessage(tooltip, 'warning')
     return
   }
   selectedOrderForUpdate.value = order
@@ -1772,7 +1849,7 @@ onMounted(() => {
 .data-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 900px;
+  min-width: 1100px;
 }
 
 .data-table th {
@@ -1782,12 +1859,15 @@ onMounted(() => {
   font-weight: 600;
   color: #2c3e50;
   border-bottom: 2px solid #eee;
+  font-size: 13px;
 }
 
 .data-table td {
-  padding: 15px;
+  padding: 12px 15px;
   border-bottom: 1px solid #eee;
   color: #666;
+  font-size: 14px;
+  vertical-align: middle;
 }
 
 .data-table tr:hover {
@@ -1822,6 +1902,44 @@ onMounted(() => {
 .order-total {
   font-weight: 700;
   color: #e63946;
+}
+
+/* ===== PROCESSED BY COLUMN ===== */
+.processed-by-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+}
+
+.processed-by-cell .processed-name {
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.processed-by-cell .processed-email {
+  color: #6c5ce7;
+  font-size: 11px;
+}
+
+.processed-by-cell .processed-role {
+  color: #999;
+  font-size: 10px;
+  background: #f0f0f0;
+  padding: 0 8px;
+  border-radius: 10px;
+  display: inline-block;
+  width: fit-content;
+}
+
+.processed-by-cell .processed-time {
+  color: #aaa;
+  font-size: 10px;
+}
+
+.not-processed {
+  color: #ccc;
+  font-size: 14px;
 }
 
 /* ===== STATUS BADGE ===== */
@@ -1936,6 +2054,7 @@ onMounted(() => {
 .update-status-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  transform: none;
 }
 
 .view-btn {
@@ -2126,6 +2245,36 @@ onMounted(() => {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+}
+
+/* ===== PROCESSED INFO IN MODAL ===== */
+.processed-info {
+  margin-top: 10px;
+  padding: 12px 14px;
+  background: #e8f5e9;
+  border-radius: 8px;
+  border-left: 4px solid #28a745;
+}
+
+.processed-label {
+  font-weight: 600;
+  color: #2e7d32;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.processed-detail {
+  font-size: 13px;
+  color: #333;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 16px;
+}
+
+.processed-detail div {
+  padding: 2px 0;
 }
 
 /* ===== ADDRESS SECTION ===== */
@@ -3074,6 +3223,10 @@ onMounted(() => {
     text-align: center;
     padding: 15px;
   }
+  
+  .processed-detail {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 480px) {
@@ -3110,6 +3263,10 @@ onMounted(() => {
     flex-direction: column;
     align-items: flex-start;
     gap: 5px;
+  }
+  
+  .processed-by-cell {
+    font-size: 10px;
   }
 }
 </style>

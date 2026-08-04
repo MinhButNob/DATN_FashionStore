@@ -12,4 +12,6 @@ import lombok.AllArgsConstructor;
 public class UpdateOrderStatusRequest {
     private String orderStatus;
     private String notes;
+    private String processedBy;
+    private String processedByRole;
 }

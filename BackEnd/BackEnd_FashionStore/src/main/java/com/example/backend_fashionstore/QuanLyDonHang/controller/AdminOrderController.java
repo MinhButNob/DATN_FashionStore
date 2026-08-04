@@ -6,7 +6,9 @@ import com.example.backend_fashionstore.QuanLyDonHang.dto.response.AdminOrderRes
 import com.example.backend_fashionstore.QuanLyDonHang.dto.response.InvoiceDTO;
 import com.example.backend_fashionstore.QuanLyDonHang.dto.response.ReturnRequestDetailDTO;
 import com.example.backend_fashionstore.QuanLyDonHang.dto.response.UpdateOrderStatusRequest;
+import com.example.backend_fashionstore.QuanLyDonHang.repository.OrderRepository;
 import com.example.backend_fashionstore.QuanLyDonHang.service.AdminOrderService;
+import com.example.backend_fashionstore.entity.Order;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -19,6 +21,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.Map;
 
 @Slf4j
@@ -30,6 +33,7 @@ import java.util.Map;
 public class AdminOrderController {
 
     private final AdminOrderService adminOrderService;
+    private final OrderRepository orderRepository;
 
     // ===== 1. LẤY TẤT CẢ ĐƠN HÀNG =====
     @GetMapping
@@ -178,5 +182,22 @@ public class AdminOrderController {
         log.info("✅ Order {} cancelled by admin", orderId);
 
         return ResponseEntity.ok(order);
+    }
+
+    @GetMapping("/{orderId}/confirmation-status")
+    public ResponseEntity<Map<String, Object>> getConfirmationStatus(
+            @PathVariable Long orderId
+    ) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng"));
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("isConfirmed", order.getProcessedBy() != null);
+        response.put("processedBy", order.getProcessedBy());
+        response.put("processedByRole", order.getProcessedByRole());
+        response.put("processedAt", order.getProcessedAt());
+        response.put("orderStatus", order.getOrderStatus().toString());
+
+        return ResponseEntity.ok(response);
     }
 }
