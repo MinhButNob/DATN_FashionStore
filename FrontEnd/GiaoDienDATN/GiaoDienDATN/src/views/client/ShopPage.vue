@@ -143,56 +143,11 @@
 
               <!-- Product Grid -->
               <div class="product-container">
-                <div 
+                <ProductCard 
                   v-for="product in paginatedProducts" 
                   :key="product.productId"
-                  class="product-card-direct"
-                  @click="goToProductDetail(product.productId)"
-                >
-                  <div class="product-image-direct">
-                    <img 
-                      v-if="product.mainImageUrl" 
-                      :src="product.mainImageUrl" 
-                      :alt="product.productName" 
-                      class="product-img-direct"
-                      @error="handleImageError"
-                    />
-                    <div v-else class="no-image-placeholder">
-                      <i class="fas fa-tshirt"></i>
-                    </div>
-                    <div v-if="product.discountPercent > 0" class="discount-flag">
-                      -{{ product.discountPercent }}%
-                    </div>
-                    <div class="product-wishlist-direct" @click.stop="handleWishlistToggle(product.productId)">
-                      <i :class="[wishlistStore.isInWishlist(product.productId) ? 'fas fa-heart' : 'far fa-heart']"></i>
-                    </div>
-                  </div>
-                  <div class="product-info-direct">
-                    <div class="product-options">
-                      <span v-if="product.colorOptions && product.colorOptions.length > 0" class="option-tag">
-                        +{{ product.colorOptions.length }} Màu sắc
-                      </span>
-                      <span class="option-tag">+{{ product.sizeIds?.length || 0 }} Kích thước</span>
-                    </div>
-                    <h3 class="product-name-direct">{{ product.productName }}</h3>
-                    <div class="product-price-direct">
-                      <template v-if="product.discountedPrice && product.discountedPrice < product.displayPrice">
-                        <span class="current-price-direct">{{ formatPrice(product.discountedPrice) }}</span>
-                        <span class="original-price-direct">{{ formatPrice(product.displayPrice) }}</span>
-                      </template>
-                      <template v-else>
-                        <span class="current-price-direct">{{ formatPrice(product.displayPrice) }}</span>
-                      </template>
-                    </div>
-                    <div class="product-stock-direct" :class="{ 'out-of-stock': (product.totalStock || 0) === 0 }">
-                      <i class="fas" :class="(product.totalStock || 0) > 0 ? 'fa-check-circle' : 'fa-times-circle'"></i>
-                      {{ (product.totalStock || 0) > 0 ? `Còn ${product.totalStock} sản phẩm` : 'Hết hàng' }}
-                    </div>
-                    <button class="add-to-cart-direct" @click.stop="addToCartDirect(product)" :disabled="(product.totalStock || 0) === 0">
-                      <i class="fas fa-shopping-cart"></i> Thêm vào giỏ
-                    </button>
-                  </div>
-                </div>
+                  :product="product"
+                />
               </div>
 
               <!-- Pagination -->
@@ -240,6 +195,7 @@ import { useRoute, useRouter } from 'vue-router'
 import ClientHeader from '../../components/client/ClientHeader.vue'
 import ClientFooter from '../../components/client/ClientFooter.vue'
 import CartModal from '../../components/client/CartModal.vue'
+import ProductCard from '../../components/client/ProductCard.vue'
 import { useCartStore } from '../../stores/cartStore'
 import { useNotification } from '../../composables/useNotification'
 import { useWishlistStore } from '../../stores/wishlistStore'
