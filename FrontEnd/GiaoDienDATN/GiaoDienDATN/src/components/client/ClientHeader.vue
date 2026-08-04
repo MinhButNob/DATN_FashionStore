@@ -1,5 +1,5 @@
 <template>
-  <header>
+  <header :class="{ 'header-hidden': isHeaderHidden }">
     <div class="header-top">
       <div class="container header-container">
         <div class="logo" @click="goToHome">FASHION STORE</div>
@@ -83,7 +83,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from "vue";
+import { ref, watch, onMounted, onUnmounted } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { useProductStore } from "../../stores/productStore";
 import { useCartStore } from "../../stores/cartStore";
@@ -100,12 +100,16 @@ const searchQuery = ref("");
 const showUserMenu = ref(false);
 const userMenu = ref(null);
 const wishlistCount = ref(0);
+const isHeaderHidden = ref(false);
+let lastScrollY = 0;
+const SCROLL_HIDE_THRESHOLD = 80; // px cuộn xuống từ đỉnh trang mới bắt đầu ẩn
+const SCROLL_DELTA = 6; // ngưỡng chống rung khi cuộn nhẹ
 
 // Thứ tự menu mong muốn: Trang chủ, Sản phẩm, Khuyến mãi, [3 danh mục mặc định: Áo/Quần/Phụ kiện], Về chúng tôi
 const menuItemsBefore = [
   { path: "/home", name: "Trang chủ", icon: "fas fa-home" },
   { path: "/shop", name: "Sản phẩm", icon: "fas fa-store" },
-  { path: "/shop?tag=sale", name: "Khuyến mãi", icon: "fas fa-tags" },
+  { path: "/shop?categoryId=sale", name: "Khuyến mãi", icon: "fas fa-tags" },
 ];
 const menuItemsAfter = [
   { path: "/about", name: "Về chúng tôi", icon: "fas fa-info-circle" },
@@ -115,12 +119,36 @@ const isActive = (path) => {
   if (path.includes("?")) {
     const [base, query] = path.split("?");
     const params = new URLSearchParams(query);
+
+    // Link "Khuyến mãi": active khi categoryId=sale hoặc categoryName=Khuyến Mãi
+    const categoryId = params.get("categoryId");
+    if (categoryId === "sale") {
+      const currentCatId = (route.query.categoryId || "").toString().trim().toLowerCase();
+      const currentCatName = (route.query.categoryName || "").toString().trim().toLowerCase();
+      return route.path === base && (currentCatId === "sale" || currentCatName === "khuyến mãi");
+    }
+
+    const categoryName = params.get("categoryName");
+    if (categoryName) {
+      const current = (route.query.categoryName || "").toString().trim().toLowerCase();
+      return route.path === base && current === categoryName.trim().toLowerCase();
+    }
+
     const tag = params.get("tag");
     if (tag === "sale") {
       return route.path === "/shop" && route.query.tag === "sale";
     }
     return route.path === base;
   }
+
+  // Link "Sản phẩm" (/shop không kèm query): chỉ active khi KHÔNG đang lọc
+  // theo "Khuyến mãi" (categoryId=sale) - để tránh 2 mục cùng sáng 1 lúc.
+  if (path === "/shop") {
+    const currentCatId = (route.query.categoryId || "").toString().trim().toLowerCase();
+    const currentCatName = (route.query.categoryName || "").toString().trim().toLowerCase();
+    return route.path === "/shop" && currentCatId !== "sale" && currentCatName !== "khuyến mãi";
+  }
+
   return route.path === path;
 };
 
@@ -188,12 +216,40 @@ const handleClickOutside = (event) => {
   }
 };
 
+// Ẩn header khi cuộn xuống, hiện lại ngay khi cuộn lên (giữ thao tác vuốt lên là "muốn xem lại menu")
+const handleHeaderScroll = () => {
+  const currentY = window.scrollY;
+
+  if (currentY < SCROLL_HIDE_THRESHOLD) {
+    isHeaderHidden.value = false;
+  } else if (currentY - lastScrollY > SCROLL_DELTA) {
+    isHeaderHidden.value = true;
+    closeDropdowns();
+  } else if (lastScrollY - currentY > SCROLL_DELTA) {
+    isHeaderHidden.value = false;
+  }
+
+  lastScrollY = currentY;
+};
+
+// Đồng bộ khoảng trống dành cho header (margin-top của <main>, top của sidebar sticky...)
+// với trạng thái ẩn/hiện thực tế của header, để khi header trượt lên ẩn đi thì phần
+// nội dung phía dưới cũng "kéo lên" theo, không để lại khoảng trắng/xám cố định.
+watch(isHeaderHidden, (hidden) => {
+  document.documentElement.style.setProperty(
+    "--header-offset",
+    hidden ? "20px" : "140px"
+  );
+}, { immediate: true });
+
 onMounted(() => {
   document.addEventListener("click", handleClickOutside);
+  window.addEventListener("scroll", handleHeaderScroll, { passive: true });
 });
 
 onUnmounted(() => {
   document.removeEventListener("click", handleClickOutside);
+  window.removeEventListener("scroll", handleHeaderScroll);
 });
 </script>
 
@@ -205,6 +261,11 @@ header {
   z-index: 1000;
   background: white;
   box-shadow: 0 2px 15px rgba(0, 0, 0, 0.08);
+  transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+header.header-hidden {
+  transform: translateY(-100%);
 }
 
 .header-top {

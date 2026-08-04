@@ -22,11 +22,16 @@
 body {
   background-color: var(--light-gray);
   overflow-x: hidden;
+  overflow-y: visible; /* Fix: nếu chỉ set overflow-x mà không set overflow-y, trình duyệt
+    sẽ tự chuyển overflow-y thành "auto", biến <body> thành 1 scroll container mới.
+    Điều này làm position: sticky của .sidebar (ShopPage) bị gãy khi cuộn trang,
+    gây ra hiện tượng "hở"/trắng ở dưới sidebar giống ảnh 2. */
 }
 
 main,
 .page-wrapper {
-  padding-top: 140px;
+  padding-top: var(--header-offset, 140px);
+  transition: padding-top 0.32s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .container {
