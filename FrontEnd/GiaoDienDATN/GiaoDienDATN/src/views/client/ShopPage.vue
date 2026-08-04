@@ -12,109 +12,104 @@
         </div>
 
         <div class="shop-layout">
-          <!-- Sidebar Filters - BÊN TRÁI -->
+          <!-- Sidebar Filters -->
           <aside class="sidebar">
+            <!-- Danh mục -->
             <div class="filter-widget">
-              <h3>📂 Danh mục</h3>
-              <ul>
-                <li v-for="category in categories" :key="category.categoryId">
-                  <label class="checkbox-label">
-                    <input 
-                      type="checkbox" 
-                      :value="category.categoryId"
-                      v-model="selectedCategoryIds"
-                      @change="applyFilters"
+              <h3 class="filter-header" @click="toggleFilter('category')">
+                <span>📂 Danh mục</span>
+                <span class="toggle-icon">{{ expandedFilters.category ? '−' : '+' }}</span>
+              </h3>
+              <div class="collapsible" :class="{ open: expandedFilters.category }">
+                <div class="collapsible-inner category-tree">
+                  <div v-for="category in categoryTree" :key="category.categoryId" class="category-node">
+                    <div class="category-row">
+                      <a 
+                        class="category-link"
+                        :class="getCategoryClass(category)"
+                        @click="selectCategory(category)"
+                      >
+                        <span>{{ category.categoryName }}</span>
+                      </a>
+                      <i
+                        v-if="category.children && category.children.length"
+                        class="fas fa-chevron-down expand-icon"
+                        :class="{ open: expandedCategoryIds.has(category.categoryId) }"
+                        @click.stop="toggleExpand(category.categoryId)"
+                      ></i>
+                    </div>
+
+                    <div
+                      v-if="category.children && category.children.length"
+                      class="collapsible children-collapsible"
+                      :class="{ open: expandedCategoryIds.has(category.categoryId) }"
                     >
-                    <span>{{ category.categoryName }}</span>
-                    <span class="count">({{ category.productCount || 0 }})</span>
-                  </label>
-                </li>
-              </ul>
+                      <ul class="collapsible-inner category-children">
+                        <li v-for="child in category.children" :key="child.categoryId">
+                          <a 
+                            class="category-link child-link"
+                            :class="{ active: selectedCategoryIds.includes(child.categoryId) }"
+                            @click="selectCategory(child)"
+                          >
+                            <span>{{ child.categoryName }}</span>
+                          </a>
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
+            <!-- Khoảng giá -->
             <div class="filter-widget">
               <h3>💰 Khoảng giá</h3>
               <div class="price-range">
                 <input 
                   type="range" 
                   min="0" 
-                  max="10000000" 
+                  max="4000000" 
                   step="50000"
                   v-model="priceRange"
                   @input="applyFilters"
                 >
                 <div class="price-values">
                   <span>0₫</span>
-                  <span>{{ formatPriceVND(priceRange) }}</span>
-                  <span>10.000.000₫</span>
+                  <span>{{ formatPrice(priceRange) }}</span>
+                  <span>4.000.000₫</span>
                 </div>
               </div>
             </div>
 
+            <!-- Kích thước -->
             <div class="filter-widget">
-              <h3>🎨 Màu sắc</h3>
-              <ul>
-                <li v-for="color in availableColors" :key="color.colorId">
-                  <label class="checkbox-label">
-                    <input 
-                      type="checkbox" 
-                      :value="color.colorId"
-                      v-model="selectedColorIds"
-                      @change="applyFilters"
-                    >
-                    <span 
-                      class="color-dot" 
-                      :style="{ backgroundColor: color.hexCode || '#ccc' }"
-                    ></span>
-                    <span>{{ color.colorName }}</span>
-                  </label>
-                </li>
-              </ul>
+              <h3 class="filter-header" @click="toggleFilter('size')">
+                <span>📏 Kích thước</span>
+                <span class="toggle-icon">{{ expandedFilters.size ? '−' : '+' }}</span>
+              </h3>
+              <div class="collapsible" :class="{ open: expandedFilters.size }">
+                <div class="collapsible-inner size-options">
+                  <button
+                    v-for="size in allSizes"
+                    :key="size.sizeId"
+                    class="size-btn"
+                    :class="{ active: selectedSizeIds.includes(size.sizeId) }"
+                    @click="toggleSize(size.sizeId)"
+                  >
+                    {{ size.sizeName }}
+                  </button>
+                </div>
+              </div>
             </div>
 
-            <!-- ✅ BỘ LỌC KÍCH THƯỚC - ĐÃ SỬA -->
-            <div class="filter-widget">
-              <h3>📏 Kích thước</h3>
-              <ul>
-                <li v-for="size in allSizes" :key="size.sizeId">
-                  <label class="checkbox-label">
-                    <input 
-                      type="checkbox" 
-                      :value="size.sizeId"
-                      v-model="selectedSizeIds"
-                      @change="applyFilters"
-                    >
-                    <span>{{ size.sizeName }}</span>
-                    <span class="count" v-if="size.productCount > 0">({{ size.productCount }})</span>
-                  </label>
-                </li>
-              </ul>
-            </div>
-
-            <button class="clear-filters" @click="clearFilters">
+            <button class="clear-filters" @click="clearAllFilters">
               🗑️ Xóa tất cả bộ lọc
             </button>
           </aside>
 
-          <!-- Main Content - BÊN PHẢI -->
+          <!-- Main Content -->
           <div class="main-content">
-            <!-- Active Filters -->
-            <div v-if="hasActiveFilters" class="active-filters">
-              <span>Bộ lọc đang chọn:</span>
-              <div class="filter-tags">
-                <span 
-                  v-for="filter in activeFilters" 
-                  :key="filter.key"
-                  class="filter-tag"
-                >
-                  {{ filter.name }}
-                  <i class="fas fa-times" @click="removeFilter(filter)"></i>
-                </span>
-              </div>
-              <button class="clear-all-btn" @click="clearFilters">Xóa tất cả</button>
-            </div>
-
-            <!-- Loading State -->
+            <!-- Loading -->
             <div v-if="loading" class="loading-state">
               <div class="spinner"></div>
               <p>Đang tải sản phẩm...</p>
@@ -125,16 +120,15 @@
               <i class="fas fa-box-open"></i>
               <h3>Không tìm thấy sản phẩm</h3>
               <p>Vui lòng thử lại với bộ lọc khác</p>
-              <button class="btn-primary" @click="clearFilters">
-                Xóa bộ lọc
-              </button>
+              <button class="btn-primary" @click="clearAllFilters">Xóa bộ lọc</button>
             </div>
 
-            <!-- Product Grid -->
+            <!-- Products -->
             <div v-else>
               <div class="product-header">
                 <div class="product-count">
-                  Hiển thị {{ filteredProducts.length }} sản phẩm
+                  {{ selectedCategoryName || 'Tất cả sản phẩm' }}
+                  <span class="product-count-number">({{ filteredProducts.length }} sản phẩm)</span>
                 </div>
                 <div class="sort-options">
                   <label>Sắp xếp:</label>
@@ -145,29 +139,10 @@
                     <option value="name_asc">Tên A-Z</option>
                   </select>
                 </div>
-                <div class="view-options">
-                  <button 
-                    :class="{ active: gridView }"
-                    @click="gridView = true"
-                    title="Lưới"
-                  >
-                    <i class="fas fa-th"></i>
-                  </button>
-                  <button 
-                    :class="{ active: !gridView }"
-                    @click="gridView = false"
-                    title="Danh sách"
-                  >
-                    <i class="fas fa-list"></i>
-                  </button>
-                </div>
               </div>
 
               <!-- Product Grid -->
-              <div 
-                class="product-container" 
-                :class="{ 'list-view': !gridView }"
-              >
+              <div class="product-container">
                 <div 
                   v-for="product in paginatedProducts" 
                   :key="product.productId"
@@ -193,28 +168,21 @@
                     </div>
                   </div>
                   <div class="product-info-direct">
-                    <div class="product-category-direct">{{ product.categoryName || 'Sản phẩm' }}</div>
+                    <div class="product-options">
+                      <span v-if="product.colorOptions && product.colorOptions.length > 0" class="option-tag">
+                        +{{ product.colorOptions.length }} Màu sắc
+                      </span>
+                      <span class="option-tag">+{{ product.sizeIds?.length || 0 }} Kích thước</span>
+                    </div>
                     <h3 class="product-name-direct">{{ product.productName }}</h3>
                     <div class="product-price-direct">
                       <template v-if="product.discountedPrice && product.discountedPrice < product.displayPrice">
-                        <span class="original-price-direct">{{ formatPriceVND(product.displayPrice) }}</span>
-                        <span class="current-price-direct">{{ formatPriceVND(product.discountedPrice) }}</span>
+                        <span class="current-price-direct">{{ formatPrice(product.discountedPrice) }}</span>
+                        <span class="original-price-direct">{{ formatPrice(product.displayPrice) }}</span>
                       </template>
                       <template v-else>
-                        <span class="current-price-direct">{{ formatPriceVND(product.displayPrice) }}</span>
+                        <span class="current-price-direct">{{ formatPrice(product.displayPrice) }}</span>
                       </template>
-                    </div>
-                    <div class="product-colors-direct" v-if="product.colorOptions && product.colorOptions.length > 0">
-                      <span 
-                        v-for="color in product.colorOptions.slice(0, 3)" 
-                        :key="color"
-                        class="color-dot-direct"
-                        :style="{ backgroundColor: getColorHex(color) }"
-                        :title="color"
-                      ></span>
-                      <span v-if="product.colorOptions.length > 3" class="more-colors-direct">
-                        +{{ product.colorOptions.length - 3 }}
-                      </span>
                     </div>
                     <div class="product-stock-direct" :class="{ 'out-of-stock': (product.totalStock || 0) === 0 }">
                       <i class="fas" :class="(product.totalStock || 0) > 0 ? 'fa-check-circle' : 'fa-times-circle'"></i>
@@ -267,7 +235,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import ClientHeader from '../../components/client/ClientHeader.vue'
 import ClientFooter from '../../components/client/ClientFooter.vue'
@@ -276,172 +244,121 @@ import { useCartStore } from '../../stores/cartStore'
 import { useNotification } from '../../composables/useNotification'
 import { useWishlistStore } from '../../stores/wishlistStore'
 import { useAuthStore } from '../../stores/authStore'
-import api from "@/api/axios";
+import api from "@/api/axios"
 
+// ==================== Composables ====================
 const route = useRoute()
 const router = useRouter()
 const cartStore = useCartStore()
 const authStore = useAuthStore()
 const wishlistStore = useWishlistStore()
 const { showNotification } = useNotification()
-// State
+
+// ==================== State ====================
 const loading = ref(false)
 const allProducts = ref([])
 const categories = ref([])
 const allSizes = ref([])
-const gridView = ref(true)
 const currentPage = ref(1)
-const itemsPerPage = 12
-const priceRange = ref(10000000)
+const priceRange = ref(4000000)
 const sortBy = ref('newest')
+const itemsPerPage = 12
 
 // Filter states
 const selectedCategoryIds = ref([])
-const selectedColorIds = ref([])
 const selectedSizeIds = ref([])
+const expandedFilters = ref({ category: true, size: true })
+const expandedCategoryIds = ref(new Set())
 
-// Computed
+// ==================== Constants ====================
+const SALE_CATEGORY_ID = 'sale'
+const NEW_CATEGORY_ID = 'new'
+const LOCKED_PARENT_NAMES = ['áo', 'quần', 'phụ kiện']
+
+// ==================== Computed ====================
 const selectedCategoryName = computed(() => {
   if (selectedCategoryIds.value.length === 1) {
-    const cat = categories.value.find(c => c.categoryId === selectedCategoryIds.value[0])
+    const id = selectedCategoryIds.value[0]
+    if (id === SALE_CATEGORY_ID) return 'Khuyến mãi'
+    if (id === NEW_CATEGORY_ID) return 'Sản phẩm mới'
+    const cat = categories.value.find(c => c.categoryId === id)
     return cat?.categoryName || 'Cửa hàng'
   }
   return 'Cửa hàng'
 })
 
-const formatPriceVND = (price) => {
-  if (price === undefined || price === null) return '0₫'
-  const numPrice = typeof price === 'number' ? price : Number(price)
-  if (isNaN(numPrice) || numPrice === 0) return '0₫'
-  return numPrice.toLocaleString('vi-VN') + '₫'
-}
+const categoryTree = computed(() => {
+  const all = categories.value
 
-const calculateDiscountPercent = (originalPrice, discountedPrice) => {
-  if (!originalPrice || !discountedPrice || originalPrice <= discountedPrice) return 0
-  const discount = ((originalPrice - discountedPrice) / originalPrice) * 100
-  return Math.round(discount)
-}
-
-const getColorHex = (colorName) => {
-  const colorMap = {
-    'Đỏ': '#FF0000',
-    'Đen': '#000000',
-    'Trắng': '#FFFFFF',
-    'Xanh': '#0000FF',
-    'Navy': '#1B2951',
-    'Vàng': '#FFFF00',
-    'Hồng': '#FFC0CB',
-    'Xám': '#808080',
-    'Nâu': '#8B4513',
-    'Tím': '#800080',
-    'Cam': '#FFA500'
+  // Danh mục ảo: Sản phẩm mới
+  const newArrivals = {
+    categoryId: NEW_CATEGORY_ID,
+    categoryName: 'Sản phẩm mới',
+    productCount: allProducts.value.length,
+    children: []
   }
-  return colorMap[colorName] || '#CCCCCC'
-}
 
-const handleImageError = (event) => {
-  event.target.style.display = 'none'
-  const placeholder = event.target.parentElement.querySelector('.no-image-placeholder')
-  if (placeholder) placeholder.style.display = 'flex'
-}
+  // Danh mục ảo: Khuyến mãi - CHỈ lấy sản phẩm có khuyến mãi thực sự
+  const saleProducts = allProducts.value.filter(p => p.discountedPrice && p.discountedPrice < p.displayPrice)
+  const promoNode = {
+    categoryId: SALE_CATEGORY_ID,
+    categoryName: 'Khuyến mãi',
+    productCount: saleProducts.length,
+    children: []
+  }
 
-// Lấy danh sách màu sắc từ sản phẩm
-const availableColors = computed(() => {
-  const colorMap = new Map()
-  allProducts.value.forEach(product => {
-    if (product.colorOptions && product.colorOptions.length > 0) {
-      product.colorOptions.forEach(colorName => {
-        if (!colorMap.has(colorName)) {
-          colorMap.set(colorName, {
-            colorId: colorName,
-            colorName: colorName,
-            hexCode: getColorHex(colorName)
-          })
-        }
-      })
-    }
-  })
-  return Array.from(colorMap.values())
+  // Danh mục thật từ DB
+  const realCategories = LOCKED_PARENT_NAMES
+    .map(name => all.find(c => !c.parentCategoryId && normalizeName(c.categoryName) === name))
+    .filter(Boolean)
+    .map(parent => {
+      const children = all.filter(c => c.parentCategoryId === parent.categoryId)
+      const childrenTotal = children.reduce((sum, c) => sum + (c.productCount || 0), 0)
+      return {
+        ...parent,
+        productCount: (parent.productCount || 0) + childrenTotal,
+        children
+      }
+    })
+
+  return [newArrivals, promoNode, ...realCategories]
 })
 
-// ✅ FILTER PRODUCTS - ĐÃ SỬA LỌC SIZE
 const filteredProducts = computed(() => {
-  let filtered = [...allProducts.value]
+  let result = [...allProducts.value]
 
-  console.log('🔍 Bắt đầu lọc, tổng số sản phẩm:', filtered.length)
-  console.log('  - Category selected:', selectedCategoryIds.value)
-  console.log('  - Color selected:', selectedColorIds.value)
-  console.log('  - Size selected:', selectedSizeIds.value)
-  console.log('  - Price range:', priceRange.value)
-
-  // Lọc theo danh mục
+  // 1. Lọc danh mục
   if (selectedCategoryIds.value.length > 0) {
-    filtered = filtered.filter(p => 
-      selectedCategoryIds.value.includes(p.categoryId)
-    )
-    console.log('  - Sau lọc danh mục:', filtered.length)
+    result = applyCategoryFilter(result)
   }
 
-  // Lọc theo tag khuyến mãi (sale)
-  if (route.query.tag === 'sale') {
-    filtered = filtered.filter(p => p.discountedPrice != null && p.discountedPrice < p.displayPrice)
-    console.log('  - Sau lọc sale tag:', filtered.length)
-  }
-
-  // Lọc theo giá
-  filtered = filtered.filter(p => {
-    const priceToCompare = p.discountedPrice && p.discountedPrice < p.displayPrice ? p.discountedPrice : p.displayPrice
-    return (priceToCompare || 0) <= priceRange.value
+  // 2. Lọc giá
+  result = result.filter(p => {
+    const price = getProductPrice(p)
+    return price <= priceRange.value
   })
-  console.log('  - Sau lọc giá:', filtered.length)
 
-  // Lọc theo màu sắc
-  if (selectedColorIds.value.length > 0) {
-    filtered = filtered.filter(p => {
-      if (!p.colorOptions || p.colorOptions.length === 0) return false
-      return p.colorOptions.some(color => selectedColorIds.value.includes(color))
-    })
-    console.log('  - Sau lọc màu:', filtered.length)
-  }
-
-  // ✅ Lọc theo kích thước - QUAN TRỌNG
+  // 3. Lọc kích thước
   if (selectedSizeIds.value.length > 0) {
-    filtered = filtered.filter(p => {
-      // Kiểm tra sản phẩm có sizeIds không
-      if (!p.sizeIds || p.sizeIds.length === 0) {
-        console.log(`  - Sản phẩm ${p.productName} không có sizeIds`)
-        return false
-      }
-      // Kiểm tra có ít nhất 1 size được chọn nằm trong sizeIds của sản phẩm
-      const hasSize = selectedSizeIds.value.some(sizeId => p.sizeIds.includes(sizeId))
-      if (!hasSize) {
-        console.log(`  - Sản phẩm ${p.productName} không có size được chọn`)
-      }
-      return hasSize
-    })
-    console.log('  - Sau lọc size:', filtered.length)
+    result = result.filter(p => 
+      p.sizeIds?.some(id => selectedSizeIds.value.includes(id))
+    )
   }
 
-  // Sort
-  filtered = [...filtered].sort((a, b) => {
-    const priceA = a.discountedPrice && a.discountedPrice < a.displayPrice ? a.discountedPrice : a.displayPrice
-    const priceB = b.discountedPrice && b.discountedPrice < b.displayPrice ? b.discountedPrice : b.displayPrice
-    
+  // 4. Sắp xếp
+  result.sort((a, b) => {
+    const priceA = getProductPrice(a)
+    const priceB = getProductPrice(b)
+
     switch (sortBy.value) {
-      case 'price_asc':
-        return (priceA || 0) - (priceB || 0)
-      case 'price_desc':
-        return (priceB || 0) - (priceA || 0)
-      case 'name_asc':
-        return (a.productName || '').localeCompare(b.productName || '')
-      case 'newest':
-      default:
-        return (b.productId || 0) - (a.productId || 0)
+      case 'price_asc': return priceA - priceB
+      case 'price_desc': return priceB - priceA
+      case 'name_asc': return (a.productName || '').localeCompare(b.productName || '')
+      default: return b.productId - a.productId
     }
   })
 
-  console.log('🔍 Kết quả cuối:', filtered.length)
-  return filtered
+  return result
 })
 
 const paginatedProducts = computed(() => {
@@ -450,9 +367,7 @@ const paginatedProducts = computed(() => {
   return filteredProducts.value.slice(start, end)
 })
 
-const totalPages = computed(() => {
-  return Math.ceil(filteredProducts.value.length / itemsPerPage)
-})
+const totalPages = computed(() => Math.ceil(filteredProducts.value.length / itemsPerPage))
 
 const displayedPages = computed(() => {
   const delta = 2
@@ -481,54 +396,201 @@ const displayedPages = computed(() => {
   return rangeWithDots
 })
 
-const hasActiveFilters = computed(() => {
-  return selectedCategoryIds.value.length > 0 ||
-         selectedColorIds.value.length > 0 ||
-         selectedSizeIds.value.length > 0 ||
-         priceRange.value < 10000000 ||
-         route.query.tag === 'sale'
-})
+// ==================== Helper Functions ====================
+const normalizeName = (name) => (name || '').toString().trim().toLowerCase()
+const getProductPrice = (product) => 
+  product.discountedPrice && product.discountedPrice < product.displayPrice 
+    ? product.discountedPrice 
+    : product.displayPrice
 
-const activeFilters = computed(() => {
-  const filters = []
-
-  selectedCategoryIds.value.forEach(catId => {
-    const category = categories.value.find(c => c.categoryId === catId)
-    if (category) filters.push({ key: `cat_${catId}`, name: category.categoryName, type: 'category', value: catId })
-  })
-
-  selectedColorIds.value.forEach(colorName => {
-    filters.push({ key: `color_${colorName}`, name: colorName, type: 'color', value: colorName })
-  })
-
-  selectedSizeIds.value.forEach(sizeId => {
-    const size = allSizes.value.find(s => s.sizeId === sizeId)
-    if (size) filters.push({ key: `size_${sizeId}`, name: size.sizeName, type: 'size', value: sizeId })
-  })
-  
-  if (priceRange.value < 10000000) {
-    filters.push({ key: 'price', name: `Dưới ${formatPriceVND(priceRange.value)}`, type: 'price' })
-  }
-
-  if (route.query.tag === 'sale') {
-    filters.push({ key: 'sale', name: 'Đang khuyến mãi', type: 'tag', value: 'sale' })
-  }
-
-  return filters
-})
-
-// Methods
-const goToProductDetail = (productId) => {
-  router.push(`/product/${productId}`)
+const formatPrice = (price) => {
+  if (!price && price !== 0) return '0₫'
+  return Number(price).toLocaleString('vi-VN') + '₫'
 }
 
-const addToCartDirect = (product) => {
-  if (!authStore.isAuthenticated) {
-    window.dispatchEvent(new CustomEvent('open-auth-modal', { detail: 'login' }))
-    showNotification('Vui lòng đăng nhập để thêm vào giỏ hàng', 'info')
+const calculateDiscountPercent = (original, discounted) => {
+  if (!original || !discounted || original <= discounted) return 0
+  return Math.round(((original - discounted) / original) * 100)
+}
+
+const handleImageError = (event) => {
+  event.target.style.display = 'none'
+  const placeholder = event.target.parentElement?.querySelector('.no-image-placeholder')
+  if (placeholder) placeholder.style.display = 'flex'
+}
+
+// ==================== Category Logic ====================
+const getCategoryClass = (category) => {
+  const classes = []
+  if (category.children && category.children.length) classes.push('is-parent')
+  if (selectedCategoryIds.value.includes(category.categoryId)) classes.push('active')
+  if (expandedCategoryIds.value.has(category.categoryId)) classes.push('expanded')
+  return classes.join(' ')
+}
+
+const toggleExpand = (id) => {
+  const next = new Set(expandedCategoryIds.value)
+  next.has(id) ? next.delete(id) : next.add(id)
+  expandedCategoryIds.value = next
+}
+
+const toggleFilter = (key) => {
+  expandedFilters.value[key] = !expandedFilters.value[key]
+}
+
+const selectCategory = (category) => {
+  const isVirtual = category.categoryId === NEW_CATEGORY_ID || category.categoryId === SALE_CATEGORY_ID
+
+  if (isVirtual) {
+    // Danh mục ảo: chỉ cho chọn 1 trong 2
+    const otherId = category.categoryId === NEW_CATEGORY_ID ? SALE_CATEGORY_ID : NEW_CATEGORY_ID
+    
+    if (selectedCategoryIds.value.includes(category.categoryId)) {
+      selectedCategoryIds.value = selectedCategoryIds.value.filter(id => id !== category.categoryId)
+    } else {
+      selectedCategoryIds.value = selectedCategoryIds.value.filter(id => id !== otherId)
+      selectedCategoryIds.value = [...selectedCategoryIds.value, category.categoryId]
+    }
+  } else if (category.children && category.children.length) {
+    // Danh mục cha: chỉ mở/đóng
+    toggleExpand(category.categoryId)
+  } else {
+    // Danh mục con: toggle chọn
+    const index = selectedCategoryIds.value.indexOf(category.categoryId)
+    if (index === -1) {
+      selectedCategoryIds.value = [...selectedCategoryIds.value, category.categoryId]
+    } else {
+      selectedCategoryIds.value = selectedCategoryIds.value.filter(id => id !== category.categoryId)
+    }
+  }
+  applyFilters()
+}
+
+const applyCategoryFilter = (products) => {
+  const hasNew = selectedCategoryIds.value.includes(NEW_CATEGORY_ID)
+  const hasSale = selectedCategoryIds.value.includes(SALE_CATEGORY_ID)
+  const realIds = selectedCategoryIds.value.filter(id => id !== NEW_CATEGORY_ID && id !== SALE_CATEGORY_ID)
+
+  let result = products
+
+  // Lọc theo danh mục thật
+  if (realIds.length > 0) {
+    result = result.filter(p => realIds.includes(p.categoryId))
+  }
+
+  // Lọc "Khuyến mãi": CHỈ giữ sản phẩm đang có khuyến mãi thực sự
+  // KHÔNG phụ thuộc danh mục
+  if (hasSale) {
+    result = result.filter(p => p.discountedPrice && p.discountedPrice < p.displayPrice)
+  }
+
+  return result
+}
+
+// ==================== Size Logic ====================
+const toggleSize = (id) => {
+  const index = selectedSizeIds.value.indexOf(id)
+  if (index === -1) {
+    selectedSizeIds.value = [...selectedSizeIds.value, id]
+  } else {
+    selectedSizeIds.value = selectedSizeIds.value.filter(i => i !== id)
+  }
+  applyFilters()
+}
+
+// ==================== Filter Actions ====================
+const applyFilters = () => {
+  currentPage.value = 1
+  syncCategoryToUrl()
+}
+
+const clearAllFilters = () => {
+  selectedCategoryIds.value = []
+  selectedSizeIds.value = []
+  priceRange.value = 4000000
+  sortBy.value = 'newest'
+  currentPage.value = 1
+  
+  const { categoryId, category, subcategory, categoryName, ...rest } = route.query
+  router.replace({ query: rest })
+  showNotification('Đã xóa tất cả bộ lọc', 'success')
+}
+
+const syncCategoryToUrl = () => {
+  const { categoryId, category, subcategory, categoryName, ...rest } = route.query
+  
+  if (selectedCategoryIds.value.length === 1) {
+    router.replace({ query: { ...rest, categoryId: selectedCategoryIds.value[0] } })
+  } else if (route.query.categoryId || route.query.category || route.query.subcategory || route.query.categoryName) {
+    router.replace({ query: rest })
+  }
+}
+
+// ==================== Sync from URL ====================
+const syncCategoryFromRoute = () => {
+  const qCategoryName = route.query.categoryName
+  const rawId = route.query.categoryId ?? route.query.subcategory ?? route.query.category
+
+  // Kiểm tra danh mục ảo "Khuyến mãi" / "Sản phẩm mới" - nhận diện từ CẢ categoryId
+  // (?categoryId=sale) LẪN categoryName (?categoryName=Khuyến Mãi), để link luôn hoạt động
+  // đúng và không phụ thuộc vào việc sản phẩm thuộc danh mục thật nào.
+  const virtualKey = normalizeName(rawId) || normalizeName(qCategoryName)
+
+  if (virtualKey === SALE_CATEGORY_ID || virtualKey === 'khuyến mãi') {
+    if (!(selectedCategoryIds.value.length === 1 && selectedCategoryIds.value[0] === SALE_CATEGORY_ID)) {
+      selectedCategoryIds.value = [SALE_CATEGORY_ID]
+      currentPage.value = 1
+    }
     return
   }
 
+  if (virtualKey === NEW_CATEGORY_ID || virtualKey === 'sản phẩm mới') {
+    if (!(selectedCategoryIds.value.length === 1 && selectedCategoryIds.value[0] === NEW_CATEGORY_ID)) {
+      selectedCategoryIds.value = [NEW_CATEGORY_ID]
+      currentPage.value = 1
+    }
+    return
+  }
+
+  if (qCategoryName) {
+    const normalized = normalizeName(qCategoryName)
+    // Kiểm tra danh mục thật
+    const found = categories.value.find(c => normalizeName(c.categoryName) === normalized)
+    if (found) {
+      if (!(selectedCategoryIds.value.length === 1 && selectedCategoryIds.value[0] === found.categoryId)) {
+        selectedCategoryIds.value = [found.categoryId]
+        currentPage.value = 1
+      }
+      return
+    }
+  }
+
+  if (rawId) {
+    const id = Number(rawId)
+    if (!isNaN(id) && !(selectedCategoryIds.value.length === 1 && selectedCategoryIds.value[0] === id)) {
+      selectedCategoryIds.value = [id]
+      currentPage.value = 1
+    }
+    return
+  }
+
+  if (selectedCategoryIds.value.length > 0) {
+    selectedCategoryIds.value = []
+  }
+}
+
+// ==================== Navigation ====================
+const goToProductDetail = (id) => router.push(`/product/${id}`)
+
+const changePage = (page) => {
+  if (page >= 1 && page <= totalPages.value) {
+    currentPage.value = page
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+}
+
+// ==================== Cart & Wishlist ====================
+const addToCartDirect = (product) => {
   const stock = product.totalStock || 0
   if (stock === 0) {
     showNotification('Sản phẩm đã hết hàng!', 'error')
@@ -549,134 +611,70 @@ const addToCartDirect = (product) => {
   showNotification('Đã thêm sản phẩm vào giỏ hàng!', 'success')
 }
 
-const applyFilters = () => {
-  currentPage.value = 1
-  if (selectedCategoryIds.value.length === 1) {
-    router.replace({ query: { ...route.query, categoryId: selectedCategoryIds.value[0] } })
-  } else if (selectedCategoryIds.value.length === 0 && route.query.categoryId) {
-    const { categoryId, ...rest } = route.query
-    router.replace({ query: rest })
+const handleWishlistToggle = async (productId) => {
+  if (!authStore.isAuthenticated) {
+    window.dispatchEvent(new CustomEvent('open-auth-modal', { detail: 'login' }))
+    return
+  }
+  
+  const isAdded = !wishlistStore.isInWishlist(productId)
+  const success = await wishlistStore.toggleWishlist(productId)
+  
+  if (success) {
+    showNotification(
+      isAdded ? 'Đã thêm vào danh sách yêu thích!' : 'Đã xóa khỏi danh sách yêu thích!',
+      isAdded ? 'success' : 'info'
+    )
+  } else {
+    showNotification('Có lỗi xảy ra, vui lòng thử lại!', 'error')
   }
 }
 
-const removeFilter = (filter) => {
-  switch (filter.type) {
-    case 'category':
-      selectedCategoryIds.value = selectedCategoryIds.value.filter(id => id !== filter.value)
-      break
-    case 'color':
-      selectedColorIds.value = selectedColorIds.value.filter(color => color !== filter.value)
-      break
-    case 'size':
-      selectedSizeIds.value = selectedSizeIds.value.filter(id => id !== filter.value)
-      break
-    case 'price':
-      priceRange.value = 10000000
-      break
-    case 'tag':
-      const { tag, ...rest } = route.query
-      router.replace({ query: rest })
-      return
-  }
-  applyFilters()
-}
-
-const clearFilters = () => {
-  selectedCategoryIds.value = []
-  selectedColorIds.value = []
-  selectedSizeIds.value = []
-  priceRange.value = 10000000
-  sortBy.value = 'newest'
-  currentPage.value = 1
-  if (route.query.categoryId || route.query.tag) {
-    router.replace({ query: {} })
-  }
-  showNotification('Đã xóa tất cả bộ lọc', 'success')
-}
-
-const changePage = (page) => {
-  if (page >= 1 && page <= totalPages.value) {
-    currentPage.value = page
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-  }
-}
-
-// Fetch danh sách kích thước từ API
+// ==================== API Calls ====================
 const fetchSizes = async () => {
   try {
-    const response = await api.get(`/sizes`, {
-      params: { page: 0, size: 100 }
-    })
-    
-    let sizes = []
-    if (response.data?.data?.content) {
-      sizes = response.data.data.content
-    } else if (response.data?.content) {
-      sizes = response.data.content
-    } else if (Array.isArray(response.data)) {
-      sizes = response.data
-    }
-    
-    // Chỉ lấy size đang ACTIVE và sắp xếp
+    const response = await api.get('/sizes', { params: { page: 0, size: 100 } })
+    const sizes = response.data?.data?.content || response.data?.content || response.data || []
+    const order = { 'S': 1, 'M': 2, 'L': 3, 'XL': 4, 'XXL': 5 }
     allSizes.value = sizes
       .filter(s => s.status === 'ACTIVE')
-      .sort((a, b) => {
-        // Sắp xếp size theo thứ tự: S, M, L, XL, XXL
-        const order = { 'S': 1, 'M': 2, 'L': 3, 'XL': 4, 'XXL': 5 }
-        return (order[a.sizeName] || 99) - (order[b.sizeName] || 99)
-      })
-    console.log('✅ Sizes loaded:', allSizes.value)
+      .sort((a, b) => (order[a.sizeName] || 99) - (order[b.sizeName] || 99))
   } catch (error) {
     console.error('Lỗi tải kích thước:', error)
-    allSizes.value = []
   }
 }
 
-// Fetch products
 const fetchProducts = async () => {
   loading.value = true
   try {
-    const response = await api.get(`/customer/home/latest-products`, {
-      params: { page: 0, size: 100 }
-    })
+    const response = await api.get('/customer/home/latest-products', { params: { page: 0, size: 1000 } })
+    const products = response.data?.products || response.data?.data?.products || response.data || []
     
-    let products = response.data?.products || []
-    console.log('📦 Products from API:', products.length)
-    
-    // Xử lý sản phẩm - tạo sizeIds từ variants
     allProducts.value = products.map(p => {
-      // Lấy danh sách sizeId từ variants
       const sizeIds = []
       const colorOptions = []
       
       if (p.variants && p.variants.length > 0) {
         p.variants.forEach(v => {
-          // Lấy sizeId
-          if (v.sizeId && !sizeIds.includes(v.sizeId)) {
-            sizeIds.push(v.sizeId)
-          }
-          // Lấy màu sắc
-          if (v.colorName && !colorOptions.includes(v.colorName)) {
-            colorOptions.push(v.colorName)
-          }
+          if (v.sizeId && !sizeIds.includes(v.sizeId)) sizeIds.push(v.sizeId)
+          if (v.colorName && !colorOptions.includes(v.colorName)) colorOptions.push(v.colorName)
         })
       }
       
-      let displayPrice = Number(p.minPrice) || 0;
-      let discountedPrice = null;
-      
+      let displayPrice = Number(p.minPrice) || 0
+      let discountedPrice = p.discountedPrice ? Number(p.discountedPrice) : null
+
       if (p.variants && p.variants.length > 0) {
-        const minOriginal = Math.min(...p.variants.map(v => v.price || 0));
-        const saleVariants = p.variants.filter(v => v.discountedPrice && v.discountedPrice < v.price);
-        
+        const validPrices = p.variants.map(v => Number(v.price || 0)).filter(pr => pr > 0)
+        const saleVariants = p.variants.filter(v => v.discountedPrice && Number(v.discountedPrice) < Number(v.price || 0))
+
         if (saleVariants.length > 0) {
-          const minDiscount = Math.min(...saleVariants.map(v => v.discountedPrice));
-          displayPrice = minOriginal;
-          discountedPrice = minDiscount;
+          if (validPrices.length > 0) {
+            displayPrice = Math.min(...validPrices)
+          }
+          discountedPrice = Math.min(...saleVariants.map(v => Number(v.discountedPrice)))
         }
       }
-
-      const discountPercent = calculateDiscountPercent(displayPrice, discountedPrice)
       
       return {
         productId: p.productId,
@@ -685,7 +683,7 @@ const fetchProducts = async () => {
         categoryId: p.categoryId,
         displayPrice: displayPrice,
         discountedPrice: discountedPrice,
-        discountPercent: discountPercent,
+        discountPercent: calculateDiscountPercent(displayPrice, discountedPrice),
         maxPrice: Number(p.maxPrice) || 0,
         totalStock: Number(p.totalStock) || 0,
         mainImageUrl: p.mainImageUrl,
@@ -694,17 +692,9 @@ const fetchProducts = async () => {
         variants: p.variants || []
       }
     })
-    
-    console.log('✅ Products processed:', allProducts.value.length)
-    allProducts.value.forEach(p => {
-      console.log(`  - ${p.productName}: sizes = [${p.sizeIds.join(', ')}]`)
-    })
-    
-    // Cập nhật số lượng sản phẩm cho từng size
-    updateSizeProductCounts()
-    
+
     await fetchCategories()
-    
+    syncCategoryFromRoute()
   } catch (error) {
     console.error('Lỗi tải sản phẩm:', error)
     allProducts.value = []
@@ -713,87 +703,34 @@ const fetchProducts = async () => {
   }
 }
 
-// Cập nhật số lượng sản phẩm cho từng size
-const updateSizeProductCounts = () => {
-  const countMap = {}
-  
-  allProducts.value.forEach(product => {
-    if (product.sizeIds && product.sizeIds.length > 0) {
-      product.sizeIds.forEach(sizeId => {
-        countMap[sizeId] = (countMap[sizeId] || 0) + 1
-      })
-    }
-  })
-  
-  allSizes.value = allSizes.value.map(size => ({
-    ...size,
-    productCount: countMap[size.sizeId] || 0
-  }))
-  
-  console.log('📊 Size counts:', countMap)
-}
-
 const fetchCategories = async () => {
   try {
-    const response = await api.get(`/categories/active`)
-    const categoriesData = response.data || []
+    const response = await api.get('/categories/active')
+    const data = response.data || []
     
-    const productCountByCategory = {}
-    allProducts.value.forEach(product => {
-      const catId = product.categoryId
-      if (catId) {
-        productCountByCategory[catId] = (productCountByCategory[catId] || 0) + 1
+    const productCount = {}
+    allProducts.value.forEach(p => {
+      if (p.categoryId) {
+        productCount[p.categoryId] = (productCount[p.categoryId] || 0) + 1
       }
     })
     
-    categories.value = categoriesData.map(cat => ({
+    categories.value = data.map(cat => ({
       ...cat,
-      productCount: productCountByCategory[cat.categoryId] || 0
+      productCount: productCount[cat.categoryId] || 0
     }))
   } catch (error) {
     console.error('Lỗi tải danh mục:', error)
-    categories.value = []
   }
 }
 
-// Watch URL categoryId
-watch(() => route.query.categoryId, (newCategoryId) => {
-  if (newCategoryId) {
-    const id = Number(newCategoryId)
-    if (!selectedCategoryIds.value.includes(id)) {
-      selectedCategoryIds.value = [id]
-      currentPage.value = 1
-    }
-  } else if (selectedCategoryIds.value.length > 0 && !route.query.categoryId) {
-    selectedCategoryIds.value = []
-  }
-}, { immediate: true })
+// ==================== Watch ====================
+watch(
+  () => [route.query.categoryId, route.query.category, route.query.subcategory, route.query.categoryName],
+  () => syncCategoryFromRoute()
+)
 
-// Watch URL tag
-watch(() => route.query.tag, () => {
-  currentPage.value = 1
-})
-
-// Wishlist Toggle
-const handleWishlistToggle = async (productId) => {
-  if (!authStore.isAuthenticated) {
-    window.dispatchEvent(new CustomEvent('open-auth-modal', { detail: 'login' }))
-    return
-  }
-  const isAdded = !wishlistStore.isInWishlist(productId)
-  const success = await wishlistStore.toggleWishlist(productId)
-  if (success) {
-    if (isAdded) {
-      showNotification('Đã thêm sản phẩm vào danh sách yêu thích!', 'success')
-    } else {
-      showNotification('Đã xóa sản phẩm khỏi danh sách yêu thích!', 'info')
-    }
-  } else {
-    showNotification('Có lỗi xảy ra, vui lòng thử lại!', 'error')
-  }
-}
-
-// Lifecycle
+// ==================== Lifecycle ====================
 onMounted(async () => {
   await fetchSizes()
   await fetchProducts()
@@ -804,21 +741,24 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+/* ===== Base ===== */
 .shop-page {
   min-height: 100vh;
 }
 
 main {
-  margin-top: 140px;
+  margin-top: var(--header-offset, 140px);
   padding: 20px 0 50px;
+  transition: margin-top 0.32s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .container {
-  max-width: 1200px;
+  max-width: 1320px;
   margin: 0 auto;
   padding: 0 20px;
 }
 
+/* ===== Breadcrumb ===== */
 .breadcrumb {
   display: flex;
   align-items: center;
@@ -837,28 +777,29 @@ main {
   color: #e63946;
 }
 
-/* Layout 2 cột: Sidebar trái, Content phải */
+/* ===== Layout ===== */
 .shop-layout {
   display: grid;
-  grid-template-columns: 280px 1fr;
-  gap: 30px;
+  grid-template-columns: 240px 1fr;
+  gap: 24px;
   margin-top: 20px;
 }
 
-/* Sidebar - BÊN TRÁI */
+/* ===== Sidebar ===== */
 .sidebar {
   background: white;
   border-radius: 15px;
-  padding: 25px;
+  padding: 20px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
   height: fit-content;
   position: sticky;
-  top: 160px;
+  top: calc(var(--header-offset, 140px) + 20px);
+  transition: top 0.32s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .filter-widget {
-  margin-bottom: 25px;
-  padding-bottom: 25px;
+  margin-bottom: 18px;
+  padding-bottom: 18px;
   border-bottom: 1px solid #eee;
 }
 
@@ -875,45 +816,225 @@ main {
   font-weight: 600;
 }
 
-.filter-widget ul {
-  list-style: none;
-  padding-left: 0;
-  margin: 0;
-}
-
-.filter-widget ul li {
-  margin-bottom: 12px;
-}
-
-.checkbox-label {
+.filter-widget h3.filter-header {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: space-between;
   cursor: pointer;
+  user-select: none;
+}
+
+.filter-widget h3.filter-header .toggle-icon {
+  font-size: 18px;
+  font-weight: 700;
+  color: #999;
+  line-height: 1;
+}
+
+/* ===== Collapsible ===== */
+.collapsible {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.3s ease;
+}
+
+.collapsible.open {
+  grid-template-rows: 1fr;
+}
+
+.collapsible-inner {
+  overflow: hidden;
+}
+
+.children-collapsible {
+  transition: grid-template-rows 0.25s ease;
+}
+
+.children-collapsible .category-children {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.children-collapsible.open .category-children {
+  opacity: 1;
+  transition: opacity 0.25s ease 0.1s;
+}
+
+/* ===== Category Tree ===== */
+.category-tree {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.category-node {
+  padding: 2px 0;
+}
+
+.category-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 0;
+}
+
+.category-link {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  text-decoration: none;
+  color: #2c3e50;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  background: transparent;
+  border: none;
+  width: 100%;
+  gap: 6px;
+}
+
+.category-link:hover {
+  background: white;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+  color: #e63946;
+}
+
+.category-link.active {
+  background: transparent;
+  color: #e63946;
+  font-weight: 700;
+  box-shadow: none;
+}
+
+.category-link.active:hover {
+  background: white;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+  color: #c82333;
+}
+
+.category-link.is-parent.active {
+  background: transparent;
+  color: #2c3e50;
+  font-weight: 500;
+  box-shadow: none;
+}
+
+.category-link.is-parent.active:hover {
+  background: white;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+  color: #e63946;
+}
+
+.category-count {
+  font-size: 12px;
+  color: #999;
+  font-weight: 400;
+}
+
+.category-children {
+  list-style: none;
+  margin: 2px 0 4px 0;
+  padding-left: 20px;
+  border-left: 2px solid #f0f0f0;
+}
+
+.category-children li {
+  margin-bottom: 2px;
+}
+
+.child-link {
+  font-size: 13px;
+  font-weight: 400;
+  padding: 6px 12px;
+  color: #666;
+}
+
+.child-link:hover {
+  background: white;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  transform: translateY(-2px);
+  color: #e63946;
+}
+
+.child-link.active {
+  background: transparent;
+  color: #e63946;
+  font-weight: 700;
+  box-shadow: none;
+}
+
+.child-link.active:hover {
+  background: white;
+  color: #c82333;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.expand-icon {
+  font-size: 12px;
+  color: #999;
+  cursor: pointer;
+  padding: 8px 12px;
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.expand-icon.open {
+  transform: rotate(180deg);
+  color: #e63946;
+}
+
+.expand-icon:hover {
+  color: #e63946;
+}
+
+/* ===== Size Options ===== */
+.size-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-top: 5px;
+}
+
+.size-btn {
+  padding: 8px 20px;
+  border: 2px solid #e0e0e0;
+  border-radius: 25px;
+  background: white;
   color: #555;
   font-size: 14px;
-}
-
-.checkbox-label input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
+  font-weight: 600;
   cursor: pointer;
-  accent-color: #e63946;
+  transition: all 0.3s ease;
+  min-width: 50px;
+  text-align: center;
+  text-transform: uppercase;
 }
 
-.checkbox-label .count {
-  color: #999;
-  font-size: 12px;
+.size-btn:hover {
+  border-color: #e63946;
+  color: #e63946;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(230, 57, 70, 0.15);
 }
 
-.color-dot {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  border: 1px solid #ddd;
-  display: inline-block;
+.size-btn.active {
+  background: #e63946;
+  color: white;
+  border-color: #e63946;
+  box-shadow: 0 4px 15px rgba(230, 57, 70, 0.3);
 }
 
+.size-btn.active:hover {
+  background: #c82333;
+  border-color: #c82333;
+  box-shadow: 0 6px 20px rgba(230, 57, 70, 0.4);
+}
+
+/* ===== Price Range ===== */
 .price-range {
   padding: 0 5px;
 }
@@ -931,6 +1052,7 @@ main {
   color: #999;
 }
 
+/* ===== Clear Filters ===== */
 .clear-filters {
   width: 100%;
   padding: 12px;
@@ -949,12 +1071,12 @@ main {
   border-color: #e63946;
 }
 
-/* Main Content - BÊN PHẢI */
+/* ===== Main Content ===== */
 .main-content {
   min-width: 0;
 }
 
-/* Product Header */
+/* ===== Product Header ===== */
 .product-header {
   display: flex;
   justify-content: space-between;
@@ -971,6 +1093,13 @@ main {
 .product-count {
   color: #666;
   font-size: 14px;
+}
+
+.product-count-number {
+  color: #999;
+  font-size: 13px;
+  font-weight: 400;
+  margin-left: 4px;
 }
 
 .sort-options {
@@ -992,98 +1121,18 @@ main {
   cursor: pointer;
 }
 
-.view-options {
-  display: flex;
-  gap: 5px;
-}
-
-.view-options button {
-  width: 35px;
-  height: 35px;
-  border: 1px solid #ddd;
-  background: white;
-  border-radius: 5px;
-  cursor: pointer;
-  transition: all 0.3s;
-}
-
-.view-options button:hover,
-.view-options button.active {
-  background: #e63946;
-  color: white;
-  border-color: #e63946;
-}
-
-/* Active Filters */
-.active-filters {
-  background: white;
-  padding: 15px 20px;
-  border-radius: 10px;
-  margin-bottom: 20px;
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 15px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-}
-
-.filter-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  flex: 1;
-}
-
-.filter-tag {
-  background: #f0f0f0;
-  padding: 5px 12px;
-  border-radius: 20px;
-  font-size: 13px;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.filter-tag i {
-  cursor: pointer;
-  font-size: 12px;
-}
-
-.filter-tag i:hover {
-  color: #e63946;
-}
-
-.clear-all-btn {
-  padding: 5px 12px;
-  background: none;
-  border: 1px solid #ddd;
-  border-radius: 20px;
-  cursor: pointer;
-  font-size: 12px;
-}
-
-.clear-all-btn:hover {
-  background: #e63946;
-  color: white;
-  border-color: #e63946;
-}
-
-/* Product Container */
+/* ===== Product Grid ===== */
 .product-container {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 30px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 18px 16px;
   margin-bottom: 30px;
 }
 
-.product-container.list-view {
-  grid-template-columns: 1fr;
-}
-
-/* Product Card */
+/* ===== Product Card ===== */
 .product-card-direct {
   background: white;
-  border-radius: 15px;
+  border-radius: 10px;
   overflow: hidden;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
   transition: all 0.3s;
@@ -1091,12 +1140,12 @@ main {
 }
 
 .product-card-direct:hover {
-  transform: translateY(-10px);
+  transform: translateY(-6px);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
 }
 
 .product-image-direct {
-  height: 280px;
+  height: 220px;
   background: #f5f5f5;
   display: flex;
   align-items: center;
@@ -1120,40 +1169,48 @@ main {
 }
 
 .no-image-placeholder i {
-  font-size: 80px;
+  font-size: 60px;
   color: #ccc;
 }
 
 .discount-flag {
   position: absolute;
-  top: 10px;
-  left: 10px;
+  top: 8px;
+  left: 8px;
   background: #e63946;
   color: white;
-  padding: 4px 10px;
+  padding: 3px 8px;
   border-radius: 20px;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: bold;
 }
 
 .product-info-direct {
-  padding: 20px;
+  padding: 12px 14px 14px;
 }
 
-.product-category-direct {
-  color: #e63946;
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-  margin-bottom: 8px;
+.product-options {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+
+.option-tag {
+  font-size: 11px;
+  color: #666;
+  background: #f5f5f5;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 500;
 }
 
 .product-name-direct {
   font-size: 16px;
-  font-weight: 600;
+  font-weight: 700;
   color: #2c3e50;
-  margin-bottom: 10px;
-  line-height: 1.4;
+  margin-bottom: 8px;
+  line-height: 1.35;
   height: 44px;
   overflow: hidden;
   display: -webkit-box;
@@ -1162,54 +1219,28 @@ main {
 }
 
 .product-price-direct {
-  margin-bottom: 12px;
+  margin-bottom: 8px;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
 }
 
 .original-price-direct {
-  font-size: 14px;
+  font-size: 12px;
   color: #999;
   text-decoration: line-through;
 }
 
 .current-price-direct {
-  font-size: 18px;
+  font-size: 15px;
   font-weight: 700;
   color: #e63946;
 }
 
-.product-colors-direct {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 12px;
-  flex-wrap: wrap;
-}
-
-.color-dot-direct {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  border: 1px solid #ddd;
-  cursor: pointer;
-  transition: transform 0.2s;
-}
-
-.color-dot-direct:hover {
-  transform: scale(1.1);
-}
-
-.more-colors-direct {
-  font-size: 12px;
-  color: #999;
-  line-height: 22px;
-}
-
 .product-stock-direct {
-  font-size: 12px;
-  margin-bottom: 15px;
+  font-size: 11px;
+  margin-bottom: 10px;
   color: #28a745;
 }
 
@@ -1218,7 +1249,7 @@ main {
 }
 
 .product-stock-direct i {
-  margin-right: 5px;
+  margin-right: 4px;
 }
 
 .add-to-cart-direct {
@@ -1226,15 +1257,16 @@ main {
   background: linear-gradient(135deg, #e63946, #ff6b6b);
   color: white;
   border: none;
-  padding: 12px;
-  border-radius: 8px;
+  padding: 9px;
+  border-radius: 6px;
   cursor: pointer;
   transition: all 0.3s;
   font-weight: 600;
+  font-size: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .add-to-cart-direct:hover:not(:disabled) {
@@ -1247,7 +1279,43 @@ main {
   cursor: not-allowed;
 }
 
-/* Pagination */
+.product-wishlist-direct {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 35px;
+  height: 35px;
+  background: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  z-index: 10;
+}
+
+.product-wishlist-direct:hover {
+  background: #e63946;
+  color: white;
+  transform: scale(1.1);
+}
+
+.product-wishlist-direct i {
+  font-size: 16px;
+  transition: color 0.3s;
+}
+
+.product-wishlist-direct .fas.fa-heart {
+  color: #e63946;
+}
+
+.product-wishlist-direct:hover .fas.fa-heart {
+  color: white;
+}
+
+/* ===== Pagination ===== */
 .pagination {
   display: flex;
   justify-content: center;
@@ -1282,7 +1350,7 @@ main {
   cursor: not-allowed;
 }
 
-/* Loading & Empty States */
+/* ===== Loading & Empty ===== */
 .loading-state {
   text-align: center;
   padding: 60px;
@@ -1342,7 +1410,7 @@ main {
   background: linear-gradient(135deg, #c82333, #e63946);
 }
 
-/* Responsive */
+/* ===== Responsive ===== */
 @media (max-width: 992px) {
   .shop-layout {
     grid-template-columns: 1fr;
@@ -1350,6 +1418,10 @@ main {
   
   .sidebar {
     position: static;
+  }
+
+  .product-container {
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 
@@ -1359,12 +1431,12 @@ main {
   }
   
   .product-container {
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-    gap: 20px;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px 12px;
   }
   
   .product-image-direct {
-    height: 220px;
+    height: 180px;
   }
   
   .product-header {
@@ -1373,48 +1445,37 @@ main {
   }
   
   .product-name-direct {
-    font-size: 14px;
-    height: 38px;
+    font-size: 15px;
+    height: 40px;
   }
   
   .current-price-direct {
-    font-size: 16px;
+    font-size: 14px;
+  }
+  
+  .category-children {
+    padding-left: 15px;
+  }
+  
+  .size-btn {
+    padding: 6px 16px;
+    font-size: 13px;
+    min-width: 40px;
   }
 }
 
-.product-wishlist-direct {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  width: 35px;
-  height: 35px;
-  background: white;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.3s;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-  z-index: 10;
-}
+@media (max-width: 480px) {
+  .product-container {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
 
-.product-wishlist-direct:hover {
-  background: #e63946;
-  color: white;
-  transform: scale(1.1);
-}
+  .product-image-direct {
+    height: 150px;
+  }
 
-.product-wishlist-direct i {
-  font-size: 16px;
-  transition: color 0.3s;
-}
-
-.product-wishlist-direct .fas.fa-heart {
-  color: #e63946;
-}
-
-.product-wishlist-direct:hover .fas.fa-heart {
-  color: white;
+  .product-info-direct {
+    padding: 8px 10px 10px;
+  }
 }
 </style>

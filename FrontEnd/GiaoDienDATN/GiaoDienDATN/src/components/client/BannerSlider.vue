@@ -61,7 +61,26 @@ const current = ref(0)
 let timer = null
 let isTransitioning = false
 
-const banners = computed(() => bannerStore.activeBanners)
+// ✅ Banner có "Loại link" = Danh mục và trỏ tới danh mục "Bộ Sưu Tập Mới"
+// KHÔNG được hiển thị ở slider chính này (banner đầu trang chủ) — banner đó
+// chỉ dùng làm ảnh bìa riêng cho mục "Bộ Sưu Tập Mới" ở phía dưới trang chủ
+// (xem HomePage.vue -> newCollectionBanner). Vì vậy cần lọc nó ra khỏi danh
+// sách banner của slider chính, tránh hiển thị trùng lặp ở cả 2 nơi.
+const NEW_COLLECTION_CATEGORY_NAME = 'Bộ Sưu Tập Mới'
+const normalizeText = (s) => (s || '').toString().trim().toLowerCase()
+
+// ✅ Banner đánh dấu là banner Slogan cuối trang (xem AdminBanners.vue / HomePage.vue)
+// cũng không được hiển thị ở slider chính, vì nó chỉ dùng riêng cho khu vực slogan
+// trước Footer ở trang chủ.
+const FOOTER_BANNER_MARKER = '__FOOTER_SLOGAN_BANNER__'
+
+const banners = computed(() =>
+  (bannerStore.activeBanners || []).filter(
+    (b) =>
+      !(b.linkType === 'CATEGORY' && normalizeText(b.categoryName) === normalizeText(NEW_COLLECTION_CATEGORY_NAME)) &&
+      b.customUrl !== FOOTER_BANNER_MARKER
+  )
+)
 
 onMounted(async () => {
   await bannerStore.fetchActiveBanners()
@@ -171,11 +190,14 @@ function handleImageError(event) {
 <style scoped>
 .banner-slider {
   position: relative;
-  width: 100%;
+  width: calc(100% - 32px);
+  max-width: 1440px;
+  margin: 16px auto;
   overflow: hidden;
   background: #0a0a1a;
-  /* ✅ Thêm hiệu ứng shadow nhẹ */
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  border-radius: 16px;
+  /* ✅ Shadow tinh tế hơn, không quá nặng */
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
 }
 
 .slider-track {
@@ -189,27 +211,18 @@ function handleImageError(event) {
   position: relative;
   cursor: pointer;
   overflow: hidden;
-  /* ✅ Đảm bảo ảnh chiếm toàn bộ */
-  aspect-ratio: 16 / 5.5;
+  /* ✅ Tỉ lệ 3:1 - khớp với kích thước banner khuyến nghị (vd 1800x600px) */
+  aspect-ratio: 3 / 1;
   background: #0a0a1a;
 }
 
-/* ✅ Style cho ảnh - sắc nét hơn */
+/* ✅ Style cho ảnh - render mượt, không méo/nhòe */
 .slide-img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  /* ✅ Các thuộc tính giúp ảnh sắc nét hơn */
-  image-rendering: -webkit-optimize-contrast;
-  image-rendering: crisp-edges;
-  -webkit-backface-visibility: hidden;
-  backface-visibility: hidden;
-  transform: translateZ(0);
+  object-position: center;
   display: block;
-  /* ✅ Filter nhẹ giúp ảnh sắc nét hơn */
-  filter: contrast(1.02) saturate(1.02);
-  /* ✅ Scale nhẹ để tránh viền trắng khi chuyển slide */
-  scale: 1.002;
 }
 
 /* ✅ Hiệu ứng zoom nhẹ khi hover */
@@ -269,9 +282,9 @@ function handleImageError(event) {
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 50%;
-  width: 52px;
-  height: 52px;
-  font-size: 2rem;
+  width: 48px;
+  height: 48px;
+  font-size: 1.8rem;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -297,37 +310,37 @@ function handleImageError(event) {
 }
 
 .arrow-left {
-  left: 24px;
+  left: 20px;
 }
 
 .arrow-right {
-  right: 24px;
+  right: 20px;
 }
 
-/* ✅ Responsive */
+/* ✅ Responsive - giữ tỉ lệ 3:1 nhất quán mọi kích thước màn hình */
 @media (max-width: 1024px) {
-  .slide {
-    aspect-ratio: 16 / 5;
+  .banner-slider {
+    width: calc(100% - 24px);
+    margin: 12px auto;
+    border-radius: 14px;
   }
   .arrow {
-    width: 44px;
-    height: 44px;
-    font-size: 1.6rem;
+    width: 38px;
+    height: 38px;
+    font-size: 1.4rem;
   }
-  .arrow-left { left: 16px; }
-  .arrow-right { right: 16px; }
+  .arrow-left { left: 14px; }
+  .arrow-right { right: 14px; }
 }
 
 @media (max-width: 768px) {
-  .slide {
-    aspect-ratio: 16 / 4.5;
-    min-height: 180px;
-  }
-  .slide-img {
-    object-fit: cover;
+  .banner-slider {
+    width: calc(100% - 16px);
+    margin: 10px auto;
+    border-radius: 12px;
   }
   .dots {
-    bottom: 14px;
+    bottom: 12px;
     gap: 6px;
     padding: 6px 12px;
   }
@@ -339,28 +352,29 @@ function handleImageError(event) {
     width: 20px;
   }
   .arrow {
-    width: 36px;
-    height: 36px;
-    font-size: 1.2rem;
+    width: 32px;
+    height: 32px;
+    font-size: 1.1rem;
   }
-  .arrow-left { left: 10px; }
-  .arrow-right { right: 10px; }
+  .arrow-left { left: 8px; }
+  .arrow-right { right: 8px; }
 }
 
 @media (max-width: 480px) {
-  .slide {
-    aspect-ratio: 16 / 4;
-    min-height: 140px;
+  .banner-slider {
+    width: 100%;
+    margin: 0;
+    border-radius: 0;
   }
   .arrow {
-    width: 30px;
-    height: 30px;
-    font-size: 1rem;
+    width: 28px;
+    height: 28px;
+    font-size: 0.95rem;
   }
   .arrow-left { left: 6px; }
   .arrow-right { right: 6px; }
   .dots {
-    bottom: 10px;
+    bottom: 8px;
     gap: 4px;
     padding: 4px 10px;
   }
@@ -406,11 +420,11 @@ function handleImageError(event) {
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: scale(1.05);
+    transform: scale(1.03);
   }
   to {
     opacity: 1;
-    transform: scale(1.002);
+    transform: scale(1);
   }
 }
 
