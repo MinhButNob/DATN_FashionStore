@@ -32,6 +32,27 @@
       </div>
     </div>
 
+    <!-- Tabs -->
+    <div class="tabs-container">
+      <button class="tab-btn" :class="{ active: activeTab === 'REVIEWS' }" @click="activeTab = 'REVIEWS'">
+        <i class="fas fa-list"></i> Danh sách đánh giá
+      </button>
+      <button class="tab-btn" :class="{ active: activeTab === 'PRODUCTS' }" @click="switchToProductTab">
+        <i class="fas fa-box"></i> Thống kê theo sản phẩm
+      </button>
+    </div>
+
+    <!-- Tab: Danh sách đánh giá -->
+    <div v-show="activeTab === 'REVIEWS'">
+
+      <!-- Product filter alert -->
+      <div v-if="filterProductId" class="product-filter-alert">
+        <span><i class="fas fa-filter"></i> Đang lọc đánh giá của sản phẩm: <strong>{{ filterProductName || '#' + filterProductId }}</strong></span>
+        <button class="btn btn-sm btn-outline" @click="clearProductFilter">
+          <i class="fas fa-times"></i> Hủy lọc
+        </button>
+      </div>
+
     <!-- Statistics Cards -->
     <div class="stats-grid">
       <div class="stat-card" :class="{ active: filterStatus === '' }" @click="filterStatus = ''; fetchReviews()">
@@ -210,6 +231,79 @@
         </button>
       </div>
     </div>
+    </div>
+
+    <!-- Tab: Thống kê sản phẩm -->
+    <div v-show="activeTab === 'PRODUCTS'">
+      <div v-if="productStatsLoading" class="loading-state">
+        <i class="fas fa-spinner fa-spin"></i>
+        <p>Đang tải thống kê sản phẩm...</p>
+      </div>
+      
+      <div v-else class="table-container">
+        <div v-if="productStats.length === 0" class="empty-state">
+          <i class="fas fa-box-open"></i>
+          <h3>Không có dữ liệu</h3>
+          <p>Chưa có sản phẩm nào được đánh giá</p>
+        </div>
+
+        <table v-else class="reviews-table product-stats-table">
+          <thead>
+            <tr>
+              <th style="width: 80px">ID SP</th>
+              <th style="min-width: 300px">Sản phẩm</th>
+              <th style="width: 150px">Tổng đánh giá</th>
+              <th style="width: 200px">Rating trung bình</th>
+              <th style="width: 150px">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="stat in productStats" :key="stat.productId" class="product-stat-row">
+              <td class="text-center">#{{ stat.productId }}</td>
+              <td>
+                <div class="product-info">
+                  <div class="product-thumb">
+                    <img v-if="stat.productImageUrl" :src="getImageUrl(stat.productImageUrl)" :alt="stat.productName" />
+                    <i v-else class="fas fa-tshirt"></i>
+                  </div>
+                  <div class="product-name">
+                    <span>{{ stat.productName }}</span>
+                  </div>
+                </div>
+              </td>
+              <td class="text-center">
+                <span class="total-reviews-badge">{{ stat.totalReviews }}</span>
+              </td>
+              <td>
+                <div class="avg-rating-display">
+                  <div class="rating-stars">
+                    <i v-for="star in 5" :key="star" 
+                       :class="star <= Math.round(stat.averageRating) ? 'fas fa-star active' : 'far fa-star'"></i>
+                  </div>
+                  <span class="avg-rating-number">{{ stat.averageRating.toFixed(1) }}</span>
+                </div>
+              </td>
+              <td class="text-center">
+                <button class="btn btn-sm btn-info" @click="viewProductReviews(stat.productId, stat.productName)">
+                  <i class="fas fa-eye"></i> Xem đánh giá
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- Pagination for Product Stats -->
+        <div class="pagination" v-if="totalProductPages > 1">
+          <button class="page-btn" :disabled="currentProductPage === 0" @click="goToProductPage(currentProductPage - 1)">
+            <i class="fas fa-chevron-left"></i>
+          </button>
+          <span class="page-info">{{ currentProductPage + 1 }} / {{ totalProductPages }}</span>
+          <button class="page-btn" :disabled="currentProductPage === totalProductPages - 1" @click="goToProductPage(currentProductPage + 1)">
+            <i class="fas fa-chevron-right"></i>
+          </button>
+        </div>
+      </div>
+    </div>
 
     <!-- Detail Modal -->
     <div v-if="showDetailModal" class="modal-overlay">
@@ -372,6 +466,10 @@ import api from "@/api/axios";
 const IMAGE_BASE = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "").replace(/\/api$/, "");
 
 // State
+const activeTab = ref('REVIEWS')
+const filterProductId = ref(null)
+const filterProductName = ref('')
+
 const loading = ref(false)
 const reviews = ref([])
 const currentPage = ref(0)
@@ -379,6 +477,12 @@ const totalPages = ref(0)
 const filterStatus = ref('')
 const keyword = ref('')
 const stats = ref({})
+
+// Product stats tab
+const productStats = ref([])
+const productStatsLoading = ref(false)
+const currentProductPage = ref(0)
+const totalProductPages = ref(0)
 
 // Modals
 const showDetailModal = ref(false)
@@ -460,6 +564,7 @@ const fetchReviews = async () => {
       params: {
         status: filterStatus.value || null,
         keyword: keyword.value || null,
+        productId: filterProductId.value || null,
         page: currentPage.value,
         size: 10
       } })
@@ -500,6 +605,66 @@ const goToPage = (page) => {
 const resetFilters = () => {
   filterStatus.value = ''
   keyword.value = ''
+  filterProductId.value = null
+  filterProductName.value = ''
+  currentPage.value = 0
+  fetchReviews()
+}
+
+// Fetch product statistics
+const fetchProductStats = async () => {
+  productStatsLoading.value = true
+  try {
+    const response = await api.get("/admin/reviews/products/statistics", {
+      params: {
+        page: currentProductPage.value,
+        size: 10
+      }
+    })
+    if (response.data) {
+      productStats.value = response.data.content || []
+      totalProductPages.value = response.data.totalPages || 0
+      currentProductPage.value = response.data.number || 0
+    }
+  } catch (error) {
+    console.error('❌ Error fetching product stats:', error)
+    showNotification('Không thể tải thống kê sản phẩm', 'error')
+  } finally {
+    productStatsLoading.value = false
+  }
+}
+
+// Switch to product tab
+const switchToProductTab = () => {
+  activeTab.value = 'PRODUCTS'
+  if (productStats.value.length === 0) {
+    fetchProductStats()
+  }
+}
+
+// Product page pagination
+const goToProductPage = (page) => {
+  if (page >= 0 && page < totalProductPages.value) {
+    currentProductPage.value = page
+    fetchProductStats()
+  }
+}
+
+// View reviews for a specific product
+const viewProductReviews = (productId, productName) => {
+  filterProductId.value = productId
+  filterProductName.value = productName || ''
+  activeTab.value = 'REVIEWS'
+  currentPage.value = 0
+  filterStatus.value = ''
+  keyword.value = ''
+  fetchReviews()
+}
+
+// Clear product filter
+const clearProductFilter = () => {
+  filterProductId.value = null
+  filterProductName.value = ''
   currentPage.value = 0
   fetchReviews()
 }
@@ -1454,5 +1619,93 @@ onMounted(() => {
   .modal-footer .btn {
     width: 100%;
   }
+}
+
+/* ===== TABS ===== */
+.tabs-container {
+  display: flex;
+  gap: 0;
+  margin-bottom: 20px;
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 14px 24px;
+  background: white;
+  border: none;
+  font-size: 15px;
+  font-weight: 600;
+  color: #6c757d;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border-bottom: 3px solid transparent;
+}
+
+.tab-btn:hover {
+  background: #f8f9fa;
+  color: #1a1a2e;
+}
+
+.tab-btn.active {
+  color: #e63946;
+  border-bottom-color: #e63946;
+  background: #fff5f5;
+}
+
+.tab-btn i {
+  margin-right: 8px;
+}
+
+/* ===== PRODUCT FILTER ALERT ===== */
+.product-filter-alert {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #fff3cd;
+  color: #856404;
+  padding: 12px 20px;
+  border-radius: 10px;
+  margin-bottom: 20px;
+  border: 1px solid #ffeeba;
+  font-size: 14px;
+}
+
+.product-filter-alert strong {
+  color: #1a1a2e;
+}
+
+/* ===== PRODUCT STATS TABLE ===== */
+.product-stat-row {
+  transition: background 0.2s;
+}
+
+.product-stat-row:hover {
+  background: #f0f7ff;
+}
+
+.total-reviews-badge {
+  display: inline-block;
+  background: #e63946;
+  color: white;
+  padding: 4px 14px;
+  border-radius: 20px;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.avg-rating-display {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.avg-rating-number {
+  font-weight: 700;
+  font-size: 18px;
+  color: #e63946;
 }
 </style>

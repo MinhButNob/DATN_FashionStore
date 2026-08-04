@@ -62,6 +62,12 @@ public interface ReviewRepository extends JpaRepository<Review, Integer> {
             "ORDER BY r.createdAt DESC")
     Page<Review> findApprovedByProductId(@Param("productId") Integer productId, Pageable pageable);
 
+    @Query("SELECT r FROM Review r JOIN ProductDetail pd ON r.productDetailId = pd.productDetailId " +
+            "WHERE pd.product.productId = :productId AND r.rating = :rating AND r.reviewStatus = 'APPROVED' AND r.deletedAt IS NULL " +
+            "ORDER BY r.createdAt DESC")
+    Page<Review> findApprovedByProductIdAndRating(@Param("productId") Integer productId, @Param("rating") Integer rating, Pageable pageable);
+
+
     @Query("SELECT COALESCE(AVG(r.rating), 0) FROM Review r JOIN ProductDetail pd ON r.productDetailId = pd.productDetailId " +
             "WHERE pd.product.productId = :productId AND r.reviewStatus = 'APPROVED' AND r.deletedAt IS NULL")
     Double getAverageRatingByProductId(@Param("productId") Integer productId);
@@ -123,4 +129,49 @@ public interface ReviewRepository extends JpaRepository<Review, Integer> {
 
     @Query("SELECT r.rating, COUNT(r) FROM Review r WHERE r.productDetailId = :productDetailId AND r.reviewStatus = 'APPROVED' AND r.deletedAt IS NULL GROUP BY r.rating")
     List<Object[]> getRatingCountsByProductDetailId(@Param("productDetailId") Integer productDetailId);
+
+    // ===== ADMIN: FILTER BY PRODUCT ID =====
+
+    @Query("SELECT r FROM Review r LEFT JOIN ProductDetail pd ON r.productDetailId = pd.productDetailId " +
+            "WHERE r.deletedAt IS NULL AND pd.product.productId = :productId ORDER BY r.createdAt DESC")
+    Page<Review> findAllByDeletedAtIsNullAndProductId(@Param("productId") Integer productId, Pageable pageable);
+
+    @Query("SELECT r FROM Review r LEFT JOIN ProductDetail pd ON r.productDetailId = pd.productDetailId " +
+            "WHERE r.reviewStatus = :status AND r.deletedAt IS NULL AND pd.product.productId = :productId ORDER BY r.createdAt DESC")
+    Page<Review> findByReviewStatusAndProductId(@Param("status") String status, @Param("productId") Integer productId, Pageable pageable);
+
+    @Query("SELECT r FROM Review r LEFT JOIN ProductDetail pd ON r.productDetailId = pd.productDetailId " +
+            "LEFT JOIN Product p ON pd.product.productId = p.productId " +
+            "LEFT JOIN Customer c ON r.customerId = c.customerId " +
+            "WHERE r.deletedAt IS NULL AND pd.product.productId = :productId AND " +
+            "(LOWER(p.productName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+            "LOWER(c.customerName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+            "LOWER(r.comment) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
+            "ORDER BY r.createdAt DESC")
+    Page<Review> findByKeywordAndProductId(@Param("keyword") String keyword, @Param("productId") Integer productId, Pageable pageable);
+
+    @Query("SELECT r FROM Review r LEFT JOIN ProductDetail pd ON r.productDetailId = pd.productDetailId " +
+            "LEFT JOIN Product p ON pd.product.productId = p.productId " +
+            "LEFT JOIN Customer c ON r.customerId = c.customerId " +
+            "WHERE r.deletedAt IS NULL AND r.reviewStatus = :status AND pd.product.productId = :productId AND " +
+            "(LOWER(p.productName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+            "LOWER(c.customerName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+            "LOWER(r.comment) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
+            "ORDER BY r.createdAt DESC")
+    Page<Review> findByStatusAndKeywordAndProductId(
+            @Param("status") String status,
+            @Param("keyword") String keyword,
+            @Param("productId") Integer productId,
+            Pageable pageable
+    );
+
+    // ===== THỐNG KÊ PRODUCT =====
+    @Query("SELECT p.productId, p.productName, COUNT(r), COALESCE(AVG(r.rating), 0) " +
+           "FROM Review r " +
+           "JOIN ProductDetail pd ON r.productDetailId = pd.productDetailId " +
+           "JOIN Product p ON pd.product.productId = p.productId " +
+           "WHERE r.deletedAt IS NULL " +
+           "GROUP BY p.productId, p.productName " +
+           "ORDER BY COUNT(r) DESC")
+    Page<Object[]> getProductReviewStatistics(Pageable pageable);
 }

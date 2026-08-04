@@ -7,6 +7,7 @@ import com.example.backend_fashionstore.entity.ProductDetail;
 import com.example.backend_fashionstore.entity.Review;
 import com.example.backend_fashionstore.quanLyKhachHang.repository.KhachHangCustomerRepository;
 import com.example.backend_fashionstore.review.dto.response.AdminReviewResponseDTO;
+import com.example.backend_fashionstore.review.dto.response.ProductReviewStatDTO;
 import com.example.backend_fashionstore.review.repository.ReviewRepository;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -33,17 +34,33 @@ public class AdminReviewService {
     private final KhachHangCustomerRepository customerRepository;
     // ❌ ĐÃ XÓA: private final ObjectMapper objectMapper;
 
-    public Page<AdminReviewResponseDTO> getAllReviews(String status, String keyword, Pageable pageable) {
+    public Page<AdminReviewResponseDTO> getAllReviews(String status, String keyword, Integer productId, Pageable pageable) {
         Page<Review> reviews;
 
-        if (status != null && !status.isEmpty() && keyword != null && !keyword.isEmpty()) {
-            reviews = reviewRepository.findByStatusAndKeyword(status, keyword, pageable);
-        } else if (status != null && !status.isEmpty()) {
-            reviews = reviewRepository.findByReviewStatus(status, pageable);
-        } else if (keyword != null && !keyword.isEmpty()) {
-            reviews = reviewRepository.findByKeyword(keyword, pageable);
+        boolean hasStatus = status != null && !status.isEmpty();
+        boolean hasKeyword = keyword != null && !keyword.isEmpty();
+        boolean hasProductId = productId != null;
+
+        if (hasProductId) {
+            if (hasStatus && hasKeyword) {
+                reviews = reviewRepository.findByStatusAndKeywordAndProductId(status, keyword, productId, pageable);
+            } else if (hasStatus) {
+                reviews = reviewRepository.findByReviewStatusAndProductId(status, productId, pageable);
+            } else if (hasKeyword) {
+                reviews = reviewRepository.findByKeywordAndProductId(keyword, productId, pageable);
+            } else {
+                reviews = reviewRepository.findAllByDeletedAtIsNullAndProductId(productId, pageable);
+            }
         } else {
-            reviews = reviewRepository.findAllByDeletedAtIsNull(pageable);
+            if (hasStatus && hasKeyword) {
+                reviews = reviewRepository.findByStatusAndKeyword(status, keyword, pageable);
+            } else if (hasStatus) {
+                reviews = reviewRepository.findByReviewStatus(status, pageable);
+            } else if (hasKeyword) {
+                reviews = reviewRepository.findByKeyword(keyword, pageable);
+            } else {
+                reviews = reviewRepository.findAllByDeletedAtIsNull(pageable);
+            }
         }
 
         return reviews.map(this::convertToAdminResponse);
@@ -104,6 +121,36 @@ public class AdminReviewService {
         stats.put("averageRating", averageRating != null ? averageRating : 0.0);
 
         return stats;
+    }
+
+    public Page<ProductReviewStatDTO> getProductStatistics(Pageable pageable) {
+        Page<Object[]> results = reviewRepository.getProductReviewStatistics(pageable);
+        return results.map(obj -> {
+            Integer pId = (Integer) obj[0];
+            String pName = (String) obj[1];
+            Long total = (Long) obj[2];
+            Double avg = (Double) obj[3];
+
+            // Lấy ảnh đầu tiên của sản phẩm
+            String pImageUrl = "";
+            List<ProductDetail> details = productDetailRepository.findByProductId(pId);
+            if (details != null && !details.isEmpty()) {
+                for (ProductDetail pd : details) {
+                    if (pd.getProductImages() != null && !pd.getProductImages().isEmpty()) {
+                        pImageUrl = pd.getProductImages().get(0).getProductImagePath();
+                        break;
+                    }
+                }
+            }
+
+            return ProductReviewStatDTO.builder()
+                    .productId(pId)
+                    .productName(pName)
+                    .productImageUrl(pImageUrl)
+                    .totalReviews(total)
+                    .averageRating(avg != null ? avg : 0.0)
+                    .build();
+        });
     }
 
     private AdminReviewResponseDTO convertToAdminResponse(Review review) {
