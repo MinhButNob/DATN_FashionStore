@@ -7,6 +7,20 @@ import api from './api';
  */
 const chatService = {
   /**
+   * Lấy danh sách loại chat
+   * GET /api/chat/customer/types
+   */
+  getChatTypes: async () => {
+    try {
+      const response = await api.get('/chat/customer/types');
+      return response || [];
+    } catch (error) {
+      console.error('getChatTypes error:', error);
+      return [];
+    }
+  },
+
+  /**
    * Lấy danh sách conversations của customer
    * GET /api/chat/customer/conversations?customerId={customerId}
    */
@@ -105,20 +119,23 @@ const chatService = {
   /**
    * Yêu cầu chat với nhân viên (tạo mới hoặc lấy chat WAITING/ACTIVE)
    * POST /api/chat/customer/create
-   * Body: { customerId, message, isAi }
+   * Body: { customerId, message, isAi, chatType }
    */
-  requestStaffChat: async (customerId, firstMessage = null) => {
+  requestStaffChat: async (customerId, firstMessage = null, chatType = null) => {
     try {
       if (!customerId) throw new Error('customerId is required');
 
-      const response = await api.post('/chat/customer/create', {
+      const payload = {
         customerId: Number(customerId),
         message: firstMessage || null,
-        isAi: false
-      });
+        isAi: false,
+        chatType: chatType || 'OTHER'
+      };
+
+      const response = await api.post('/chat/customer/create', payload);
       return response;
     } catch (error) {
-      console.error('createConversation error:', error);
+      console.error('requestStaffChat error:', error);
       throw error;
     }
   },
@@ -136,6 +153,7 @@ const chatService = {
       console.error('closeConversation error:', error);
       throw error;
     }
-  } };
+  }
+};
 
 export default chatService;

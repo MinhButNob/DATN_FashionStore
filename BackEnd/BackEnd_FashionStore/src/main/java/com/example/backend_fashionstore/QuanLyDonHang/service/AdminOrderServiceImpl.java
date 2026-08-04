@@ -18,6 +18,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -97,10 +100,101 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         String oldStatus = order.getOrderStatus().toString();
         String newStatus = request.getOrderStatus();
 
+        // ✅ Lấy thông tin người dùng hiện tại
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String currentUser = authentication.getName();
+        String currentEmail = authentication.getPrincipal() instanceof UserDetails
+                ? ((UserDetails) authentication.getPrincipal()).getUsername()
+                : currentUser;
+        String currentRole = authentication.getAuthorities().stream()
+                .map(a -> a.getAuthority().replace("ROLE_", ""))
+                .findFirst()
+                .orElse("UNKNOWN");
+
+        log.info("🔐 Current user: {}, Email: {}, Role: {}", currentUser, currentEmail, currentRole);
+        log.info("📋 Order {} - Old Status: {}, New Status: {}, ProcessedBy: {}, ProcessedByEmail: {}",
+                orderId, oldStatus, newStatus, order.getProcessedBy(), order.getProcessedByEmail());
+
+        // ✅ CHỈ PENDING_PAYMENT -> CONFIRMED mới là hành động xác nhận
+        boolean isConfirmAction = "PENDING_PAYMENT".equals(oldStatus) && "CONFIRMED".equals(newStatus);
+
+        // ✅ QUAN TRỌNG: Kiểm tra nếu đơn hàng đã có người xác nhận
+        if (order.getProcessedBy() != null && !order.getProcessedBy().isEmpty()) {
+            // ✅ Nếu đây là hành động xác nhận nhưng đã có người xác nhận
+            if (isConfirmAction) {
+                String errorMsg = String.format(
+                        "❌ Đơn hàng #%d đã được xác nhận bởi: %s (Email: %s, Role: %s) vào lúc: %s\n" +
+                                "Không thể xác nhận lại đơn hàng này!",
+                        orderId,
+                        order.getProcessedBy(),
+                        order.getProcessedByEmail() != null ? order.getProcessedByEmail() : "Không có email",
+                        order.getProcessedByRole(),
+                        order.getProcessedAt() != null ? order.getProcessedAt().toString() : "không rõ"
+                );
+                log.error(errorMsg);
+                throw new RuntimeException(errorMsg);
+            }
+
+            // ✅ Nếu đơn hàng đã được xác nhận, CHỈ người xác nhận mới được cập nhật
+            boolean isSameUser = false;
+
+            // So sánh username
+            if (order.getProcessedBy() != null && order.getProcessedBy().equalsIgnoreCase(currentUser)) {
+                isSameUser = true;
+            }
+
+            // So sánh email
+            if (order.getProcessedByEmail() != null && currentEmail != null) {
+                if (order.getProcessedByEmail().equalsIgnoreCase(currentEmail)) {
+                    isSameUser = true;
+                }
+            }
+
+            // Nếu processedBy trùng với email current
+            if (order.getProcessedBy() != null && currentEmail != null) {
+                if (order.getProcessedBy().equalsIgnoreCase(currentEmail)) {
+                    isSameUser = true;
+                }
+            }
+
+            // Nếu processedByEmail trùng với username current
+            if (order.getProcessedByEmail() != null && order.getProcessedByEmail().equalsIgnoreCase(currentUser)) {
+                isSameUser = true;
+            }
+
+            if (!isSameUser) {
+                String errorMsg = String.format(
+                        "❌ Đơn hàng #%d đã được xác nhận bởi: %s (Email: %s, Role: %s) vào lúc: %s\n" +
+                                "Chỉ %s mới có quyền cập nhật đơn hàng này!",
+                        orderId,
+                        order.getProcessedBy(),
+                        order.getProcessedByEmail() != null ? order.getProcessedByEmail() : "Không có email",
+                        order.getProcessedByRole(),
+                        order.getProcessedAt() != null ? order.getProcessedAt().toString() : "không rõ",
+                        order.getProcessedBy()
+                );
+                log.error(errorMsg);
+                throw new RuntimeException(errorMsg);
+            }
+        }
+
+        // ✅ Nếu chưa có người xác nhận và đây là hành động xác nhận -> lưu thông tin người xác nhận
+        if (isConfirmAction) {
+            order.setProcessedBy(currentUser);
+            order.setProcessedByEmail(currentEmail);
+            order.setProcessedByRole(currentRole);
+            order.setProcessedAt(LocalDateTime.now());
+
+            log.info("✅ Order {} confirmed by: {} (Email: {}, Role: {}) at {}",
+                    orderId, currentUser, currentEmail, currentRole, LocalDateTime.now());
+        }
+
+        // Kiểm tra chuyển trạng thái hợp lệ
         if (!isValidAdminStatusTransition(oldStatus, newStatus)) {
             throw new RuntimeException("Không thể chuyển trạng thái từ '" + oldStatus + "' sang '" + newStatus + "'");
         }
 
+        // ✅ Xử lý trừ stock khi chuyển từ PROCESSING -> SHIPPING
         if ("PROCESSING".equals(oldStatus) && "SHIPPING".equals(newStatus)) {
             try {
                 customerOrderService.deductStockForOrder(orderId);
@@ -110,9 +204,17 @@ public class AdminOrderServiceImpl implements AdminOrderService {
             }
         }
 
+        // ✅ Cập nhật trạng thái đơn hàng
         order.setOrderStatus(OrderStatus.valueOf(newStatus));
         order.setUpdatedAt(LocalDateTime.now());
 
+        // ✅ 🔥 QUAN TRỌNG: Khi chuyển sang DELIVERED, tự động cập nhật paymentStatus = SUCCESS
+        if ("DELIVERED".equals(newStatus)) {
+            order.setPaymentStatus(PaymentStatus.SUCCESS);
+            log.info("✅ Order {} delivered, payment status automatically updated to SUCCESS", orderId);
+        }
+
+        // ✅ Xử lý hoàn hàng: Khi chuyển từ RETURN_RECEIVED -> RETURNED
         if ("RETURN_RECEIVED".equals(oldStatus) && "RETURNED".equals(newStatus)) {
             returnRequestRepository.findFirstByOrderIdAndDeletedAtIsNull(orderId)
                     .ifPresent(returnRequest -> {
@@ -123,22 +225,39 @@ public class AdminOrderServiceImpl implements AdminOrderService {
                     });
         }
 
+        // ✅ Xử lý hủy đơn: Nếu chuyển sang CANCELLED và đã trừ stock thì hoàn lại
         if ("CANCELLED".equals(newStatus) && isStockDeducted(oldStatus)) {
             restoreStockForOrder(orderId);
         }
 
         orderRepository.save(order);
 
+        // ✅ Lưu lịch sử
         OrderHistory history = new OrderHistory();
         history.setOrder(order);
         history.setOrderStatus(newStatus);
-        history.setNote("Admin cập nhật trạng thái từ '" + getStatusText(oldStatus) + "' thành '" + getStatusText(newStatus) + "'. " +
-                (request.getNotes() != null ? request.getNotes() : ""));
+        String note = "Admin cập nhật trạng thái từ '" + getStatusText(oldStatus) + "' thành '" + getStatusText(newStatus) + "'";
+
+        // ✅ Thêm thông tin thanh toán nếu được cập nhật tự động
+        if ("DELIVERED".equals(newStatus)) {
+            note += " (Thanh toán tự động chuyển thành THÀNH CÔNG khi nhận hàng)";
+        }
+
+        if (request.getNotes() != null) {
+            note += ". " + request.getNotes();
+        }
+        if (order.getProcessedBy() != null) {
+            note += " (Xác nhận bởi: " + order.getProcessedBy()
+                    + " - Email: " + (order.getProcessedByEmail() != null ? order.getProcessedByEmail() : "N/A")
+                    + " - " + order.getProcessedByRole() + ")";
+        }
+        history.setNote(note);
         history.setTimestamp(LocalDateTime.now());
         orderHistoryRepository.save(history);
 
         log.info("✅ Admin updated order {} status from {} to {}", orderId, oldStatus, newStatus);
 
+        // ✅ Gửi thông báo cho khách hàng
         try {
             sendOrderStatusNotification(order, oldStatus, newStatus, request.getNotes());
         } catch (Exception e) {
@@ -148,6 +267,9 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         return convertToAdminResponse(order);
     }
 
+    /**
+     * Khôi phục số lượng tồn kho khi hủy đơn hàng
+     */
     private void restoreStockForOrder(Long orderId) {
         log.info("📦 Restoring stock for order: {}", orderId);
         List<OrderDetail> details = orderDetailRepository.findByOrder_OrderId(orderId);
@@ -193,7 +315,6 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         long deliveredOrders = orderRepository.countByOrderStatus(OrderStatus.DELIVERED);
         long returnedOrders = orderRepository.countByOrderStatus(OrderStatus.RETURNED);
 
-        // 🆕 THỐNG KÊ HOÀN HÀNG CHI TIẾT
         long returnRequested = orderRepository.countByOrderStatus(OrderStatus.RETURN_REQUESTED);
         long returnApproved = orderRepository.countByOrderStatus(OrderStatus.RETURN_APPROVED);
         long returnReceived = orderRepository.countByOrderStatus(OrderStatus.RETURN_RECEIVED);
@@ -201,7 +322,6 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         long returnCompleted = orderRepository.countByOrderStatus(OrderStatus.RETURNED);
         long returnRejected = orderRepository.countByOrderStatus(OrderStatus.REJECTED);
 
-        // 🆕 THỐNG KÊ DOANH THU
         BigDecimal todayRevenue = orderRepository.getTodayRevenue();
         if (todayRevenue == null) todayRevenue = BigDecimal.ZERO;
 
@@ -211,23 +331,18 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         );
         if (monthlyRevenue == null) monthlyRevenue = BigDecimal.ZERO;
 
-        // Tổng doanh thu từ đơn hàng COMPLETED
         BigDecimal totalRevenue = orderRepository.getTotalRevenue();
         if (totalRevenue == null) totalRevenue = BigDecimal.ZERO;
 
-        // Doanh thu online (không phải POS)
         BigDecimal onlineRevenue = orderRepository.getOnlineRevenue();
         if (onlineRevenue == null) onlineRevenue = BigDecimal.ZERO;
 
-        // Tổng tiền hoàn trả
         BigDecimal returnRefundAmount = orderRepository.getReturnRefundAmount();
         if (returnRefundAmount == null) returnRefundAmount = BigDecimal.ZERO;
 
-        // Doanh thu thực tế
         BigDecimal netRevenue = onlineRevenue.subtract(returnRefundAmount);
         if (netRevenue.compareTo(BigDecimal.ZERO) < 0) netRevenue = BigDecimal.ZERO;
 
-        // Thống kê hủy đơn chi tiết
         long cancelledByCustomer = orderRepository.countCancelledByType("Khách hàng hủy");
         long cancelledByAdmin = orderRepository.countCancelledByType("Admin hủy");
         long cancelledBySystem = orderRepository.countCancelledByType("Hệ thống hủy");
@@ -445,32 +560,32 @@ public class AdminOrderServiceImpl implements AdminOrderService {
     // ===== HELPER METHODS =====
     // ================================================================
 
+    /**
+     * Kiểm tra chuyển trạng thái hợp lệ theo OrderStatus Enum
+     */
     private boolean isValidAdminStatusTransition(String oldStatus, String newStatus) {
-        if ("CANCELLED".equals(newStatus)) {
-            return false;
+        // Danh sách các chuyển tiếp hợp lệ
+        String[][] validTransitions = {
+                {"PENDING_PAYMENT", "CONFIRMED"},
+                {"CONFIRMED", "PROCESSING"},
+                {"PROCESSING", "SHIPPING"},
+                {"SHIPPING", "DELIVERED"},
+                {"DELIVERED", "COMPLETED"},
+                {"RETURN_APPROVED", "RETURN_RECEIVED"},
+                {"RETURN_RECEIVED", "RETURNED"}
+        };
+
+        for (String[] transition : validTransitions) {
+            if (transition[0].equals(oldStatus) && transition[1].equals(newStatus)) {
+                return true;
+            }
         }
-
-        if ("RETURN_APPROVED".equals(oldStatus) && "RETURN_RECEIVED".equals(newStatus)) {
-            return true;
-        }
-
-        if ("RETURN_RECEIVED".equals(oldStatus) && "RETURNED".equals(newStatus)) {
-            return true;
-        }
-
-        if ("PROCESSING".equals(oldStatus) && "SHIPPING".equals(newStatus)) {
-            return true;
-        }
-
-        List<String> validSequence = Arrays.asList(
-                "PENDING_PAYMENT", "CONFIRMED", "PROCESSING", "SHIPPING", "DELIVERED", "COMPLETED"
-        );
-        int oldIndex = validSequence.indexOf(oldStatus);
-        int newIndex = validSequence.indexOf(newStatus);
-
-        return newIndex == oldIndex + 1;
+        return false;
     }
 
+    /**
+     * Kiểm tra xem đơn hàng đã trừ stock chưa
+     */
     private boolean isStockDeducted(String orderStatus) {
         return "SHIPPING".equals(orderStatus) ||
                 "DELIVERED".equals(orderStatus) ||
@@ -482,6 +597,9 @@ public class AdminOrderServiceImpl implements AdminOrderService {
                 "RETURNED".equals(orderStatus);
     }
 
+    /**
+     * Gửi thông báo cho khách hàng khi cập nhật trạng thái đơn hàng
+     */
     private void sendOrderStatusNotification(Order order, String oldStatus, String newStatus, String notes) {
         String customerName = order.getCustomer() != null ? order.getCustomer().getCustomerName() : "Khách hàng";
         String orderCode = "ORD" + String.format("%08d", order.getOrderId());
@@ -498,6 +616,16 @@ public class AdminOrderServiceImpl implements AdminOrderService {
             message += " Ghi chú: " + notes;
         }
 
+        if (order.getProcessedBy() != null) {
+            message += "\n\nXác nhận bởi: " + order.getProcessedBy()
+                    + " (Email: " + (order.getProcessedByEmail() != null ? order.getProcessedByEmail() : "N/A") + ")";
+        }
+
+        // ✅ Thêm thông báo thanh toán nếu được cập nhật tự động
+        if ("DELIVERED".equals(newStatus)) {
+            message += "\n\n✅ Đơn hàng đã được giao thành công. Thanh toán đã được tự động cập nhật thành THÀNH CÔNG.";
+        }
+
         log.info("📧 SENDING NOTIFICATION:");
         log.info("   To: {} (ID: {})", customerName, order.getCustomer() != null ? order.getCustomer().getCustomerId() : "N/A");
         log.info("   Title: {}", title);
@@ -506,6 +634,9 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         log.info("   Status: {} -> {}", oldStatus, newStatus);
     }
 
+    /**
+     * Lấy text hiển thị của trạng thái
+     */
     private String getStatusText(String status) {
         Map<String, String> statusMap = new HashMap<>();
         statusMap.put("PENDING_PAYMENT", "Chờ thanh toán");
@@ -549,8 +680,9 @@ public class AdminOrderServiceImpl implements AdminOrderService {
     }
 
     // ================================================================
-    // ===== CONVERT TO ADMIN RESPONSE (ĐÃ SỬA) =====
+    // ===== CONVERT TO ADMIN RESPONSE =====
     // ================================================================
+
     private AdminOrderResponseDTO convertToAdminResponse(Order order) {
         List<OrderDetail> details = orderDetailRepository.findByOrder_OrderId(order.getOrderId());
 
@@ -579,11 +711,10 @@ public class AdminOrderServiceImpl implements AdminOrderService {
                 })
                 .collect(Collectors.toList());
 
-        // ✅ LẤY SHIPPING ADDRESS TỪ ORDER
+        // ✅ Lấy thông tin shipping address
         String shippingAddressStr = order.getShippingAddress();
         AdminShippingAddressDTO shippingDTO = null;
 
-        // ✅ Biến lưu số điện thoại và tên
         String shippingPhone = null;
         String shippingFullName = null;
         String shippingFullAddress = shippingAddressStr;
@@ -598,7 +729,7 @@ public class AdminOrderServiceImpl implements AdminOrderService {
             String city = order.getShippingCity() != null ? order.getShippingCity() : "";
             String district = order.getShippingDistrict() != null ? order.getShippingDistrict() : "";
             String ward = order.getShippingWard() != null ? order.getShippingWard() : "";
-            shippingFullAddress = shippingAddressStr; // Đã là địa chỉ đầy đủ từ lúc tạo đơn hàng
+            shippingFullAddress = shippingAddressStr;
 
             shippingDTO = AdminShippingAddressDTO.builder()
                     .addressId(null)
@@ -634,8 +765,7 @@ public class AdminOrderServiceImpl implements AdminOrderService {
             }
         }
 
-        // ✅ Xác định số điện thoại hiển thị trên bảng
-        // Ưu tiên: shipping address phone > customer phone
+        // ✅ Lấy số điện thoại hiển thị
         String displayPhone = shippingPhone;
         if (displayPhone == null || displayPhone.isEmpty()) {
             Customer customer = order.getCustomer();
@@ -645,14 +775,15 @@ public class AdminOrderServiceImpl implements AdminOrderService {
             }
         }
 
-        // ✅ Log để debug
         log.debug("📞 Final display phone for order {}: {}", order.getOrderId(), displayPhone);
 
+        // ✅ Lấy thông tin tiền tệ
         BigDecimal subtotal = order.getOrderSubtotalAmount() != null ? order.getOrderSubtotalAmount() : BigDecimal.ZERO;
         BigDecimal discount = order.getOrderDiscountAmount() != null ? order.getOrderDiscountAmount() : BigDecimal.ZERO;
         BigDecimal shippingFee = order.getOrderShippingFee() != null ? order.getOrderShippingFee() : BigDecimal.ZERO;
         BigDecimal totalAmount = subtotal.subtract(discount).add(shippingFee);
 
+        // ✅ Lấy thông tin voucher
         Voucher voucher = order.getVoucher();
         AdminVoucherInfoDTO voucherDTO = null;
         if (voucher != null) {
@@ -664,13 +795,23 @@ public class AdminOrderServiceImpl implements AdminOrderService {
                     .build();
         }
 
-        // ✅ Lấy tên khách hàng
+        // ✅ Lấy thông tin khách hàng
         String customerName = order.getCustomer() != null ? order.getCustomer().getCustomerName() : "Khách vãng lai";
-
-        // ✅ Lấy email khách hàng
         String customerEmail = null;
         if (order.getCustomer() != null && order.getCustomer().getUser() != null) {
             customerEmail = order.getCustomer().getUser().getEmail();
+        }
+
+        // ✅ Lấy thông tin người xác nhận
+        String processedBy = order.getProcessedBy();
+        String processedByEmail = order.getProcessedByEmail();
+        String processedByRole = order.getProcessedByRole();
+        LocalDateTime processedAt = order.getProcessedAt();
+
+        // Log để debug
+        if (processedBy != null) {
+            log.debug("📋 Order {} processed by: {} (Email: {}, Role: {}) at {}",
+                    order.getOrderId(), processedBy, processedByEmail, processedByRole, processedAt);
         }
 
         return AdminOrderResponseDTO.builder()
@@ -690,12 +831,16 @@ public class AdminOrderServiceImpl implements AdminOrderService {
                 .customer(AdminCustomerInfoDTO.builder()
                         .customerId(order.getCustomer() != null ? order.getCustomer().getCustomerId() : null)
                         .customerName(customerName)
-                        .phone(displayPhone)  // ✅ SỬA: Hiển thị số điện thoại từ shipping address hoặc customer
+                        .phone(displayPhone)
                         .email(customerEmail)
                         .build())
                 .shippingAddress(shippingDTO)
                 .voucher(voucherDTO)
                 .items(itemResponses)
+                .processedBy(processedBy)
+                .processedByEmail(processedByEmail)
+                .processedByRole(processedByRole)
+                .processedAt(processedAt)
                 .build();
     }
 

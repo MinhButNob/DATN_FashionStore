@@ -1,8 +1,16 @@
+<!-- components/chatbot/StaffChatPanel.vue -->
 <template>
   <div class="staff-chat-panel">
-    
-    <!-- TRẠNG THÁI: WAITING — Đang chờ nhân viên (NHƯNG VẪN CHO NHẮN TIN) -->
-    <div v-if="chatStatus === 'WAITING' || chatStatus === 'IDLE'" class="staff-waiting-state">
+    <!-- ✅ HIỂN THỊ CHỌN LOẠI CHAT KHI CHƯA BẮT ĐẦU -->
+    <div v-if="showTypeSelector" class="chat-type-selector-wrapper">
+      <ChatTypeSelector 
+        @chat-started="onChatStarted" 
+        @close="onTypeSelectorClose"
+      />
+    </div>
+
+    <!-- TRẠNG THÁI: WAITING — Đang chờ nhân viên -->
+    <div v-else-if="chatStatus === 'WAITING' || chatStatus === 'IDLE'" class="staff-waiting-state">
       <div class="waiting-animation">
         <div class="waiting-dots">
           <span></span><span></span><span></span>
@@ -101,6 +109,12 @@
       </div>
     </div>
 
+    <!-- TRẠNG THÁI: CONNECTING — Đang kết nối -->
+    <div v-else-if="chatStatus === 'CONNECTING'" class="loading-state">
+      <i class="fas fa-spinner fa-spin"></i>
+      <p>Đang kết nối...</p>
+    </div>
+
     <!-- TRẠNG THÁI: CLOSED -->
     <div v-else-if="chatStatus === 'CLOSED'" class="staff-closed-state">
       <div class="closed-content">
@@ -114,7 +128,7 @@
     </div>
 
     <!-- Input area (LUÔN HIỆN, kể cả khi WAITING) -->
-    <div v-if="chatStatus !== 'CLOSED'" class="staff-input-wrapper">
+    <div v-if="chatStatus !== 'CLOSED' && !showTypeSelector && chatStatus !== 'CONNECTING'" class="staff-input-wrapper">
       <!-- Image preview -->
       <div v-if="imagePreview" class="image-preview-bar">
         <img :src="imagePreview" class="preview-thumb" alt="preview" />
@@ -154,7 +168,6 @@
         </button>
       </div>
     </div>
-
   </div>
 
   <!-- Full-size image modal -->
@@ -174,9 +187,11 @@
 import { ref, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import chatService from '../../services/chatService'
 import { useWebSocket } from '../../composables/useWebSocket'
+import ChatTypeSelector from './ChatTypeSelector.vue'
 
 const emit = defineEmits(['status-change'])
 
+// ===== STATE =====
 const chatStatus = ref('IDLE')
 const currentChatId = ref(null)
 const assignedEmployee = ref('')
@@ -187,16 +202,68 @@ const isSending = ref(false)
 const staffTyping = ref(false)
 const userId = ref(null)
 const isDragging = ref(false)
-const imagePreview = ref(null) // Base64 preview of image to send
-const previewModalSrc = ref(null) // For full-size image modal
+const imagePreview = ref(null)
+const previewModalSrc = ref(null)
 
+// ✅ Hiển thị selector loại chat
+const showTypeSelector = ref(true)
+
+// ===== REFS =====
 const staffMessagesContainer = ref(null)
 const staffInput = ref(null)
 const fileInput = ref(null)
 
+// ===== WEBSOCKET =====
 let wsHandle = null
 let wsCleanups = []
 
+// ===== CHAT TYPE SELECTOR HANDLERS =====
+const onChatStarted = (chat) => {
+  console.log('[StaffChatPanel] Chat started event received:', chat)
+  
+  if (chat && chat.chatId) {
+    // ✅ Ẩn selector
+    showTypeSelector.value = false
+    // ✅ Set trạng thái CONNECTING
+    chatStatus.value = 'CONNECTING'
+    emit('status-change', 'CONNECTING')
+    
+    currentChatId.value = chat.chatId
+    
+    // ✅ Sử dụng nextTick để đảm bảo UI cập nhật
+    nextTick(() => {
+      // ✅ Xác định trạng thái chat
+      if (chat.status === 'ACTIVE' || chat.status === 'ASSIGNED') {
+        chatStatus.value = 'ACTIVE'
+        assignedEmployee.value = chat.staffName || chat.employeeName || 'Nhân viên CSKH'
+        loadMessages()
+      } else {
+        chatStatus.value = 'WAITING'
+      }
+      
+      setupWebSocket()
+      emit('status-change', chatStatus.value)
+      saveChatState()
+      console.log('[StaffChatPanel] Chat started, status:', chatStatus.value)
+    })
+    
+  } else {
+    console.error('[StaffChatPanel] No chat data received')
+    showTypeSelector.value = true
+    chatStatus.value = 'IDLE'
+    emit('status-change', 'IDLE')
+  }
+}
+
+const onTypeSelectorClose = () => {
+  showTypeSelector.value = false
+  if (!currentChatId.value) {
+    chatStatus.value = 'IDLE'
+    emit('status-change', 'IDLE')
+  }
+}
+
+// ===== GET CURRENT USER ID =====
 const getCurrentUserId = () => {
   try {
     const userObj = JSON.parse(localStorage.getItem('user') || 'null')
@@ -206,6 +273,7 @@ const getCurrentUserId = () => {
   } catch (e) { return null }
 }
 
+// ===== AUTO CONNECT =====
 const autoConnect = async () => {
   const id = getCurrentUserId()
   if (!id) {
@@ -215,37 +283,15 @@ const autoConnect = async () => {
   userId.value = id
 
   const restored = await restoreChatState()
-  if (restored) return
-
-  isConnecting.value = true
-  try {
-    const response = await chatService.requestStaffChat(id, '')
-    // FIX: chatService trả thẳng ChatDTO (api.js đã unwrap axios response.data),
-    // không có field .data lồng bên trong - bug cũ khiến chat luôn undefined
-    const chat = response
-
-    if (chat && chat.chatId) {
-      currentChatId.value = chat.chatId
-      
-      if (chat.status === 'ACTIVE' || chat.status === 'ASSIGNED') {
-        chatStatus.value = 'ACTIVE'
-        assignedEmployee.value = chat.staffName || chat.employeeName || 'Nhân viên CSKH'
-        await loadMessages()
-      } else {
-        chatStatus.value = 'WAITING'
-      }
-
-      setupWebSocket()
-      emit('status-change', chat.status)
-      saveChatState()
-    }
-  } catch (e) {
-    console.error('[StaffChat] Auto connect error:', e)
-  } finally {
-    isConnecting.value = false
+  if (restored) {
+    showTypeSelector.value = false
+    return
   }
+
+  showTypeSelector.value = true
 }
 
+// ===== LOAD MESSAGES =====
 const loadMessages = async () => {
   if (!currentChatId.value) return
   try {
@@ -282,9 +328,6 @@ const clearImagePreview = () => {
   if (fileInput.value) fileInput.value.value = ''
 }
 
-/**
- * Resize & convert image File/Blob to Base64, max 800px, quality 0.75
- */
 const processImageFile = (file) => {
   return new Promise((resolve, reject) => {
     if (!file || !file.type.startsWith('image/')) {
@@ -367,11 +410,9 @@ const handleDrop = async (e) => {
 
 // ===== SEND MESSAGE =====
 const sendStaffMessage = async () => {
-  // If there's an image preview, send image first
   if (imagePreview.value) {
     await sendImageMessage(imagePreview.value)
     clearImagePreview()
-    // Also send accompanying text if any
     if (currentMessage.value.trim()) {
       await sendTextMessage(currentMessage.value.trim())
       currentMessage.value = ''
@@ -391,11 +432,8 @@ const ensureChatReady = async () => {
     return false
   }
   if (!currentChatId.value) {
-    await autoConnect()
-    if (!currentChatId.value) {
-      alert('Không thể tạo cuộc trò chuyện. Vui lòng thử lại!')
-      return false
-    }
+    showTypeSelector.value = true
+    return false
   }
   return true
 }
@@ -469,6 +507,7 @@ const sendImageMessage = async (base64) => {
   }
 }
 
+// ===== WEBSOCKET =====
 const setupWebSocket = () => {
   try {
     const ws = useWebSocket()
@@ -544,6 +583,7 @@ const disconnectWebSocket = () => {
   }
 }
 
+// ===== CHAT ACTIONS =====
 const cancelWaiting = async () => {
   if (!confirm('Bạn có muốn hủy yêu cầu hỗ trợ không?')) return
   resetChat()
@@ -567,9 +607,10 @@ const resetChat = () => {
   disconnectWebSocket()
   clearChatState()
   emit('status-change', 'IDLE')
-  setTimeout(autoConnect, 300)
+  showTypeSelector.value = true
 }
 
+// ===== STORAGE =====
 const STORAGE_KEY = 'staff-chat-state'
 
 const saveChatState = () => {
@@ -588,10 +629,10 @@ const clearChatState = () => {
 const restoreChatState = async () => {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null')
-    if (!saved || !saved.chatId) return
+    if (!saved || !saved.chatId) return false
 
     const id = getCurrentUserId()
-    if (!id) return
+    if (!id) return false
 
     const chats = await chatService.getConversations(id)
     const found = chats.find(c => c.chatId === saved.chatId)
@@ -619,6 +660,7 @@ const restoreChatState = async () => {
   }
 }
 
+// ===== HELPERS =====
 const isMyMessage = (msg) => {
   const id = getCurrentUserId()
   return msg.userId === id
@@ -637,11 +679,14 @@ const formatTime = (dateStr) => {
   } catch (e) { return '' }
 }
 
+// ===== WATCH =====
 watch(messages, () => {
   nextTick(() => scrollToBottom())
 }, { deep: true })
 
+// ===== LIFECYCLE =====
 onMounted(async () => {
+  console.log('[StaffChatPanel] Mounted')
   userId.value = getCurrentUserId()
   await autoConnect()
 })
@@ -650,7 +695,10 @@ onBeforeUnmount(() => {
   disconnectWebSocket()
 })
 
-defineExpose({ connectToStaff: autoConnect })
+defineExpose({ 
+  connectToStaff: autoConnect,
+  resetChat
+})
 </script>
 
 
@@ -1121,4 +1169,48 @@ defineExpose({ connectToStaff: autoConnect })
   transition: all 0.2s;
 }
 .new-chat-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(102,126,234,0.4); }
+
+.chat-type-selector-wrapper {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: #f8f9fa;
+  overflow-y: auto;
+}
+
+
+.loading-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: #667eea;
+  background: #f8f9fa;
+}
+
+.loading-state i {
+  font-size: 32px;
+}
+
+.loading-state p {
+  margin: 0;
+  font-size: 14px;
+  color: #718096;
+}
+
+/* ✅ Style cho chat-type-selector-wrapper */
+.chat-type-selector-wrapper {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: #f8f9fa;
+  overflow-y: auto;
+  min-height: 300px;
+}
 </style>

@@ -7,4 +7,5 @@ public class ChatRequest {
     private Long customerId;
     private String message;
     private Boolean isAi;
+    private String chatType;
 }
