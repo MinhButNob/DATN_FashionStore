@@ -1,6 +1,7 @@
 package com.example.backend_fashionstore.review.controller;
 
 import com.example.backend_fashionstore.review.dto.response.AdminReviewResponseDTO;
+import com.example.backend_fashionstore.review.dto.response.ProductReviewStatDTO;
 import com.example.backend_fashionstore.review.service.AdminReviewService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,11 +28,12 @@ public class AdminReviewController {
     public ResponseEntity<Page<AdminReviewResponseDTO>> getAllReviews(
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Integer productId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-        Page<AdminReviewResponseDTO> reviews = adminReviewService.getAllReviews(status, keyword, pageable);
+        Page<AdminReviewResponseDTO> reviews = adminReviewService.getAllReviews(status, keyword, productId, pageable);
         return ResponseEntity.ok(reviews);
     }
 
@@ -63,5 +65,14 @@ public class AdminReviewController {
     @GetMapping("/statistics")
     public ResponseEntity<Map<String, Object>> getReviewStatistics() {
         return ResponseEntity.ok(adminReviewService.getReviewStatistics());
+    }
+
+    @GetMapping("/products/statistics")
+    public ResponseEntity<Page<ProductReviewStatDTO>> getProductReviewStatistics(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        Pageable pageable = PageRequest.of(page, size);
+        return ResponseEntity.ok(adminReviewService.getProductStatistics(pageable));
     }
 }
