@@ -78,7 +78,10 @@
               <p v-if="banner.subtitle" class="subtitle-text">{{ banner.subtitle }}</p>
             </td>
             <td>
-              <span :class="'link-badge link-' + (banner.linkType || '').toLowerCase()">
+              <span v-if="banner.customUrl === FOOTER_BANNER_MARKER" class="link-badge link-footer">
+                🦶 Cuối trang
+              </span>
+              <span v-else :class="'link-badge link-' + (banner.linkType || '').toLowerCase()">
                 {{ linkTypeLabel(banner.linkType) }}
               </span>
             </td>
@@ -165,8 +168,20 @@
             />
           </div>
 
+          <!-- ✅ Banner Slogan cuối trang (trước Footer) -->
+          <div class="form-group footer-banner-toggle">
+            <label class="checkbox-label">
+              <input type="checkbox" v-model="isFooterBanner" />
+              🦶 Đây là banner Slogan cuối trang (hiển thị ngay trước Footer, không nằm trong slider đầu trang)
+            </label>
+            <span v-if="isFooterBanner" class="hint-note">
+              ℹ️ Banner này chỉ hiển thị 1 tấm duy nhất ở khu vực slogan cuối trang chủ (không thuộc slider ảnh đầu trang), nên không cần chọn loại link/thứ tự hiển thị.
+            </span>
+            <span v-if="validationErrors.footerBanner" class="error-text">{{ validationErrors.footerBanner }}</span>
+          </div>
+
           <!-- Link Type -->
-          <div class="form-group">
+          <div class="form-group" v-if="!isFooterBanner">
             <label>Khi click banner, chuyển đến <span class="required">*</span></label>
             <select v-model="form.linkType" :class="{ 'input-error': validationErrors.linkType }">
               <option value="CATEGORY">📂 Danh mục sản phẩm</option>
@@ -177,11 +192,12 @@
           </div>
 
           <!-- Category -->
-          <div v-if="form.linkType === 'CATEGORY'" class="form-group category-search-group">
+          <div v-if="!isFooterBanner && form.linkType === 'CATEGORY'" class="form-group category-search-group">
             <label>Chọn danh mục <span class="required">*</span></label>
             <div class="category-search-box" ref="categorySearchBoxRef">
               <input
                 type="text"
+                name="categoryId"
                 v-model="categorySearchQuery"
                 placeholder="Gõ để tìm danh mục..."
                 autocomplete="off"
@@ -206,7 +222,7 @@
           </div>
 
           <!-- Product -->
-          <div v-if="form.linkType === 'PRODUCT'" class="form-group category-search-group">
+          <div v-if="!isFooterBanner && form.linkType === 'PRODUCT'" class="form-group category-search-group">
             <label>Chọn sản phẩm <span class="required">*</span></label>
             <div class="category-search-box" ref="productSearchBoxRef">
               <input
@@ -243,7 +259,7 @@
           </div>
 
           <!-- Custom URL -->
-          <div v-if="form.linkType === 'URL'" class="form-group">
+          <div v-if="!isFooterBanner && form.linkType === 'URL'" class="form-group">
             <label>Đường dẫn tùy chỉnh <span class="required">*</span></label>
             <input 
               v-model="form.customUrl" 
@@ -256,14 +272,24 @@
           <!-- Display Order & Status -->
           <div class="form-row">
             <div class="form-group half">
-              <label>Thứ tự hiển thị</label>
+              <label>
+                Thứ tự hiển thị
+                <span v-if="!isNewCollectionCategorySelected && !isFooterBanner" class="required">*</span>
+              </label>
               <input 
                 type="number" 
                 v-model.number="form.displayOrder" 
-                min="0"
+                min="1"
+                :disabled="isNewCollectionCategorySelected || isFooterBanner"
                 :class="{ 'input-error': validationErrors.displayOrder }"
               />
-              <span v-if="validationErrors.displayOrder" class="error-text">{{ validationErrors.displayOrder }}</span>
+              <span v-if="isFooterBanner" class="hint-note">
+                ℹ️ Banner cuối trang chỉ hiển thị 1 tấm duy nhất nên không cần chọn thứ tự.
+              </span>
+              <span v-else-if="isNewCollectionCategorySelected" class="hint-note">
+                ℹ️ Danh mục "Bộ Sưu Tập Mới" hiển thị riêng ở khu vực "Bộ Sưu Tập Mới" phía dưới trang chủ, không nằm trong banner slide đầu trang (ảnh 1) nên không cần chọn thứ tự.
+              </span>
+              <span v-else-if="validationErrors.displayOrder" class="error-text">{{ validationErrors.displayOrder }}</span>
             </div>
             <div class="form-group half">
               <label>Trạng thái</label>
@@ -321,6 +347,91 @@ const showProductSuggestions = ref(false)
 const productSearchBoxRef = ref(null)
 const validationErrors = reactive({})
 
+// ========== BỘ SƯU TẬP MỚI - CHỈ CHO PHÉP 1 BANNER DUY NHẤT ==========
+// Danh mục "Bộ Sưu Tập Mới" chỉ hiển thị được 1 banner duy nhất làm ảnh bìa
+// (lookbook) ở trang chủ (xem HomePage.vue -> newCollectionBanner: nếu có
+// nhiều banner active cùng trỏ tới danh mục này, trang chủ chỉ lấy banner
+// đầu tiên tìm thấy -> banner còn lại coi như vô nghĩa). Vì vậy cần chặn
+// ngay từ khi tạo/sửa banner ở trang Admin, tránh admin tạo nhầm 2-3 banner
+// cho cùng 1 danh mục mà không biết chỉ có 1 cái được dùng.
+const NEW_COLLECTION_CATEGORY_NAME = 'Bộ Sưu Tập Mới'
+const normalizeText = (s) => (s || '').toString().trim().toLowerCase()
+
+// ========== BANNER SLOGAN CUỐI TRANG (TRƯỚC FOOTER) - CHỈ 1 BANNER DUY NHẤT ==========
+// Backend hiện chưa có field riêng để phân biệt "vị trí" banner (đầu trang / cuối trang),
+// nên ta tận dụng đúng field "customUrl" (linkType = URL) có sẵn, gán 1 giá trị marker cố định
+// không phải URL thật. HomePage.vue / BannerSlider.vue sẽ nhận diện banner này qua marker này
+// để: (1) hiển thị nó ở khu vực slogan cuối trang, (2) loại nó ra khỏi slider đầu trang.
+// => Không cần sửa backend.
+const FOOTER_BANNER_MARKER = '__FOOTER_SLOGAN_BANNER__'
+const isFooterBanner = ref(false)
+// Danh sách banner đang ACTIVE lấy từ API public (không phân trang) để kiểm tra
+// trùng lặp một cách chính xác, vì bảng banner ở trên chỉ hiển thị theo trang (10 dòng/trang).
+const activeBannersForDuplicateCheck = ref([])
+
+async function loadActiveBannersForDuplicateCheck() {
+  try {
+    const res = await api.get('/banners/active')
+    const list = res.data?.data || res.data || []
+    activeBannersForDuplicateCheck.value = Array.isArray(list) ? list : []
+  } catch (e) {
+    console.error('❌ Không tải được danh sách banner active để kiểm tra trùng lặp:', e)
+  }
+}
+
+// ✅ Banner trỏ tới danh mục "Bộ Sưu Tập Mới" không nằm trong slider chính
+// (banner đầu trang chủ) nên "Thứ tự hiển thị" không có ý nghĩa gì với banner
+// này -> khóa (disable) ô nhập để tránh admin nhầm tưởng có thể sắp xếp nó
+// trong slider chính. Xem thêm BannerSlider.vue (đã lọc banner này ra).
+const isNewCollectionCategorySelected = computed(() => {
+  if (form.linkType !== 'CATEGORY' || !form.categoryId) return false
+  const selectedCategory = categories.value.find(c => c.categoryId === form.categoryId)
+  return normalizeText(selectedCategory?.categoryName) === normalizeText(NEW_COLLECTION_CATEGORY_NAME)
+})
+
+function validateNewCollectionSingleBanner() {
+  if (form.linkType !== 'CATEGORY' || !form.categoryId) return true
+
+  const selectedCategory = categories.value.find(c => c.categoryId === form.categoryId)
+  const isNewCollectionCategory = normalizeText(selectedCategory?.categoryName) === normalizeText(NEW_COLLECTION_CATEGORY_NAME)
+  if (!isNewCollectionCategory) return true
+
+  // Banner đang sửa/tạo này sẽ hiển thị hay không (nếu để "Ẩn" thì không tranh chấp với banner khác)
+  if (form.status !== 'ACTIVE') return true
+
+  const duplicate = activeBannersForDuplicateCheck.value.find(b => {
+    // Bỏ qua chính banner đang sửa
+    if (editingBanner.value && b.bannerId === editingBanner.value.bannerId) return false
+    if (b.linkType !== 'CATEGORY') return false
+    return (
+      (b.categoryId && b.categoryId === form.categoryId) ||
+      normalizeText(b.categoryName) === normalizeText(NEW_COLLECTION_CATEGORY_NAME)
+    )
+  })
+
+  if (duplicate) {
+    validationErrors.categoryId = `Danh mục "Bộ Sưu Tập Mới" chỉ được gán cho đúng 1 banner (banner "${duplicate.title}" đang dùng làm ảnh bìa ở trang chủ). Vui lòng sửa banner đó thay vì tạo banner mới, hoặc ẩn/xóa nó trước.`
+    return false
+  }
+  return true
+}
+
+function validateFooterBannerSingleInstance() {
+  if (!isFooterBanner.value) return true
+  if (form.status !== 'ACTIVE') return true
+
+  const duplicate = activeBannersForDuplicateCheck.value.find(b => {
+    if (editingBanner.value && b.bannerId === editingBanner.value.bannerId) return false
+    return b.customUrl === FOOTER_BANNER_MARKER
+  })
+
+  if (duplicate) {
+    validationErrors.footerBanner = `Đã có banner cuối trang đang hiển thị (banner "${duplicate.title}"). Vui lòng sửa banner đó thay vì tạo mới, hoặc ẩn/xóa nó trước.`
+    return false
+  }
+  return true
+}
+
 const form = reactive({
   title: '',
   subtitle: '',
@@ -328,7 +439,7 @@ const form = reactive({
   categoryId: null,
   productId: null,
   customUrl: '',
-  displayOrder: 0,
+  displayOrder: 1,
   status: 'ACTIVE' })
 
 // ========== CLICK RA NGOÀI ĐỂ ĐÓNG GỢI Ý (thay cho @blur + setTimeout) ==========
@@ -354,11 +465,11 @@ onMounted(async () => {
   try {
     console.log('✅ AdminBanners mounted')
     await store.fetchBanners()
+    loadActiveBannersForDuplicateCheck()
     
-    const [catRes, prodRes, parentCatRes] = await Promise.all([
+    const [catRes, prodRes] = await Promise.all([
       api.get(`/categories/active`),
-      api.get(`/products`, { params: { size: 200 } }),
-      api.get(`/category-hierarchy/parents`).catch(() => ({ data: [] }))
+      api.get(`/products`, { params: { size: 200 } })
     ])
     // ⚠️ Backend bọc dữ liệu 2 lớp: ApiResponse { data: PageResponse { content: [...] } }
     // Trước đây code chỉ bóc 1 lớp (res.data.content) nên products.value bị gán nhầm
@@ -371,16 +482,21 @@ onMounted(async () => {
     if (!Array.isArray(categories.value)) categories.value = []
     if (!Array.isArray(products.value)) products.value = []
 
-    // ✅ Loại bỏ 3 danh mục lớn (Áo, Quần, Phụ kiện...) khỏi danh sách gợi ý chọn danh mục
-    // của banner - vì đó là danh mục cha dùng để phân cấp, không phải danh mục để gán banner.
-    // Các danh mục cha được lấy từ /api/category-hierarchy/parents.
-    const parentList = parentCatRes.data?.content || parentCatRes.data?.data?.content || parentCatRes.data || []
-    const parentCategoryIds = new Set(
-      (Array.isArray(parentList) ? parentList : []).map(p => p.categoryId)
-    )
-    if (parentCategoryIds.size > 0) {
-      categories.value = categories.value.filter(c => !parentCategoryIds.has(c.categoryId))
-    }
+    // ✅ Loại bỏ 3 danh mục lớn khóa cứng (Áo, Quần, Phụ kiện) khỏi danh sách gợi ý
+    // chọn danh mục của banner - vì đó là danh mục cha dùng để phân cấp, không phải
+    // danh mục để gán banner.
+    // ⚠️ SỬA LỖI: trước đây code lọc theo "mọi danh mục cấp 1" (lấy từ
+    // /category-hierarchy/parents, API này trả về TẤT CẢ danh mục có
+    // parent_category_id = NULL) -> vô tình loại luôn cả các danh mục cấp 1
+    // hợp lệ khác như "Khuyến Mãi", "Bộ Sưu Tập Mới", "Sản Phẩm Nổi Bật",
+    // "Đồ Thu Đông", "Đồ Công Sở", "Đồ Thể Thao" khỏi ô chọn danh mục banner.
+    // Giờ lọc đúng theo TÊN 3 danh mục khóa cứng (giống cách HomePage.vue /
+    // ClientHeader.vue đang làm với DEFAULT_LOCKED_NAMES / HIDDEN_PARENT_CATEGORY_NAMES),
+    // vì cột category_is_locked hiện chưa được map ở Category entity (backend).
+    const LOCKED_PARENT_CATEGORY_NAMES = ['Áo', 'Quần', 'Phụ kiện']
+    const normalizeName = (s) => (s || '').toString().trim().toLowerCase()
+    const lockedNamesSet = new Set(LOCKED_PARENT_CATEGORY_NAMES.map(normalizeName))
+    categories.value = categories.value.filter(c => !lockedNamesSet.has(normalizeName(c.categoryName)))
 
     console.log('✅ Loaded categories:', categories.value.length)
     console.log('✅ Loaded products:', products.value.length)
@@ -421,20 +537,22 @@ function openCreate() {
   selectedFile.value = null
   categorySearchQuery.value = ''
   productSearchQuery.value = ''
+  isFooterBanner.value = false
   showModal.value = true
   clearValidationErrors()
 }
 
 function openEdit(banner) {
   editingBanner.value = banner
+  isFooterBanner.value = banner.customUrl === FOOTER_BANNER_MARKER
   Object.assign(form, {
     title: banner.title || '',
     subtitle: banner.subtitle || '',
     linkType: banner.linkType || 'URL',
     categoryId: banner.categoryId || null,
     productId: banner.productId || null,
-    customUrl: banner.customUrl || '',
-    displayOrder: banner.displayOrder || 0,
+    customUrl: isFooterBanner.value ? '' : (banner.customUrl || ''),
+    displayOrder: banner.displayOrder || 1,
     status: banner.status || 'ACTIVE' })
   // ✅ SỬA: Hiển thị ảnh preview đúng cách
   imagePreview.value = getImageUrl(banner.imagePath)
@@ -467,13 +585,14 @@ function resetForm() {
     categoryId: null,
     productId: null,
     customUrl: '',
-    displayOrder: 0,
+    displayOrder: 1,
     status: 'ACTIVE' })
   categorySearchQuery.value = ''
   productSearchQuery.value = ''
   showCategorySuggestions.value = false
   showProductSuggestions.value = false
   imageQualityWarning.value = ''
+  isFooterBanner.value = false
 }
 
 // ========== DANH MỤC / SẢN PHẨM - Ô TÌM KIẾM GỢI Ý ==========
@@ -537,24 +656,35 @@ function validateForm() {
     isValid = false
   }
 
-  if (form.linkType === 'CATEGORY' && !form.categoryId) {
-    validationErrors.categoryId = 'Vui lòng chọn danh mục'
-    isValid = false
+  if (!isFooterBanner.value) {
+    if (form.linkType === 'CATEGORY' && !form.categoryId) {
+      validationErrors.categoryId = 'Vui lòng chọn danh mục'
+      isValid = false
+    }
+
+    if (form.linkType === 'PRODUCT' && !form.productId) {
+      validationErrors.productId = 'Vui lòng chọn sản phẩm'
+      isValid = false
+    }
+
+    if (form.linkType === 'URL' && !form.customUrl?.trim()) {
+      validationErrors.customUrl = 'Vui lòng nhập đường dẫn'
+      isValid = false
+    }
   }
 
-  if (form.linkType === 'PRODUCT' && !form.productId) {
-    validationErrors.productId = 'Vui lòng chọn sản phẩm'
-    isValid = false
+  if (!isNewCollectionCategorySelected.value && !isFooterBanner.value) {
+    if (form.displayOrder === null || form.displayOrder === undefined || form.displayOrder === '' || Number(form.displayOrder) < 1) {
+      validationErrors.displayOrder = 'Thứ tự hiển thị phải lớn hơn 0 (không được để 0)'
+      isValid = false
+    }
   }
 
-  if (form.linkType === 'URL' && !form.customUrl?.trim()) {
-    validationErrors.customUrl = 'Vui lòng nhập đường dẫn'
-    isValid = false
+  if (isValid) {
+    isValid = validateNewCollectionSingleBanner()
   }
-
-  if (form.displayOrder < 0) {
-    validationErrors.displayOrder = 'Thứ tự hiển thị phải lớn hơn hoặc bằng 0'
-    isValid = false
+  if (isValid) {
+    isValid = validateFooterBannerSingleInstance()
   }
 
   return isValid
@@ -640,20 +770,25 @@ async function saveBanner() {
   const fd = new FormData()
   fd.append('title', form.title.trim())
   fd.append('subtitle', form.subtitle?.trim() || '')
-  fd.append('linkType', form.linkType)
-  fd.append('displayOrder', Number(form.displayOrder) || 0)
+  // Banner cuối trang luôn lưu dưới dạng linkType=URL với customUrl là marker cố định
+  fd.append('linkType', isFooterBanner.value ? 'URL' : form.linkType)
+  fd.append('displayOrder', isFooterBanner.value ? 0 : (Number(form.displayOrder) || 0))
   fd.append('status', form.status || 'ACTIVE')
 
-  if (form.linkType === 'CATEGORY' && form.categoryId) {
-    fd.append('categoryId', Number(form.categoryId))
-  }
-  
-  if (form.linkType === 'PRODUCT' && form.productId) {
-    fd.append('productId', Number(form.productId))
-  }
-  
-  if (form.linkType === 'URL' && form.customUrl?.trim()) {
-    fd.append('customUrl', form.customUrl.trim())
+  if (isFooterBanner.value) {
+    fd.append('customUrl', FOOTER_BANNER_MARKER)
+  } else {
+    if (form.linkType === 'CATEGORY' && form.categoryId) {
+      fd.append('categoryId', Number(form.categoryId))
+    }
+
+    if (form.linkType === 'PRODUCT' && form.productId) {
+      fd.append('productId', Number(form.productId))
+    }
+
+    if (form.linkType === 'URL' && form.customUrl?.trim()) {
+      fd.append('customUrl', form.customUrl.trim())
+    }
   }
   
   // ✅ QUAN TRỌNG: Chỉ append file khi có file mới
@@ -678,6 +813,7 @@ async function saveBanner() {
     console.log('✅ Banner saved successfully:', result.data)
     console.log('📸 Image path:', result.data?.imagePath)
     closeModal()
+    loadActiveBannersForDuplicateCheck()
     alert(editingBanner.value ? '✅ Cập nhật banner thành công!' : '✅ Tạo banner thành công!')
   } else {
     let errorMsg = result.message || 'Lưu thất bại'
@@ -754,6 +890,7 @@ function statusLabel(s) {
 }
 
 function resolvedLabel(banner) {
+  if (banner.customUrl === FOOTER_BANNER_MARKER) return 'Khu vực slogan cuối trang chủ'
   if (banner.linkType === 'CATEGORY') return banner.categoryName || '—'
   if (banner.linkType === 'PRODUCT') return banner.productName || '—'
   return banner.customUrl || '—'
@@ -1072,6 +1209,29 @@ function resolvedLabel(banner) {
   font-weight: 600; 
   color: #333; 
 }
+.footer-banner-toggle {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px;
+}
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-weight: 600 !important;
+}
+.checkbox-label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+.link-badge.link-footer {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
 .required {
   color: #ef4444;
   font-weight: 700;
@@ -1180,6 +1340,22 @@ function resolvedLabel(banner) {
   margin-top: 4px;
   display: block;
   line-height: 1.4;
+}
+.hint-note {
+  color: #1d4ed8;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 0.8rem;
+  margin-top: 4px;
+  display: block;
+  line-height: 1.4;
+}
+.form-group input:disabled {
+  background: #f1f5f9;
+  color: #94a3b8;
+  cursor: not-allowed;
 }
 .form-row { 
   display: flex; 
