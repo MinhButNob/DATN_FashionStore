@@ -36,6 +36,20 @@
                 alt="Ảnh"
               />
             </template>
+            <template v-else-if="isReturnFormMessage(msg.messageContent || msg.content)">
+              <div class="return-form-card">
+                <div class="return-card-header">
+                  <i class="fas fa-box-open"></i>
+                  <strong>Form Yêu Cầu Hoàn Hàng</strong>
+                </div>
+                <p class="return-card-desc">
+                  {{ extractReturnFormText(msg.messageContent || msg.content) || 'Nhấn vào nút bên dưới để chuyển sang trang Đơn hàng của tôi và gửi yêu cầu hoàn hàng.' }}
+                </p>
+                <button class="go-to-orders-btn" @click="goToMyOrders">
+                  <i class="fas fa-external-link-alt"></i> Đến trang Đơn hàng của tôi
+                </button>
+              </div>
+            </template>
             <p v-else>{{ msg.messageContent || msg.content }}</p>
             <span class="message-time">{{ formatTime(msg.sentDate || msg.timestamp) }}</span>
           </div>
@@ -94,6 +108,20 @@
                   @click="openImagePreview(extractImageSrc(msg.messageContent || msg.content))"
                   alt="Ảnh"
                 />
+              </template>
+              <template v-else-if="isReturnFormMessage(msg.messageContent || msg.content)">
+                <div class="return-form-card">
+                  <div class="return-card-header">
+                    <i class="fas fa-box-open"></i>
+                    <strong>Form Yêu Cầu Hoàn Hàng</strong>
+                  </div>
+                  <p class="return-card-desc">
+                    {{ extractReturnFormText(msg.messageContent || msg.content) || 'Nhấn vào nút bên dưới để chuyển sang trang Đơn hàng của tôi và gửi yêu cầu hoàn hàng.' }}
+                  </p>
+                  <button class="go-to-orders-btn" @click="goToMyOrders">
+                    <i class="fas fa-external-link-alt"></i> Đến trang Đơn hàng của tôi
+                  </button>
+                </div>
               </template>
               <p v-else>{{ msg.messageContent || msg.content }}</p>
               <span class="message-time">{{ formatTime(msg.sentDate || msg.timestamp) }}</span>
@@ -181,14 +209,212 @@
       </div>
     </div>
   </Teleport>
+
+  <!-- Orders Modal (Hoàn hàng - Giao diện y hệt OrdersPage.vue) -->
+  <Teleport to="body">
+    <div v-if="showOrdersModal" class="orders-page-modal-overlay" @click.self="closeOrdersModal">
+      <div class="orders-page-modal-container">
+        <!-- Modal Header -->
+        <div class="orders-page-modal-header">
+          <h2 class="page-title" style="margin: 0; font-size: 24px; color: #2c3e50;">ĐƠN HÀNG CỦA TÔI</h2>
+          <button class="orders-page-modal-close" @click="closeOrdersModal">✕</button>
+        </div>
+
+        <div class="orders-page-modal-body">
+          <!-- ===== ORDER TABS ===== -->
+          <OrderTabs 
+            ref="orderTabsRef"
+            :orders="orders"
+            @change-tab="onTabChange"
+          />
+
+          <!-- ===== ORDER LIST ===== -->
+          <OrderList
+            :orders="filteredOrders"
+            :loading="ordersLoading"
+            :current-page="currentPage"
+            :total-pages="totalPages"
+            :show-review-actions="false"
+            @view-detail="viewOrderDetail"
+            @cancel-order="handleCancelOrder"
+            @return-order="handleReturnOrder"
+            @reorder="handleReorder"
+            @change-page="goToPage"
+          />
+        </div>
+      </div>
+    </div>
+  </Teleport>
+
+  <!-- Order Detail Modal -->
+  <Teleport to="body">
+    <div v-if="showDetailModal" class="modal-overlay" style="z-index: 100002;">
+      <div class="modal-container modal-lg">
+        <div class="modal-header">
+          <h3>Chi tiết đơn hàng #{{ selectedOrder?.orderCode || selectedOrder?.orderId }}</h3>
+          <button class="close-btn" @click="closeDetailModal">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="order-info-grid">
+            <div class="info-section">
+              <h4>Thông tin khách hàng</h4>
+              <p><strong>Họ tên:</strong> {{ selectedOrder?.customer?.customerName || 'Khách hàng' }}</p>
+              <p><strong>SĐT:</strong> {{ selectedOrder?.customer?.phone || '---' }}</p>
+              <p><strong>Email:</strong> {{ selectedOrder?.customer?.email || '---' }}</p>
+            </div>
+            <div class="info-section">
+              <h4>Thông tin đơn hàng</h4>
+              <p><strong>Ngày đặt:</strong> {{ formatDate(selectedOrder?.orderDate) }}</p>
+              <p><strong>Trạng thái:</strong> {{ getStatusText(selectedOrder?.orderStatus) }}</p>
+              <p><strong>Thanh toán:</strong> {{ selectedOrder?.paymentStatus || 'UNPAID' }}</p>
+            </div>
+          </div>
+
+          <!-- ===== ĐỊA CHỈ GIAO HÀNG ===== -->
+          <div class="address-section">
+            <h4>📍 Địa chỉ giao hàng</h4>
+            <div class="address-detail-card">
+              <div class="address-row">
+                <span class="address-label">👤 Người nhận:</span>
+                <span class="address-value">{{ selectedOrder?.shippingAddress?.fullName || '---' }}</span>
+              </div>
+              <div class="address-row">
+                <span class="address-label">📞 Số điện thoại:</span>
+                <span class="address-value">{{ selectedOrder?.shippingAddress?.phone || '---' }}</span>
+              </div>
+              <div class="address-row full-address-row">
+                <span class="address-label">📦 Địa chỉ đầy đủ:</span>
+                <span class="address-value highlight">{{ getOrderFullAddress(selectedOrder?.shippingAddress) }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="order-items-section">
+            <h4>Sản phẩm</h4>
+            <table class="items-table">
+              <thead>
+                <tr>
+                  <th>Sản phẩm</th>
+                  <th>Đơn giá</th>
+                  <th>Số lượng</th>
+                  <th>Thành tiền</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="item in selectedOrder?.items" :key="item.itemId">
+                  <td>
+                    <div class="item-info">
+                      <div class="item-image">
+                        <img v-if="item.imageUrl" :src="getImageUrl(item.imageUrl)" :alt="item.productName" />
+                        <i v-else class="fas fa-tshirt"></i>
+                      </div>
+                      <div>
+                        <div class="item-name">{{ item.productName }}</div>
+                        <div class="item-variant">{{ item.sizeName || '' }} {{ item.colorName || '' }}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td>{{ formatPrice(item.unitPrice) }}</td>
+                  <td>{{ item.quantity }}</td>
+                  <td>{{ formatPrice(item.finalAmount) }}</td>
+                </tr>
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td colspan="3" class="text-right">Tạm tính:</td>
+                  <td>{{ formatPrice(selectedOrder?.subtotalAmount) }}</td>
+                </tr>
+                <tr v-if="selectedOrder?.discountAmount && selectedOrder?.discountAmount > 0" class="discount-row">
+                  <td colspan="3" class="text-right">
+                    <span class="voucher-label">
+                      <i class="fas fa-ticket-alt"></i> Giảm giá 
+                      ({{ selectedOrder?.voucher?.voucherCode || 'Voucher' }})
+                    </span>
+                  </td>
+                  <td class="discount-amount">-{{ formatPrice(selectedOrder?.discountAmount) }}</td>
+                </tr>
+                <tr>
+                  <td colspan="3" class="text-right">Phí vận chuyển:</td>
+                  <td>{{ formatPrice(selectedOrder?.shippingFee || 0) }}</td>
+                </tr>
+                <tr class="total-row">
+                  <td colspan="3" class="text-right">Tổng cộng:</td>
+                  <td class="grand-total">{{ formatPrice(selectedOrder?.totalAmount) }}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          <div v-if="selectedOrder?.voucher" class="voucher-info-section">
+            <h4><i class="fas fa-ticket-alt"></i> Mã giảm giá đã áp dụng</h4>
+            <div class="voucher-detail">
+              <span class="voucher-code">{{ selectedOrder.voucher.voucherCode }}</span>
+              <span class="voucher-savings">Tiết kiệm: {{ formatPrice(selectedOrder.discountAmount || 0) }}</span>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" @click="closeDetailModal">Đóng</button>
+        </div>
+      </div>
+    </div>
+  </Teleport>
+
+  <!-- Cancel Reason Modal -->
+  <Teleport to="body">
+    <div v-if="showCancelModal" class="modal-overlay" style="z-index: 100002;">
+      <div class="modal-container modal-sm">
+        <div class="modal-header">
+          <h3>Hủy đơn hàng</h3>
+          <button class="close-btn" @click="closeCancelModal">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Lý do hủy <span class="required">*</span></label>
+            <textarea v-model="cancelReason" rows="3" placeholder="Nhập lý do hủy đơn hàng..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" @click="closeCancelModal">Đóng</button>
+          <button class="btn btn-danger" @click="confirmCancelOrder" :disabled="cancelLoading">
+            {{ cancelLoading ? 'Đang xử lý...' : 'Xác nhận hủy' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </Teleport>
+
+  <!-- Return Request Modal -->
+  <Teleport to="body">
+    <ReturnRequestModal
+      :visible="showReturnModal"
+      :order="selectedOrderForReturn"
+      @close="closeReturnModal"
+      @submitted="onReturnSubmitted"
+    />
+  </Teleport>
+
+  <!-- Toast -->
+  <Teleport to="body">
+    <div :class="['toast', { show: showToast, 'toast-error': toastType === 'error' }]" style="z-index: 100005;">
+      {{ toastMessage }}
+    </div>
+  </Teleport>
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import chatService from '../../services/chatService'
+import { orderService } from '../../services/orderService'
 import { useWebSocket } from '../../composables/useWebSocket'
 import ChatTypeSelector from './ChatTypeSelector.vue'
+import OrderTabs from '../client/OrderTabs.vue'
+import OrderList from '../client/OrderList.vue'
+import ReturnRequestModal from '../client/ReturnRequestModal.vue'
+import { useCartStore } from '../../stores/cartStore'
 
+const router = useRouter()
 const emit = defineEmits(['status-change'])
 
 // ===== STATE =====
@@ -213,9 +439,275 @@ const staffMessagesContainer = ref(null)
 const staffInput = ref(null)
 const fileInput = ref(null)
 
-// ===== WEBSOCKET =====
-let wsHandle = null
+// ===== WEBSOCKET SINGLETON cho Customer =====
+// Dùng singleton riêng ở module level, KHÔNG tạo mới trong hàm
+// để tránh nhiều kết nối WS song song
+const _customerWs = useWebSocket()
 let wsCleanups = []
+
+// ===== ORDERS PAGE MODAL STATE & LOGIC (EXACTLY AS OrdersPage.vue) =====
+const cartStore = useCartStore()
+const IMAGE_BASE = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "").replace(/\/api$/, "");
+const ordersLoading = ref(false)
+const cancelLoading = ref(false)
+const orders = ref([])
+const currentPage = ref(0)
+const totalPages = ref(0)
+const orderTabsRef = ref(null)
+
+const activeMainTab = ref('all')
+const activeSubTab = ref('all')
+
+const showOrdersModal = ref(false)
+const showDetailModal = ref(false)
+const showCancelModal = ref(false)
+const showReturnModal = ref(false)
+const selectedOrder = ref(null)
+const selectedOrderForReturn = ref(null)
+const cancelOrderId = ref(null)
+const cancelReason = ref('')
+
+const showToast = ref(false)
+const toastMessage = ref('')
+const toastType = ref('success')
+let toastTimer = null
+
+const getImageUrl = (imagePath) => {
+  if (!imagePath) return ''
+  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+    return imagePath
+  }
+  const cleanPath = imagePath.startsWith('/') ? imagePath : '/' + imagePath
+  return IMAGE_BASE + cleanPath
+}
+
+const formatPrice = (price) => {
+  if (!price && price !== 0) return '0₫'
+  const num = Number(price)
+  if (isNaN(num)) return '0₫'
+  return num.toLocaleString('vi-VN') + '₫'
+}
+
+const formatDate = (dateString) => {
+  if (!dateString) return '---'
+  const date = new Date(dateString)
+  if (isNaN(date.getTime())) return '---'
+  return date.toLocaleDateString('vi-VN') + ' ' + 
+         date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+}
+
+const getStatusText = (status) => {
+  const map = {
+    'PENDING_PAYMENT': 'Chờ thanh toán',
+    'CONFIRMED': 'Đã xác nhận',
+    'PROCESSING': 'Đang xử lý',
+    'SHIPPING': 'Đang giao hàng',
+    'DELIVERED': 'Đã giao hàng',
+    'COMPLETED': 'Hoàn thành',
+    'CANCELLED': 'Đã hủy',
+    'RETURN_REQUESTED': 'Yêu cầu hoàn hàng',
+    'RETURN_APPROVED': 'Đã duyệt hoàn hàng',
+    'RETURN_RECEIVED': 'Đã nhận hàng trả',
+    'RETURN_PENDING': 'Đang thu hồi hàng',
+    'RETURNED': 'Đã hoàn trả',
+    'REJECTED': 'Từ chối hoàn trả'
+  }
+  return map[status] || status
+}
+
+const getOrderFullAddress = (shippingAddress) => {
+  if (!shippingAddress) return '---'
+  if (shippingAddress.addressLine) {
+    return shippingAddress.addressLine
+  }
+  const parts = []
+  if (shippingAddress.addressLine) parts.push(shippingAddress.addressLine)
+  if (shippingAddress.ward) parts.push(shippingAddress.ward)
+  if (shippingAddress.city) parts.push(shippingAddress.city)
+  return parts.length > 0 ? parts.join(', ') : '---'
+}
+
+const showNotificationMsg = (message, type = 'success') => {
+  if (toastTimer) clearTimeout(toastTimer)
+  toastMessage.value = message
+  toastType.value = type
+  showToast.value = true
+  toastTimer = setTimeout(() => {
+    showToast.value = false
+  }, 3000)
+}
+
+const filteredOrders = computed(() => {
+  let result = [...orders.value]
+  if (activeMainTab.value === 'orders') {
+    result = result.filter(o => 
+      !['RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED', 'REJECTED', 'CANCELLED'].includes(o.orderStatus)
+    )
+  } else if (activeMainTab.value === 'returns') {
+    result = result.filter(o => 
+      ['RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED', 'REJECTED'].includes(o.orderStatus)
+    )
+  } else if (activeMainTab.value === 'cancelled') {
+    result = result.filter(o => o.orderStatus === 'CANCELLED')
+  }
+  if (activeSubTab.value !== 'all' && activeMainTab.value !== 'all') {
+    result = result.filter(o => o.orderStatus === activeSubTab.value)
+  }
+  return result
+})
+
+const onTabChange = ({ mainTab, subTab }) => {
+  activeMainTab.value = mainTab
+  activeSubTab.value = subTab
+  currentPage.value = 0
+  fetchOrders()
+}
+
+const fetchOrders = async () => {
+  ordersLoading.value = true
+  try {
+    const token = localStorage.getItem('token')
+    if (!token) {
+      showNotificationMsg('Vui lòng đăng nhập để xem đơn hàng', 'error')
+      return
+    }
+
+    let statusFilter = null
+    if (activeMainTab.value === 'orders') {
+      if (activeSubTab.value === 'all') {
+        statusFilter = 'PENDING_PAYMENT,CONFIRMED,PROCESSING,SHIPPING,DELIVERED,COMPLETED'
+      } else {
+        statusFilter = activeSubTab.value
+      }
+    } else if (activeMainTab.value === 'returns') {
+      if (activeSubTab.value === 'all') {
+        statusFilter = 'RETURN_REQUESTED,RETURN_APPROVED,RETURN_RECEIVED,RETURN_PENDING,RETURNED,REJECTED'
+      } else {
+        statusFilter = activeSubTab.value
+      }
+    } else if (activeMainTab.value === 'cancelled') {
+      statusFilter = 'CANCELLED'
+    }
+
+    const response = await orderService.getMyOrders(statusFilter, currentPage.value, 10)
+    if (response.data) {
+      orders.value = response.data.content || []
+      totalPages.value = response.data.totalPages || 0
+      currentPage.value = response.data.number || 0
+    }
+  } catch (error) {
+    console.error('Error fetching orders:', error)
+    showNotificationMsg(error.response?.data?.message || 'Không thể tải đơn hàng', 'error')
+    orders.value = []
+  } finally {
+    ordersLoading.value = false
+  }
+}
+
+const goToPage = (page) => {
+  if (page >= 0 && page < totalPages.value) {
+    currentPage.value = page
+    fetchOrders()
+  }
+}
+
+const viewOrderDetail = async (orderId) => {
+  try {
+    const response = await orderService.getOrderDetail(orderId)
+    selectedOrder.value = response.data
+    showDetailModal.value = true
+  } catch (error) {
+    console.error('Error fetching order detail:', error)
+    showNotificationMsg('Không thể tải chi tiết đơn hàng', 'error')
+  }
+}
+
+const closeDetailModal = () => {
+  showDetailModal.value = false
+  selectedOrder.value = null
+}
+
+const handleCancelOrder = (orderId) => {
+  cancelOrderId.value = orderId
+  cancelReason.value = ''
+  showCancelModal.value = true
+}
+
+const closeCancelModal = () => {
+  showCancelModal.value = false
+  cancelOrderId.value = null
+  cancelReason.value = ''
+}
+
+const confirmCancelOrder = async () => {
+  if (!cancelReason.value.trim()) {
+    showNotificationMsg('Vui lòng nhập lý do hủy đơn hàng', 'error')
+    return
+  }
+  cancelLoading.value = true
+  try {
+    await orderService.cancelOrder(cancelOrderId.value, cancelReason.value)
+    showNotificationMsg('Hủy đơn hàng thành công!', 'success')
+    closeCancelModal()
+    await fetchOrders()
+  } catch (error) {
+    console.error('Error canceling order:', error)
+    showNotificationMsg(error.response?.data?.message || 'Không thể hủy đơn hàng', 'error')
+  } finally {
+    cancelLoading.value = false
+  }
+}
+
+const handleReturnOrder = (order) => {
+  if (!order) {
+    showNotificationMsg('Không tìm thấy đơn hàng', 'error')
+    return
+  }
+  if (order.orderStatus !== 'COMPLETED') {
+    showNotificationMsg('Chỉ có thể yêu cầu hoàn hàng khi đơn hàng đã hoàn thành', 'warning')
+    return
+  }
+  selectedOrderForReturn.value = order
+  showReturnModal.value = true
+}
+
+const closeReturnModal = () => {
+  showReturnModal.value = false
+  selectedOrderForReturn.value = null
+}
+
+const onReturnSubmitted = (data) => {
+  showNotificationMsg('Yêu cầu hoàn hàng đã được gửi!', 'success')
+  closeReturnModal()
+  fetchOrders()
+}
+
+const handleReorder = (order) => {
+  if (order.items && order.items.length > 0) {
+    order.items.forEach(item => {
+      cartStore.addToCart({
+        productDetailId: item.productDetailId,
+        productId: item.productId,
+        productName: item.productName,
+        price: item.unitPrice,
+        quantity: item.quantity,
+        imageUrl: item.imageUrl,
+        sizeName: item.sizeName,
+        colorName: item.colorName
+      })
+    })
+    showNotificationMsg('Đã thêm sản phẩm vào giỏ hàng!', 'success')
+  }
+}
+
+const goToMyOrders = () => {
+  showOrdersModal.value = true
+  fetchOrders()
+}
+
+const closeOrdersModal = () => {
+  showOrdersModal.value = false
+}
 
 // ===== CHAT TYPE SELECTOR HANDLERS =====
 const onChatStarted = (chat) => {
@@ -306,6 +798,7 @@ const loadMessages = async () => {
 
 // ===== IMAGE HELPERS =====
 const IMAGE_PREFIX = '[IMAGE]'
+const RETURN_FORM_PREFIX = '[RETURN_FORM]'
 
 const isImageMessage = (content) => {
   return content && content.startsWith(IMAGE_PREFIX)
@@ -313,6 +806,27 @@ const isImageMessage = (content) => {
 
 const extractImageSrc = (content) => {
   return content ? content.slice(IMAGE_PREFIX.length) : ''
+}
+
+const isReturnFormMessage = (content) => {
+  return content && content.startsWith(RETURN_FORM_PREFIX)
+}
+
+const extractReturnFormText = (content) => {
+  if (!content) return ''
+  return content.slice(RETURN_FORM_PREFIX.length).trim()
+}
+
+
+const formatOrderDate = (dateStr) => {
+  if (!dateStr) return '---'
+  const d = new Date(dateStr)
+  return d.toLocaleDateString('vi-VN')
+}
+
+const formatOrderPrice = (price) => {
+  if (!price && price !== 0) return '0₫'
+  return Number(price).toLocaleString('vi-VN') + '₫'
 }
 
 const openImagePreview = (src) => {
@@ -510,16 +1024,16 @@ const sendImageMessage = async (base64) => {
 // ===== WEBSOCKET =====
 const setupWebSocket = () => {
   try {
-    const ws = useWebSocket()
-    wsHandle = ws
-    ws.connect('/ws/chat')
+    // ✅ Dùng singleton, không tạo mới
+    _customerWs.connect('/ws/chat')
     
     const id = getCurrentUserId()
     if (id) {
-      ws.identify('CUSTOMER', id, currentChatId.value)
+      // ✅ Identify là CUSTOMER
+      _customerWs.identify('CUSTOMER', id)
     }
 
-    const newMsgCleanup = ws.onMessage('new_message', (data) => {
+    const newMsgCleanup = _customerWs.onMessage('new_message', (data) => {
       const msgData = data.data || data
       if (msgData.chatId === currentChatId.value) {
         const msg = msgData.message
@@ -536,7 +1050,7 @@ const setupWebSocket = () => {
       }
     })
 
-    const assignedCleanup = ws.onMessage('chat_assigned', (data) => {
+    const assignedCleanup = _customerWs.onMessage('chat_assigned', (data) => {
       const assignData = data.data || data
       if (assignData.chatId === currentChatId.value) {
         chatStatus.value = 'ACTIVE'
@@ -547,7 +1061,7 @@ const setupWebSocket = () => {
       }
     })
 
-    const waitingCleanup = ws.onMessage('chat_waiting', (data) => {
+    const waitingCleanup = _customerWs.onMessage('chat_waiting', (data) => {
       const waitData = data.data || data
       if (waitData.chatId === currentChatId.value) {
         chatStatus.value = 'WAITING'
@@ -556,7 +1070,7 @@ const setupWebSocket = () => {
       }
     })
 
-    const closedCleanup = ws.onMessage('chat_closed', (data) => {
+    const closedCleanup = _customerWs.onMessage('chat_closed', (data) => {
       const closeData = data.data || data
       if (closeData.chatId === currentChatId.value) {
         chatStatus.value = 'CLOSED'
@@ -565,7 +1079,10 @@ const setupWebSocket = () => {
       }
     })
 
+    // ✅ Cleanup listeners cũ trước khi thêm mới (tránh duplicate)
+    wsCleanups.forEach(c => typeof c === 'function' && c())
     wsCleanups = [newMsgCleanup, assignedCleanup, waitingCleanup, closedCleanup]
+    console.log('[StaffChat] WebSocket setup done, listeners registered')
     
   } catch (e) {
     console.warn('[StaffChat] WS setup error:', e)
@@ -573,14 +1090,13 @@ const setupWebSocket = () => {
 }
 
 const disconnectWebSocket = () => {
+  // ✅ Chỉ cleanup listeners, KHÔNG disconnect toàn bộ WS
+  // (WS singleton được tái sử dụng nên không nên đóng ở đây)
   wsCleanups.forEach(cleanup => {
     if (typeof cleanup === 'function') cleanup()
   })
   wsCleanups = []
-  if (wsHandle) {
-    wsHandle.disconnect()
-    wsHandle = null
-  }
+  console.log('[StaffChat] WebSocket listeners cleaned up')
 }
 
 // ===== CHAT ACTIONS =====
@@ -1198,8 +1714,63 @@ defineExpose({
 
 .loading-state p {
   margin: 0;
+}
+
+/* ==================== RETURN FORM CARD STYLES ==================== */
+.return-form-card {
+  background: #ffffff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 14px;
+  max-width: 280px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  margin: 4px 0;
+}
+
+.return-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #dd6b20;
   font-size: 14px;
-  color: #718096;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px dashed #feebc8;
+}
+
+.return-card-header i {
+  font-size: 16px;
+}
+
+.return-card-desc {
+  font-size: 12.5px;
+  color: #4a5568;
+  margin: 0 0 12px 0;
+  line-height: 1.45;
+}
+
+.go-to-orders-btn {
+  width: 100%;
+  padding: 9px 14px;
+  background: linear-gradient(135deg, #dd6b20 0%, #c05621 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(221, 107, 32, 0.25);
+}
+
+.go-to-orders-btn:hover {
+  background: linear-gradient(135deg, #c05621 0%, #9c4221 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(221, 107, 32, 0.35);
 }
 
 /* ✅ Style cho chat-type-selector-wrapper */
@@ -1212,5 +1783,445 @@ defineExpose({
   background: #f8f9fa;
   overflow-y: auto;
   min-height: 300px;
+}
+
+/* ==================== ORDERS PAGE MODAL ==================== */
+.orders-page-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(5px);
+  z-index: 100000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+}
+
+.orders-page-modal-container {
+  background: #f8f9fa;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 1200px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+  animation: ordersModalSlideIn 0.3s ease;
+}
+
+@keyframes ordersModalSlideIn {
+  from { opacity: 0; transform: translateY(-20px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.orders-page-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 30px;
+  background: white;
+  border-bottom: 1px solid #e9ecef;
+  flex-shrink: 0;
+}
+
+.orders-page-modal-close {
+  background: #f1f3f5;
+  border: none;
+  font-size: 20px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  cursor: pointer;
+  color: #495057;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.orders-page-modal-close:hover {
+  background: #e9ecef;
+  color: #212529;
+}
+
+.orders-page-modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 30px 40px;
+}
+
+/* ===== MODALS & DIALOGS (EXACTLY AS OrdersPage.vue) ===== */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 100001;
+  backdrop-filter: blur(5px);
+}
+
+.modal-container {
+  background: white;
+  border-radius: 12px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: slideIn 0.3s;
+}
+
+.modal-container.modal-sm {
+  max-width: 450px;
+}
+
+.modal-container.modal-lg {
+  max-width: 800px;
+}
+
+@keyframes slideIn {
+  from { transform: translateY(-30px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #e63946, #ff6b6b);
+  color: white;
+  border-radius: 12px 12px 0 0;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: white;
+}
+
+.close-btn:hover {
+  opacity: 0.8;
+}
+
+.modal-body {
+  padding: 20px;
+}
+
+.modal-footer {
+  padding: 16px 20px;
+  border-top: 1px solid #eee;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  border-radius: 0 0 12px 12px;
+}
+
+.btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s;
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-outline {
+  background: #f0f0f0;
+  color: #666;
+}
+
+.btn-outline:hover {
+  background: #e0e0e0;
+}
+
+.btn-danger {
+  background: #dc3545;
+  color: white;
+}
+
+.btn-danger:hover {
+  background: #c82333;
+}
+
+.order-info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.info-section {
+  background: #f8f9fa;
+  padding: 15px;
+  border-radius: 8px;
+}
+
+.info-section h4 {
+  color: #2c3e50;
+  margin-bottom: 10px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid #eee;
+}
+
+.info-section p {
+  margin-bottom: 5px;
+  font-size: 14px;
+  color: #666;
+}
+
+.address-section {
+  margin-bottom: 20px;
+  padding: 16px 20px;
+  background: #f8f9fa;
+  border-radius: 12px;
+  border: 1px solid #e9ecef;
+}
+
+.address-section h4 {
+  margin-top: 0;
+  margin-bottom: 12px;
+  color: #2c3e50;
+  font-size: 15px;
+}
+
+.address-detail-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.address-row {
+  display: flex;
+  align-items: flex-start;
+  padding: 4px 0;
+  font-size: 14px;
+}
+
+.address-row .address-label {
+  font-weight: 600;
+  color: #2c3e50;
+  min-width: 120px;
+  flex-shrink: 0;
+}
+
+.address-row .address-value {
+  color: #444;
+  word-break: break-word;
+}
+
+.address-row.full-address-row {
+  background: #e8f0fe;
+  padding: 8px 12px;
+  border-radius: 6px;
+  margin-top: 4px;
+}
+
+.address-row.full-address-row .address-label {
+  color: #1a3a6a;
+}
+
+.address-row.full-address-row .address-value.highlight {
+  color: #1a3a6a;
+  font-weight: 500;
+}
+
+.order-items-section h4 {
+  color: #2c3e50;
+  margin-bottom: 15px;
+}
+
+.items-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.items-table th {
+  background: #f8f9fa;
+  padding: 10px;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 600;
+  color: #2c3e50;
+  border-bottom: 2px solid #eee;
+}
+
+.items-table td {
+  padding: 10px;
+  border-bottom: 1px solid #eee;
+  vertical-align: middle;
+}
+
+.items-table tfoot td {
+  border-bottom: none;
+  padding: 8px 10px;
+}
+
+.text-right {
+  text-align: right;
+}
+
+.total-row {
+  font-weight: 700;
+}
+
+.grand-total {
+  font-size: 18px;
+  color: #e63946;
+}
+
+.discount-row td {
+  color: #28a745;
+  font-weight: 600;
+}
+
+.discount-row .voucher-label {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.discount-row .discount-amount {
+  color: #28a745;
+  font-weight: 700;
+}
+
+.voucher-info-section {
+  background: #e8f5e9;
+  padding: 15px 20px;
+  border-radius: 8px;
+  margin-top: 20px;
+  border-left: 4px solid #2e7d32;
+}
+
+.voucher-info-section h4 {
+  color: #2e7d32;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.voucher-info-section .voucher-detail {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
+.voucher-info-section .voucher-code {
+  font-weight: 700;
+  color: #2e7d32;
+  background: white;
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 16px;
+}
+
+.voucher-info-section .voucher-savings {
+  color: #e63946;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.item-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.item-info .item-image {
+  width: 40px;
+  height: 40px;
+}
+
+.item-info .item-image i {
+  font-size: 20px;
+}
+
+.item-info .item-name {
+  font-weight: 600;
+  color: #2c3e50;
+  font-size: 14px;
+}
+
+.item-info .item-variant {
+  font-size: 12px;
+  color: #999;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+.form-group label {
+  display: block;
+  font-weight: 600;
+  color: #2c3e50;
+  margin-bottom: 5px;
+}
+
+.required {
+  color: #e63946;
+}
+
+.form-group textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.form-group textarea:focus {
+  outline: none;
+  border-color: #e63946;
+}
+
+.toast {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  padding: 12px 24px;
+  border-radius: 8px;
+  background: #27ae60;
+  color: white;
+  font-size: 14px;
+  z-index: 100005;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all 0.3s;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.toast.toast-error {
+  background: #e74c3c;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateY(0);
 }
 </style>

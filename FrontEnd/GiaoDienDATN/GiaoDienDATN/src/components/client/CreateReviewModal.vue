@@ -298,7 +298,7 @@ const checkReviewStatus = async () => {
   error.value = ''
   
   try {
-    const token = localStorage.getItem('token')
+    const token = localStorage.getItem('accessToken')
     if (!token) {
       error.value = 'Vui lòng đăng nhập để đánh giá'
       checking.value = false
@@ -398,7 +398,7 @@ const submitReview = async () => {
   error.value = ''
 
   try {
-    const token = localStorage.getItem('token')
+    const token = localStorage.getItem('accessToken')
     
     // Lấy danh sách URL ảnh đã upload
     const imageUrls = uploadedImages.value

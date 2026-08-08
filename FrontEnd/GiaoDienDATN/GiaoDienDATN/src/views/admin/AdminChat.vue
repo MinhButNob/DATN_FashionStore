@@ -200,6 +200,16 @@
                   alt="Ảnh"
                 />
               </template>
+              <template v-else-if="isReturnFormMessage(message.messageContent)">
+                <div class="return-form-card staff-view">
+                  <div class="return-card-header">
+                    <i class="fas fa-box-open"></i>
+                    <strong>Form Yêu Cầu Hoàn Hàng</strong>
+                  </div>
+                  <p class="return-card-desc">{{ extractReturnFormText(message.messageContent) }}</p>
+                  <span class="return-sent-badge"><i class="fas fa-check-circle"></i> Đã gửi liên kết đơn hàng</span>
+                </div>
+              </template>
               <p v-else>{{ message.messageContent }}</p>
             </div>
             <div class="message-footer">
@@ -312,17 +322,15 @@
         </div>
       </div>
 
-      <div class="quick-templates">
-        <h3>Gợi ý phản hồi</h3>
+      <div class="return-form-section">
+        <h3>Hỗ trợ hoàn hàng</h3>
+        <p class="return-section-desc">Gửi nút liên kết chuyển hướng đến trang Đơn hàng của tôi cho khách hàng.</p>
         <button 
-          v-for="template in templates" 
-          :key="template" 
-          class="template-btn" 
-          @click="reply = template; focusReply()"
+          class="send-return-form-btn" 
+          @click="sendReturnForm"
           :disabled="selectedConversation.status !== 'ACTIVE'"
         >
-          <i class="fas fa-comment"></i>
-          {{ template }}
+          <i class="fas fa-box-open"></i> Gửi form hoàn hàng
         </button>
       </div>
     </section>
@@ -502,15 +510,6 @@ const filteredConversations = computed(() => {
   return filtered;
 });
 
-// ===== TEMPLATES =====
-const templates = [
-  "Dạ shop đang kiểm tra và phản hồi mình ngay ạ.",
-  "Dạ sản phẩm này hiện còn hàng tại cửa hàng.",
-  "Dạ mình cho shop xin mã đơn hàng để kiểm tra nhanh hơn ạ.",
-  "Dạ shop xin lỗi vì sự chậm trễ ạ.",
-  "Dạ mình vui lòng cung cấp thêm thông tin để shop hỗ trợ tốt hơn ạ.",
-];
-
 // ===== HELPER FUNCTIONS =====
 const getInitial = (name) => {
   return name ? name.charAt(0).toUpperCase() : '?';
@@ -545,8 +544,9 @@ const focusReply = () => {
   });
 };
 
-// ===== IMAGE HELPERS =====
+// ===== IMAGE & RETURN FORM HELPERS =====
 const IMAGE_PREFIX = '[IMAGE]';
+const RETURN_FORM_PREFIX = '[RETURN_FORM]';
 
 const isImageMessage = (content) => {
   return content && content.startsWith(IMAGE_PREFIX);
@@ -554,6 +554,40 @@ const isImageMessage = (content) => {
 
 const extractImageSrc = (content) => {
   return content ? content.slice(IMAGE_PREFIX.length) : '';
+};
+
+const isReturnFormMessage = (content) => {
+  return content && content.startsWith(RETURN_FORM_PREFIX);
+};
+
+const extractReturnFormText = (content) => {
+  if (!content) return '';
+  return content.slice(RETURN_FORM_PREFIX.length).trim();
+};
+
+const sendReturnForm = async () => {
+  if (sending.value || selectedConversation.value?.status !== 'ACTIVE') return;
+
+  const staffId = getStaffId();
+  if (!staffId) {
+    showNotification('Không tìm thấy thông tin nhân viên!', 'error');
+    return;
+  }
+
+  const content = RETURN_FORM_PREFIX + 'Quý khách vui lòng nhấn vào nút bên dưới để chuyển sang trang Đơn hàng của tôi và gửi yêu cầu hoàn hàng.';
+  sending.value = true;
+  try {
+    await chatStaffService.sendMessage(selectedConversation.value.chatId, Number(staffId), content);
+    await chatStore.fetchMessages(selectedConversation.value.chatId);
+    messages.value = chatStore.messages;
+    scrollToBottom();
+    showNotification('Đã gửi form hoàn hàng cho khách hàng!', 'success');
+  } catch (err) {
+    console.error('sendReturnForm error:', err);
+    showNotification('Không thể gửi form hoàn hàng', 'error');
+  } finally {
+    sending.value = false;
+  }
 };
 
 const openImageModal = (src) => {
@@ -2047,6 +2081,88 @@ onUnmounted(() => {
 
 .admin-image-modal-close:hover {
   background: #c62828;
+}
+
+.return-form-section {
+  margin-top: 24px;
+  padding: 16px;
+  background: #fffaf0;
+  border: 1px dashed #feebc8;
+  border-radius: 12px;
+}
+.return-form-section h3 {
+  color: #dd6b20;
+  font-size: 15px;
+  margin-bottom: 6px;
+}
+.return-section-desc {
+  font-size: 12.5px;
+  color: #718096;
+  margin: 0 0 14px 0;
+  line-height: 1.4;
+}
+.send-return-form-btn {
+  width: 100%;
+  border: none;
+  background: linear-gradient(135deg, #dd6b20 0%, #c05621 100%);
+  color: white;
+  border-radius: 8px;
+  padding: 11px 14px;
+  text-align: center;
+  cursor: pointer;
+  font-size: 13.5px;
+  font-weight: 600;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 2px 6px rgba(221, 107, 32, 0.25);
+}
+.send-return-form-btn i {
+  font-size: 15px;
+}
+.send-return-form-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #c05621 0%, #9c4221 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(221, 107, 32, 0.35);
+}
+.send-return-form-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Return form card in staff/admin view */
+.return-form-card.staff-view {
+  background: #fffaf0;
+  border: 1.5px solid #feebc8;
+  border-radius: 10px;
+  padding: 12px;
+  max-width: 300px;
+}
+.return-form-card.staff-view .return-card-header {
+  color: #dd6b20;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13.5px;
+  margin-bottom: 6px;
+}
+.return-form-card.staff-view .return-card-desc {
+  font-size: 12.5px;
+  color: #4a5568;
+  margin: 0 0 8px 0;
+}
+.return-sent-badge {
+  font-size: 11.5px;
+  color: #38a169;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 @keyframes fadeIn {

@@ -75,6 +75,15 @@ export function useWebSocket() {
       return socket.value;
     }
 
+    // ✅ Nếu đã thử quá nhiều lần, báo lỗi rõ ràng thay vì tiếp tục retry
+    if (reconnectAttempts.value >= 5) {
+      console.error(
+        "❌ [WS] Đã thử kết nối 5 lần thất bại. Backend có thể chưa chạy.",
+        "Kiểm tra Spring Boot đang chạy trên port 8080."
+      );
+      return null;
+    }
+
     intentionalDisconnect = false;
 
     // ✅ Sử dụng port 8080
@@ -94,7 +103,7 @@ export function useWebSocket() {
           socket.value.readyState,
         );
         isConnected.value = true;
-        reconnectAttempts.value = 0;
+        reconnectAttempts.value = 0; // ✅ Reset khi kết nối thành công
 
         window.ws = socket.value;
 
@@ -127,14 +136,20 @@ export function useWebSocket() {
         }
 
         if (reconnectAttempts.value < 5) {
+          // ✅ Exponential backoff: 3s, 6s, 9s, 12s, 15s
           const delay = 3000 * (reconnectAttempts.value + 1);
           console.log(
-            `🔄 Reconnecting in ${delay}ms (attempt ${reconnectAttempts.value + 1})`,
+            `🔄 Reconnecting in ${delay}ms (attempt ${reconnectAttempts.value + 1}/5)`,
           );
           reconnectTimer = setTimeout(() => {
             reconnectAttempts.value++;
             connect(path);
           }, delay);
+        } else {
+          console.error(
+            "❌ [WS] Đã thử kết nối 5 lần, dừng lại.",
+            "Hãy đảm bảo Spring Boot backend đang chạy trên port 8080."
+          );
         }
       };
 
@@ -152,7 +167,10 @@ export function useWebSocket() {
       };
 
       socket.value.onerror = (error) => {
-        console.error("⚠️ WebSocket error:", error);
+        console.error(
+          "⚠️ WebSocket error - Kiểm tra backend đang chạy trên localhost:8080:",
+          error.type
+        );
       };
 
       return socket.value;

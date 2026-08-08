@@ -77,6 +77,8 @@ public class SecurityConfig {
                         // ===== PUBLIC ENDPOINTS =====
                         .requestMatchers("/api/auth/**", "/oauth2/**", "/error", "/favicon.ico").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        // ===== WEBSOCKET =====
+                        .requestMatchers("/ws/**").permitAll()
 
                         // ===== CLIENT ENDPOINTS (Khách hàng) =====
                         .requestMatchers("/api/customer/home/**").permitAll()
