@@ -64,6 +64,14 @@ public class HomeController {
         return ResponseEntity.ok(customerProductService.getFeaturedProducts(page, size));
     }
 
+    @GetMapping("/top-rated-products")
+    public ResponseEntity<HomeProductResponse> getTopRatedProducts(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "8") int size
+    ) {
+        return ResponseEntity.ok(customerProductService.getTopRatedProducts(page, size));
+    }
+
     @GetMapping("/categories/{categoryId}/products")
     public ResponseEntity<HomeProductResponse> getProductsByCategory(
             @PathVariable Integer categoryId,

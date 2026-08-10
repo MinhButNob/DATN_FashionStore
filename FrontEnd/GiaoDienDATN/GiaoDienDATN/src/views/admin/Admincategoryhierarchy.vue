@@ -8,6 +8,9 @@
           Bạn chỉ có thể thêm/sửa/xóa danh mục con bên trong từng danh mục lớn.
         </p>
       </div>
+      <router-link to="/admin/categories" class="btn-back-categories">
+        <span class="btn-icon">📋</span> Quản lý danh mục
+      </router-link>
       <!-- ĐÃ BỎ nút "Thêm danh mục cha" vì chỉ cho phép đúng 3 danh mục lớn mặc định -->
     </div>
 
@@ -473,6 +476,22 @@ export default {
 .admin-category-hierarchy { padding: 20px; }
 .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
 .subtitle { color: #7f8c8d; margin: 4px 0 0; max-width: 640px; }
+.btn-back-categories {
+  background-color: #ffffff;
+  color: #3498db;
+  border: 1px solid #3498db;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.3s;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.btn-back-categories:hover { background-color: #ebf5fb; transform: translateY(-2px); }
 .tree-container { background: white; border-radius: 12px; padding: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
 .parent-block { border-bottom: 1px solid #eee; }
 .parent-block:last-child { border-bottom: none; }

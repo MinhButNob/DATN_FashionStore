@@ -81,8 +81,8 @@
                 >
                   <ProductCard 
                     :product="product" 
-                    :rating="product.rating || product.averageRating || 5.0"
-                    :reviewCount="product.reviewCount || (32 + idx * 8)"
+                    :rating="product.averageRating || 0"
+                    :reviewCount="product.reviewCount || 0"
                     badgeText="ĐÁNH GIÁ CAO"
                   />
                 </div>
@@ -368,14 +368,10 @@ const loadBestSellers = async () => {
 
 const loadTopRated = async () => {
   try {
-    const response = await api.get('/customer/home/latest-products', { params: { page: 0, size: 10 } })
+    // ✅ Chỉ lấy sản phẩm đã có người mua và đánh giá thật (review APPROVED), thứ tự ngẫu nhiên
+    const response = await api.get('/customer/home/top-rated-products', { params: { page: 0, size: 10 } })
     const products = response.data?.products || response.data?.data?.products || response.data || []
-    const mapped = Array.isArray(products) ? products.map(mapProduct) : []
-    topRatedProducts.value = mapped.map((p, idx) => ({
-      ...p,
-      rating: 4.8 + (idx % 3) * 0.1,
-      reviewCount: 32 + idx * 8
-    }))
+    topRatedProducts.value = Array.isArray(products) ? products.map(mapProduct) : []
   } catch (error) {
     console.error('Lỗi tải sản phẩm đánh giá cao:', error)
     topRatedProducts.value = []

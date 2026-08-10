@@ -20,11 +20,6 @@
       <div v-else-if="badgeText" class="custom-badge">
         {{ badgeText }}
       </div>
-
-      <!-- Top-Right Wishlist Heart Button -->
-      <button class="product-wishlist" @click.stop="handleToggleWishlist" :title="isInWishlist ? 'Bỏ yêu thích' : 'Thêm vào yêu thích'">
-        <i :class="[isInWishlist ? 'fas active' : 'far', 'fa-heart']"></i>
-      </button>
     </div>
 
     <!-- Product Info Section -->
@@ -64,10 +59,13 @@
         </span>
       </div>
 
-      <!-- Product Stock Status -->
-      <div class="product-stock" :class="{ 'out-of-stock': isOutOfStock }">
-        <i class="fas" :class="!isOutOfStock ? 'fa-check-circle' : 'fa-times-circle'"></i>
-        <span>{{ !isOutOfStock ? `Còn ${stockCount} sản phẩm` : 'Hết hàng' }}</span>
+      <!-- Product Stock Status + Sold Count -->
+      <div class="product-meta-row">
+        <div class="product-stock" :class="{ 'out-of-stock': isOutOfStock }">
+          <i class="fas" :class="!isOutOfStock ? 'fa-check-circle' : 'fa-times-circle'"></i>
+          <span>{{ !isOutOfStock ? `Còn ${stockCount} sản phẩm` : 'Hết hàng' }}</span>
+        </div>
+        <span v-if="soldCount > 0" class="sold-count">Đã bán {{ formatSoldCount(soldCount) }}</span>
       </div>
 
       <!-- Add to Cart Action Button -->
@@ -94,7 +92,6 @@ import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCartStore } from '../../stores/cartStore'
 import { useAuthStore } from '../../stores/authStore'
-import { useWishlistStore } from '../../stores/wishlistStore'
 import { useNotification } from '../../composables/useNotification'
 import CartPopup from './CartPopup.vue'
 
@@ -120,7 +117,6 @@ const props = defineProps({
 const router = useRouter()
 const cartStore = useCartStore()
 const authStore = useAuthStore()
-const wishlistStore = useWishlistStore()
 const { showNotification } = useNotification()
 
 const showCartPopup = ref(false)
@@ -221,11 +217,17 @@ const displayReviewCount = computed(() => {
   return 0
 })
 
-// Wishlist State
-const isInWishlist = computed(() => {
-  const pId = props.product.productDetailId || props.product.id || props.product.productId
-  return wishlistStore.isInWishlist(pId)
+// Sold Count (số lượng đã bán thật, lấy từ backend)
+const soldCount = computed(() => {
+  const p = props.product
+  if (p.soldCount !== undefined && p.soldCount !== null) return Number(p.soldCount)
+  return 0
 })
+
+const formatSoldCount = (count) => {
+  if (count >= 1000) return `${(count / 1000).toFixed(1).replace(/\.0$/, '')}k`
+  return count
+}
 
 const formatPriceVND = (price) => {
   if (price === undefined || price === null) return '0đ'
@@ -313,20 +315,6 @@ const addToCart = async (event) => {
   } catch (error) {
     console.error('Add to cart error:', error)
     showNotification('Thêm vào giỏ thất bại!', 'error')
-  }
-}
-
-const handleToggleWishlist = async (event) => {
-  event.stopPropagation()
-  if (!authStore.isAuthenticated) {
-    window.dispatchEvent(new CustomEvent('open-auth-modal', { detail: 'login' }))
-    showNotification('Vui lòng đăng nhập để sử dụng danh sách yêu thích', 'info')
-    return
-  }
-  const targetId = props.product.productDetailId || props.product.id || props.product.productId
-  const success = await wishlistStore.toggleWishlist(targetId)
-  if (success) {
-    showNotification(isInWishlist.value ? 'Đã thêm vào yêu thích' : 'Đã xóa khỏi yêu thích', 'success')
   }
 }
 </script>
@@ -417,37 +405,6 @@ const handleToggleWishlist = async (event) => {
   font-weight: 700;
   text-transform: uppercase;
   z-index: 2;
-}
-
-/* Wishlist Heart Button - White Circle Top Right */
-.product-wishlist {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 32px;
-  height: 32px;
-  background: #ffffff;
-  border-radius: 50%;
-  border: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.25s ease;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-  z-index: 2;
-  color: #64748b;
-  font-size: 14px;
-}
-
-.product-wishlist:hover {
-  transform: scale(1.08);
-  color: #ff4d4f;
-  background: #ffffff;
-}
-
-.product-wishlist i.active {
-  color: #ff4d4f;
 }
 
 /* Product Info Container (Compact Padding) */
@@ -550,11 +507,19 @@ const handleToggleWishlist = async (event) => {
   font-weight: 500;
 }
 
-/* Stock Status */
+/* Stock Status + Sold Count Row */
+.product-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
 .product-stock {
   font-size: 11.5px;
   font-weight: 600;
-  margin-bottom: 8px;
   color: #16a34a;
   display: flex;
   align-items: center;
@@ -565,7 +530,15 @@ const handleToggleWishlist = async (event) => {
   color: #dc2626;
 }
 
-/* Add to Cart Button - Red Full Width Compact */
+.sold-count {
+  font-size: 11px;
+  color: #94a3b8;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* Add to Cart Button - Red Full Width Compact
+   Ẩn mặc định, chỉ hiện khi hover vào card sản phẩm (không làm lệch layout) */
 .add-to-cart-btn {
   width: 100%;
   background: #ff4d4f;
@@ -574,7 +547,7 @@ const handleToggleWishlist = async (event) => {
   padding: 8px 10px;
   border-radius: 8px;
   cursor: pointer;
-  transition: all 0.25s ease;
+  transition: opacity 0.25s ease, transform 0.25s ease, background 0.25s ease, box-shadow 0.25s ease;
   font-weight: 700;
   font-size: 13px;
   display: flex;
@@ -583,11 +556,19 @@ const handleToggleWishlist = async (event) => {
   gap: 6px;
   margin-top: auto;
   box-shadow: 0 3px 8px rgba(255, 77, 79, 0.2);
+  opacity: 0;
+  transform: translateY(6px);
+  pointer-events: none;
+}
+
+.product-card:hover .add-to-cart-btn {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
 }
 
 .add-to-cart-btn:hover:not(:disabled) {
   background: #e0383a;
-  transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(255, 77, 79, 0.3);
 }
 
@@ -596,6 +577,15 @@ const handleToggleWishlist = async (event) => {
   color: #64748b;
   cursor: not-allowed;
   box-shadow: none;
+}
+
+/* Thiết bị cảm ứng không có hover -> luôn hiện nút để có thể bấm được */
+@media (hover: none) {
+  .add-to-cart-btn {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
 }
 
 @media (max-width: 768px) {

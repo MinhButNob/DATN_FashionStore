@@ -20,4 +20,7 @@ public class ProductCardResponse {
     private String categoryName;      // ✅ Thêm field này
     private Integer categoryId;        // ✅ Thêm field này
     private List<VariantCustomerResponse> variants; // ✅ Thêm để FE lấy productDetailId (wishlist, filter size...)
+    private Integer soldCount;         // ✅ Số lượng đã bán thực tế (từ order_details)
+    private Double averageRating;      // ✅ Điểm đánh giá trung bình thực tế (từ reviews)
+    private Integer reviewCount;       // ✅ Số lượt đánh giá thực tế (từ reviews)
 }
