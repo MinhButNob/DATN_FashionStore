@@ -46,6 +46,7 @@ public class SaleStaffService {
     private final CustomerOrderServiceImpl customerOrderService;
     private final VoucherRepository voucherRepository;
     private final KhachHangCustomerRepository customerRepository;
+    private final com.example.backend_fashionstore.quanLyBanhangTaiQuay.repository.PosOrderRepository posOrderRepository;
 
     // =============================================
     // QUẢN LÝ ĐƠN HÀNG (FULL CHỨC NĂNG)
@@ -326,15 +327,25 @@ public class SaleStaffService {
 
         BigDecimal todayRevenue = orderRepository.getTodayRevenue();
         if (todayRevenue == null) todayRevenue = BigDecimal.ZERO;
+        BigDecimal todayPosRevenue = posOrderRepository.getTodayPosRevenue();
+        if (todayPosRevenue != null) todayRevenue = todayRevenue.add(todayPosRevenue);
 
         BigDecimal monthlyRevenue = orderRepository.getMonthlyRevenue(
                 LocalDateTime.now().getYear(),
                 LocalDateTime.now().getMonthValue()
         );
         if (monthlyRevenue == null) monthlyRevenue = BigDecimal.ZERO;
+        BigDecimal monthlyPosRevenue = posOrderRepository.getCurrentMonthPosRevenue();
+        if (monthlyPosRevenue != null) monthlyRevenue = monthlyRevenue.add(monthlyPosRevenue);
 
         BigDecimal totalRevenue = orderRepository.getTotalRevenue();
         if (totalRevenue == null) totalRevenue = BigDecimal.ZERO;
+        
+        BigDecimal totalPosRevenue = posOrderRepository.getTotalRevenue(
+                LocalDateTime.of(1970, 1, 1, 0, 0),
+                LocalDateTime.now()
+        );
+        if (totalPosRevenue != null) totalRevenue = totalRevenue.add(totalPosRevenue);
 
         BigDecimal onlineRevenue = orderRepository.getOnlineRevenue();
         if (onlineRevenue == null) onlineRevenue = BigDecimal.ZERO;

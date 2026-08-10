@@ -22,6 +22,7 @@ public class OrderResponseDTO {
     private BigDecimal discountAmount;  // ✅ THÊM
     private BigDecimal shippingFee;
     private BigDecimal totalAmount;
+    private BigDecimal refundAmount;
     private String notes;
     private LocalDateTime createdAt;
 

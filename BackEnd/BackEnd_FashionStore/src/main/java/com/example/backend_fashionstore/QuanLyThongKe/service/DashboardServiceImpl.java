@@ -21,7 +21,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.TemporalAdjusters;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -35,7 +39,9 @@ public class DashboardServiceImpl implements DashboardService {
     private final OrderRepository orderRepository;
     private final OrderDetailRepository orderDetailRepository;
     private final ProductRepository productRepository;
+    private final com.example.backend_fashionstore.QuanLySanPham.repository.ProductDetail.ProductDetailRepository productDetailRepository;
     private final KhachHangCustomerRepository customerRepository;
+    private final com.example.backend_fashionstore.quanLyBanhangTaiQuay.repository.PosOrderRepository posOrderRepository;
 
     @Override
     public DashboardResponseDTO getDashboardData() {
@@ -96,6 +102,17 @@ public class DashboardServiceImpl implements DashboardService {
             monthlyRevenue.put(month, revenue != null ? revenue : BigDecimal.ZERO);
         }
 
+        // Thêm doanh thu POS
+        List<Object[]> posResults = posOrderRepository.getMonthlyPosRevenueByYear(year);
+        for (Object[] row : posResults) {
+            Integer month = ((Number) row[0]).intValue();
+            BigDecimal posRevenue = (BigDecimal) row[1];
+            if (posRevenue != null && posRevenue.compareTo(BigDecimal.ZERO) > 0) {
+                BigDecimal current = monthlyRevenue.get(month);
+                monthlyRevenue.put(month, current.add(posRevenue));
+            }
+        }
+
         return monthlyRevenue;
     }
 
@@ -124,8 +141,15 @@ public class DashboardServiceImpl implements DashboardService {
     public BigDecimal getRevenueGrowth() {
         BigDecimal currentMonth = orderRepository.getCurrentMonthRevenue();
         BigDecimal previousMonth = orderRepository.getPreviousMonthRevenue();
+        
+        BigDecimal currentPosMonth = posOrderRepository.getCurrentMonthPosRevenue();
+        BigDecimal previousPosMonth = posOrderRepository.getPreviousMonthPosRevenue();
 
         if (currentMonth == null) currentMonth = BigDecimal.ZERO;
+        if (currentPosMonth != null) currentMonth = currentMonth.add(currentPosMonth);
+        
+        if (previousMonth == null) previousMonth = BigDecimal.ZERO;
+        if (previousPosMonth != null) previousMonth = previousMonth.add(previousPosMonth);
         if (previousMonth == null || previousMonth.compareTo(BigDecimal.ZERO) == 0) {
             return BigDecimal.ZERO;
         }
@@ -135,6 +159,103 @@ public class DashboardServiceImpl implements DashboardService {
                 .multiply(BigDecimal.valueOf(100));
     }
 
+    @Override
+    public Map<Integer, BigDecimal> getDailyRevenue(int year, int month) {
+        log.info("📊 Getting daily revenue for year: {}, month: {}", year, month);
+        List<Object[]> results = orderRepository.getDailyRevenueByMonth(year, month);
+        Map<Integer, BigDecimal> dailyRevenue = new LinkedHashMap<>();
+
+        // Khởi tạo các ngày trong tháng (vd: 31 ngày)
+        int daysInMonth = LocalDate.of(year, month, 1).lengthOfMonth();
+        for (int day = 1; day <= daysInMonth; day++) {
+            dailyRevenue.put(day, BigDecimal.ZERO);
+        }
+
+        for (Object[] row : results) {
+            Integer day = ((Number) row[0]).intValue();
+            BigDecimal revenue = (BigDecimal) row[1];
+            dailyRevenue.put(day, revenue != null ? revenue : BigDecimal.ZERO);
+        }
+        
+        // Thêm doanh thu POS
+        List<Object[]> posResults = posOrderRepository.getDailyPosRevenueByMonth(year, month);
+        for (Object[] row : posResults) {
+            Integer day = ((Number) row[0]).intValue();
+            BigDecimal posRevenue = (BigDecimal) row[1];
+            if (posRevenue != null && posRevenue.compareTo(BigDecimal.ZERO) > 0) {
+                BigDecimal current = dailyRevenue.get(day);
+                dailyRevenue.put(day, current.add(posRevenue));
+            }
+        }
+        
+        return dailyRevenue;
+    }
+
+    @Override
+    public Map<String, Long> getOrderStatusStats(String filterType, String dateRange, String month, Integer year) {
+        log.info("📊 Getting order status stats. type={}, range={}, month={}, year={}", filterType, dateRange, month, year);
+        LocalDateTime startDate;
+        LocalDateTime endDate;
+
+        if ("Ngày".equals(filterType) && dateRange != null && !dateRange.isEmpty()) {
+            // Định dạng: MM/DD/YYYY - MM/DD/YYYY hoặc DD/MM/YYYY
+            String[] dates = dateRange.split(" - ");
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy"); // assuming frontend passes dd/MM/yyyy
+            try {
+                startDate = LocalDate.parse(dates[0], formatter).atStartOfDay();
+                endDate = LocalDate.parse(dates[1], formatter).atTime(LocalTime.MAX);
+            } catch (Exception e) {
+                log.warn("Lỗi parse date: " + dateRange + ". Fallback to current month.");
+                startDate = LocalDate.now().with(TemporalAdjusters.firstDayOfMonth()).atStartOfDay();
+                endDate = LocalDate.now().with(TemporalAdjusters.lastDayOfMonth()).atTime(LocalTime.MAX);
+            }
+        } else if ("Tháng".equals(filterType) && month != null && !month.isEmpty()) {
+            // Định dạng: MM/YYYY
+            String[] parts = month.split("/");
+            int m = Integer.parseInt(parts[0]);
+            int y = Integer.parseInt(parts[1]);
+            startDate = LocalDate.of(y, m, 1).atStartOfDay();
+            endDate = LocalDate.of(y, m, 1).with(TemporalAdjusters.lastDayOfMonth()).atTime(LocalTime.MAX);
+        } else if ("Năm".equals(filterType) && year != null) {
+            startDate = LocalDate.of(year, 1, 1).atStartOfDay();
+            endDate = LocalDate.of(year, 12, 31).atTime(LocalTime.MAX);
+        } else {
+            startDate = LocalDate.now().with(TemporalAdjusters.firstDayOfYear()).atStartOfDay();
+            endDate = LocalDate.now().with(TemporalAdjusters.lastDayOfYear()).atTime(LocalTime.MAX);
+        }
+
+        List<Object[]> results = orderRepository.countOrderStatusByDateRange(startDate, endDate);
+        Map<String, Long> stats = new LinkedHashMap<>();
+        for (Object[] row : results) {
+            String status = row[0].toString();
+            Long count = ((Number) row[1]).longValue();
+            stats.put(status, count);
+        }
+        return stats;
+    }
+
+    @Override
+    public List<com.example.backend_fashionstore.QuanLyThongKe.dto.InventoryAlertDTO> getInventoryAlerts(int threshold, int limit) {
+        log.info("⚠️ Getting inventory alerts threshold < {}", threshold);
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, limit);
+        List<com.example.backend_fashionstore.entity.ProductDetail> details = productDetailRepository.findLowStockVariants(threshold, pageable);
+        
+        return details.stream().map(pd -> {
+            String imgUrl = null;
+            if (pd.getProductImages() != null && !pd.getProductImages().isEmpty()) {
+                imgUrl = pd.getProductImages().get(0).getProductImagePath();
+            }
+            return com.example.backend_fashionstore.QuanLyThongKe.dto.InventoryAlertDTO.builder()
+                    .productDetailId(pd.getProductDetailId())
+                    .productName(pd.getProduct().getProductName())
+                    .sizeName(pd.getSize() != null ? pd.getSize().getSizeName() : "")
+                    .colorName(pd.getColor() != null ? pd.getColor().getColorName() : "")
+                    .quantity(pd.getQuantity())
+                    .imageUrl(imgUrl)
+                    .build();
+        }).collect(Collectors.toList());
+    }
+
     // ===== HELPER METHODS =====
 
     private DashboardResponseDTO.ProductStatisticsDTO getProductStatistics() {
@@ -142,6 +263,7 @@ public class DashboardServiceImpl implements DashboardService {
             long totalProducts = productRepository.countActiveProducts();
             long inStockVariants = productRepository.countInStockVariants();
             long lowStockVariants = productRepository.countLowStockVariants(10);
+
             long deletedProducts = productRepository.countByDeletedAtIsNotNull();
 
             return DashboardResponseDTO.ProductStatisticsDTO.builder()

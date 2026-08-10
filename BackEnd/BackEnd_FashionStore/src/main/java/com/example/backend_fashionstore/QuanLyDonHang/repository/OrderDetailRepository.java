@@ -20,11 +20,11 @@ public interface OrderDetailRepository extends JpaRepository<OrderDetail, Long> 
     /**
      * Lấy top sản phẩm bán chạy (chỉ lấy product_detail_id)
      */
-    @Query(value = "SELECT od.product_detail_id, SUM(od.quantity) as total_quantity " +
+    @Query(value = "SELECT od.order_detail_product_detail_id, SUM(od.order_detail_quantity) as total_quantity " +
             "FROM order_details od " +
             "JOIN orders o ON od.order_detail_order_id = o.order_id " +
             "WHERE o.order_deleted_at IS NULL AND o.order_status = 'COMPLETED' " +
-            "GROUP BY od.product_detail_id " +
+            "GROUP BY od.order_detail_product_detail_id " +
             "ORDER BY total_quantity DESC", nativeQuery = true)
     List<Object[]> getTopSellingProducts(Pageable pageable);
 
@@ -37,8 +37,8 @@ public interface OrderDetailRepository extends JpaRepository<OrderDetail, Long> 
         SELECT 
             p.product_id,
             p.product_name,
-            COALESCE(SUM(od.quantity), 0) as total_sold,
-            COALESCE(SUM(od.final_amount), 0) as total_revenue,
+            COALESCE(SUM(od.order_detail_quantity), 0) as total_sold,
+            COALESCE(SUM(od.order_detail_final_amount), 0) as total_revenue,
             (
                 SELECT pi.product_image_path 
                 FROM product_images pi 
@@ -66,7 +66,7 @@ public interface OrderDetailRepository extends JpaRepository<OrderDetail, Long> 
         SELECT 
             p.product_id,
             p.product_name,
-            COALESCE(SUM(od.final_amount), 0) as total_revenue
+            COALESCE(SUM(od.order_detail_final_amount), 0) as total_revenue
         FROM order_details od
         JOIN orders o ON od.order_detail_order_id = o.order_id
         JOIN product_details pd ON od.order_detail_product_detail_id = pd.product_detail_id

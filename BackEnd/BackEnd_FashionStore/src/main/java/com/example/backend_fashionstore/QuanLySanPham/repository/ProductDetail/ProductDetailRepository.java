@@ -82,4 +82,15 @@ public interface ProductDetailRepository extends JpaRepository<ProductDetail, In
             "LEFT JOIN FETCH pd.size " +
             "WHERE pd.productDetailId = :id AND pd.deletedAt IS NULL")
     Optional<ProductDetail> findByIdWithRelations(@Param("id") Integer id);
+
+    /**
+     * Lấy danh sách biến thể sản phẩm sắp hết hàng
+     */
+    @Query("SELECT pd FROM ProductDetail pd " +
+            "LEFT JOIN FETCH pd.product " +
+            "LEFT JOIN FETCH pd.color " +
+            "LEFT JOIN FETCH pd.size " +
+            "WHERE pd.quantity < :threshold AND pd.deletedAt IS NULL AND pd.status = 'ACTIVE' " +
+            "ORDER BY pd.quantity ASC")
+    List<ProductDetail> findLowStockVariants(@Param("threshold") int threshold, org.springframework.data.domain.Pageable pageable);
 }

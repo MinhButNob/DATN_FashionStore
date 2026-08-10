@@ -106,10 +106,18 @@ export const useCartStore = defineStore("cart", {
             imageUrl: image,
             stock: stock };
 
-          let localCart = JSON.parse(localStorage.getItem("cart") || "[]");
+          let localData = localStorage.getItem("cart");
+          let localCart = [];
+          if (localData) {
+            try {
+              let parsed = JSON.parse(localData);
+              localCart = Array.isArray(parsed) ? parsed : (parsed.items || []);
+            } catch(e) {}
+          }
+
           const existingIndex = localCart.findIndex(
             (item) =>
-              item.id === productDetailId &&
+              (item.productDetailId === productDetailId || item.id === productDetailId) &&
               item.size === size &&
               item.color === color,
           );
@@ -120,8 +128,18 @@ export const useCartStore = defineStore("cart", {
             localCart.push(cartItem);
           }
 
-          localStorage.setItem("cart", JSON.stringify(localCart));
-          await this.loadFromLocalStorage();
+          this.items = localCart;
+          this.totalItems = localCart.length;
+          
+          let newSubtotal = 0;
+          localCart.forEach(item => {
+            const price = item.discountedPrice || item.price || 0;
+            newSubtotal += price * item.quantity;
+          });
+          this.subtotal = newSubtotal;
+          this.total = this.subtotal - this.voucherDiscount + this.shippingFee;
+          
+          this.saveToLocalStorage();
           return { success: true, local: true };
         }
 
@@ -419,7 +437,32 @@ export const useCartStore = defineStore("cart", {
       }
     },
 
-    syncCartAfterLogin() {
+    async syncCartAfterLogin() {
       console.log("🔄 Syncing cart after login");
-      this.fetchCart();
+      try {
+        const localData = localStorage.getItem("cart");
+        if (localData) {
+          const parsed = JSON.parse(localData);
+          const localItems = Array.isArray(parsed) ? parsed : (parsed.items || []);
+          
+          if (localItems.length > 0) {
+            console.log("🔄 Merging local cart items to backend...");
+            for (const item of localItems) {
+              try {
+                await api.post("/cart/add", {
+                  productDetailId: item.productDetailId || item.id,
+                  quantity: item.quantity
+                });
+              } catch (e) {
+                console.error("❌ Failed to sync item to backend:", item, e);
+              }
+            }
+            localStorage.removeItem("cart"); // Clear after merging
+          }
+        }
+      } catch (e) {
+        console.error("❌ Error syncing local cart:", e);
+      }
+      
+      await this.fetchCart();
     } } });

@@ -842,6 +842,7 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
                 .discountAmount(discountAmount)
                 .shippingFee(order.getOrderShippingFee())
                 .totalAmount(totalAmount)
+                .refundAmount(order.getRefundAmount() != null ? order.getRefundAmount() : BigDecimal.ZERO)
                 .notes(order.getNotes())
                 .createdAt(order.getCreatedAt())
                 .customer(CustomerInfoDTO.builder()

@@ -74,24 +74,24 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     long countByOrderStatus(@Param("status") OrderStatus status);
 
     // Doanh thu hôm nay
-    @Query(value = "SELECT COALESCE(SUM(order_total_amount), 0) FROM orders WHERE order_deleted_at IS NULL AND order_status = 'COMPLETED' AND DATE(order_created_at) = CURRENT_DATE", nativeQuery = true)
+    @Query(value = "SELECT COALESCE(SUM(order_total_amount - COALESCE(order_refund_amount, 0)), 0) FROM orders WHERE order_deleted_at IS NULL AND order_status IN ('COMPLETED', 'RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED', 'REJECTED') AND DATE(order_created_at) = CURRENT_DATE", nativeQuery = true)
     BigDecimal getTodayRevenue();
 
     // ===== THỐNG KÊ DOANH THU MỚI =====
 
     /**
-     * Tổng doanh thu từ tất cả đơn hàng COMPLETED
+     * Tổng doanh thu từ tất cả đơn hàng COMPLETED và các đơn có yêu cầu hoàn (chưa xác nhận)
      */
-    @Query(value = "SELECT COALESCE(SUM(order_total_amount), 0) FROM orders " +
-            "WHERE order_deleted_at IS NULL AND order_status = 'COMPLETED'",
+    @Query(value = "SELECT COALESCE(SUM(order_total_amount - COALESCE(order_refund_amount, 0)), 0) FROM orders " +
+            "WHERE order_deleted_at IS NULL AND order_status IN ('COMPLETED', 'RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED', 'REJECTED')",
             nativeQuery = true)
     BigDecimal getTotalRevenue();
 
     /**
-     * Doanh thu online từ đơn hàng COMPLETED (không phải POS)
+     * Doanh thu online từ đơn hàng COMPLETED và các đơn có yêu cầu hoàn (chưa xác nhận)
      */
-    @Query(value = "SELECT COALESCE(SUM(order_total_amount), 0) FROM orders o " +
-            "WHERE o.order_deleted_at IS NULL AND o.order_status = 'COMPLETED' " +
+    @Query(value = "SELECT COALESCE(SUM(order_total_amount - COALESCE(order_refund_amount, 0)), 0) FROM orders o " +
+            "WHERE o.order_deleted_at IS NULL AND o.order_status IN ('COMPLETED', 'RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED', 'REJECTED') " +
             "AND o.order_id NOT IN (SELECT pos_order_id FROM pos_orders WHERE pos_order_deleted_at IS NULL)",
             nativeQuery = true)
     BigDecimal getOnlineRevenue();
@@ -99,16 +99,16 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     /**
      * Tổng tiền hoàn trả từ đơn hàng RETURNED
      */
-    @Query(value = "SELECT COALESCE(SUM(order_total_amount), 0) FROM orders " +
+    @Query(value = "SELECT COALESCE(SUM(order_total_amount - COALESCE(order_refund_amount, 0)), 0) FROM orders " +
             "WHERE order_deleted_at IS NULL AND order_status = 'RETURNED'",
             nativeQuery = true)
     BigDecimal getReturnRefundAmount();
 
     /**
-     * Doanh thu theo tháng (COMPLETED)
+     * Doanh thu theo tháng
      */
-    @Query(value = "SELECT COALESCE(SUM(order_total_amount), 0) FROM orders " +
-            "WHERE order_deleted_at IS NULL AND order_status = 'COMPLETED' " +
+    @Query(value = "SELECT COALESCE(SUM(order_total_amount - COALESCE(order_refund_amount, 0)), 0) FROM orders " +
+            "WHERE order_deleted_at IS NULL AND order_status IN ('COMPLETED', 'RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED', 'REJECTED') " +
             "AND EXTRACT(YEAR FROM order_created_at) = :year " +
             "AND EXTRACT(MONTH FROM order_created_at) = :month",
             nativeQuery = true)
@@ -144,10 +144,10 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     @Query(value = """
         SELECT 
             EXTRACT(MONTH FROM o.order_created_at) as month,
-            COALESCE(SUM(o.order_total_amount), 0) as revenue
+            COALESCE(SUM(o.order_total_amount - COALESCE(o.order_refund_amount, 0)), 0) as revenue
         FROM orders o
         WHERE o.order_deleted_at IS NULL 
-            AND o.order_status = 'COMPLETED'
+            AND o.order_status IN ('COMPLETED', 'RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED', 'REJECTED')
             AND EXTRACT(YEAR FROM o.order_created_at) = :year
         GROUP BY EXTRACT(MONTH FROM o.order_created_at)
         ORDER BY month ASC
@@ -158,10 +158,10 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
      * Lấy doanh thu tháng hiện tại
      */
     @Query(value = """
-        SELECT COALESCE(SUM(order_total_amount), 0) 
+        SELECT COALESCE(SUM(order_total_amount - COALESCE(order_refund_amount, 0)), 0) 
         FROM orders 
         WHERE order_deleted_at IS NULL 
-            AND order_status = 'COMPLETED'
+            AND order_status IN ('COMPLETED', 'RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED', 'REJECTED')
             AND EXTRACT(YEAR FROM order_created_at) = EXTRACT(YEAR FROM CURRENT_DATE)
             AND EXTRACT(MONTH FROM order_created_at) = EXTRACT(MONTH FROM CURRENT_DATE)
         """, nativeQuery = true)
@@ -171,10 +171,10 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
      * Lấy doanh thu tháng trước
      */
     @Query(value = """
-        SELECT COALESCE(SUM(order_total_amount), 0) 
+        SELECT COALESCE(SUM(order_total_amount - COALESCE(order_refund_amount, 0)), 0) 
         FROM orders 
         WHERE order_deleted_at IS NULL 
-            AND order_status = 'COMPLETED'
+            AND order_status IN ('COMPLETED', 'RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED', 'REJECTED')
             AND EXTRACT(YEAR FROM order_created_at) = EXTRACT(YEAR FROM CURRENT_DATE - INTERVAL '1 month')
             AND EXTRACT(MONTH FROM order_created_at) = EXTRACT(MONTH FROM CURRENT_DATE - INTERVAL '1 month')
         """, nativeQuery = true)
@@ -234,10 +234,10 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     @Query(value = """
         SELECT 
             EXTRACT(DAY FROM o.order_created_at) as day,
-            COALESCE(SUM(o.order_total_amount), 0) as revenue
+            COALESCE(SUM(o.order_total_amount - COALESCE(o.order_refund_amount, 0)), 0) as revenue
         FROM orders o
         WHERE o.order_deleted_at IS NULL 
-            AND o.order_status = 'COMPLETED'
+            AND o.order_status IN ('COMPLETED', 'RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED', 'REJECTED')
             AND EXTRACT(YEAR FROM o.order_created_at) = :year
             AND EXTRACT(MONTH FROM o.order_created_at) = :month
         GROUP BY EXTRACT(DAY FROM o.order_created_at)
@@ -246,5 +246,23 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     List<Object[]> getDailyRevenueByMonth(
             @Param("year") int year,
             @Param("month") int month
+    );
+
+    /**
+     * Thống kê trạng thái đơn hàng theo khoảng thời gian
+     */
+    @Query(value = """
+        SELECT 
+            o.order_status as status,
+            COUNT(o.order_id) as count
+        FROM orders o
+        WHERE o.order_deleted_at IS NULL 
+            AND o.order_created_at >= :startDate 
+            AND o.order_created_at <= :endDate
+        GROUP BY o.order_status
+        """, nativeQuery = true)
+    List<Object[]> countOrderStatusByDateRange(
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate
     );
 }
