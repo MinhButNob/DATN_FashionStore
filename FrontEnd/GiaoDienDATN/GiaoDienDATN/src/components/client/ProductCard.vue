@@ -300,6 +300,7 @@ const addToCart = async (event) => {
     await cartStore.addToCart(productData)
     
     lastAddedProduct.value = {
+      productDetailId: productDetailId,
       name: props.product.productName || props.product.name,
       price: price,
       quantity: 1,

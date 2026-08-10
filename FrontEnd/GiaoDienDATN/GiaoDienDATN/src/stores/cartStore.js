@@ -157,6 +157,39 @@ export const useCartStore = defineStore("cart", {
     },
 
     async updateQuantity(cartItemId, quantity, productDetailId, size, color) {
+      const token = localStorage.getItem("accessToken");
+      if (!token) {
+        try {
+          let localData = localStorage.getItem("cart");
+          if (localData) {
+            let parsed = JSON.parse(localData);
+            let localCart = Array.isArray(parsed) ? parsed : (parsed.items || []);
+            const index = localCart.findIndex(item => 
+              (item.productDetailId === productDetailId || item.id === productDetailId) && 
+              item.size === size && 
+              item.color === color
+            );
+            if (index !== -1) {
+              localCart[index].quantity = quantity;
+              this.items = localCart;
+              this.totalItems = localCart.reduce((sum, item) => sum + item.quantity, 0);
+              let newSubtotal = 0;
+              localCart.forEach(item => {
+                const price = item.discountedPrice || item.price || 0;
+                newSubtotal += price * item.quantity;
+              });
+              this.subtotal = newSubtotal;
+              this.total = this.subtotal - (this.voucherDiscount || 0) + this.shippingFee;
+              this.saveToLocalStorage();
+              return { success: true, local: true };
+            }
+          }
+        } catch (e) {
+          console.error("❌ Local update error:", e);
+        }
+        return { success: false };
+      }
+
       if (!cartItemId) {
         console.error("❌ Missing cartItemId");
         throw new Error("Không tìm thấy ID sản phẩm");

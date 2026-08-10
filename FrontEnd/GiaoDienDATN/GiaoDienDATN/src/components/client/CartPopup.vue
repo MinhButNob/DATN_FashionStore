@@ -142,18 +142,46 @@ const goToCartPage = () => {
   })
 }
 
-const increaseQuantity = () => {
+const increaseQuantity = async () => {
   const maxStock = props.product.stock || 99
   if (localQuantity.value < maxStock) {
     localQuantity.value++
+    await syncQuantityToCart()
     emit('update-quantity', localQuantity.value)
   }
 }
 
-const decreaseQuantity = () => {
+const decreaseQuantity = async () => {
   if (localQuantity.value > 1) {
     localQuantity.value--
+    await syncQuantityToCart()
     emit('update-quantity', localQuantity.value)
+  }
+}
+
+const syncQuantityToCart = async () => {
+  if (!props.product.productDetailId) return
+  
+  const cartItem = cartStore.items.find(item => 
+    (item.productDetailId === props.product.productDetailId || item.id === props.product.productDetailId) &&
+    item.size === props.product.size && 
+    item.color === props.product.color
+  )
+  
+  if (cartItem) {
+    try {
+      await cartStore.updateQuantity(
+        cartItem.cartItemId || cartItem.id, 
+        localQuantity.value,
+        props.product.productDetailId,
+        props.product.size,
+        props.product.color
+      )
+    } catch (error) {
+      console.error('Lỗi khi cập nhật số lượng:', error)
+      // Rollback local state if API fails
+      localQuantity.value = cartItem.quantity
+    }
   }
 }
 
