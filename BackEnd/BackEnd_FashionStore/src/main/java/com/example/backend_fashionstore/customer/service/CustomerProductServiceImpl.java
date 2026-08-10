@@ -6,6 +6,7 @@ import com.example.backend_fashionstore.customer.repository.CustomerProductRepos
 import com.example.backend_fashionstore.entity.*;
 import com.example.backend_fashionstore.quanLyKhuyenMai.repository.ProductPromotionRepository;
 import com.example.backend_fashionstore.quanLyKhuyenMai.repository.PromotionRepository;
+import com.example.backend_fashionstore.review.repository.ReviewRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -19,7 +20,6 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -31,6 +31,7 @@ public class CustomerProductServiceImpl implements CustomerProductService {
     private final CustomerProductRepository customerProductRepository;
     private final ProductPromotionRepository productPromotionRepository;
     private final PromotionRepository promotionRepository;
+    private final ReviewRepository reviewRepository;
 
     private static final String BASE_IMAGE_URL = "http://localhost:8080";
 
@@ -216,19 +217,42 @@ public class CustomerProductServiceImpl implements CustomerProductService {
 
     @Override
     public HomeProductResponse getFeaturedProducts(int page, int size) {
+        // ✅ CHỈ lấy sản phẩm bán chạy THẬT dựa trên số lượng đã bán trong order_details.
+        // Không còn fallback bổ sung sản phẩm mới nhất (dữ liệu fake) khi chưa đủ số lượng —
+        // nếu chưa có đơn hàng thật nào, danh sách sẽ trống và section sẽ tự ẩn ở FE.
         Pageable pageable = PageRequest.of(page, size);
-        Page<Product> productPage = customerProductRepository.findFeaturedProducts(pageable);
+        Page<Product> bestSellingPage = customerProductRepository.findRealBestSellingProducts(pageable);
 
-        List<ProductCardResponse> products = productPage.getContent().stream()
+        List<ProductCardResponse> products = bestSellingPage.getContent().stream()
                 .map(this::convertToCardResponse)
                 .collect(Collectors.toList());
 
         return HomeProductResponse.builder()
                 .products(products)
-                .page(productPage.getNumber())
-                .size(productPage.getSize())
-                .totalElements(productPage.getTotalElements())
-                .totalPages(productPage.getTotalPages())
+                .page(bestSellingPage.getNumber())
+                .size(bestSellingPage.getSize())
+                .totalElements(bestSellingPage.getTotalElements())
+                .totalPages(bestSellingPage.getTotalPages())
+                .build();
+    }
+
+    @Override
+    public HomeProductResponse getTopRatedProducts(int page, int size) {
+        // ✅ CHỈ lấy sản phẩm đã có người mua VÀ đánh giá thật (review APPROVED),
+        // sắp xếp theo điểm đánh giá trung bình cao nhất trước (đúng nghĩa "đánh giá cao").
+        Pageable pageable = PageRequest.of(page, size);
+        Page<Product> reviewedPage = customerProductRepository.findTopRatedProducts(pageable);
+
+        List<ProductCardResponse> products = reviewedPage.getContent().stream()
+                .map(this::convertToCardResponse)
+                .collect(Collectors.toList());
+
+        return HomeProductResponse.builder()
+                .products(products)
+                .page(reviewedPage.getNumber())
+                .size(reviewedPage.getSize())
+                .totalElements(reviewedPage.getTotalElements())
+                .totalPages(reviewedPage.getTotalPages())
                 .build();
     }
 
@@ -307,6 +331,23 @@ public class CustomerProductServiceImpl implements CustomerProductService {
             log.error("Lỗi lấy màu sắc cho sản phẩm {}: {}", product.getProductId(), e.getMessage());
         }
 
+        // ✅ Số lượng đã bán thật + đánh giá thật (không fake)
+        Integer soldCount = 0;
+        try {
+            soldCount = customerProductRepository.getSoldCountByProductId(product.getProductId());
+        } catch (Exception e) {
+            log.error("Lỗi lấy số lượng đã bán cho sản phẩm {}: {}", product.getProductId(), e.getMessage());
+        }
+
+        Double averageRating = 0.0;
+        Integer reviewCount = 0;
+        try {
+            averageRating = reviewRepository.getAverageRatingByProductId(product.getProductId());
+            reviewCount = reviewRepository.getTotalReviewsByProductId(product.getProductId());
+        } catch (Exception e) {
+            log.error("Lỗi lấy đánh giá cho sản phẩm {}: {}", product.getProductId(), e.getMessage());
+        }
+
         return ProductCardResponse.builder()
                 .productId(product.getProductId())
                 .productName(product.getProductName())
@@ -323,6 +364,9 @@ public class CustomerProductServiceImpl implements CustomerProductService {
                         .map(v -> convertToVariantResponse(v, productPromotion))
                         .collect(Collectors.toList())
                         : Collections.emptyList())
+                .soldCount(soldCount != null ? soldCount : 0)
+                .averageRating(averageRating != null ? averageRating : 0.0)
+                .reviewCount(reviewCount != null ? reviewCount : 0)
                 .build();
     }
 

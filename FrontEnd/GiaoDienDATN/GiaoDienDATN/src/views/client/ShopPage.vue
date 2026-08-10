@@ -638,6 +638,7 @@ const fetchProducts = async () => {
         categoryName: p.categoryName,
         categoryId: p.categoryId,
         displayPrice: displayPrice,
+        minPrice: displayPrice,
         discountedPrice: discountedPrice,
         discountPercent: calculateDiscountPercent(displayPrice, discountedPrice),
         maxPrice: Number(p.maxPrice) || 0,
@@ -645,7 +646,10 @@ const fetchProducts = async () => {
         mainImageUrl: p.mainImageUrl,
         colorOptions: colorOptions,
         sizeIds: sizeIds,
-        variants: p.variants || []
+        variants: p.variants || [],
+        soldCount: Number(p.soldCount) || 0,
+        averageRating: Number(p.averageRating) || 0,
+        reviewCount: Number(p.reviewCount) || 0
       }
     })
 

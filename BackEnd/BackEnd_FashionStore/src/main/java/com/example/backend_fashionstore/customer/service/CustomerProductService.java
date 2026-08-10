@@ -11,4 +11,5 @@ public interface CustomerProductService {
     HomeProductResponse getLatestProducts(int page, int size);
     HomeProductResponse getProductsByCategory(Integer categoryId, int page, int size);
     HomeProductResponse getFeaturedProducts(int page, int size);
+    HomeProductResponse getTopRatedProducts(int page, int size);
 }

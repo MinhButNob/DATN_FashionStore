@@ -1,14 +1,261 @@
 <template>
   <div class="admin-categories">
+    <!-- ===== PHÂN CẤP DANH MỤC (gộp chung, không tách file/route riêng) ===== -->
+    <div v-if="showHierarchy" class="admin-category-hierarchy">
+      <div class="page-header">
+        <div class="header-left">
+          <h2>Phân cấp danh mục</h2>
+          <p class="subtitle">
+            3 danh mục lớn mặc định (Áo, Quần, Phụ kiện) là cố định, không thể sửa/xóa.
+            Bạn chỉ có thể thêm/sửa/xóa danh mục con bên trong từng danh mục lớn.
+          </p>
+        </div>
+        <button type="button" class="btn-back-categories" @click="showHierarchy = false">
+          <span class="btn-icon">📋</span> Quản lý danh mục
+        </button>
+      </div>
+
+      <div v-if="hLoading" class="loading-state">
+        <div class="loading-spinner"></div>
+        <span>Đang tải dữ liệu...</span>
+      </div>
+
+      <div v-else class="tree-container">
+        <div v-for="parent in hMainParents" :key="parent.categoryId" class="parent-block">
+          <div class="parent-row">
+            <button class="toggle-btn" @click="hToggleExpand(parent.categoryId)">
+              {{ hIsExpanded(parent.categoryId) ? '▾' : '▸' }}
+            </button>
+            <strong class="parent-name">{{ parent.categoryName }}</strong>
+            <span v-if="hIsLocked(parent)" class="locked-badge" title="Danh mục lớn mặc định, không thể sửa/xóa">
+              🔒 Mặc định
+            </span>
+            <span :class="['status-badge', parent.status === 'ACTIVE' ? 'status-active' : 'status-inactive']">
+              {{ parent.status === 'ACTIVE' ? 'Hoạt động' : 'Tạm dừng' }}
+            </span>
+            <div class="row-actions">
+              <button class="action-btn" title="Thêm danh mục con (chọn từ Quản lý danh mục)" @click="hOpenPickModal(parent)">➕ Con</button>
+              <template v-if="!hIsLocked(parent)">
+                <button class="action-btn action-assign" title="Gán vào 1 trong 3 danh mục lớn" @click="hOpenAssignModal(parent)">🔗 Gán vào</button>
+                <button class="action-btn" title="Sửa" @click="hOpenEditModal(parent)">✏️</button>
+                <button class="action-btn" title="Xóa" @click="hConfirmDelete(parent)">🗑️</button>
+              </template>
+            </div>
+          </div>
+
+          <div v-if="hIsExpanded(parent.categoryId)" class="children-list">
+            <div v-if="!parent.children || parent.children.length === 0" class="empty-children">
+              Chưa có danh mục con
+            </div>
+            <div v-for="child in parent.children" :key="child.categoryId" class="child-row">
+              <span class="child-name">— {{ child.categoryName }}</span>
+              <span :class="['status-badge', child.status === 'ACTIVE' ? 'status-active' : 'status-inactive']">
+                {{ child.status === 'ACTIVE' ? 'Hoạt động' : 'Tạm dừng' }}
+              </span>
+              <div class="row-actions">
+                <button class="action-btn action-detach" title="Gỡ khỏi danh mục lớn (đưa về danh mục độc lập)" @click="hConfirmDetach(child)">↩️ Gỡ khỏi danh mục lớn</button>
+                <button class="action-btn" title="Sửa" @click="hOpenEditModal(child)">✏️</button>
+                <button class="action-btn" title="Xóa" @click="hConfirmDelete(child)">🗑️</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="hMainParents.length === 0" class="empty-state">
+          <div class="empty-icon">📭</div>
+          <p>Chưa có danh mục nào</p>
+        </div>
+      </div>
+
+      <!-- Modal Thêm/Sửa (phân cấp) -->
+      <div v-if="hShowModal" class="modal-overlay">
+        <div class="modal-container">
+          <div class="modal-header">
+            <h3>{{ hIsEdit ? 'Sửa danh mục' : 'Thêm danh mục con' }}</h3>
+            <button class="close-btn" @click="hCloseModal">✕</button>
+          </div>
+          <form @submit.prevent="hSaveCategory">
+            <div class="modal-body">
+              <div class="form-group">
+                <label>Tên danh mục <span class="required">*</span></label>
+                <input v-model="hForm.categoryName" required placeholder="Nhập tên danh mục" maxlength="20" />
+              </div>
+              <div class="form-group">
+                <label>Mô tả</label>
+                <textarea v-model="hForm.categoryDescription" rows="3" placeholder="Nhập mô tả" maxlength="20"></textarea>
+              </div>
+              <div class="form-group">
+                <label>Thuộc danh mục lớn</label>
+                <select v-model="hForm.parentCategoryId" :disabled="hIsEdit && hHasChildren(hForm.categoryId)">
+                  <option :value="null">-- Không thuộc danh mục lớn nào --</option>
+                  <option v-for="p in hParentOptions" :key="p.categoryId" :value="p.categoryId">
+                    {{ p.categoryName }}
+                  </option>
+                </select>
+                <small v-if="hIsEdit && hHasChildren(hForm.categoryId)" class="hint-text">
+                  Danh mục này đang có danh mục con nên không thể trở thành danh mục con của danh mục khác.
+                </small>
+              </div>
+              <div class="form-group">
+                <label>Trạng thái</label>
+                <select v-model="hForm.status">
+                  <option value="ACTIVE">Hoạt động</option>
+                  <option value="INACTIVE">Tạm dừng</option>
+                </select>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn-cancel" @click="hCloseModal">Hủy</button>
+              <button type="submit" class="btn-save" :disabled="hSaving">
+                {{ hSaving ? 'Đang xử lý...' : (hIsEdit ? 'Cập nhật' : 'Thêm mới') }}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Modal Thêm danh mục con (chọn từ danh sách đã tạo ở "Quản lý danh mục") -->
+      <div v-if="hShowPickModal" class="modal-overlay">
+        <div class="modal-container modal-sm">
+          <div class="modal-header">
+            <h3>Thêm danh mục con vào "{{ hPickParentTarget?.categoryName }}"</h3>
+            <button class="close-btn" @click="hClosePickModal">✕</button>
+          </div>
+          <div class="modal-body">
+            <p v-if="hUnassignedCategories.length === 0" class="hint-text">
+              Không có danh mục nào đang chưa gán để thêm. Hãy tạo danh mục mới ở trang "Quản lý danh mục" trước.
+            </p>
+            <div v-else class="form-group pick-category-search">
+              <label>Chọn danh mục (dữ liệu lấy từ Quản lý danh mục) <span class="required">*</span></label>
+              <input
+                type="text"
+                v-model="hPickSearchKeyword"
+                placeholder="Gõ tên danh mục để tìm..."
+                autocomplete="off"
+                @focus="hPickDropdownOpen = true"
+                @input="hPickDropdownOpen = true"
+                @blur="hPickInputBlur"
+              />
+              <div v-if="hPickDropdownOpen" class="pick-dropdown">
+                <div
+                  v-for="c in hFilteredUnassignedCategories"
+                  :key="c.categoryId"
+                  class="pick-dropdown-item"
+                  :class="{ active: c.categoryId === hPickCategoryId }"
+                  @mousedown.prevent="hSelectPickCategory(c)"
+                >
+                  {{ c.categoryName }}
+                </div>
+                <div v-if="hFilteredUnassignedCategories.length === 0" class="pick-dropdown-empty">
+                  Không tìm thấy danh mục phù hợp
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn-cancel" @click="hClosePickModal">Hủy</button>
+            <button class="btn-save" :disabled="!hPickCategoryId || hPicking" @click="hConfirmPick">
+              {{ hPicking ? 'Đang xử lý...' : 'Thêm vào' }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Gán vào danh mục lớn -->
+      <div v-if="hShowAssignModal" class="modal-overlay">
+        <div class="modal-container modal-sm">
+          <div class="modal-header">
+            <h3>Gán vào danh mục lớn</h3>
+            <button class="close-btn" @click="hCloseAssignModal">✕</button>
+          </div>
+          <div class="modal-body">
+            <p>
+              Chọn 1 trong 3 danh mục lớn để đưa <strong>{{ hAssignTarget?.categoryName }}</strong>
+              vào làm danh mục con:
+            </p>
+            <div class="form-group">
+              <label>Danh mục lớn <span class="required">*</span></label>
+              <select v-model="hAssignParentId">
+                <option :value="null">-- Chọn danh mục lớn --</option>
+                <option v-for="p in hMainParents" :key="p.categoryId" :value="p.categoryId">
+                  {{ p.categoryName }}
+                </option>
+              </select>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn-cancel" @click="hCloseAssignModal">Hủy</button>
+            <button class="btn-save" :disabled="!hAssignParentId || hAssigning" @click="hConfirmAssign">
+              {{ hAssigning ? 'Đang xử lý...' : 'Gán vào' }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal xác nhận Gỡ khỏi danh mục lớn -->
+      <div v-if="hShowDetachModal" class="modal-overlay">
+        <div class="modal-container modal-sm">
+          <div class="modal-header">
+            <h3>Xác nhận gỡ</h3>
+            <button class="close-btn" @click="hShowDetachModal = false">✕</button>
+          </div>
+          <div class="modal-body">
+            <p>
+              Gỡ <strong>{{ hDetachTarget?.categoryName }}</strong> ra khỏi danh mục lớn hiện tại?
+              Danh mục này sẽ trở thành danh mục độc lập (không nằm trong 3 danh mục chính),
+              dữ liệu không bị xóa.
+            </p>
+          </div>
+          <div class="modal-footer">
+            <button class="btn-cancel" @click="hShowDetachModal = false">Hủy</button>
+            <button class="btn-save" :disabled="hDetaching" @click="hDoDetach">
+              {{ hDetaching ? 'Đang xử lý...' : 'Gỡ khỏi' }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal xác nhận Xóa (phân cấp) -->
+      <div v-if="hShowDeleteModal" class="modal-overlay">
+        <div class="modal-container modal-sm">
+          <div class="modal-header">
+            <h3>Xác nhận xóa</h3>
+            <button class="close-btn" @click="hShowDeleteModal = false">✕</button>
+          </div>
+          <div class="modal-body">
+            <p>Bạn có chắc muốn xóa danh mục <strong>{{ hDeleteTarget?.categoryName }}</strong>?</p>
+            <p v-if="hHasChildren(hDeleteTarget?.categoryId)" class="warning-text">
+              Danh mục này đang có danh mục con. Vui lòng xóa/di chuyển danh mục con trước.
+            </p>
+          </div>
+          <div class="modal-footer">
+            <button class="btn-cancel" @click="hShowDeleteModal = false">Hủy</button>
+            <button class="btn-danger" :disabled="hHasChildren(hDeleteTarget?.categoryId)" @click="hDoDelete">Xóa</button>
+          </div>
+        </div>
+      </div>
+
+      <div :class="['toast', { 'toast-error': hToastType === 'error', show: hShowToast }]">
+        {{ hToastMessage }}
+      </div>
+    </div>
+
+    <!-- ===== DANH SÁCH DANH MỤC (mặc định) ===== -->
+    <template v-else>
     <!-- Page Header -->
     <div class="page-header">
       <div class="header-left">
         <h2>Quản lý danh mục</h2>
         <p class="subtitle">Quản lý danh mục sản phẩm</p>
       </div>
-      <button class="btn-add" @click="openCreateModal">
-        <span class="btn-icon">＋</span> Thêm danh mục
-      </button>
+      <div class="header-actions">
+        <button type="button" class="btn-hierarchy" @click="showHierarchy = true">
+          <span class="btn-icon">🗂️</span> Phân cấp danh mục
+        </button>
+        <button class="btn-add" @click="openCreateModal">
+          <span class="btn-icon">＋</span> Thêm danh mục
+        </button>
+      </div>
     </div>
 
     <!-- Stats Row -->
@@ -241,17 +488,55 @@
     <div :class="['toast', { 'toast-error': toastType === 'error', show: showToast }]">
       {{ toastMessage }}
     </div>
+    </template>
   </div>
 </template>
 
 <script>
 import categoryService from '@/api/categoryService';
 import api from "@/api/axios";
+import { useCategoryHierarchyStore } from "@/stores/categoryHierarchyStores";
 
 export default {
   name: 'AdminCategories',
+  setup() {
+    const categoryStore = useCategoryHierarchyStore();
+    return { categoryStore };
+  },
   data() {
     return {
+      showHierarchy: false,
+      // ===== State cho phần Phân cấp danh mục (gộp chung) =====
+      hExpandedIds: new Set(),
+      hShowModal: false,
+      hIsEdit: false,
+      hSaving: false,
+      hForm: {
+        categoryId: null,
+        categoryName: '',
+        categoryDescription: '',
+        status: 'ACTIVE',
+        parentCategoryId: null
+      },
+      hShowDeleteModal: false,
+      hDeleteTarget: null,
+      hShowPickModal: false,
+      hPickParentTarget: null,
+      hPickCategoryId: null,
+      hPickSearchKeyword: '',
+      hPickDropdownOpen: false,
+      hPicking: false,
+      hShowAssignModal: false,
+      hAssignTarget: null,
+      hAssignParentId: null,
+      hAssigning: false,
+      hShowDetachModal: false,
+      hDetachTarget: null,
+      hDetaching: false,
+      hShowToast: false,
+      hToastMessage: '',
+      hToastType: 'success',
+      hToastTimer: null,
       allCategories: [],
       filteredCategories: [],
       loading: false,
@@ -302,6 +587,29 @@ export default {
     paginatedCategories() {
       const start = this.currentPage * this.pageSize;
       return this.filteredCategories.slice(start, start + this.pageSize);
+    },
+    // ===== Computed cho phần Phân cấp danh mục (gộp chung) =====
+    hTree() {
+      return this.categoryStore.tree;
+    },
+    hLoading() {
+      return this.categoryStore.loading;
+    },
+    hParentOptions() {
+      return this.hMainParents.filter((p) => !this.hIsEdit || p.categoryId !== this.hForm.categoryId);
+    },
+    hMainParents() {
+      return this.hTree.filter((p) => this.hIsLocked(p));
+    },
+    hUnassignedCategories() {
+      return this.hTree.filter((p) => !this.hIsLocked(p));
+    },
+    hFilteredUnassignedCategories() {
+      const kw = (this.hPickSearchKeyword || '').trim().toLowerCase();
+      if (!kw) return this.hUnassignedCategories;
+      return this.hUnassignedCategories.filter((c) =>
+        (c.categoryName || '').toLowerCase().includes(kw)
+      );
     }
   },
   methods: {
@@ -613,6 +921,194 @@ export default {
       } catch (error) {
         console.error('Lỗi tải danh sách danh mục lớn:', error);
       }
+    },
+
+    // ===== Methods cho phần Phân cấp danh mục (gộp chung) =====
+    async hLoadTree() {
+      try {
+        await this.categoryStore.loadTree();
+      } catch (error) {
+        this.hNotify("Không tải được cây danh mục", "error");
+      }
+    },
+    hIsExpanded(id) {
+      return this.hExpandedIds.has(id);
+    },
+    hToggleExpand(id) {
+      if (this.hExpandedIds.has(id)) this.hExpandedIds.delete(id);
+      else this.hExpandedIds.add(id);
+    },
+    hHasChildren(categoryId) {
+      return this.categoryStore.hasChildren(categoryId);
+    },
+    hIsLocked(item) {
+      return this.categoryStore.isLockedCategory(item);
+    },
+    hOpenEditModal(item) {
+      if (this.hIsLocked(item)) {
+        this.hNotify("Danh mục lớn mặc định không thể chỉnh sửa", "error");
+        return;
+      }
+      this.hIsEdit = true;
+      this.hForm = {
+        categoryId: item.categoryId,
+        categoryName: item.categoryName,
+        categoryDescription: item.categoryDescription,
+        status: item.status,
+        parentCategoryId: item.parentCategoryId ?? null
+      };
+      this.hShowModal = true;
+    },
+    hCloseModal() {
+      this.hShowModal = false;
+    },
+    async hSaveCategory() {
+      this.hSaving = true;
+      try {
+        if (this.hIsEdit) {
+          await this.categoryStore.updateCategory(this.hForm.categoryId, this.hForm);
+          this.hNotify("Cập nhật danh mục thành công");
+        } else {
+          await this.categoryStore.createCategory(this.hForm);
+          this.hNotify("Thêm danh mục thành công");
+        }
+        this.hShowModal = false;
+      } catch (error) {
+        const msg = error?.response?.data?.message || error?.message || "Có lỗi xảy ra, vui lòng thử lại";
+        this.hNotify(msg, "error");
+      } finally {
+        this.hSaving = false;
+      }
+    },
+    hOpenPickModal(parent) {
+      this.hPickParentTarget = parent;
+      this.hPickCategoryId = null;
+      this.hPickSearchKeyword = '';
+      this.hPickDropdownOpen = false;
+      this.hShowPickModal = true;
+    },
+    hClosePickModal() {
+      this.hShowPickModal = false;
+      this.hPickParentTarget = null;
+      this.hPickCategoryId = null;
+      this.hPickSearchKeyword = '';
+      this.hPickDropdownOpen = false;
+    },
+    hSelectPickCategory(category) {
+      this.hPickCategoryId = category.categoryId;
+      this.hPickSearchKeyword = category.categoryName;
+      this.hPickDropdownOpen = false;
+    },
+    hPickInputBlur() {
+      // Đóng dropdown sau 1 khoảng ngắn để kịp nhận click chọn item (đã dùng mousedown.prevent nên an toàn)
+      setTimeout(() => { this.hPickDropdownOpen = false; }, 150);
+    },
+    async hConfirmPick() {
+      if (!this.hPickCategoryId || !this.hPickParentTarget) return;
+      const selected = this.hUnassignedCategories.find((c) => c.categoryId === this.hPickCategoryId);
+      if (!selected) return;
+      this.hPicking = true;
+      try {
+        await this.categoryStore.updateCategory(selected.categoryId, {
+          categoryName: selected.categoryName,
+          categoryDescription: selected.categoryDescription,
+          status: selected.status,
+          parentCategoryId: this.hPickParentTarget.categoryId
+        });
+        this.hNotify("Đã thêm danh mục con thành công");
+        this.hClosePickModal();
+      } catch (error) {
+        const msg = error?.response?.data?.message || error?.message || "Không thể thêm danh mục con, vui lòng thử lại";
+        this.hNotify(msg, "error");
+      } finally {
+        this.hPicking = false;
+      }
+    },
+    hOpenAssignModal(item) {
+      if (this.hIsLocked(item)) return;
+      if (this.hHasChildren(item.categoryId)) {
+        this.hNotify("Danh mục này đang có danh mục con nên không thể gán làm con của danh mục khác", "error");
+        return;
+      }
+      this.hAssignTarget = item;
+      this.hAssignParentId = null;
+      this.hShowAssignModal = true;
+    },
+    hCloseAssignModal() {
+      this.hShowAssignModal = false;
+      this.hAssignTarget = null;
+      this.hAssignParentId = null;
+    },
+    async hConfirmAssign() {
+      if (!this.hAssignParentId || !this.hAssignTarget) return;
+      this.hAssigning = true;
+      try {
+        await this.categoryStore.updateCategory(this.hAssignTarget.categoryId, {
+          categoryName: this.hAssignTarget.categoryName,
+          categoryDescription: this.hAssignTarget.categoryDescription,
+          status: this.hAssignTarget.status,
+          parentCategoryId: this.hAssignParentId
+        });
+        this.hNotify("Đã gán danh mục vào danh mục lớn thành công");
+        this.hCloseAssignModal();
+      } catch (error) {
+        const msg = error?.response?.data?.message || error?.message || "Không thể gán danh mục, vui lòng thử lại";
+        this.hNotify(msg, "error");
+      } finally {
+        this.hAssigning = false;
+      }
+    },
+    hConfirmDetach(child) {
+      this.hDetachTarget = child;
+      this.hShowDetachModal = true;
+    },
+    async hDoDetach() {
+      if (!this.hDetachTarget) return;
+      this.hDetaching = true;
+      try {
+        await this.categoryStore.updateCategory(this.hDetachTarget.categoryId, {
+          categoryName: this.hDetachTarget.categoryName,
+          categoryDescription: this.hDetachTarget.categoryDescription,
+          status: this.hDetachTarget.status,
+          parentCategoryId: null
+        });
+        this.hNotify("Đã gỡ danh mục khỏi danh mục lớn");
+        this.hShowDetachModal = false;
+      } catch (error) {
+        const msg = error?.response?.data?.message || error?.message || "Không thể gỡ danh mục, vui lòng thử lại";
+        this.hNotify(msg, "error");
+      } finally {
+        this.hDetaching = false;
+      }
+    },
+    hConfirmDelete(item) {
+      if (this.hIsLocked(item)) {
+        this.hNotify("Danh mục lớn mặc định không thể xóa", "error");
+        return;
+      }
+      this.hDeleteTarget = item;
+      this.hShowDeleteModal = true;
+    },
+    async hDoDelete() {
+      try {
+        await this.categoryStore.deleteCategory(this.hDeleteTarget.categoryId);
+        this.hNotify("Xóa danh mục thành công");
+        this.hShowDeleteModal = false;
+      } catch (error) {
+        this.hNotify("Không thể xóa danh mục", "error");
+      }
+    },
+    hNotify(message, type = "success") {
+      this.hToastMessage = message;
+      this.hToastType = type;
+      this.hShowToast = true;
+      clearTimeout(this.hToastTimer);
+      this.hToastTimer = setTimeout(() => (this.hShowToast = false), 2500);
+    }
+  },
+  watch: {
+    showHierarchy(val) {
+      if (val) this.hLoadTree();
     }
   },
   mounted() {
@@ -655,6 +1151,12 @@ export default {
   font-size: 14px;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .btn-add {
   background-color: #3498db;
   color: white;
@@ -671,6 +1173,26 @@ export default {
 
 .btn-add:hover {
   background-color: #2980b9;
+  transform: translateY(-2px);
+}
+
+.btn-hierarchy {
+  background-color: #ffffff;
+  color: #3498db;
+  border: 1px solid #3498db;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.3s;
+  text-decoration: none;
+}
+
+.btn-hierarchy:hover {
+  background-color: #ebf5fb;
   transform: translateY(-2px);
 }
 
@@ -1227,6 +1749,8 @@ export default {
   .admin-categories { padding: 15px; }
   .page-header { flex-direction: column; align-items: stretch; gap: 12px; }
   .btn-add { justify-content: center; }
+  .header-actions { flex-direction: column; width: 100%; }
+  .btn-hierarchy { justify-content: center; }
   .stats-row { grid-template-columns: 1fr 1fr; gap: 12px; }
   .filter-bar { flex-direction: column; align-items: stretch; }
   .search-box { min-width: auto; }
@@ -1234,5 +1758,86 @@ export default {
   .table-container { overflow-x: auto; }
   .data-table { min-width: 600px; }
   .pagination { flex-direction: column; gap: 12px; }
+}
+
+/* ===== Style riêng cho phần Phân cấp danh mục (gộp chung trong file này) ===== */
+.admin-category-hierarchy { padding: 0; }
+.btn-back-categories {
+  background-color: #ffffff;
+  color: #3498db;
+  border: 1px solid #3498db;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.3s;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.btn-back-categories:hover { background-color: #ebf5fb; transform: translateY(-2px); }
+.tree-container { background: white; border-radius: 12px; padding: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+.parent-block { border-bottom: 1px solid #eee; }
+.parent-block:last-child { border-bottom: none; }
+.parent-row { display: flex; align-items: center; gap: 10px; padding: 14px 10px; }
+.toggle-btn { background: none; border: none; font-size: 16px; cursor: pointer; width: 20px; }
+.parent-name { flex: 1; font-size: 16px; }
+.locked-badge { font-size: 12px; color: #8e44ad; background: #f3e8ff; padding: 3px 10px; border-radius: 20px; }
+.row-actions { display: flex; gap: 6px; }
+.action-btn { border: 1px solid #ddd; background: white; border-radius: 6px; padding: 6px 10px; cursor: pointer; font-size: 13px; }
+.action-btn:hover { background: #f5f5f5; }
+.action-assign { border-color: #667eea; color: #667eea; }
+.action-assign:hover { background: #eef0ff; }
+.action-detach { border-color: #e67e22; color: #e67e22; }
+.action-detach:hover { background: #fdf1e6; }
+.children-list { padding: 0 10px 12px 46px; display: flex; flex-direction: column; gap: 8px; }
+.child-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: #fafafa; border-radius: 8px; }
+.child-name { flex: 1; color: #34495e; }
+.empty-children { color: #9ca3af; font-style: italic; padding: 6px 0; }
+
+.pick-category-search { position: relative; }
+.pick-category-search input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 14px;
+}
+.pick-category-search input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+}
+.pick-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+  z-index: 20;
+}
+.pick-dropdown-item {
+  padding: 10px 14px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #2c3e50;
+}
+.pick-dropdown-item:hover,
+.pick-dropdown-item.active {
+  background: #eef0ff;
+  color: #667eea;
+}
+.pick-dropdown-empty {
+  padding: 10px 14px;
+  font-size: 13px;
+  color: #9ca3af;
+  font-style: italic;
 }
 </style>
