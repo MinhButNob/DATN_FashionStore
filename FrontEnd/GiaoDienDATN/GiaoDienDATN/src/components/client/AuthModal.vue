@@ -537,6 +537,10 @@ const handleGoogleCallback = async (response) => {
     closeModal();
     if (authStore.isAdmin) {
       window.location.href = "/admin";
+    } else if (authStore.isStaff) {
+      window.location.href = "/staff/pos";
+    } else if (authStore.userRoles.includes('SALE_STAFF')) {
+      window.location.href = "/sale-staff";
     }
   } catch (error) {
     console.error("Google Login Error:", error);
@@ -605,6 +609,10 @@ const handleLogin = async () => {
 
     if (authStore.isAdmin) {
       window.location.href = "/admin";
+    } else if (authStore.isStaff) {
+      window.location.href = "/staff/pos";
+    } else if (authStore.userRoles.includes('SALE_STAFF')) {
+      window.location.href = "/sale-staff";
     }
   } catch (error) {
     showNotification("Sai email hoặc mật khẩu", "error");
@@ -645,6 +653,10 @@ const socialLogin = async (provider) => {
 
       if (authStore.isAdmin) {
         window.location.href = "/admin";
+      } else if (authStore.isStaff) {
+        window.location.href = "/staff/pos";
+      } else if (authStore.userRoles.includes('SALE_STAFF')) {
+        window.location.href = "/sale-staff";
       }
 
       return;
@@ -673,6 +685,10 @@ const socialLogin = async (provider) => {
 
       if (authStore.isAdmin) {
         window.location.href = "/admin";
+      } else if (authStore.isStaff) {
+        window.location.href = "/staff/pos";
+      } else if (authStore.userRoles.includes('SALE_STAFF')) {
+        window.location.href = "/sale-staff";
       }
 
       return;

@@ -708,14 +708,25 @@
 
               <template v-if="returnRequestDetail.status === 'RECEIVED'">
                 <div class="action-group">
-                  <div class="form-group">
-                    <label>Ghi chú hoàn tất (tùy chọn)</label>
-                    <textarea v-model="adminNote" rows="2" placeholder="Nhập ghi chú hoàn tất hoàn hàng..." class="form-control"></textarea>
+                  <h3>Kiểm tra hàng hoàn trả</h3>
+                  <div v-for="item in inspectionItems" :key="item.productDetailId" class="inspection-item">
+                    <img v-if="item.imageUrl" :src="getImageUrl(item.imageUrl)" class="inspection-image" @error="handleImageError" />
+                    <div class="inspection-info">
+                      <strong>{{ item.productName || `Sản phẩm #${item.productDetailId}` }}</strong>
+                      <div>Màu: {{ item.colorName || '---' }} · Size: {{ item.sizeName || '---' }}</div>
+                      <div>Số lượng hoàn: <strong>{{ item.quantity }}</strong></div>
+                    </div>
+                    <div class="inspection-actions">
+                      <label><input type="radio" :name="`inspection-${item.productDetailId}`" value="RESTOCK" v-model="item.action" /> Nhập lại kho</label>
+                      <label><input type="radio" :name="`inspection-${item.productDetailId}`" value="DISCARD" v-model="item.action" /> Loại bỏ</label>
+                      <textarea v-if="item.action === 'DISCARD'" v-model="item.discardReason" rows="2" class="form-control" placeholder="Lý do loại bỏ"></textarea>
+                    </div>
                   </div>
+                  <textarea v-model="inspectionNote" rows="2" placeholder="Ghi chú kiểm tra (tùy chọn)" class="form-control"></textarea>
                   <div class="button-group">
-                    <button class="btn btn-success" @click="completeReturn" :disabled="completingReturn">
-                      <i v-if="completingReturn" class="fas fa-spinner fa-spin"></i>
-                      {{ completingReturn ? 'Đang xử lý...' : 'Hoàn tất hoàn hàng' }}
+                    <button class="btn btn-success" @click="inspectReturn" :disabled="inspectionLoading">
+                      <i v-if="inspectionLoading" class="fas fa-spinner fa-spin"></i>
+                      {{ inspectionLoading ? 'Đang kiểm tra...' : 'Xác nhận kết quả kiểm tra' }}
                     </button>
                   </div>
                 </div>
@@ -725,6 +736,15 @@
                 <div class="status-info-box status-success">
                   <i class="fas fa-check-circle"></i>
                   <span>Đã hoàn tất hoàn hàng!</span>
+                </div>
+                <div v-if="inspectionResults.length" class="inspection-results">
+                  <h3>Kết quả kiểm tra</h3>
+                  <div v-for="item in inspectionResults" :key="item.productDetailId" class="inspection-result-row">
+                    <strong>{{ item.productName || `Sản phẩm #${item.productDetailId}` }}</strong>
+                    <span :class="item.action === 'RESTOCK' ? 'text-success' : 'text-danger'">{{ item.action }}</span>
+                    <span>SL: {{ item.quantity }}</span>
+                    <span v-if="item.discardReason">Lý do: {{ item.discardReason }}</span>
+                  </div>
                 </div>
               </template>
 
@@ -991,7 +1011,21 @@ const adminNote = ref('')
 const processingReturn = ref(false)
 const receivingReturn = ref(false)
 const completingReturn = ref(false)
+const inspectionLoading = ref(false)
+const inspectionItems = ref([])
+const inspectionNote = ref('')
 const viewingImage = ref('')
+
+const inspectionResults = computed(() => {
+  const value = returnRequestDetail.value?.inspectionResult
+  if (!value) return []
+  try {
+    const parsed = typeof value === 'string' ? JSON.parse(value) : value
+    return Object.values(parsed || {})
+  } catch {
+    return []
+  }
+})
 
 // ===== TOAST =====
 const showToast = ref(false)
@@ -1692,6 +1726,23 @@ const viewReturnRequest = async (order) => {
     
     if (response.data) {
       returnRequestDetail.value = response.data
+      const quantities = response.data.quantities || {}
+      const ids = response.data.productDetailIds || []
+      const orderItems = order.items || []
+      inspectionItems.value = ids.map((productDetailId) => {
+        const source = orderItems.find(item => Number(item.productDetailId) === Number(productDetailId)) || {}
+        return {
+          productDetailId,
+          productName: source.productName,
+          colorName: source.colorName,
+          sizeName: source.sizeName,
+          imageUrl: source.imageUrl,
+          quantity: Number(quantities[productDetailId] ?? quantities[String(productDetailId)] ?? 0),
+          action: 'RESTOCK',
+          discardReason: ''
+        }
+      })
+      inspectionNote.value = response.data.inspectionNote || ''
       adminNote.value = ''
       showReturnModal.value = true
     } else {
@@ -1710,6 +1761,38 @@ const closeReturnModal = () => {
   processingReturn.value = false
   receivingReturn.value = false
   completingReturn.value = false
+  inspectionLoading.value = false
+  inspectionItems.value = []
+  inspectionNote.value = ''
+}
+
+const inspectReturn = async () => {
+  if (!returnRequestDetail.value || !inspectionItems.value.length) return
+  const invalid = inspectionItems.value.find(item => item.action === 'DISCARD' && !item.discardReason?.trim())
+  if (invalid) {
+    showNotification(`Vui lòng nhập lý do loại bỏ cho sản phẩm ${invalid.productName || invalid.productDetailId}`, 'warning')
+    return
+  }
+  if (!confirm('Xác nhận kết quả kiểm tra hàng hoàn trả?')) return
+  inspectionLoading.value = true
+  try {
+    await adminOrderService.inspectReturn(returnRequestDetail.value.returnRequestId, {
+      inspectionNote: inspectionNote.value.trim() || null,
+      items: inspectionItems.value.map(({ productDetailId, action, discardReason }) => ({
+        productDetailId,
+        action,
+        discardReason: action === 'DISCARD' ? discardReason.trim() : null
+      }))
+    })
+    showNotification('✅ Đã kiểm tra hàng hoàn trả và cập nhật tồn kho!', 'success')
+    await fetchOrders()
+    await fetchStatistics()
+    closeReturnModal()
+  } catch (error) {
+    showNotification(error.response?.data?.message || 'Không thể kiểm tra hàng hoàn trả', 'error')
+  } finally {
+    inspectionLoading.value = false
+  }
 }
 
 const processReturn = async (status) => {

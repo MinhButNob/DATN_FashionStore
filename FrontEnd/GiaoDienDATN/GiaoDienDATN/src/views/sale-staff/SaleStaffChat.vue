@@ -307,6 +307,19 @@
           <i class="fas fa-box-open"></i> Gửi form hoàn hàng
         </button>
       </div>
+      <div class="quick-templates">
+        <h3>Gợi ý phản hồi</h3>
+        <button 
+          v-for="template in templates" 
+          :key="template" 
+          class="template-btn" 
+          @click="reply = template; focusReply()"
+          :disabled="selectedConversation.status !== 'ACTIVE'"
+        >
+          <i class="fas fa-comment"></i>
+          {{ template }}
+        </button>
+      </div>
     </section>
   </div>
 
@@ -442,7 +455,14 @@ const availableFilterTypes = computed(() => {
   return getAvailableChatTypes();
 });
 
-
+// ===== TEMPLATES =====
+const templates = [
+  "Dạ shop đang kiểm tra và phản hồi mình ngay ạ.",
+  "Dạ sản phẩm này hiện còn hàng tại cửa hàng.",
+  "Dạ mình cho shop xin mã đơn hàng để kiểm tra nhanh hơn ạ.",
+  "Dạ shop xin lỗi vì sự chậm trễ ạ.",
+  "Dạ mình vui lòng cung cấp thêm thông tin để shop hỗ trợ tốt hơn ạ.",
+];
 
 // ===== COMPUTED =====
 const activeCount = computed(() => {

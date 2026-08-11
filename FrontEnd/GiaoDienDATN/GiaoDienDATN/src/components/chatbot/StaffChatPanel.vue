@@ -709,6 +709,9 @@ const closeOrdersModal = () => {
   showOrdersModal.value = false
 }
 
+// ===== WEBSOCKET =====
+let wsHandle = null
+
 // ===== CHAT TYPE SELECTOR HANDLERS =====
 const onChatStarted = (chat) => {
   console.log('[StaffChatPanel] Chat started event received:', chat)
@@ -1771,6 +1774,8 @@ defineExpose({
   background: linear-gradient(135deg, #c05621 0%, #9c4221 100%);
   transform: translateY(-1px);
   box-shadow: 0 4px 10px rgba(221, 107, 32, 0.35);
+  font-size: 14px;
+  color: #718096;
 }
 
 /* ✅ Style cho chat-type-selector-wrapper */

@@ -17,9 +17,9 @@ import java.util.Map;
 public class ReturnRequestDetailDTO {
     private Long returnRequestId;
     private Long orderId;
-    private String orderCode;
     private List<Integer> productDetailIds;
     private Map<Integer, Integer> quantities;
+    private String orderCode;
     private List<ReturnItemDetailDTO> returnItems;
     private String reason;
     private String description;
@@ -28,6 +28,10 @@ public class ReturnRequestDetailDTO {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private String adminNote;
+    private String inspectionResult;
+    private String inspectionNote;
+    private Integer inspectedBy;
+    private LocalDateTime inspectedAt;
     private String customerName;
     private String customerPhone;
     private String customerEmail;

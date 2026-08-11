@@ -64,6 +64,9 @@ public class Order {
     @Column(name = "order_total_amount", nullable = true)
     private BigDecimal orderTotalAmount;
 
+    @Column(name = "order_refund_amount", nullable = false)
+    private BigDecimal refundAmount = BigDecimal.ZERO;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "order_payment_status", nullable = false)
     private PaymentStatus paymentStatus;
@@ -98,6 +101,9 @@ public class Order {
         LocalDateTime now = LocalDateTime.now();
         if (createdAt == null) {
             createdAt = now;
+        }
+        if (refundAmount == null) {
+            refundAmount = BigDecimal.ZERO;
         }
         if (updatedAt == null) {
             updatedAt = now;

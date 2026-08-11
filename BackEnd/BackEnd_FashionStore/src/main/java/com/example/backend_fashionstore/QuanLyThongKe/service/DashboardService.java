@@ -29,4 +29,19 @@ public interface DashboardService {
      * Lấy tăng trưởng doanh thu (so với tháng trước)
      */
     BigDecimal getRevenueGrowth();
+
+    /**
+     * Lấy doanh thu theo ngày trong tháng
+     */
+    Map<Integer, BigDecimal> getDailyRevenue(int year, int month);
+
+    /**
+     * Lấy thống kê trạng thái đơn hàng
+     */
+    Map<String, Long> getOrderStatusStats(String filterType, String dateRange, String month, Integer year);
+
+    /**
+     * Lấy danh sách sản phẩm sắp hết hàng
+     */
+    List<com.example.backend_fashionstore.QuanLyThongKe.dto.InventoryAlertDTO> getInventoryAlerts(int threshold, int limit);
 }

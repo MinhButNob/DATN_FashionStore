@@ -67,4 +67,45 @@ public class DashboardController {
         BigDecimal growth = dashboardService.getRevenueGrowth();
         return ResponseEntity.ok(growth);
     }
+
+    /**
+     * Lấy doanh thu theo ngày trong tháng
+     */
+    @GetMapping("/revenue/daily")
+    public ResponseEntity<Map<Integer, BigDecimal>> getDailyRevenue(
+            @RequestParam(defaultValue = "#{T(java.time.LocalDateTime).now().getYear()}") int year,
+            @RequestParam(defaultValue = "#{T(java.time.LocalDateTime).now().getMonthValue()}") int month
+    ) {
+        log.info("📊 Getting daily revenue for year: {}, month: {}", year, month);
+        Map<Integer, BigDecimal> dailyRevenue = dashboardService.getDailyRevenue(year, month);
+        return ResponseEntity.ok(dailyRevenue);
+    }
+
+    /**
+     * Lấy thống kê trạng thái đơn hàng (Pie Chart)
+     */
+    @GetMapping("/order-status")
+    public ResponseEntity<Map<String, Long>> getOrderStatusStats(
+            @RequestParam(defaultValue = "Ngày") String filterType,
+            @RequestParam(required = false) String dateRange,
+            @RequestParam(required = false) String month,
+            @RequestParam(required = false) Integer year
+    ) {
+        log.info("📊 Getting order status stats");
+        Map<String, Long> stats = dashboardService.getOrderStatusStats(filterType, dateRange, month, year);
+        return ResponseEntity.ok(stats);
+    }
+
+    /**
+     * Lấy danh sách sản phẩm sắp hết hàng
+     */
+    @GetMapping("/inventory-alerts")
+    public ResponseEntity<List<com.example.backend_fashionstore.QuanLyThongKe.dto.InventoryAlertDTO>> getInventoryAlerts(
+            @RequestParam(defaultValue = "10") int threshold,
+            @RequestParam(defaultValue = "5") int limit
+    ) {
+        log.info("⚠️ Getting inventory alerts");
+        List<com.example.backend_fashionstore.QuanLyThongKe.dto.InventoryAlertDTO> alerts = dashboardService.getInventoryAlerts(threshold, limit);
+        return ResponseEntity.ok(alerts);
+    }
 }

@@ -42,6 +42,7 @@ public class AdminOrderServiceImpl implements AdminOrderService {
     private final ProductDetailRepository productDetailRepository;
     private final CustomerOrderServiceImpl customerOrderService;
     private final VoucherRepository voucherRepository;
+    private final com.example.backend_fashionstore.quanLyBanhangTaiQuay.repository.PosOrderRepository posOrderRepository;
 
     // ================================================================
     // ===== ĐƠN HÀNG =====
@@ -204,6 +205,18 @@ public class AdminOrderServiceImpl implements AdminOrderService {
             }
         }
 
+        if ("COMPLETED".equals(newStatus)) {
+            if (order.getPaymentStatus() != PaymentStatus.SUCCESS) {
+                order.setPaymentStatus(PaymentStatus.SUCCESS);
+                OrderHistory paymentHistory = new OrderHistory();
+                paymentHistory.setOrder(order);
+                paymentHistory.setOrderStatus(oldStatus); // keep current status for this history entry
+                paymentHistory.setNote("Hệ thống tự động cập nhật trạng thái thanh toán thành 'SUCCESS' do đơn hàng đã 'COMPLETED'");
+                paymentHistory.setTimestamp(LocalDateTime.now());
+                orderHistoryRepository.save(paymentHistory);
+                log.info("✅ Auto updated payment status to SUCCESS for order {} because it is COMPLETED", orderId);
+            }
+        }
         // ✅ Cập nhật trạng thái đơn hàng
         order.setOrderStatus(OrderStatus.valueOf(newStatus));
         order.setUpdatedAt(LocalDateTime.now());
@@ -218,6 +231,34 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         if ("RETURN_RECEIVED".equals(oldStatus) && "RETURNED".equals(newStatus)) {
             returnRequestRepository.findFirstByOrderIdAndDeletedAtIsNull(orderId)
                     .ifPresent(returnRequest -> {
+                        // ✅ TÍNH TOÁN TIỀN HOÀN (REFUND AMOUNT) KHI HOÀN TẤT
+                        try {
+                            if (returnRequest.getQuantities() != null && !returnRequest.getQuantities().isEmpty()) {
+                                ObjectMapper mapper = new ObjectMapper();
+                                Map<String, Integer> quantities = mapper.readValue(returnRequest.getQuantities(), new com.fasterxml.jackson.core.type.TypeReference<Map<String, Integer>>() {});
+                                BigDecimal totalRefund = BigDecimal.ZERO;
+
+                                List<OrderDetail> orderDetails = orderDetailRepository.findByOrder_OrderId(orderId);
+
+                                for (OrderDetail detail : orderDetails) {
+                                    String productIdStr = String.valueOf(detail.getProductDetail().getProductDetailId());
+                                    if (quantities.containsKey(productIdStr)) {
+                                        int returnQty = quantities.get(productIdStr);
+                                        if (returnQty > 0) {
+                                            // Tiền hoàn cho 1 sản phẩm = finalAmount / số lượng mua
+                                            BigDecimal unitFinalPrice = detail.getFinalAmount().divide(BigDecimal.valueOf(detail.getQuantity()), 2, java.math.RoundingMode.HALF_UP);
+                                            totalRefund = totalRefund.add(unitFinalPrice.multiply(BigDecimal.valueOf(returnQty)));
+                                        }
+                                    }
+                                }
+
+                                order.setRefundAmount(totalRefund);
+                                log.info("💰 Đã tính tiền hoàn cho đơn hàng {} khi HOÀN TẤT: {}", orderId, totalRefund);
+                            }
+                        } catch (Exception e) {
+                            log.error("❌ Lỗi khi tính toán tiền hoàn cho đơn hàng {}: {}", orderId, e.getMessage());
+                        }
+
                         returnRequest.setStatus("COMPLETED");
                         returnRequest.setUpdatedAt(LocalDateTime.now());
                         returnRequestRepository.save(returnRequest);
@@ -324,15 +365,25 @@ public class AdminOrderServiceImpl implements AdminOrderService {
 
         BigDecimal todayRevenue = orderRepository.getTodayRevenue();
         if (todayRevenue == null) todayRevenue = BigDecimal.ZERO;
+        BigDecimal todayPosRevenue = posOrderRepository.getTodayPosRevenue();
+        if (todayPosRevenue != null) todayRevenue = todayRevenue.add(todayPosRevenue);
 
         BigDecimal monthlyRevenue = orderRepository.getMonthlyRevenue(
                 LocalDateTime.now().getYear(),
                 LocalDateTime.now().getMonthValue()
         );
         if (monthlyRevenue == null) monthlyRevenue = BigDecimal.ZERO;
+        BigDecimal monthlyPosRevenue = posOrderRepository.getCurrentMonthPosRevenue();
+        if (monthlyPosRevenue != null) monthlyRevenue = monthlyRevenue.add(monthlyPosRevenue);
 
         BigDecimal totalRevenue = orderRepository.getTotalRevenue();
         if (totalRevenue == null) totalRevenue = BigDecimal.ZERO;
+        
+        BigDecimal totalPosRevenue = posOrderRepository.getTotalRevenue(
+                LocalDateTime.of(1970, 1, 1, 0, 0),
+                LocalDateTime.now()
+        );
+        if (totalPosRevenue != null) totalRevenue = totalRevenue.add(totalPosRevenue);
 
         BigDecimal onlineRevenue = orderRepository.getOnlineRevenue();
         if (onlineRevenue == null) onlineRevenue = BigDecimal.ZERO;
@@ -423,9 +474,14 @@ public class AdminOrderServiceImpl implements AdminOrderService {
                 log.warn("Cannot parse images: {}", e.getMessage());
             }
         }
+        List<Integer> returnProductIds = parseReturnIds(returnRequest.getProductDetailIds());
+        Map<Integer, Integer> returnQuantities = parseReturnQuantities(returnRequest.getQuantities());
 
         return ReturnRequestDetailDTO.builder()
+                .returnRequestId(returnRequest.getReturnRequestId())
                 .orderId(returnRequest.getOrderId())
+                .productDetailIds(returnProductIds)
+                .quantities(returnQuantities)
                 .orderCode("ORD" + String.format("%08d", order.getOrderId()))
                 .reason(returnRequest.getReason())
                 .description(returnRequest.getDescription())
@@ -434,6 +490,10 @@ public class AdminOrderServiceImpl implements AdminOrderService {
                 .createdAt(returnRequest.getCreatedAt())
                 .updatedAt(returnRequest.getUpdatedAt())
                 .adminNote(returnRequest.getAdminNote())
+                .inspectionResult(returnRequest.getInspectionResult())
+                .inspectionNote(returnRequest.getInspectionNote())
+                .inspectedBy(returnRequest.getInspectedBy())
+                .inspectedAt(returnRequest.getInspectedAt())
                 .customerName(order.getCustomer() != null ? order.getCustomer().getCustomerName() : null)
                 .customerPhone(order.getCustomer() != null ? order.getCustomer().getPhone() : null)
                 .customerEmail(order.getCustomer() != null && order.getCustomer().getUser() != null ?
@@ -518,6 +578,8 @@ public class AdminOrderServiceImpl implements AdminOrderService {
 
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng"));
+
+        // Đã bỏ tính tiền hoàn ở đây, chuyển sang lúc hoàn tất (RETURNED)
 
         order.setOrderStatus(OrderStatus.RETURN_RECEIVED);
         order.setUpdatedAt(LocalDateTime.now());
@@ -858,11 +920,82 @@ public class AdminOrderServiceImpl implements AdminOrderService {
             }
         }
 
+        List<Integer> productDetailIds = null;
+        if (returnRequest.getProductDetailIds() != null && !returnRequest.getProductDetailIds().isEmpty()) {
+            try {
+                ObjectMapper objectMapper = new ObjectMapper();
+                productDetailIds = objectMapper.readValue(
+                        returnRequest.getProductDetailIds(),
+                        new TypeReference<List<Integer>>() {}
+                );
+            } catch (Exception e) {
+                log.warn("Cannot parse productDetailIds: {}", e.getMessage());
+            }
+        }
+
+        Map<Integer, Integer> quantities = null;
+        if (returnRequest.getQuantities() != null && !returnRequest.getQuantities().isEmpty()) {
+            try {
+                ObjectMapper objectMapper = new ObjectMapper();
+                Map<String, Integer> stringKeyMap = objectMapper.readValue(
+                        returnRequest.getQuantities(),
+                        new TypeReference<Map<String, Integer>>() {}
+                );
+                quantities = new java.util.HashMap<>();
+                for (Map.Entry<String, Integer> entry : stringKeyMap.entrySet()) {
+                    quantities.put(Integer.parseInt(entry.getKey()), entry.getValue());
+                }
+            } catch (Exception e) {
+                log.warn("Cannot parse quantities: {}", e.getMessage());
+            }
+        }
+
+        List<ReturnRequestDetailDTO.ReturnItemDetailDTO> returnItems = new java.util.ArrayList<>();
+        if (order != null && productDetailIds != null && quantities != null) {
+            List<OrderDetail> orderDetails = orderDetailRepository.findByOrder_OrderId(order.getOrderId());
+            for (OrderDetail detail : orderDetails) {
+                Integer pdId = detail.getProductDetail().getProductDetailId();
+                if (productDetailIds.contains(pdId)) {
+                    Integer returnQty = quantities.getOrDefault(pdId, 0);
+                    if (returnQty > 0) {
+                        ProductDetail pd = detail.getProductDetail();
+                        String imageUrl = null;
+                        if (pd.getProductImages() != null && !pd.getProductImages().isEmpty()) {
+                            imageUrl = pd.getProductImages().get(0).getProductImagePath();
+                        }
+                        
+                        BigDecimal unitFinalPrice = detail.getFinalAmount().divide(BigDecimal.valueOf(detail.getQuantity()), 2, java.math.RoundingMode.HALF_UP);
+                        BigDecimal refundAmount = unitFinalPrice.multiply(BigDecimal.valueOf(returnQty));
+
+                        ReturnRequestDetailDTO.ReturnItemDetailDTO itemDto = ReturnRequestDetailDTO.ReturnItemDetailDTO.builder()
+                                .productDetailId(pdId)
+                                .productName(pd.getProduct().getProductName())
+                                .colorName(pd.getColor() != null ? pd.getColor().getColorName() : null)
+                                .sizeName(pd.getSize() != null ? pd.getSize().getSizeName() : null)
+                                .imageUrl(imageUrl)
+                                .quantity(returnQty)
+                                .unitPrice(unitFinalPrice)
+                                .refundAmount(refundAmount)
+                                .build();
+                        returnItems.add(itemDto);
+                    }
+                }
+            }
+        }
+
         String orderCode = order != null ? "ORD" + String.format("%08d", order.getOrderId()) : null;
+        List<Integer> returnProductIds = parseReturnIds(returnRequest.getProductDetailIds());
+        Map<Integer, Integer> returnQuantities = parseReturnQuantities(returnRequest.getQuantities());
 
         return ReturnRequestDetailDTO.builder()
+                .returnRequestId(returnRequest.getReturnRequestId())
                 .orderId(returnRequest.getOrderId())
+                .productDetailIds(returnProductIds)
+                .quantities(returnQuantities)
                 .orderCode(orderCode)
+                .productDetailIds(productDetailIds)
+                .quantities(quantities)
+                .returnItems(returnItems)
                 .reason(returnRequest.getReason())
                 .description(returnRequest.getDescription())
                 .images(images)
@@ -870,6 +1003,10 @@ public class AdminOrderServiceImpl implements AdminOrderService {
                 .createdAt(returnRequest.getCreatedAt())
                 .updatedAt(returnRequest.getUpdatedAt())
                 .adminNote(returnRequest.getAdminNote())
+                .inspectionResult(returnRequest.getInspectionResult())
+                .inspectionNote(returnRequest.getInspectionNote())
+                .inspectedBy(returnRequest.getInspectedBy())
+                .inspectedAt(returnRequest.getInspectedAt())
                 .customerName(order != null && order.getCustomer() != null ?
                         order.getCustomer().getCustomerName() : null)
                 .customerPhone(order != null && order.getCustomer() != null ?
@@ -877,6 +1014,16 @@ public class AdminOrderServiceImpl implements AdminOrderService {
                 .customerEmail(order != null && order.getCustomer() != null && order.getCustomer().getUser() != null ?
                         order.getCustomer().getUser().getEmail() : null)
                 .build();
+    }
+
+    private List<Integer> parseReturnIds(String json) {
+        try { return json == null ? List.of() : new ObjectMapper().readValue(json, new TypeReference<List<Integer>>() {}); }
+        catch (Exception ignored) { return List.of(); }
+    }
+
+    private Map<Integer, Integer> parseReturnQuantities(String json) {
+        try { return json == null ? Map.of() : new ObjectMapper().readValue(json, new TypeReference<Map<Integer, Integer>>() {}); }
+        catch (Exception ignored) { return Map.of(); }
     }
 
     @Override

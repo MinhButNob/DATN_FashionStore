@@ -43,13 +43,13 @@ public class PosOrder {
     @Column(name = "pos_order_tax_amount", nullable = false)
     private BigDecimal posOrderTaxAmount;
 
-    @Column(name = "pos_order_total_amount", insertable = false, updatable = false)
+    @Column(name = "pos_order_total_amount")
     private BigDecimal posOrderTotalAmount;
 
     @Column(name = "pos_order_paid_amount", nullable = false)
     private BigDecimal posOrderPaidAmount;
 
-    @Column(name = "pos_order_change_amount", insertable = false, updatable = false)
+    @Column(name = "pos_order_change_amount")
     private BigDecimal posOrderChangeAmount;
 
     @Column(name = "pos_order_status", nullable = false, length = 20)

@@ -155,6 +155,7 @@ public class PosService {
                 .posOrderTaxAmount(taxAmount)
                 .posOrderPaidAmount(paidAmount)
                 .posOrderTotalAmount(totalAmount)   // lưu vào DB để query/sort đúng
+                .posOrderChangeAmount(hasPayments ? paidAmount.subtract(totalAmount) : BigDecimal.ZERO)
                 .posOrderStatus(orderStatus)
                 .posOrderPaymentStatus(paymentStatus)
                 .posOrderNotes(request.getPosOrderNotes())

@@ -50,6 +50,18 @@ public class ReturnRequest {
     @Column(name = "admin_note", columnDefinition = "TEXT")
     private String adminNote;
 
+    @Column(name = "inspection_result", columnDefinition = "TEXT")
+    private String inspectionResult;
+
+    @Column(name = "inspection_note", columnDefinition = "TEXT")
+    private String inspectionNote;
+
+    @Column(name = "inspected_by")
+    private Integer inspectedBy;
+
+    @Column(name = "inspected_at")
+    private LocalDateTime inspectedAt;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 

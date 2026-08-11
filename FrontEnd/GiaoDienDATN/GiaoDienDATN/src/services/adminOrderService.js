@@ -69,4 +69,8 @@ export const adminOrderService = {
   // Gửi thông báo cho khách hàng
   notifyCustomer(orderId, data) {
     return api.post(`/admin/orders/${orderId}/notify`, data);
+  },
+
+  inspectReturn(returnRequestId, data) {
+    return api.post(`/admin/returns/${returnRequestId}/inspect`, data);
   } };

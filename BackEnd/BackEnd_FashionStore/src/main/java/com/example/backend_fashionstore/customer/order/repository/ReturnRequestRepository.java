@@ -1,9 +1,11 @@
 package com.example.backend_fashionstore.customer.order.repository;
 
 import com.example.backend_fashionstore.entity.ReturnRequest;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -13,6 +15,10 @@ import java.util.Optional;
 
 @Repository
 public interface ReturnRequestRepository extends JpaRepository<ReturnRequest, Long> {
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT r FROM ReturnRequest r WHERE r.returnRequestId = :id AND r.deletedAt IS NULL")
+    Optional<ReturnRequest> findForInspection(@Param("id") Long id);
 
     // Lấy bản ghi mới nhất theo orderId
     @Query("SELECT r FROM ReturnRequest r WHERE r.orderId = :orderId AND r.deletedAt IS NULL ORDER BY r.createdAt DESC")

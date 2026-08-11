@@ -821,6 +821,7 @@ const addToCart = async () => {
     await cartStore.addToCart(productData)
     
     lastAddedProduct.value = {
+      productDetailId: selectedVariant.value.productDetailId,
       name: product.value.productName,
       price: finalPrice,
       quantity: quantity.value,

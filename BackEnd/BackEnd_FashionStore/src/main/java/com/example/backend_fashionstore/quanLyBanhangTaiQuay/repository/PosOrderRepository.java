@@ -24,6 +24,56 @@ public interface PosOrderRepository extends JpaRepository<PosOrder, Integer> {
 
     // ========== THỐNG KÊ DOANH THU ==========
 
+    @Query(value = "SELECT COALESCE(SUM(pos_order_total_amount), 0) FROM pos_orders WHERE pos_order_deleted_at IS NULL AND pos_order_status = 'COMPLETED' AND DATE(pos_order_created_at) = CURRENT_DATE", nativeQuery = true)
+    BigDecimal getTodayPosRevenue();
+
+    @Query(value = """
+        SELECT 
+            EXTRACT(MONTH FROM o.pos_order_created_at) as month,
+            COALESCE(SUM(o.pos_order_total_amount), 0) as revenue
+        FROM pos_orders o
+        WHERE o.pos_order_deleted_at IS NULL 
+            AND o.pos_order_status = 'COMPLETED'
+            AND EXTRACT(YEAR FROM o.pos_order_created_at) = :year
+        GROUP BY EXTRACT(MONTH FROM o.pos_order_created_at)
+        ORDER BY month ASC
+        """, nativeQuery = true)
+    List<Object[]> getMonthlyPosRevenueByYear(@Param("year") int year);
+
+    @Query(value = """
+        SELECT COALESCE(SUM(pos_order_total_amount), 0) 
+        FROM pos_orders 
+        WHERE pos_order_deleted_at IS NULL 
+            AND pos_order_status = 'COMPLETED'
+            AND EXTRACT(YEAR FROM pos_order_created_at) = EXTRACT(YEAR FROM CURRENT_DATE)
+            AND EXTRACT(MONTH FROM pos_order_created_at) = EXTRACT(MONTH FROM CURRENT_DATE)
+        """, nativeQuery = true)
+    BigDecimal getCurrentMonthPosRevenue();
+
+    @Query(value = """
+        SELECT COALESCE(SUM(pos_order_total_amount), 0) 
+        FROM pos_orders 
+        WHERE pos_order_deleted_at IS NULL 
+            AND pos_order_status = 'COMPLETED'
+            AND EXTRACT(YEAR FROM pos_order_created_at) = EXTRACT(YEAR FROM CURRENT_DATE - INTERVAL '1 month')
+            AND EXTRACT(MONTH FROM pos_order_created_at) = EXTRACT(MONTH FROM CURRENT_DATE - INTERVAL '1 month')
+        """, nativeQuery = true)
+    BigDecimal getPreviousMonthPosRevenue();
+
+    @Query(value = """
+        SELECT 
+            EXTRACT(DAY FROM o.pos_order_created_at) as day,
+            COALESCE(SUM(o.pos_order_total_amount), 0) as revenue
+        FROM pos_orders o
+        WHERE o.pos_order_deleted_at IS NULL 
+            AND o.pos_order_status = 'COMPLETED'
+            AND EXTRACT(YEAR FROM o.pos_order_created_at) = :year
+            AND EXTRACT(MONTH FROM o.pos_order_created_at) = :month
+        GROUP BY EXTRACT(DAY FROM o.pos_order_created_at)
+        ORDER BY day ASC
+        """, nativeQuery = true)
+    List<Object[]> getDailyPosRevenueByMonth(@Param("year") int year, @Param("month") int month);
+
     @Query("SELECT COALESCE(SUM(o.posOrderTotalAmount), 0) FROM PosOrder o " +
             "WHERE o.posOrderSessionId = :sessionId AND o.posOrderStatus = 'COMPLETED'")
     BigDecimal getTotalSalesBySession(@Param("sessionId") Integer sessionId);
