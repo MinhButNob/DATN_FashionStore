@@ -85,7 +85,7 @@
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="item in selectedOrder?.items" :key="item.itemId">
+                <tr v-for="item in displayOrderItems(selectedOrder)" :key="item.itemId || item.productDetailId">
                   <td>
                     <div class="item-info">
                       <div class="item-image">
@@ -100,7 +100,7 @@
                   </td>
                   <td>{{ formatPrice(item.unitPrice) }}</td>
                   <td>{{ item.quantity }}</td>
-                  <td>{{ formatPrice(item.finalAmount) }}</td>
+                  <td>{{ formatPrice(item.finalAmount ?? item.refundAmount) }}</td>
                 </tr>
               </tbody>
               <tfoot>
@@ -195,6 +195,10 @@ import { useNotification } from '../../composables/useNotification'
 const router = useRouter()
 const cartStore = useCartStore()
 const { showNotification } = useNotification()
+
+const displayOrderItems = (order) => {
+  return Array.isArray(order?.returnItems) ? order.returnItems : (order?.items || [])
+}
 
 // ===== CONSTANTS =====
 const IMAGE_BASE = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "").replace(/\/api$/, "");

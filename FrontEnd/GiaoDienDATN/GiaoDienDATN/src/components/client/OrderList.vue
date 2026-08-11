@@ -30,20 +30,20 @@
         </div>
 
         <div class="order-items">
-          <div v-for="item in order.items" :key="item.itemId" class="order-item">
-            <div class="item-image" @click="goToProduct(item.productId)">
+          <div v-for="item in displayItems(order)" :key="item.itemId || item.productDetailId" class="order-item">
+            <div class="item-image" @click="goToProduct(item.productId || item.productDetailId)">
               <img v-if="item.imageUrl" :src="getImageUrl(item.imageUrl)" :alt="item.productName" @error="handleImageError" />
               <i v-else class="fas fa-tshirt"></i>
             </div>
             <div class="item-details">
-              <h4 @click="goToProduct(item.productId)">{{ item.productName }}</h4>
+              <h4 @click="goToProduct(item.productId || item.productDetailId)">{{ item.productName }}</h4>
               <p class="item-variant">
                 {{ item.sizeName || '' }} {{ item.colorName || '' }}
               </p>
               <p class="item-quantity">x{{ item.quantity }}</p>
             </div>
             <div class="item-price">
-              {{ formatPrice(item.finalAmount) }}
+              {{ formatPrice(item.finalAmount ?? item.refundAmount) }}
             </div>
             
             <!-- Nút Đánh giá cho từng sản phẩm (chỉ dùng trong Profile) -->
@@ -88,7 +88,7 @@
         <div class="order-footer">
           <div class="order-total">
             <span>Tổng cộng:</span>
-            <strong>{{ formatPrice(order.totalAmount) }}</strong>
+            <strong>{{ formatPrice(displayTotal(order)) }}</strong>
           </div>
           <div class="order-actions">
             <button class="btn btn-outline" @click="handleViewDetail(order.orderId)">
@@ -195,6 +195,19 @@ const emit = defineEmits([
 ])
 
 const router = useRouter()
+
+const displayItems = (order) => {
+  return Array.isArray(order.returnItems) ? order.returnItems : (order.items || [])
+}
+
+const displayTotal = (order) => {
+  if (!Array.isArray(order?.returnItems)) return order?.totalAmount
+
+  return order.returnItems.reduce((total, item) => {
+    const amount = item.refundAmount ?? item.finalAmount ?? (Number(item.unitPrice || 0) * Number(item.quantity || 0))
+    return total + Number(amount || 0)
+  }, 0)
+}
 
 // ===== CONSTANTS =====
 const IMAGE_BASE = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "").replace(/\/api$/, "");

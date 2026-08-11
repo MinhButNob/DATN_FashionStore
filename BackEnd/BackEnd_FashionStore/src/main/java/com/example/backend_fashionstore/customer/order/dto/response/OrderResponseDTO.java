@@ -30,4 +30,5 @@ public class OrderResponseDTO {
     private ShippingAddressDTO shippingAddress;
     private VoucherInfoDTO voucher;  // ✅ THÊM - đã có
     private List<OrderItemResponseDTO> items;
+    private List<ReturnRequestResponseDTO.ReturnItemDTO> returnItems;
 }

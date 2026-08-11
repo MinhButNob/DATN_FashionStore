@@ -462,43 +462,7 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng"));
 
-        List<String> images = null;
-        if (returnRequest.getImages() != null && !returnRequest.getImages().isEmpty()) {
-            try {
-                ObjectMapper objectMapper = new ObjectMapper();
-                images = objectMapper.readValue(
-                        returnRequest.getImages(),
-                        new TypeReference<List<String>>() {}
-                );
-            } catch (Exception e) {
-                log.warn("Cannot parse images: {}", e.getMessage());
-            }
-        }
-        List<Integer> returnProductIds = parseReturnIds(returnRequest.getProductDetailIds());
-        Map<Integer, Integer> returnQuantities = parseReturnQuantities(returnRequest.getQuantities());
-
-        return ReturnRequestDetailDTO.builder()
-                .returnRequestId(returnRequest.getReturnRequestId())
-                .orderId(returnRequest.getOrderId())
-                .productDetailIds(returnProductIds)
-                .quantities(returnQuantities)
-                .orderCode("ORD" + String.format("%08d", order.getOrderId()))
-                .reason(returnRequest.getReason())
-                .description(returnRequest.getDescription())
-                .images(images)
-                .status(returnRequest.getStatus())
-                .createdAt(returnRequest.getCreatedAt())
-                .updatedAt(returnRequest.getUpdatedAt())
-                .adminNote(returnRequest.getAdminNote())
-                .inspectionResult(returnRequest.getInspectionResult())
-                .inspectionNote(returnRequest.getInspectionNote())
-                .inspectedBy(returnRequest.getInspectedBy())
-                .inspectedAt(returnRequest.getInspectedAt())
-                .customerName(order.getCustomer() != null ? order.getCustomer().getCustomerName() : null)
-                .customerPhone(order.getCustomer() != null ? order.getCustomer().getPhone() : null)
-                .customerEmail(order.getCustomer() != null && order.getCustomer().getUser() != null ?
-                        order.getCustomer().getUser().getEmail() : null)
-                .build();
+        return convertToReturnRequestDetailDTO(returnRequest, order);
     }
 
     @Override
@@ -984,14 +948,10 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         }
 
         String orderCode = order != null ? "ORD" + String.format("%08d", order.getOrderId()) : null;
-        List<Integer> returnProductIds = parseReturnIds(returnRequest.getProductDetailIds());
-        Map<Integer, Integer> returnQuantities = parseReturnQuantities(returnRequest.getQuantities());
 
         return ReturnRequestDetailDTO.builder()
                 .returnRequestId(returnRequest.getReturnRequestId())
                 .orderId(returnRequest.getOrderId())
-                .productDetailIds(returnProductIds)
-                .quantities(returnQuantities)
                 .orderCode(orderCode)
                 .productDetailIds(productDetailIds)
                 .quantities(quantities)
@@ -1014,16 +974,6 @@ public class AdminOrderServiceImpl implements AdminOrderService {
                 .customerEmail(order != null && order.getCustomer() != null && order.getCustomer().getUser() != null ?
                         order.getCustomer().getUser().getEmail() : null)
                 .build();
-    }
-
-    private List<Integer> parseReturnIds(String json) {
-        try { return json == null ? List.of() : new ObjectMapper().readValue(json, new TypeReference<List<Integer>>() {}); }
-        catch (Exception ignored) { return List.of(); }
-    }
-
-    private Map<Integer, Integer> parseReturnQuantities(String json) {
-        try { return json == null ? Map.of() : new ObjectMapper().readValue(json, new TypeReference<Map<Integer, Integer>>() {}); }
-        catch (Exception ignored) { return Map.of(); }
     }
 
     @Override

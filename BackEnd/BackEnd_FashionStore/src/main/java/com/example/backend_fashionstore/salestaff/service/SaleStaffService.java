@@ -433,21 +433,7 @@ public class SaleStaffService {
             }
         }
 
-        return ReturnRequestDetailDTO.builder()
-                .orderId(returnRequest.getOrderId())
-                .orderCode("ORD" + String.format("%08d", order.getOrderId()))
-                .reason(returnRequest.getReason())
-                .description(returnRequest.getDescription())
-                .images(images)
-                .status(returnRequest.getStatus())
-                .createdAt(returnRequest.getCreatedAt())
-                .updatedAt(returnRequest.getUpdatedAt())
-                .adminNote(returnRequest.getAdminNote())
-                .customerName(order.getCustomer() != null ? order.getCustomer().getCustomerName() : null)
-                .customerPhone(order.getCustomer() != null ? order.getCustomer().getPhone() : null)
-                .customerEmail(order.getCustomer() != null && order.getCustomer().getUser() != null ?
-                        order.getCustomer().getUser().getEmail() : null)
-                .build();
+        return buildReturnRequestDetail(returnRequest, order, images);
     }
 
     @Transactional
@@ -553,6 +539,57 @@ public class SaleStaffService {
             ReturnRequestDetailDTO dto = getReturnRequestByOrderId(r.getOrderId());
             return dto;
         });
+    }
+
+    private ReturnRequestDetailDTO buildReturnRequestDetail(ReturnRequest returnRequest, Order order, List<String> images) {
+        List<Integer> productDetailIds;
+        Map<Integer, Integer> quantities;
+        try {
+            ObjectMapper objectMapper = new ObjectMapper();
+            productDetailIds = objectMapper.readValue(returnRequest.getProductDetailIds(), new TypeReference<List<Integer>>() {});
+            quantities = objectMapper.readValue(returnRequest.getQuantities(), new TypeReference<Map<Integer, Integer>>() {});
+        } catch (Exception e) {
+            throw new IllegalStateException("Dữ liệu sản phẩm hoàn hàng không hợp lệ", e);
+        }
+
+        Map<Integer, OrderDetail> detailsByProductDetailId = orderDetailRepository.findByOrder_OrderId(order.getOrderId())
+                .stream().collect(Collectors.toMap(detail -> detail.getProductDetail().getProductDetailId(), detail -> detail));
+        List<ReturnRequestDetailDTO.ReturnItemDetailDTO> returnItems = productDetailIds.stream()
+                .map(productDetailId -> toReturnItem(detailsByProductDetailId.get(productDetailId), quantities.get(productDetailId)))
+                .filter(Objects::nonNull)
+                .toList();
+
+        return ReturnRequestDetailDTO.builder()
+                .returnRequestId(returnRequest.getReturnRequestId())
+                .orderId(returnRequest.getOrderId())
+                .orderCode("ORD" + String.format("%08d", order.getOrderId()))
+                .productDetailIds(productDetailIds)
+                .quantities(quantities)
+                .returnItems(returnItems)
+                .reason(returnRequest.getReason()).description(returnRequest.getDescription()).images(images)
+                .status(returnRequest.getStatus()).createdAt(returnRequest.getCreatedAt()).updatedAt(returnRequest.getUpdatedAt())
+                .adminNote(returnRequest.getAdminNote()).inspectionResult(returnRequest.getInspectionResult())
+                .inspectionNote(returnRequest.getInspectionNote()).inspectedBy(returnRequest.getInspectedBy())
+                .inspectedAt(returnRequest.getInspectedAt())
+                .customerName(order.getCustomer() != null ? order.getCustomer().getCustomerName() : null)
+                .customerPhone(order.getCustomer() != null ? order.getCustomer().getPhone() : null)
+                .customerEmail(order.getCustomer() != null && order.getCustomer().getUser() != null ? order.getCustomer().getUser().getEmail() : null)
+                .build();
+    }
+
+    private ReturnRequestDetailDTO.ReturnItemDetailDTO toReturnItem(OrderDetail detail, Integer quantity) {
+        if (detail == null || quantity == null || quantity <= 0) return null;
+        ProductDetail productDetail = detail.getProductDetail();
+        String imageUrl = productDetail.getProductImages() != null && !productDetail.getProductImages().isEmpty()
+                ? productDetail.getProductImages().get(0).getProductImagePath() : null;
+        BigDecimal unitPrice = detail.getUnitPrice() != null ? detail.getUnitPrice() : BigDecimal.ZERO;
+        return ReturnRequestDetailDTO.ReturnItemDetailDTO.builder()
+                .productDetailId(productDetail.getProductDetailId())
+                .productName(productDetail.getProduct() != null ? productDetail.getProduct().getProductName() : null)
+                .colorName(productDetail.getColor() != null ? productDetail.getColor().getColorName() : null)
+                .sizeName(productDetail.getSize() != null ? productDetail.getSize().getSizeName() : null)
+                .imageUrl(imageUrl).quantity(quantity).unitPrice(unitPrice)
+                .refundAmount(unitPrice.multiply(BigDecimal.valueOf(quantity))).build();
     }
 
     public InvoiceDTO getInvoice(Long orderId) {

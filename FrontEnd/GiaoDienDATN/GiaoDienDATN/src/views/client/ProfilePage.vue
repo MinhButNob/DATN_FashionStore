@@ -489,7 +489,7 @@
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="item in selectedOrder?.items" :key="item.itemId">
+                <tr v-for="item in displayOrderItems(selectedOrder)" :key="item.itemId || item.productDetailId">
                   <td>
                     <div class="item-info">
                       <div class="item-image">
@@ -504,7 +504,7 @@
                   </td>
                   <td>{{ formatPrice(item.unitPrice) }}</td>
                   <td>{{ item.quantity }}</td>
-                  <td>{{ formatPrice(item.finalAmount) }}</td>
+                  <td>{{ formatPrice(item.finalAmount ?? item.refundAmount) }}</td>
                 </tr>
               </tbody>
               <tfoot>
@@ -669,6 +669,10 @@ import api from "@/api/axios";
 import { useVietnamAddress } from "../../composables/useVietnamAddress";
 
 const router = useRouter();
+
+const displayOrderItems = (order) => {
+  return Array.isArray(order?.returnItems) ? order.returnItems : (order?.items || []);
+};
 const route = useRoute();
 const authStore = useAuthStore();
 const cartStore = useCartStore();

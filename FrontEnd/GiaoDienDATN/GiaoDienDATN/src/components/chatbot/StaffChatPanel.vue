@@ -301,7 +301,7 @@
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="item in selectedOrder?.items" :key="item.itemId">
+                <tr v-for="item in selectedOrder?.items" :key="item.itemId || item.productDetailId">
                   <td>
                     <div class="item-info">
                       <div class="item-image">
@@ -316,7 +316,7 @@
                   </td>
                   <td>{{ formatPrice(item.unitPrice) }}</td>
                   <td>{{ item.quantity }}</td>
-                  <td>{{ formatPrice(item.finalAmount) }}</td>
+                  <td>{{ formatPrice(item.finalAmount ?? item.refundAmount) }}</td>
                 </tr>
               </tbody>
               <tfoot>
@@ -443,7 +443,7 @@ const fileInput = ref(null)
 // Dùng singleton riêng ở module level, KHÔNG tạo mới trong hàm
 // để tránh nhiều kết nối WS song song
 const _customerWs = useWebSocket()
-let wsCleanups = []
+
 
 // ===== ORDERS PAGE MODAL STATE & LOGIC (EXACTLY AS OrdersPage.vue) =====
 const cartStore = useCartStore()
@@ -611,10 +611,36 @@ const goToPage = (page) => {
   }
 }
 
+const isReturnOrder = (status) => {
+  return ['RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED', 'REJECTED'].includes(status)
+}
+
+const applyReturnItemsToOrder = (order) => {
+  if (!isReturnOrder(order?.orderStatus) || !Array.isArray(order?.returnItems)) {
+    return order
+  }
+
+  const items = order.returnItems.map((item) => {
+    const finalAmount = Number(item.refundAmount ?? (Number(item.unitPrice || 0) * Number(item.quantity || 0)))
+    return { ...item, itemId: item.productDetailId, finalAmount }
+  })
+  const returnAmount = items.reduce((total, item) => total + Number(item.finalAmount || 0), 0)
+
+  return {
+    ...order,
+    items,
+    subtotalAmount: returnAmount,
+    discountAmount: 0,
+    shippingFee: 0,
+    totalAmount: returnAmount,
+    voucher: null
+  }
+}
+
 const viewOrderDetail = async (orderId) => {
   try {
     const response = await orderService.getOrderDetail(orderId)
-    selectedOrder.value = response.data
+    selectedOrder.value = applyReturnItemsToOrder(response.data)
     showDetailModal.value = true
   } catch (error) {
     console.error('Error fetching order detail:', error)

@@ -27,6 +27,10 @@ export const adminOrderService = {
     return api.get(`/admin/orders/${orderId}`);
   },
 
+  getReturnRequestByOrderId(orderId) {
+    return api.get(`/admin/orders/return-requests/order/${orderId}`);
+  },
+
   // Cập nhật trạng thái đơn hàng (Admin)
   updateOrderStatus(orderId, data) {
     const requestData = {

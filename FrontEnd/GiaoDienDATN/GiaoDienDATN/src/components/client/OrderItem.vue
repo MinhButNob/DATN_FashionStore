@@ -42,7 +42,7 @@
     <div class="order-footer">
       <div class="order-total">
         <span>Tổng cộng:</span>
-        <strong>{{ formatPrice(order.totalAmount) }}</strong>
+        <strong>{{ formatPrice(displayTotal(order)) }}</strong>
       </div>
       <div class="order-actions">
         <button class="btn-outline" @click="$emit('view-detail', order.orderId)">
@@ -97,6 +97,15 @@ const canCancel = computed(() => {
 const canReorder = computed(() => {
   return props.order.orderStatus === 'COMPLETED'
 })
+
+const displayTotal = (order) => {
+  if (!Array.isArray(order?.returnItems)) return order?.totalAmount
+
+  return order.returnItems.reduce((total, item) => {
+    const amount = item.refundAmount ?? item.finalAmount ?? (Number(item.unitPrice || 0) * Number(item.quantity || 0))
+    return total + Number(amount || 0)
+  }, 0)
+}
 
 const getColorHex = (colorName) => {
   const colorMap = {

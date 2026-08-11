@@ -455,7 +455,7 @@
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="item in selectedOrder?.items" :key="item.itemId">
+                <tr v-for="item in selectedOrder?.items" :key="item.itemId || item.productDetailId">
                   <td>
                     <div class="item-info">
                       <div class="item-image">
@@ -470,7 +470,7 @@
                   </td>
                   <td class="price-cell">{{ formatPrice(item.unitPrice) }}</td>
                   <td class="quantity-cell">{{ item.quantity }}</td>
-                  <td class="total-cell">{{ formatPrice(item.finalAmount) }}</td>
+                  <td class="total-cell">{{ formatPrice(item.finalAmount ?? item.refundAmount) }}</td>
                 </tr>
               </tbody>
               <tfoot>
@@ -536,7 +536,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="item in selectedOrder?.items" :key="item.itemId">
+              <tr v-for="item in selectedOrder?.items" :key="item.itemId || item.productDetailId">
                 <td>
                   <div class="item-info">
                     <div class="item-image">
@@ -551,7 +551,7 @@
                 </td>
                 <td class="price-cell">{{ formatPrice(item.unitPrice) }}</td>
                 <td class="quantity-cell">{{ item.quantity }}</td>
-                <td class="total-cell">{{ formatPrice(item.finalAmount) }}</td>
+                <td class="total-cell">{{ formatPrice(item.finalAmount ?? item.refundAmount) }}</td>
               </tr>
             </tbody>
           </table>
@@ -653,6 +653,16 @@
                 <p><strong>Lý do:</strong> {{ returnRequestDetail.reason }}</p>
                 <p><strong>Mô tả:</strong> {{ returnRequestDetail.description }}</p>
                 <p v-if="returnRequestDetail.adminNote"><strong>Phản hồi Admin:</strong> {{ returnRequestDetail.adminNote }}</p>
+              </div>
+            </div>
+
+            <div v-if="returnRequestDetail.returnItems?.length" class="return-items-section">
+              <h3>Sản phẩm yêu cầu hoàn</h3>
+              <div v-for="item in returnRequestDetail.returnItems" :key="item.productDetailId" class="inspection-result-row">
+                <img v-if="item.imageUrl" :src="getImageUrl(item.imageUrl)" class="inspection-image" @error="handleImageError" />
+                <strong>{{ item.productName }}</strong>
+                <span>{{ item.colorName || '---' }} · {{ item.sizeName || '---' }}</span>
+                <span>SL hoàn: {{ item.quantity }}</span>
               </div>
             </div>
 
@@ -1320,6 +1330,50 @@ const isReturnOrder = (status) => {
   return ['RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED', 'REJECTED'].includes(status)
 }
 
+const applyReturnItemsToOrder = (order, returnRequest) => {
+  const items = (returnRequest.returnItems || []).map((item) => {
+    const refundAmount = Number(item.refundAmount ?? (Number(item.unitPrice || 0) * Number(item.quantity || 0)))
+    return {
+      ...item,
+      itemId: item.productDetailId,
+      finalAmount: refundAmount
+    }
+  })
+  const returnAmount = items.reduce((total, item) => total + Number(item.finalAmount || 0), 0)
+
+  return {
+    ...order,
+    items,
+    subtotalAmount: returnAmount,
+    discountAmount: 0,
+    shippingFee: 0,
+    totalAmount: returnAmount,
+    voucher: null
+  }
+}
+
+const loadOrderForDisplay = async (order) => {
+  if (!isReturnOrder(order?.orderStatus)) {
+    return order
+  }
+
+  const response = await adminOrderService.getReturnRequestByOrderId(order.orderId)
+  return applyReturnItemsToOrder(order, response.data)
+}
+
+const enrichReturnOrders = async (orderList) => {
+  if (activeMainTab.value !== 'returns') return orderList
+
+  return Promise.all(orderList.map(async (order) => {
+    try {
+      return await loadOrderForDisplay(order)
+    } catch (error) {
+      console.error(`Không thể tải sản phẩm hoàn trả của đơn ${order.orderId}:`, error)
+      return order
+    }
+  }))
+}
+
 const getMainTabCount = (tab) => {
   if (tab === 'orders') {
     return orders.value.filter(o => 
@@ -1403,12 +1457,12 @@ const fetchOrders = async () => {
     console.log('📦 Orders response:', response.data)
     
     if (response.data && response.data.content) {
-      orders.value = response.data.content
+      orders.value = await enrichReturnOrders(response.data.content)
       totalPages.value = response.data.totalPages || 0
       totalElements.value = response.data.totalElements || 0
       currentPage.value = response.data.number || 0
     } else if (Array.isArray(response.data)) {
-      orders.value = response.data
+      orders.value = await enrichReturnOrders(response.data)
       totalPages.value = 1
     } else {
       orders.value = []
@@ -1515,7 +1569,7 @@ const onStatusUpdated = async (data) => {
 const viewOrderDetail = async (order) => {
   try {
     const response = await adminOrderService.getOrderDetail(order.orderId)
-    selectedOrder.value = response.data
+    selectedOrder.value = await loadOrderForDisplay(response.data)
     showDetailModal.value = true
   } catch (error) {
     console.error('❌ Error fetching order detail:', error)
@@ -1523,9 +1577,14 @@ const viewOrderDetail = async (order) => {
   }
 }
 
-const viewOrderItems = (order) => {
-  selectedOrder.value = order
-  showItemsModal.value = true
+const viewOrderItems = async (order) => {
+  try {
+    selectedOrder.value = await loadOrderForDisplay(order)
+    showItemsModal.value = true
+  } catch (error) {
+    console.error('Không thể tải sản phẩm hoàn trả:', error)
+    showNotification('Không thể tải sản phẩm hoàn trả', 'error')
+  }
 }
 
 const closeDetailModal = () => {
@@ -1728,7 +1787,7 @@ const viewReturnRequest = async (order) => {
       returnRequestDetail.value = response.data
       const quantities = response.data.quantities || {}
       const ids = response.data.productDetailIds || []
-      const orderItems = order.items || []
+      const orderItems = response.data.returnItems || order.items || []
       inspectionItems.value = ids.map((productDetailId) => {
         const source = orderItems.find(item => Number(item.productDetailId) === Number(productDetailId)) || {}
         return {

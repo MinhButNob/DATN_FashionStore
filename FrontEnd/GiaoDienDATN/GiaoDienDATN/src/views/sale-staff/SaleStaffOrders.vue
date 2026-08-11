@@ -361,7 +361,7 @@
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="item in selectedOrder?.items" :key="item.itemId">
+                <tr v-for="item in selectedOrder?.items" :key="item.itemId || item.productDetailId">
                   <td>
                     <div class="item-info">
                       <div class="item-image">
@@ -376,7 +376,7 @@
                   </td>
                   <td class="price-cell">{{ formatPrice(item.unitPrice) }}</td>
                   <td class="quantity-cell">{{ item.quantity }}</td>
-                  <td class="total-cell">{{ formatPrice(item.finalAmount) }}</td>
+                  <td class="total-cell">{{ formatPrice(item.finalAmount ?? item.refundAmount) }}</td>
                 </tr>
               </tbody>
               <tfoot>
@@ -445,7 +445,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="item in selectedOrder?.items" :key="item.itemId">
+              <tr v-for="item in selectedOrder?.items" :key="item.itemId || item.productDetailId">
                 <td>
                   <div class="item-info">
                     <div class="item-image">
@@ -460,7 +460,7 @@
                 </td>
                 <td class="price-cell">{{ formatPrice(item.unitPrice) }}</td>
                 <td class="quantity-cell">{{ item.quantity }}</td>
-                <td class="total-cell">{{ formatPrice(item.finalAmount) }}</td>
+                <td class="total-cell">{{ formatPrice(item.finalAmount ?? item.refundAmount) }}</td>
               </tr>
             </tbody>
           </table>
@@ -1027,6 +1027,48 @@ const isReturnOrder = (status) => {
   return ['RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED', 'REJECTED'].includes(status)
 }
 
+const applyReturnItemsToOrder = (order, returnRequest) => {
+  const items = (returnRequest.returnItems || []).map((item) => {
+    const refundAmount = Number(item.refundAmount ?? (Number(item.unitPrice || 0) * Number(item.quantity || 0)))
+    return {
+      ...item,
+      itemId: item.productDetailId,
+      finalAmount: refundAmount
+    }
+  })
+  const returnAmount = items.reduce((total, item) => total + Number(item.finalAmount || 0), 0)
+
+  return {
+    ...order,
+    items,
+    subtotalAmount: returnAmount,
+    discountAmount: 0,
+    shippingFee: 0,
+    totalAmount: returnAmount,
+    voucher: null
+  }
+}
+
+const loadOrderForDisplay = async (order) => {
+  if (!isReturnOrder(order?.orderStatus)) return order
+
+  const response = await api.get(`/sale-staff/orders/return-requests/order/${order.orderId}`)
+  return applyReturnItemsToOrder(order, response.data?.data || response.data)
+}
+
+const enrichReturnOrders = async (orderList) => {
+  if (activeMainTab.value !== 'returns') return orderList
+
+  return Promise.all(orderList.map(async (order) => {
+    try {
+      return await loadOrderForDisplay(order)
+    } catch (error) {
+      console.error(`Không thể tải sản phẩm hoàn trả của đơn ${order.orderId}:`, error)
+      return order
+    }
+  }))
+}
+
 const getMainTabCount = (tab) => {
   if (tab === 'orders') {
     return orders.value.filter(o => 
@@ -1118,17 +1160,17 @@ const fetchOrders = async () => {
     
     if (response.data && response.data.data) {
       const data = response.data.data
-      orders.value = data.content || []
+      orders.value = await enrichReturnOrders(data.content || [])
       totalPages.value = data.totalPages || 0
       totalElements.value = data.totalElements || 0
       currentPage.value = data.number || 0
     } else if (response.data && response.data.content) {
-      orders.value = response.data.content || []
+      orders.value = await enrichReturnOrders(response.data.content || [])
       totalPages.value = response.data.totalPages || 0
       totalElements.value = response.data.totalElements || 0
       currentPage.value = response.data.number || 0
     } else if (Array.isArray(response.data)) {
-      orders.value = response.data
+      orders.value = await enrichReturnOrders(response.data)
       totalPages.value = 1
     } else {
       orders.value = []
@@ -1201,14 +1243,24 @@ const goToPage = (page) => {
 }
 
 // ===== VIEW DETAILS =====
-const viewOrderDetail = (order) => {
-  selectedOrder.value = order
-  showDetailModal.value = true
+const viewOrderDetail = async (order) => {
+  try {
+    selectedOrder.value = await loadOrderForDisplay(order)
+    showDetailModal.value = true
+  } catch (error) {
+    console.error('Không thể tải chi tiết hàng hoàn:', error)
+    showToastMessage('Không thể tải chi tiết hàng hoàn', 'error')
+  }
 }
 
-const viewOrderItems = (order) => {
-  selectedOrder.value = order
-  showItemsModal.value = true
+const viewOrderItems = async (order) => {
+  try {
+    selectedOrder.value = await loadOrderForDisplay(order)
+    showItemsModal.value = true
+  } catch (error) {
+    console.error('Không thể tải sản phẩm hoàn trả:', error)
+    showToastMessage('Không thể tải sản phẩm hoàn trả', 'error')
+  }
 }
 
 const closeDetailModal = () => {

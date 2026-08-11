@@ -37,10 +37,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -832,6 +829,13 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
                 .subtract(discountAmount)
                 .add(order.getOrderShippingFee() != null ? order.getOrderShippingFee() : BigDecimal.ZERO);
 
+        List<ReturnRequestResponseDTO.ReturnItemDTO> returnItems = null;
+        if (isReturnOrderStatus(order.getOrderStatus())) {
+            returnItems = returnRequestRepository.findFirstByOrderIdAndDeletedAtIsNull(order.getOrderId())
+                    .map(request -> convertToReturnResponse(request, order).getReturnItems())
+                    .orElse(Collections.emptyList());
+        }
+
         return OrderResponseDTO.builder()
                 .orderId(order.getOrderId())
                 .orderCode("ORD" + String.format("%08d", order.getOrderId()))
@@ -854,7 +858,17 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
                 .shippingAddress(shippingDTO)
                 .voucher(voucherDTO)
                 .items(itemResponses)
+                .returnItems(returnItems)
                 .build();
+    }
+
+    private boolean isReturnOrderStatus(OrderStatus status) {
+        return status == OrderStatus.RETURN_REQUESTED
+                || status == OrderStatus.RETURN_APPROVED
+                || status == OrderStatus.RETURN_RECEIVED
+                || status == OrderStatus.RETURN_PENDING
+                || status == OrderStatus.RETURNED
+                || status == OrderStatus.REJECTED;
     }
 
     // ============================================
