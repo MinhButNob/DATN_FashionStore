@@ -98,7 +98,7 @@ const formatDate = (dateString) => {
 
 const getStatusText = (status) => {
   const map = {
-    'PENDING_PAYMENT': 'Chờ thanh toán',
+    'PENDING_PAYMENT': 'Chờ xác nhận',
     'PROCESSING': 'Đang xử lý',
     'COMPLETED': 'Hoàn thành',
     'CANCELLED': 'Đã hủy',

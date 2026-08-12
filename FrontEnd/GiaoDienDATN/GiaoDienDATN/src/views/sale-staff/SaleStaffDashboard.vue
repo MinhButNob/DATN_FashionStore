@@ -46,7 +46,7 @@
           <div class="stat-icon pending">⏳</div>
           <div class="stat-info">
             <div class="stat-value">{{ orderStats?.pendingOrders || 0 }}</div>
-            <div class="stat-label">Chờ thanh toán</div>
+            <div class="stat-label">Chờ xác nhận</div>
           </div>
         </div>
         <div class="stat-card" @click="navigateTo('orders?status=CANCELLED')">

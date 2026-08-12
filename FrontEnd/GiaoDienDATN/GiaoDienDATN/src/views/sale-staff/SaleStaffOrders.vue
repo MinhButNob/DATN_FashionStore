@@ -107,7 +107,7 @@
         <option value="all">Tất cả trạng thái</option>
         <!-- Đơn hàng -->
         <template v-if="activeMainTab === 'orders'">
-          <option value="PENDING_PAYMENT">Chờ thanh toán</option>
+          <option value="PENDING_PAYMENT">Chờ xác nhận</option>
           <option value="CONFIRMED">Đã xác nhận</option>
           <option value="PROCESSING">Đang xử lý</option>
           <option value="SHIPPING">Đang giao</option>
@@ -858,7 +858,7 @@ const activeSubTab = ref('all')
 const subTabsMap = {
   orders: [
     { value: 'all', label: 'Tất cả', icon: 'fas fa-list' },
-    { value: 'PENDING_PAYMENT', label: 'Chờ thanh toán', icon: 'fas fa-clock' },
+    { value: 'PENDING_PAYMENT', label: 'Chờ xác nhận', icon: 'fas fa-clock' },
     { value: 'CONFIRMED', label: 'Đã xác nhận', icon: 'fas fa-check' },
     { value: 'PROCESSING', label: 'Đang xử lý', icon: 'fas fa-spinner' },
     { value: 'SHIPPING', label: 'Đang giao', icon: 'fas fa-truck' },

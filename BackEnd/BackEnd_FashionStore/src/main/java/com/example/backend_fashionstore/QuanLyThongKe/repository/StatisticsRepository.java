@@ -49,39 +49,39 @@ public interface StatisticsRepository extends JpaRepository<Order, Long> {
                                 @Param("endDate") LocalDateTime endDate);
 
     // =========================================
-    // 2. THỐNG KÊ ĐƠN HÀNG POS (pos_orders) - CHỈ COMPLETED
+    // 2. THỐNG KÊ ĐƠN HÀNG POS (pos_orders) - TẤT CẢ ĐƠN HỢP LỆ
     // =========================================
 
     /**
-     * Doanh thu POS theo khoảng thời gian (chỉ COMPLETED)
+     * Doanh thu POS theo khoảng thời gian
      */
-    @Query(value = "SELECT COALESCE(SUM(po.pos_order_total_amount), 0) FROM pos_orders po " +
-            "WHERE po.pos_order_status = 'COMPLETED' " +
+    @Query(value = "SELECT COALESCE(SUM(COALESCE(NULLIF(po.pos_order_total_amount, 0), NULLIF(po.pos_order_paid_amount, 0), NULLIF(po.pos_order_subtotal - COALESCE(po.pos_order_discount_amount, 0), 0), (SELECT COALESCE(SUM(poi.pos_order_item_total), 0) FROM pos_order_items poi WHERE poi.pos_order_item_order_id = po.pos_order_id), 0)), 0) FROM pos_orders po " +
+            "WHERE (po.pos_order_status IS NULL OR UPPER(po.pos_order_status) NOT IN ('CANCELLED', 'DELETED')) " +
             "AND po.pos_order_created_at BETWEEN :startDate AND :endDate", nativeQuery = true)
     BigDecimal getPosRevenue(@Param("startDate") LocalDateTime startDate,
                              @Param("endDate") LocalDateTime endDate);
 
     /**
-     * Số đơn hàng POS theo khoảng thời gian (chỉ COMPLETED)
+     * Số đơn hàng POS theo khoảng thời gian
      */
     @Query(value = "SELECT COUNT(po.pos_order_id) FROM pos_orders po " +
-            "WHERE po.pos_order_status = 'COMPLETED' " +
+            "WHERE (po.pos_order_status IS NULL OR UPPER(po.pos_order_status) NOT IN ('CANCELLED', 'DELETED')) " +
             "AND po.pos_order_created_at BETWEEN :startDate AND :endDate", nativeQuery = true)
     Long getPosOrderCount(@Param("startDate") LocalDateTime startDate,
                           @Param("endDate") LocalDateTime endDate);
 
     /**
-     * Số khách hàng POS theo khoảng thời gian (chỉ COMPLETED)
+     * Số khách hàng POS theo khoảng thời gian
      */
     @Query(value = "SELECT COUNT(DISTINCT po.pos_order_customer_id) FROM pos_orders po " +
-            "WHERE po.pos_order_status = 'COMPLETED' " +
+            "WHERE (po.pos_order_status IS NULL OR UPPER(po.pos_order_status) NOT IN ('CANCELLED', 'DELETED')) " +
             "AND po.pos_order_customer_id IS NOT NULL " +
             "AND po.pos_order_created_at BETWEEN :startDate AND :endDate", nativeQuery = true)
     Long getPosCustomerCount(@Param("startDate") LocalDateTime startDate,
                              @Param("endDate") LocalDateTime endDate);
 
     // =========================================
-    // 3. PHƯƠNG THỨC CHO TĂNG TRƯỞNG - CHỈ COMPLETED
+    // 3. PHƯƠNG THỨC CHO TĂNG TRƯỞNG
     // =========================================
 
     /**
@@ -105,25 +105,25 @@ public interface StatisticsRepository extends JpaRepository<Order, Long> {
                                     @Param("endDate") LocalDateTime endDate);
 
     /**
-     * Doanh thu POS cho tăng trưởng (chỉ COMPLETED)
+     * Doanh thu POS cho tăng trưởng
      */
-    @Query(value = "SELECT COALESCE(SUM(po.pos_order_total_amount), 0) FROM pos_orders po " +
-            "WHERE po.pos_order_status = 'COMPLETED' " +
+    @Query(value = "SELECT COALESCE(SUM(COALESCE(NULLIF(po.pos_order_total_amount, 0), NULLIF(po.pos_order_paid_amount, 0), NULLIF(po.pos_order_subtotal - COALESCE(po.pos_order_discount_amount, 0), 0), (SELECT COALESCE(SUM(poi.pos_order_item_total), 0) FROM pos_order_items poi WHERE poi.pos_order_item_order_id = po.pos_order_id), 0)), 0) FROM pos_orders po " +
+            "WHERE (po.pos_order_status IS NULL OR UPPER(po.pos_order_status) NOT IN ('CANCELLED', 'DELETED')) " +
             "AND po.pos_order_created_at BETWEEN :startDate AND :endDate", nativeQuery = true)
     BigDecimal getPosRevenueBetween(@Param("startDate") LocalDateTime startDate,
                                     @Param("endDate") LocalDateTime endDate);
 
     /**
-     * Số đơn hàng POS cho tăng trưởng (chỉ COMPLETED)
+     * Số đơn hàng POS cho tăng trưởng
      */
     @Query(value = "SELECT COUNT(po.pos_order_id) FROM pos_orders po " +
-            "WHERE po.pos_order_status = 'COMPLETED' " +
+            "WHERE (po.pos_order_status IS NULL OR UPPER(po.pos_order_status) NOT IN ('CANCELLED', 'DELETED')) " +
             "AND po.pos_order_created_at BETWEEN :startDate AND :endDate", nativeQuery = true)
     Long getPosOrderCountBetween(@Param("startDate") LocalDateTime startDate,
                                  @Param("endDate") LocalDateTime endDate);
 
     // =========================================
-    // 4. DOANH THU HÔM NAY - CHỈ COMPLETED
+    // 4. DOANH THU HÔM NAY
     // =========================================
 
     @Query(value = "SELECT COALESCE(SUM(o.order_total_amount), 0) FROM orders o " +
@@ -138,18 +138,18 @@ public interface StatisticsRepository extends JpaRepository<Order, Long> {
             "AND DATE(o.order_created_at) = CURRENT_DATE", nativeQuery = true)
     Long getTodayOnlineOrders();
 
-    @Query(value = "SELECT COALESCE(SUM(po.pos_order_total_amount), 0) FROM pos_orders po " +
-            "WHERE po.pos_order_status = 'COMPLETED' " +
+    @Query(value = "SELECT COALESCE(SUM(COALESCE(NULLIF(po.pos_order_total_amount, 0), NULLIF(po.pos_order_paid_amount, 0), NULLIF(po.pos_order_subtotal - COALESCE(po.pos_order_discount_amount, 0), 0), (SELECT COALESCE(SUM(poi.pos_order_item_total), 0) FROM pos_order_items poi WHERE poi.pos_order_item_order_id = po.pos_order_id), 0)), 0) FROM pos_orders po " +
+            "WHERE (po.pos_order_status IS NULL OR UPPER(po.pos_order_status) NOT IN ('CANCELLED', 'DELETED')) " +
             "AND DATE(po.pos_order_created_at) = CURRENT_DATE", nativeQuery = true)
     BigDecimal getTodayPosRevenue();
 
     @Query(value = "SELECT COUNT(po.pos_order_id) FROM pos_orders po " +
-            "WHERE po.pos_order_status = 'COMPLETED' " +
+            "WHERE (po.pos_order_status IS NULL OR UPPER(po.pos_order_status) NOT IN ('CANCELLED', 'DELETED')) " +
             "AND DATE(po.pos_order_created_at) = CURRENT_DATE", nativeQuery = true)
     Long getTodayPosOrders();
 
     // =========================================
-    // 5. DOANH THU THEO NGÀY - CHỈ COMPLETED
+    // 5. DOANH THU THEO NGÀY
     // =========================================
 
     @Query(value = "SELECT DATE(o.order_created_at) as date, " +
@@ -165,10 +165,10 @@ public interface StatisticsRepository extends JpaRepository<Order, Long> {
                                          @Param("endDate") LocalDateTime endDate);
 
     @Query(value = "SELECT DATE(po.pos_order_created_at) as date, " +
-            "COALESCE(SUM(po.pos_order_total_amount), 0) as revenue, " +
+            "COALESCE(SUM(COALESCE(NULLIF(po.pos_order_total_amount, 0), NULLIF(po.pos_order_paid_amount, 0), NULLIF(po.pos_order_subtotal - COALESCE(po.pos_order_discount_amount, 0), 0), (SELECT COALESCE(SUM(poi.pos_order_item_total), 0) FROM pos_order_items poi WHERE poi.pos_order_item_order_id = po.pos_order_id), 0)), 0) as revenue, " +
             "COUNT(po.pos_order_id) as orders " +
             "FROM pos_orders po " +
-            "WHERE po.pos_order_status = 'COMPLETED' " +
+            "WHERE (po.pos_order_status IS NULL OR UPPER(po.pos_order_status) NOT IN ('CANCELLED', 'DELETED')) " +
             "AND po.pos_order_created_at BETWEEN :startDate AND :endDate " +
             "GROUP BY DATE(po.pos_order_created_at) " +
             "ORDER BY DATE(po.pos_order_created_at) ASC", nativeQuery = true)
@@ -176,7 +176,7 @@ public interface StatisticsRepository extends JpaRepository<Order, Long> {
                                       @Param("endDate") LocalDateTime endDate);
 
     // =========================================
-    // 6. SẢN PHẨM BÁN CHẠY - CHỈ COMPLETED
+    // 6. SẢN PHẨM BẢN CHẠY
     // =========================================
 
     @Query(value = "SELECT " +
@@ -211,7 +211,7 @@ public interface StatisticsRepository extends JpaRepository<Order, Long> {
             "JOIN product_details pd ON pi.pos_order_item_product_detail_id = pd.product_detail_id " +
             "JOIN products p ON pd.product_detail_product_id = p.product_id " +
             "LEFT JOIN categories c ON p.product_category_id = c.category_id " +
-            "WHERE po.pos_order_status = 'COMPLETED' " +
+            "WHERE (po.pos_order_status IS NULL OR UPPER(po.pos_order_status) NOT IN ('CANCELLED', 'DELETED')) " +
             "AND po.pos_order_created_at BETWEEN :startDate AND :endDate " +
             "GROUP BY p.product_id, p.product_name, c.category_name " +
             "ORDER BY total_revenue DESC " +
@@ -221,28 +221,44 @@ public interface StatisticsRepository extends JpaRepository<Order, Long> {
                                             @Param("limit") int limit);
 
     // =========================================
-    // 7. NHÂN VIÊN XUẤT SẮC (POS) - CHỈ COMPLETED
+    // 7. NHÂN VIÊN XUẤT SẮC (POS & ONLINE)
     // =========================================
 
     @Query(value = "SELECT " +
-            "e.employee_id, " +
-            "e.employee_fullname, " +
+            "COALESCE(e.employee_id, e2.employee_id, ps.pos_session_employee_id, 1) as employee_id, " +
+            "COALESCE(NULLIF(NULLIF(e.employee_fullname, ''), 'Ko có tên'), NULLIF(NULLIF(e2.employee_fullname, ''), 'Ko có tên'), NULLIF(u.username, ''), CONCAT('Nhân viên #', COALESCE(e.employee_id, e2.employee_id, ps.pos_session_employee_id, 1))) as employee_name, " +
             "COUNT(DISTINCT po.pos_order_id) as total_orders, " +
-            "COALESCE(SUM(po.pos_order_total_amount), 0) as total_revenue " +
+            "COALESCE(SUM(COALESCE(NULLIF(po.pos_order_total_amount, 0), NULLIF(po.pos_order_paid_amount, 0), NULLIF(po.pos_order_subtotal - COALESCE(po.pos_order_discount_amount, 0), 0), 0)), 0) as total_revenue " +
             "FROM pos_orders po " +
-            "JOIN pos_sessions ps ON po.pos_order_session_id = ps.pos_session_id " +
-            "JOIN employees e ON ps.pos_session_employee_id = e.employee_id " +
-            "WHERE po.pos_order_status = 'COMPLETED' " +
-            "AND po.pos_order_created_at BETWEEN :startDate AND :endDate " +
-            "GROUP BY e.employee_id, e.employee_fullname " +
-            "ORDER BY total_revenue DESC " +
-            "LIMIT :limit", nativeQuery = true)
+            "LEFT JOIN pos_sessions ps ON po.pos_order_session_id = ps.pos_session_id " +
+            "LEFT JOIN employees e ON ps.pos_session_employee_id = e.employee_id " +
+            "LEFT JOIN employees e2 ON ps.pos_session_employee_id = e2.employee_user_id " +
+            "LEFT JOIN users u ON COALESCE(e.employee_user_id, e2.employee_user_id) = u.user_id " +
+            "WHERE (po.pos_order_status IS NULL OR UPPER(po.pos_order_status) NOT IN ('CANCELLED', 'DELETED')) " +
+            "AND (po.pos_order_created_at IS NULL OR po.pos_order_created_at BETWEEN :startDate AND :endDate) " +
+            "GROUP BY COALESCE(e.employee_id, e2.employee_id, ps.pos_session_employee_id, 1), COALESCE(NULLIF(NULLIF(e.employee_fullname, ''), 'Ko có tên'), NULLIF(NULLIF(e2.employee_fullname, ''), 'Ko có tên'), NULLIF(u.username, ''), CONCAT('Nhân viên #', COALESCE(e.employee_id, e2.employee_id, ps.pos_session_employee_id, 1))) " +
+            "ORDER BY total_revenue DESC", nativeQuery = true)
     List<Object[]> getTopPosStaff(@Param("startDate") LocalDateTime startDate,
-                                  @Param("endDate") LocalDateTime endDate,
-                                  @Param("limit") int limit);
+                                  @Param("endDate") LocalDateTime endDate);
+
+    @Query(value = "SELECT " +
+            "e.employee_id as employee_id, " +
+            "COALESCE(NULLIF(NULLIF(e.employee_fullname, ''), 'Ko có tên'), NULLIF(u.username, ''), 'Nhân viên') as employee_name, " +
+            "COUNT(DISTINCT o.order_id) as total_orders, " +
+            "COALESCE(SUM(COALESCE(o.order_total_amount, 0)), 0) as total_revenue " +
+            "FROM orders o " +
+            "JOIN users u ON (LOWER(o.order_processed_by_email) = LOWER(u.email) OR LOWER(o.order_processed_by) = LOWER(u.username) OR LOWER(o.order_processed_by) = LOWER(u.email)) " +
+            "JOIN employees e ON e.employee_user_id = u.user_id " +
+            "WHERE o.order_status = 'COMPLETED' " +
+            "AND o.order_deleted_at IS NULL " +
+            "AND (o.order_created_at IS NULL OR o.order_created_at BETWEEN :startDate AND :endDate) " +
+            "GROUP BY e.employee_id, COALESCE(NULLIF(NULLIF(e.employee_fullname, ''), 'Ko có tên'), NULLIF(u.username, ''), 'Nhân viên') " +
+            "ORDER BY total_revenue DESC", nativeQuery = true)
+    List<Object[]> getTopOnlineStaff(@Param("startDate") LocalDateTime startDate,
+                                    @Param("endDate") LocalDateTime endDate);
 
     // =========================================
-    // 8. TỔNG DOANH THU TÍCH LŨY (ALL TIME) - CHỈ COMPLETED
+    // 8. TỔNG DOANH THU TÍCH LŨY (ALL TIME)
     // =========================================
 
     /**
@@ -254,10 +270,10 @@ public interface StatisticsRepository extends JpaRepository<Order, Long> {
     BigDecimal getTotalOnlineRevenueAllTime();
 
     /**
-     * Tổng doanh thu POS từ trước đến nay (chỉ COMPLETED)
+     * Tổng doanh thu POS từ trước đến nay
      */
-    @Query(value = "SELECT COALESCE(SUM(po.pos_order_total_amount), 0) FROM pos_orders po " +
-            "WHERE po.pos_order_status = 'COMPLETED'", nativeQuery = true)
+    @Query(value = "SELECT COALESCE(SUM(COALESCE(NULLIF(po.pos_order_total_amount, 0), NULLIF(po.pos_order_paid_amount, 0), NULLIF(po.pos_order_subtotal - COALESCE(po.pos_order_discount_amount, 0), 0), (SELECT COALESCE(SUM(poi.pos_order_item_total), 0) FROM pos_order_items poi WHERE poi.pos_order_item_order_id = po.pos_order_id), 0)), 0) FROM pos_orders po " +
+            "WHERE (po.pos_order_status IS NULL OR UPPER(po.pos_order_status) NOT IN ('CANCELLED', 'DELETED'))", nativeQuery = true)
     BigDecimal getTotalPosRevenueAllTime();
 
     /**

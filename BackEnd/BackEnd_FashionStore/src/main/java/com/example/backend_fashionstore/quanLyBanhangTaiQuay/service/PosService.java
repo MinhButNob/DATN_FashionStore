@@ -782,30 +782,48 @@ public class PosService {
      */
     @Transactional
     protected PosSession getOrCreateActiveSession() {
-        // Bước 1: tìm session ACTIVE của nhân viên đang đăng nhập
+        // Bước 1: Tìm hoặc tự động tạo ca bán hàng ACTIVE cho chính nhân viên đang đăng nhập
         try {
             Integer employeeId = getCurrentEmployeeId();
-            PosSession mySession = posSessionRepository
-                    .findActiveSessionByEmployee(employeeId)
-                    .orElse(null);
-            if (mySession != null) return mySession;
-        } catch (Exception ignored) {
-            // Không lấy được employeeId — tiếp tục fallback
+            if (employeeId != null) {
+                PosSession mySession = posSessionRepository
+                        .findActiveSessionByEmployee(employeeId)
+                        .orElse(null);
+                if (mySession != null) return mySession;
+
+                // Nếu nhân viên chưa có ca, tự động tạo ca mới riêng cho nhân viên này
+                Integer cashRegisterId = cashRegisterRepository.findAll()
+                        .stream()
+                        .filter(cr -> !"DELETED".equals(cr.getCashRegisterStatus()))
+                        .findFirst()
+                        .map(CashRegister::getCashRegisterId)
+                        .orElse(1);
+
+                PosSession newSession = PosSession.builder()
+                        .posSessionCashRegisterId(cashRegisterId)
+                        .posSessionEmployeeId(employeeId)
+                        .posSessionStartTime(LocalDateTime.now())
+                        .posSessionStatus("ACTIVE")
+                        .posSessionStartBalance(BigDecimal.ZERO)
+                        .posSessionCashSales(BigDecimal.ZERO)
+                        .posSessionCardSales(BigDecimal.ZERO)
+                        .posSessionTransferSales(BigDecimal.ZERO)
+                        .build();
+
+                log.info("🛒 Auto-created POS session for employeeId: {}", employeeId);
+                return posSessionRepository.save(newSession);
+            }
+        } catch (Exception e) {
+            log.warn("⚠️ Cannot resolve current employeeId for POS session: {}", e.getMessage());
         }
 
-        // Bước 2: fallback — lấy bất kỳ session ACTIVE nào trong hệ thống
+        // Bước 2: Fallback — lấy ca ACTIVE đầu tiên nếu có
         List<PosSession> activeSessions = posSessionRepository.findAllActiveSessions();
         if (!activeSessions.isEmpty()) {
             return activeSessions.get(0);
         }
 
-        // Bước 3: không có session nào — tự động tạo session mặc định
-        Integer employeeId = null;
-        try {
-            employeeId = getCurrentEmployeeId();
-        } catch (Exception ignored) {}
-
-        // Lấy quầy đầu tiên còn hoạt động, nếu không có thì dùng ID=1
+        // Bước 3: Không có ca nào — tạo ca mặc định
         Integer cashRegisterId = cashRegisterRepository.findAll()
                 .stream()
                 .filter(cr -> !"DELETED".equals(cr.getCashRegisterStatus()))
@@ -815,7 +833,7 @@ public class PosService {
 
         PosSession defaultSession = PosSession.builder()
                 .posSessionCashRegisterId(cashRegisterId)
-                .posSessionEmployeeId(employeeId)
+                .posSessionEmployeeId(1)
                 .posSessionStartTime(LocalDateTime.now())
                 .posSessionStatus("ACTIVE")
                 .posSessionStartBalance(BigDecimal.ZERO)

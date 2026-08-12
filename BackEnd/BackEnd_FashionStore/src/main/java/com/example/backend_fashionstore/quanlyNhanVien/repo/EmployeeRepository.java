@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -111,4 +112,8 @@ public interface EmployeeRepository extends JpaRepository<Employee, Integer> {
            "AND (e.currentChatCount IS NULL OR e.currentChatCount < e.maxChatCount) " +
            "ORDER BY e.currentChatCount ASC, e.lastActiveAt ASC")
     Page<Employee> findAvailableStaffForChat(Pageable pageable);
+
+    // ✅ Lấy tất cả nhân viên chưa bị xóa dạng List (dùng cho Thống kê)
+    @Query("SELECT e FROM Employee e WHERE e.user.status <> 'DELETED'")
+    List<Employee> findAllActiveList();
 }

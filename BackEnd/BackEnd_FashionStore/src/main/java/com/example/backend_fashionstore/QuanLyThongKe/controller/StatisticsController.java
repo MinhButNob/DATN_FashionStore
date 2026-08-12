@@ -108,14 +108,14 @@ public class StatisticsController {
      */
     @GetMapping("/top-staff")
     public ResponseEntity<ApiResponse<List<StaffPerformanceDTO>>> getTopStaff(
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
             @RequestParam(defaultValue = "10") int limit
     ) {
         log.info("📊 Getting top {} staff from {} to {}", limit, fromDate, toDate);
         try {
-            LocalDateTime start = fromDate.atStartOfDay();
-            LocalDateTime end = toDate.atTime(23, 59, 59);
+            LocalDateTime start = fromDate != null ? fromDate.atStartOfDay() : LocalDate.of(2000, 1, 1).atStartOfDay();
+            LocalDateTime end = toDate != null ? toDate.atTime(23, 59, 59) : LocalDate.of(2099, 12, 31).atTime(23, 59, 59);
             List<StaffPerformanceDTO> data = statisticsService.getTopStaff(start, end, limit);
             return ResponseEntity.ok(ApiResponse.success(data));
         } catch (Exception e) {

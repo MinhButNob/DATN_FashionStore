@@ -10,164 +10,7 @@
       </div>
     </div>
 
-    <!-- ===== THỐNG KÊ NÂNG CAO ===== -->
-    <div class="stats-grid" v-if="statistics">
-      <!-- Cột 1: Tổng đơn hàng -->
-      <div class="stat-card">
-        <div class="stat-icon blue">
-          <i class="fas fa-shopping-bag"></i>
-        </div>
-        <div class="stat-info">
-          <span class="stat-number">{{ statistics.totalOrders || 0 }}</span>
-          <span class="stat-label">Tổng đơn hàng</span>
-        </div>
-      </div>
 
-      <!-- Cột 2: Chờ xử lý -->
-      <div class="stat-card">
-        <div class="stat-icon yellow">
-          <i class="fas fa-clock"></i>
-        </div>
-        <div class="stat-info">
-          <span class="stat-number">{{ statistics.pendingOrders || 0 }}</span>
-          <span class="stat-label">Chờ xử lý</span>
-        </div>
-      </div>
-
-      <!-- Cột 3: Hoàn thành -->
-      <div class="stat-card">
-        <div class="stat-icon green">
-          <i class="fas fa-check-circle"></i>
-        </div>
-        <div class="stat-info">
-          <span class="stat-number">{{ statistics.completedOrders || 0 }}</span>
-          <span class="stat-label">Hoàn thành</span>
-        </div>
-      </div>
-
-      <!-- ===== THỐNG KÊ DOANH THU ===== -->
-      <div class="stat-card stat-card-highlight">
-        <div class="stat-icon purple">
-          <i class="fas fa-chart-line"></i>
-        </div>
-        <div class="stat-info">
-          <span class="stat-number stat-revenue">{{ formatPrice(statistics.totalRevenue) }}</span>
-          <span class="stat-label">💰 Tổng doanh thu</span>
-        </div>
-      </div>
-
-      <div class="stat-card stat-card-highlight">
-        <div class="stat-icon teal">
-          <i class="fas fa-laptop"></i>
-        </div>
-        <div class="stat-info">
-          <span class="stat-number stat-revenue">{{ formatPrice(statistics.onlineRevenue) }}</span>
-          <span class="stat-label">🛒 Doanh thu online</span>
-        </div>
-      </div>
-
-      <div class="stat-card stat-card-highlight">
-        <div class="stat-icon orange">
-          <i class="fas fa-undo-alt"></i>
-        </div>
-        <div class="stat-info">
-          <span class="stat-number stat-return">{{ formatPrice(statistics.returnRefundAmount) }}</span>
-          <span class="stat-label">↩️ Tiền hoàn trả</span>
-        </div>
-      </div>
-
-      <div class="stat-card stat-card-highlight">
-        <div class="stat-icon success">
-          <i class="fas fa-hand-holding-usd"></i>
-        </div>
-        <div class="stat-info">
-          <span class="stat-number stat-net">{{ formatPrice(statistics.netRevenue) }}</span>
-          <span class="stat-label">📊 Doanh thu thực tế</span>
-        </div>
-      </div>
-
-      <!-- ===== THỐNG KÊ HOÀN HÀNG ===== -->
-      <div class="stat-card stat-card-return">
-        <div class="stat-icon return">
-          <i class="fas fa-clipboard-list"></i>
-        </div>
-        <div class="stat-info">
-          <span class="stat-number">{{ statistics.returnRequested || 0 }}</span>
-          <span class="stat-label">📋 Yêu cầu hoàn</span>
-        </div>
-      </div>
-
-      <div class="stat-card stat-card-return">
-        <div class="stat-icon return-approved">
-          <i class="fas fa-check-circle"></i>
-        </div>
-        <div class="stat-info">
-          <span class="stat-number">{{ statistics.returnApproved || 0 }}</span>
-          <span class="stat-label">✅ Đã duyệt</span>
-        </div>
-      </div>
-
-      <div class="stat-card stat-card-return">
-        <div class="stat-icon return-received">
-          <i class="fas fa-box"></i>
-        </div>
-        <div class="stat-info">
-          <span class="stat-number">{{ statistics.returnReceived || 0 }}</span>
-          <span class="stat-label">📦 Đã nhận hàng</span>
-        </div>
-      </div>
-
-      <div class="stat-card stat-card-return">
-        <div class="stat-icon return-completed">
-          <i class="fas fa-check-double"></i>
-        </div>
-        <div class="stat-info">
-          <span class="stat-number">{{ statistics.returnCompleted || 0 }}</span>
-          <span class="stat-label">✅ Hoàn thành</span>
-        </div>
-      </div>
-
-      <div class="stat-card stat-card-return">
-        <div class="stat-icon return-rejected">
-          <i class="fas fa-times-circle"></i>
-        </div>
-        <div class="stat-info">
-          <span class="stat-number">{{ statistics.returnRejected || 0 }}</span>
-          <span class="stat-label">❌ Từ chối</span>
-        </div>
-      </div>
-
-      <!-- ===== THỐNG KÊ ĐÃ HỦY ===== -->
-      <div class="stat-card stat-card-cancelled">
-        <div class="stat-icon cancelled">
-          <i class="fas fa-user-times"></i>
-        </div>
-        <div class="stat-info">
-          <span class="stat-number">{{ statistics.cancelledByCustomer || 0 }}</span>
-          <span class="stat-label">👤 Khách hủy</span>
-        </div>
-      </div>
-
-      <div class="stat-card stat-card-cancelled">
-        <div class="stat-icon cancelled-admin">
-          <i class="fas fa-user-shield"></i>
-        </div>
-        <div class="stat-info">
-          <span class="stat-number">{{ statistics.cancelledByAdmin || 0 }}</span>
-          <span class="stat-label">🛡️ Admin hủy</span>
-        </div>
-      </div>
-
-      <div class="stat-card stat-card-cancelled">
-        <div class="stat-icon cancelled-system">
-          <i class="fas fa-robot"></i>
-        </div>
-        <div class="stat-info">
-          <span class="stat-number">{{ statistics.cancelledBySystem || 0 }}</span>
-          <span class="stat-label">🤖 Hệ thống hủy</span>
-        </div>
-      </div>
-    </div>
 
     <!-- ===== MAIN TABS ===== -->
     <div class="main-tabs">
@@ -217,7 +60,7 @@
         <option value="all">Tất cả trạng thái</option>
         <!-- Đơn hàng -->
         <template v-if="activeMainTab === 'orders'">
-          <option value="PENDING_PAYMENT">Chờ thanh toán</option>
+          <option value="PENDING_PAYMENT">Chờ xác nhận</option>
           <option value="CONFIRMED">Đã xác nhận</option>
           <option value="PROCESSING">Đang xử lý</option>
           <option value="SHIPPING">Đang giao</option>
@@ -937,7 +780,7 @@ const activeSubTab = ref('all')
 const subTabsMap = {
   orders: [
     { value: 'all', label: 'Tất cả', icon: 'fas fa-list' },
-    { value: 'PENDING_PAYMENT', label: 'Chờ thanh toán', icon: 'fas fa-clock' },
+    { value: 'PENDING_PAYMENT', label: 'Chờ xác nhận', icon: 'fas fa-clock' },
     { value: 'CONFIRMED', label: 'Đã xác nhận', icon: 'fas fa-check' },
     { value: 'PROCESSING', label: 'Đang xử lý', icon: 'fas fa-spinner' },
     { value: 'SHIPPING', label: 'Đang giao', icon: 'fas fa-truck' },
@@ -1063,7 +906,7 @@ const getInvoiceFullAddress = (invoice) => {
 
 const getStatusText = (status) => {
   const map = {
-    'PENDING_PAYMENT': 'Chờ thanh toán',
+    'PENDING_PAYMENT': 'Chờ xác nhận',
     'CONFIRMED': 'Đã xác nhận',
     'PROCESSING': 'Đang xử lý',
     'SHIPPING': 'Đang giao',
@@ -1107,7 +950,7 @@ const getPaymentStatusText = (status) => {
     'PAID': 'Đã thanh toán',
     'UNPAID': 'Chưa thanh toán',
     'SUCCESS': 'Đã thanh toán',
-    'PENDING': 'Chờ thanh toán',
+    'PENDING': 'Chờ xác nhận',
     'FAILED': 'Thanh toán thất bại',
     'CANCELLED': 'Đã hủy thanh toán',
     'REFUNDED': 'Đã hoàn tiền'

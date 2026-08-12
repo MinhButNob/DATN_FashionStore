@@ -277,6 +277,10 @@ public class SaleStaffService {
 
         order.setOrderStatus(OrderStatus.CANCELLED);
         order.setUpdatedAt(LocalDateTime.now());
+        // ✅ Ghi nhận loại hủy để thống kê "Thống kê hủy đơn" đếm đúng (countCancelledByType LIKE %tag%)
+        String existingNotes = order.getNotes();
+        order.setNotes((existingNotes != null && !existingNotes.isBlank() ? existingNotes + " | " : "")
+                + "Admin hủy" + (reason != null && !reason.isBlank() ? ": " + reason : ""));
         orderRepository.save(order);
 
         OrderHistory history = new OrderHistory();

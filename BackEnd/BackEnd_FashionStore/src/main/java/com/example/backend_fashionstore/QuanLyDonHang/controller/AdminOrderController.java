@@ -88,6 +88,18 @@ public class AdminOrderController {
         return ResponseEntity.ok(adminOrderService.getOrderStatusCounts());
     }
 
+    // ===== 🆕 6b. DOANH THU THEO THỜI GIAN (cho biểu đồ) =====
+    // type=daily -> cần year & month (mặc định tháng/năm hiện tại)
+    // type=monthly -> cần year (mặc định năm hiện tại)
+    @GetMapping("/statistics/revenue-by-time")
+    public ResponseEntity<java.util.List<java.util.Map<String, Object>>> getRevenueByTime(
+            @RequestParam(defaultValue = "monthly") String type,
+            @RequestParam(required = false) Integer year,
+            @RequestParam(required = false) Integer month
+    ) {
+        return ResponseEntity.ok(adminOrderService.getRevenueByTime(type, year, month));
+    }
+
     // ================================================================
     // ===== 🆕 QUẢN LÝ HOÀN HÀNG =====
     // ================================================================

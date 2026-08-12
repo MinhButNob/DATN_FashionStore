@@ -396,6 +396,52 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         return counts;
     }
 
+    // ===== 🆕 DOANH THU THEO THỜI GIAN (dùng cho biểu đồ "Thống kê doanh thu theo thời gian") =====
+    @Override
+    public java.util.List<java.util.Map<String, Object>> getRevenueByTime(String type, Integer year, Integer month) {
+        int y = (year != null) ? year : LocalDateTime.now().getYear();
+        java.util.List<Object[]> rows;
+        java.util.List<java.util.Map<String, Object>> result = new java.util.ArrayList<>();
+
+        if ("daily".equalsIgnoreCase(type)) {
+            int m = (month != null) ? month : LocalDateTime.now().getMonthValue();
+            rows = orderRepository.getDailyRevenueByMonth(y, m);
+
+            // Map dữ liệu trả về theo ngày, index theo số ngày để FE dễ vẽ chart (không bị lệch nếu ngày nào ko có đơn)
+            java.util.Map<Integer, BigDecimal> revenueByDay = new java.util.HashMap<>();
+            for (Object[] row : rows) {
+                int day = ((Number) row[0]).intValue();
+                BigDecimal revenue = (BigDecimal) row[1];
+                revenueByDay.put(day, revenue);
+            }
+            int daysInMonth = java.time.YearMonth.of(y, m).lengthOfMonth();
+            for (int d = 1; d <= daysInMonth; d++) {
+                java.util.Map<String, Object> point = new java.util.LinkedHashMap<>();
+                point.put("label", "Ngày " + d);
+                point.put("revenue", revenueByDay.getOrDefault(d, BigDecimal.ZERO));
+                result.add(point);
+            }
+        } else {
+            // "monthly" (mặc định): doanh thu theo từng tháng trong năm
+            rows = orderRepository.getMonthlyRevenueByYear(y);
+
+            java.util.Map<Integer, BigDecimal> revenueByMonth = new java.util.HashMap<>();
+            for (Object[] row : rows) {
+                int m = ((Number) row[0]).intValue();
+                BigDecimal revenue = (BigDecimal) row[1];
+                revenueByMonth.put(m, revenue);
+            }
+            for (int m = 1; m <= 12; m++) {
+                java.util.Map<String, Object> point = new java.util.LinkedHashMap<>();
+                point.put("label", "Tháng " + m);
+                point.put("revenue", revenueByMonth.getOrDefault(m, BigDecimal.ZERO));
+                result.add(point);
+            }
+        }
+
+        return result;
+    }
+
     // ================================================================
     // ===== QUẢN LÝ HOÀN HÀNG =====
     // ================================================================
@@ -1020,6 +1066,10 @@ public class AdminOrderServiceImpl implements AdminOrderService {
 
         order.setOrderStatus(OrderStatus.CANCELLED);
         order.setUpdatedAt(LocalDateTime.now());
+        // ✅ Ghi nhận loại hủy để thống kê "Thống kê hủy đơn" đếm đúng (countCancelledByType LIKE %tag%)
+        String existingNotes = order.getNotes();
+        order.setNotes((existingNotes != null && !existingNotes.isBlank() ? existingNotes + " | " : "")
+                + "Admin hủy" + (reason != null && !reason.isBlank() ? ": " + reason : ""));
         orderRepository.save(order);
 
         OrderHistory history = new OrderHistory();

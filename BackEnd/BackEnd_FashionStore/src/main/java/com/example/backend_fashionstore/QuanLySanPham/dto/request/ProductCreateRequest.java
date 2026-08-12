@@ -13,10 +13,10 @@ import java.util.List;
 public class ProductCreateRequest {
 
     @NotBlank(message = "Tên sản phẩm không được để trống")
-    @Size(min = 5, max = 20, message = "Tên sản phẩm phải từ 5 đến 20 ký tự")
+    @Size(min = 5, max = 50, message = "Tên sản phẩm phải từ 5 đến 50 ký tự")
     private String productName;
 
-    @Size(max = 20, message = "Mô tả không được vượt quá 20 ký tự")
+    @Size(max = 100, message = "Mô tả không được vượt quá 100 ký tự")
     private String description;
 
     @NotNull(message = "Category ID không được để trống")
