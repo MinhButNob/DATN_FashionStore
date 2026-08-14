@@ -4,8 +4,10 @@ import axios from "axios";
 // API Documentation: https://provinces.open-api.vn/
 
 export const vietnamAddressApi = {
-  getProvinces: () => axios.get('https://provinces.open-api.vn/api/v2/p/'),
-
-  getWards: (provinceCode) =>
-    axios.get(`https://provinces.open-api.vn/api/v2/w/?province=${provinceCode}`),
+  // Giữ lại API cũ của dự án: provinces.open-api.vn/api
+  getProvinces: () => axios.get('https://provinces.open-api.vn/api/?depth=1'),
+  getDistricts: (provinceCode) =>
+    axios.get(`https://provinces.open-api.vn/api/p/${provinceCode}?depth=2`),
+  getWards: (districtCode) =>
+    axios.get(`https://provinces.open-api.vn/api/d/${districtCode}?depth=2`),
 };

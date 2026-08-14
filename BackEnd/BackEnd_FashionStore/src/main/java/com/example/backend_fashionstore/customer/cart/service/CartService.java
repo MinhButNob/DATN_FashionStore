@@ -34,7 +34,7 @@ public class CartService {
     private final ProductPromotionRepository productPromotionRepository;
     private final VoucherRepository voucherRepository;  // ✅ THÊM
 
-    private static final BigDecimal DEFAULT_SHIPPING_FEE = new BigDecimal("30000");
+    private static final BigDecimal SHIPPING_FEE_NOT_CALCULATED = BigDecimal.ZERO;
 
     @Transactional
     public CartResponseDTO getCart(Integer customerId) {
@@ -348,7 +348,7 @@ public class CartService {
                 cart.getVoucherDiscount() : BigDecimal.ZERO;
 
         // Tính tổng sau khi trừ voucher
-        BigDecimal total = subtotal.subtract(voucherDiscount).add(DEFAULT_SHIPPING_FEE);
+        BigDecimal total = subtotal.subtract(voucherDiscount).add(SHIPPING_FEE_NOT_CALCULATED);
         if (total.compareTo(BigDecimal.ZERO) < 0) total = BigDecimal.ZERO;
 
         return CartResponseDTO.builder()
@@ -360,7 +360,7 @@ public class CartService {
                 .subtotal(subtotal)
                 .totalQuantity(totalQuantity)
                 .voucherDiscount(voucherDiscount)
-                .shippingFee(DEFAULT_SHIPPING_FEE)
+                .shippingFee(SHIPPING_FEE_NOT_CALCULATED)
                 .total(total)
                 .voucherCode(cart.getVoucher() != null ? cart.getVoucher().getVoucherCode() : null)
                 .voucherId(cart.getVoucher() != null ? cart.getVoucher().getVoucherId() : null)  // ✅ THÊM
@@ -393,6 +393,7 @@ public class CartService {
                 .subtotal(item.getSubtotal())
                 .imageUrl(imageUrl)
                 .stock(item.getProductDetail().getQuantity())
+                .weight(item.getProductDetail().getProduct().getWeight())
                 .build();
     }
 }

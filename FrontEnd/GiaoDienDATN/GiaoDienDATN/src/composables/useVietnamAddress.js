@@ -3,10 +3,12 @@ import { vietnamAddressApi } from '../api/vietnamAddressApi';
 
 export function useVietnamAddress() {
   const provinces = ref([]);
+  const districts = ref([]);
   const wards = ref([]);
   
   const loadingProvinces = ref(false);
   const loadingWards = ref(false);
+  const loadingDistricts = ref(false);
 
   // Load danh sách tỉnh/thành phố
   const fetchProvinces = async () => {
@@ -22,21 +24,40 @@ export function useVietnamAddress() {
     }
   };
 
-  // Load danh sách phường/xã dựa trên provinceCode
-  const fetchWards = async (provinceCode) => {
-    if (!provinceCode) {
-      wards.value = [];
+  const fetchDistricts = async (provinceCode) => {
+    districts.value = [];
+    wards.value = [];
+    if (!provinceCode) return;
+    loadingDistricts.value = true;
+    try {
+      const response = await vietnamAddressApi.getDistricts(provinceCode);
+      districts.value = response.data?.districts || response.data || [];
+      console.log('[AddressLookup][Old API] Districts loaded:', {
+        provinceCode,
+        count: districts.value.length
+      });
+    } catch (error) {
+      console.error('[AddressLookup] Error fetching districts:', { provinceCode, error });
+    } finally {
+      loadingDistricts.value = false;
+    }
+  };
+
+  const fetchWards = async (districtCode) => {
+    wards.value = [];
+    if (!districtCode) {
       return;
     }
     loadingWards.value = true;
     try {
-      const response = await vietnamAddressApi.getWards(provinceCode);
-      // Data trả về từ api v2 có dạng mảng, hoặc object chứa mảng. 
-      // API documentation: return array trực tiếp hoặc response.data.wards (nếu có format khác)
-      // Dựa theo api v2 w/?province= thì nó trả về mảng trực tiếp.
+      const response = await vietnamAddressApi.getWards(districtCode);
       wards.value = response.data?.wards || response.data || [];
+      console.log('[AddressLookup][Old API] Wards loaded:', {
+        districtCode,
+        count: wards.value.length
+      });
     } catch (error) {
-      console.error('Error fetching wards:', error);
+      console.error('[AddressLookup] Error fetching wards:', { districtCode, error });
       wards.value = [];
     } finally {
       loadingWards.value = false;
@@ -45,10 +66,13 @@ export function useVietnamAddress() {
 
   return {
     provinces,
+    districts,
     wards,
     loadingProvinces,
+    loadingDistricts,
     loadingWards,
     fetchProvinces,
+    fetchDistricts,
     fetchWards
   };
 }

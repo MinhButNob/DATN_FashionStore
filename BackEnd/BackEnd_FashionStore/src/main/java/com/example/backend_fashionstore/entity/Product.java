@@ -29,6 +29,9 @@ public class Product {
     @Column(name = "product_description")
     private String description;
 
+    @Column(name = "product_weight")
+    private Double weight;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "product_category_id")
     private Category category;

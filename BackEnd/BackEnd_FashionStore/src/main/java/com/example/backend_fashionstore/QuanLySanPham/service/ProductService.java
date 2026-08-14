@@ -130,6 +130,7 @@ public class ProductService {
         Product product = Product.builder()
                 .productName(request.getProductName())
                 .description(request.getDescription())
+                .weight(request.getWeight())
                 .category(category)
                 .status(status)
                 .productDetails(new ArrayList<>())
@@ -191,6 +192,7 @@ public class ProductService {
 
         product.setProductName(request.getProductName());
         product.setDescription(request.getDescription());
+        product.setWeight(request.getWeight());
 
         if (request.getCategoryId() != null) {
             Category category = categoryRepository.findById(request.getCategoryId())
@@ -551,6 +553,7 @@ public class ProductService {
                 .productId(p.getProductId())
                 .productName(p.getProductName())
                 .description(p.getDescription())
+                .weight(p.getWeight())
                 .status(p.getStatus())
                 .totalStock(totalStock)
                 .mainImageUrl(mainImageUrl)

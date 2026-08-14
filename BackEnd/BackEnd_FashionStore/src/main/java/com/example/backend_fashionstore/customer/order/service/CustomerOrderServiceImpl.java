@@ -23,6 +23,8 @@ import com.example.backend_fashionstore.customer.order.repository.ReturnRequestR
 import com.example.backend_fashionstore.entity.*;
 import com.example.backend_fashionstore.enums.OrderStatus;
 import com.example.backend_fashionstore.enums.PaymentStatus;
+import com.example.backend_fashionstore.shipping.dto.ShippingCalculateRequest;
+import com.example.backend_fashionstore.shipping.service.ShippingServiceImpl;
 import com.example.backend_fashionstore.quanLyVoucher.repository.VoucherRepository;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -56,11 +58,11 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
     private final CartRepository cartRepository;
     private final CartItemRepository cartItemRepository;
     private final ReturnRequestRepository returnRequestRepository;
+    private final ShippingServiceImpl shippingService;
 
     private final ProvinceRepository provinceRepository;
     private final WardRepository wardRepository;
 
-    private static final BigDecimal DEFAULT_SHIPPING_FEE = new BigDecimal("30000");
     private static final long CANCEL_HOURS_LIMIT = 48;
     private static final long RETURN_HOURS_LIMIT = 48;
 
@@ -248,6 +250,9 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
             }
         }
 
+        BigDecimal shippingFee = calculateShippingFee(customerId, request, shippingAddressStr,
+                shippingCity, shippingDistrict, shippingWard, subtotal.subtract(discountAmount));
+
         // ===== TẠO ĐƠN HÀNG =====
         Order order = new Order();
         order.setCustomer(customer);
@@ -260,7 +265,7 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
         order.setOrderStatus(OrderStatus.PENDING_PAYMENT);
         order.setOrderSubtotalAmount(subtotal);
         order.setOrderDiscountAmount(discountAmount);
-        order.setOrderShippingFee(DEFAULT_SHIPPING_FEE);
+        order.setOrderShippingFee(shippingFee);
         order.setPaymentStatus(PaymentStatus.UNPAID);
         order.setNotes(request.getNotes() != null ? request.getNotes() : "");
         order.setCreatedAt(LocalDateTime.now());
@@ -268,11 +273,11 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
         order.setDeletedAt(null);
         order.setVoucher(appliedVoucher);
 
-        BigDecimal totalAmount = subtotal.subtract(discountAmount).add(DEFAULT_SHIPPING_FEE);
+        BigDecimal totalAmount = subtotal.subtract(discountAmount).add(shippingFee);
         order.setOrderTotalAmount(totalAmount);
 
         log.info("Order summary: subtotal={}, discount={}, shipping={}, total={}",
-                subtotal, discountAmount, DEFAULT_SHIPPING_FEE, totalAmount);
+                subtotal, discountAmount, shippingFee, totalAmount);
 
         Order savedOrder = orderRepository.save(order);
 
@@ -314,6 +319,26 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
         log.info("Order created successfully: {}", savedOrder.getOrderId());
 
         return convertToResponse(savedOrder);
+    }
+
+    private BigDecimal calculateShippingFee(Integer customerId, OrderRequestDTO request,
+                                            String address, String province, String district,
+                                            String ward, BigDecimal subtotal) {
+        ShippingCalculateRequest quoteRequest = ShippingCalculateRequest.builder()
+                .province(province).district(district).ward(ward).address(address)
+                .orderValue(subtotal)
+                .shippingFee(request.getShippingFee()).build();
+        try {
+            return shippingService.calculate(customerId, quoteRequest).getShippingFee();
+        } catch (Exception ex) {
+            if (request.getShippingFee() != null && request.getShippingFee().compareTo(BigDecimal.ZERO) >= 0) {
+                log.warn("GHTK unavailable while creating order; using checkout quote {}. reason={}",
+                        request.getShippingFee(), ex.getMessage());
+                return request.getShippingFee();
+            }
+            log.error("Cannot calculate shipping fee from GHTK", ex);
+            throw new RuntimeException("Không thể tính phí vận chuyển. Vui lòng thử lại.", ex);
+        }
     }
 
     // ============================================

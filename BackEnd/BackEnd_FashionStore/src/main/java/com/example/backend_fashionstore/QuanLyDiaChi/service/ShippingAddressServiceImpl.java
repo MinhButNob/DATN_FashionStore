@@ -55,6 +55,7 @@ public class ShippingAddressServiceImpl implements ShippingAddressService {
 
     @Override
     public ShippingAddressResponseDTO createAddress(Integer customerId, ShippingAddressRequestDTO request) {
+        requireStandardAddress(request);
         log.info("➕ Creating address for customer: {}", customerId);
 
         Customer customer = customerRepository.findById(customerId)
@@ -88,6 +89,14 @@ public class ShippingAddressServiceImpl implements ShippingAddressService {
                 .province(province)
                 .ward(ward)
                 .streetAddress(request.getStreetAddress())
+                .addressDetail(request.getAddressDetail() != null ? request.getAddressDetail() : request.getStreetAddress())
+                .provinceCode(request.getProvinceCode())
+                .provinceName(request.getProvinceName())
+                .districtCode(request.getDistrictCode())
+                .districtName(request.getDistrictName())
+                .wardCode(request.getWardCode())
+                .wardName(request.getWardName())
+                .needsUpdate(isMissingStandardAddress(request))
                 .isDefault(isDefault)
                 .status("ACTIVE")
                 .build();
@@ -109,6 +118,7 @@ public class ShippingAddressServiceImpl implements ShippingAddressService {
 
     @Override
     public ShippingAddressResponseDTO updateAddress(Long addressId, Integer customerId, ShippingAddressRequestDTO request) {
+        requireStandardAddress(request);
         log.info("✏️ Updating address: {} for customer: {}", addressId, customerId);
 
         ShippingAddress address = shippingAddressRepository.findById(addressId)
@@ -129,6 +139,14 @@ public class ShippingAddressServiceImpl implements ShippingAddressService {
         // ✅ LẤY PROVINCE VÀ WARD (Không query DB)
         address.setProvince(null);
         address.setWard(null);
+        address.setProvinceCode(request.getProvinceCode());
+        address.setProvinceName(request.getProvinceName());
+        address.setDistrictCode(request.getDistrictCode());
+        address.setDistrictName(request.getDistrictName());
+        address.setWardCode(request.getWardCode());
+        address.setWardName(request.getWardName());
+        address.setAddressDetail(request.getAddressDetail() != null ? request.getAddressDetail() : request.getStreetAddress());
+        address.setNeedsUpdate(isMissingStandardAddress(request));
         address.setShippingAddressCity(request.getProvinceName() != null ? request.getProvinceName() : "");
         address.setShippingAddressDistrict(request.getDistrictName() != null ? request.getDistrictName() : "");
         address.setShippingAddressWard(request.getWardName() != null ? request.getWardName() : "");
@@ -239,31 +257,56 @@ public class ShippingAddressServiceImpl implements ShippingAddressService {
 
     // ===== CONVERT METHOD =====
     private ShippingAddressResponseDTO convertToResponse(ShippingAddress address) {
-        String provinceName = address.getProvince() != null ?
-                address.getProvince().getProvinceName() :
-                address.getShippingAddressCity();
+        String provinceName = firstNonBlank(address.getProvinceName(), address.getProvince() != null ?
+                address.getProvince().getProvinceName() : null, address.getShippingAddressCity());
 
-        String wardName = address.getWard() != null ?
-                address.getWard().getWardName() :
-                address.getShippingAddressWard();
+        String wardName = firstNonBlank(address.getWardName(), address.getWard() != null ?
+                address.getWard().getWardName() : null, address.getShippingAddressWard());
 
-        String districtName = address.getWard() != null ?
-                address.getWard().getDistrictName() :
-                address.getShippingAddressDistrict();
+        String districtName = firstNonBlank(address.getDistrictName(), address.getWard() != null ?
+                address.getWard().getDistrictName() : null, address.getShippingAddressDistrict());
 
         return ShippingAddressResponseDTO.builder()
                 .addressId(address.getShippingAddressId())
                 .provinceId(address.getProvince() != null ? address.getProvince().getProvinceId() : null)
+                .provinceCode(address.getProvinceCode())
                 .provinceName(provinceName)
+                .districtCode(address.getDistrictCode())
                 .wardId(address.getWard() != null ? address.getWard().getWardId() : null)
                 .wardName(wardName)
                 .districtName(districtName)  // ✅ THÊM districtName
+                .wardCode(address.getWardCode())
                 .streetAddress(address.getStreetAddress())
+                .addressDetail(address.getAddressDetail() != null ? address.getAddressDetail() : address.getStreetAddress())
+                .needsUpdate(address.getNeedsUpdate() == null || address.getNeedsUpdate())
                 .fullAddress(address.getFullAddress())
                 .fullName(address.getShippingAddressFullName())
                 .phone(address.getShippingAddressPhone())
                 .isDefault(address.getIsDefault())
                 .status(address.getStatus())
                 .build();
+    }
+
+    private String firstNonBlank(String... values) {
+        for (String value : values) {
+            if (value != null && !value.isBlank()) return value;
+        }
+        return "";
+    }
+
+    private boolean isMissingStandardAddress(ShippingAddressRequestDTO request) {
+        return isBlank(request.getProvinceCode()) || isBlank(request.getProvinceName())
+                || isBlank(request.getDistrictCode()) || isBlank(request.getDistrictName())
+                || isBlank(request.getWardCode()) || isBlank(request.getWardName());
+    }
+
+    private void requireStandardAddress(ShippingAddressRequestDTO request) {
+        if (request == null || isMissingStandardAddress(request)) {
+            throw new IllegalArgumentException("Địa chỉ phải được chọn từ Open API đầy đủ tỉnh, quận và phường");
+        }
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 }

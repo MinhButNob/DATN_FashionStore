@@ -14,6 +14,7 @@ public class ProductResponse {
     private Integer productId;
     private String productName;
     private String description;
+    private Double weight;
     private String status;
     private Integer totalStock;
     private LocalDateTime createdAt;

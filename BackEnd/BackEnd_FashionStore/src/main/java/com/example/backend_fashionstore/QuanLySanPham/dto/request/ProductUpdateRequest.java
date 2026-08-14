@@ -9,6 +9,7 @@ import java.util.List;
 @AllArgsConstructor
 public class ProductUpdateRequest {
     private String productName, description, brand, gender;
+    private Double weight;
     private Integer categoryId;
     private Boolean isActive;
     private Integer promotionId; // ✅ THÊM promotionId ở cấp sản phẩm

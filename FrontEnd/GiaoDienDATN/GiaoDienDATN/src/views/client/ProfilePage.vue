@@ -380,8 +380,18 @@
             </div>
 
             <div class="form-group">
+              <label>Quận/Huyện <span class="required">*</span></label>
+              <select v-model="addressForm.districtId" required :disabled="!addressForm.provinceId" @change="onDistrictChange">
+                <option :value="null">-- Chọn quận/huyện --</option>
+                <option v-for="district in districts" :key="district.code" :value="district.code">
+                  {{ district.name }}
+                </option>
+              </select>
+            </div>
+
+            <div class="form-group">
               <label>Phường/Xã <span class="required">*</span></label>
-              <select v-model="addressForm.wardId" required :disabled="!addressForm.provinceId">
+              <select v-model="addressForm.wardId" required :disabled="!addressForm.districtId">
                 <option :value="null">-- Chọn phường/xã --</option>
                 <option v-for="ward in wards" :key="ward.code" :value="ward.code">
                   {{ ward.name }}
@@ -720,9 +730,9 @@ const isEditingAddress = ref(false);
 const addressSaving = ref(false);
 const editingAddressId = ref(null);
 const addressTabsRef = ref(null);
-const { 
-  provinces, wards, 
-  fetchProvinces, fetchWards 
+const {
+  provinces, districts, wards,
+  fetchProvinces, fetchDistricts, fetchWards
 } = useVietnamAddress();
 
 // ===== ADDRESS TAB STATE =====
@@ -734,6 +744,7 @@ const addressForm = reactive({
   fullName: '',
   phone: '',
   provinceId: null,
+  districtId: null,
   wardId: null,
   streetAddress: '',
   isDefault: false
@@ -932,12 +943,19 @@ const showNotificationMsg = (message, type = 'success') => {
 // ===== ADDRESS FUNCTIONS =====
 
 const onProvinceChange = async () => {
+  addressForm.districtId = null;
   addressForm.wardId = null;
   if (addressForm.provinceId) {
-    await fetchWards(addressForm.provinceId);
+    await fetchDistricts(addressForm.provinceId);
   } else {
     wards.value = [];
+    districts.value = [];
   }
+};
+
+const onDistrictChange = async () => {
+  addressForm.wardId = null;
+  await fetchWards(addressForm.districtId);
 };
 
 const fetchAddresses = async () => {
@@ -967,10 +985,12 @@ const openAddAddress = async () => {
   addressForm.fullName = profile.fullName || '';
   addressForm.phone = profile.phone || '';
   addressForm.provinceId = null;
+  addressForm.districtId = null;
   addressForm.wardId = null;
   addressForm.streetAddress = '';
   addressForm.isDefault = addresses.value.length === 0;
   wards.value = [];
+  districts.value = [];
   if (provinces.value.length === 0) {
     await fetchProvinces();
   }
@@ -982,8 +1002,9 @@ const openEditAddress = async (addr) => {
   editingAddressId.value = addr.addressId;
   addressForm.fullName = addr.fullName || '';
   addressForm.phone = addr.phone || '';
-  addressForm.provinceId = addr.provinceId || null;
-  addressForm.wardId = addr.wardId || null;
+  addressForm.provinceId = addr.provinceCode || addr.provinceId || null;
+  addressForm.districtId = addr.districtCode || null;
+  addressForm.wardId = addr.wardCode || addr.wardId || null;
   addressForm.streetAddress = addr.streetAddress || '';
   addressForm.isDefault = addr.isDefault || false;
 
@@ -992,7 +1013,10 @@ const openEditAddress = async (addr) => {
   }
   
   if (addressForm.provinceId) {
-    await fetchWards(addressForm.provinceId);
+    await fetchDistricts(addressForm.provinceId);
+  }
+  if (addressForm.districtId) {
+    await fetchWards(addressForm.districtId);
   }
   showAddressModal.value = true;
 };
@@ -1019,6 +1043,10 @@ const saveAddress = async () => {
     showNotificationMsg('Vui lòng chọn phường/xã', 'error');
     return;
   }
+  if (!addressForm.districtId) {
+    showNotificationMsg('Vui lòng chọn quận/huyện', 'error');
+    return;
+  }
   if (!addressForm.streetAddress || addressForm.streetAddress.trim() === '') {
     showNotificationMsg('Vui lòng nhập địa chỉ cụ thể', 'error');
     return;
@@ -1029,6 +1057,7 @@ const saveAddress = async () => {
   try {
     const token = localStorage.getItem('token');
     const province = provinces.value.find(p => p.code === addressForm.provinceId);
+    const district = districts.value.find(d => d.code === addressForm.districtId);
     const ward = wards.value.find(w => w.code === addressForm.wardId);
 
     const payload = {
@@ -1036,10 +1065,14 @@ const saveAddress = async () => {
       phone: addressForm.phone.trim(),
       provinceId: addressForm.provinceId,
       wardId: addressForm.wardId,
-      districtName: '',
+      provinceCode: province?.code || '',
       provinceName: province?.name || '',
+      districtCode: district?.code || '',
+      districtName: district?.name || '',
+      wardCode: ward?.code || '',
       wardName: ward?.name || '',
       streetAddress: addressForm.streetAddress.trim(),
+      addressDetail: addressForm.streetAddress.trim(),
       isDefault: addressForm.isDefault
     };
 
