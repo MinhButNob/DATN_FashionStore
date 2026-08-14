@@ -84,7 +84,7 @@
      <table class="data-table">
        <thead>
          <tr>
-           <th>ID</th>
+           <th>STT</th>
            <th>Tên sản phẩm</th>
            <th>Danh mục</th>
            <th>Biến thể & Tồn kho</th>

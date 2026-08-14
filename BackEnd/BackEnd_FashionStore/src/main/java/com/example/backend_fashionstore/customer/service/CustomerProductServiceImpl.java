@@ -68,15 +68,15 @@ public class CustomerProductServiceImpl implements CustomerProductService {
         Product product = customerProductRepository.findProductDetailById(productId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy sản phẩm"));
 
-        // ✅ Lấy promotion của sản phẩm (áp dụng chung cho tất cả variants)
-        Promotion productPromotion = getPromotionForProduct(product);
-
-        // ✅ Lấy tất cả variants và tính discountedPrice
+        // ✅ Lấy tất cả variants, mỗi variant tự tính discountedPrice theo KM RIÊNG của nó
         List<ProductDetail> activeVariants = customerProductRepository.findActiveVariantsByProductId(productId);
 
         List<VariantCustomerResponse> variants = activeVariants.stream()
-                .map(variant -> convertToVariantResponse(variant, productPromotion))
+                .map(this::convertToVariantResponse)
                 .collect(Collectors.toList());
+
+        // ✅ Chỉ hiển thị banner "KM chung" nếu TẤT CẢ biến thể đang active cùng chung 1 khuyến mãi
+        Promotion productPromotion = getUniformPromotionForVariants(activeVariants);
 
         // Lấy ảnh từ variant đầu tiên
         List<ImageCustomerResponse> images = Collections.emptyList();
@@ -149,34 +149,65 @@ public class CustomerProductServiceImpl implements CustomerProductService {
                 .build();
     }
 
-    // ✅ Lấy promotion cho sản phẩm
-    private Promotion getPromotionForProduct(Product product) {
-        if (product.getProductDetails() == null) return null;
+    // ✅ Chỉ trả về 1 promotion nếu TẤT CẢ biến thể (còn active) đang dùng CHUNG đúng 1 khuyến mãi đó
+    // Dùng để hiển thị banner "Giảm X% cho tất cả biến thể" - không được suy diễn từ 1 variant bất kỳ.
+    private Promotion getUniformPromotionForVariants(List<ProductDetail> activeVariants) {
+        if (activeVariants == null || activeVariants.isEmpty()) return null;
 
-        for (ProductDetail detail : product.getProductDetails()) {
-            if (detail.getDeletedAt() == null && detail.getProductDetailId() != null) {
-                List<ProductPromotion> promotions = productPromotionRepository.findByProductDetailId(detail.getProductDetailId());
-                if (!promotions.isEmpty()) {
-                    Promotion promo = promotions.get(0).getPromotion();
-                    // Kiểm tra promotion còn hiệu lực
-                    if (promo != null && promo.getPromotionDeletedAt() == null &&
-                            "ACTIVE".equals(promo.getPromotionStatus())) {
-                        return promo;
-                    }
-                }
+        Promotion common = null;
+        for (ProductDetail detail : activeVariants) {
+            Promotion effective = getSingleActivePromotion(detail.getProductDetailId());
+            if (effective == null) return null; // có biến thể không có KM -> không đồng nhất
+            if (common == null) {
+                common = effective;
+            } else if (!common.getPromotionId().equals(effective.getPromotionId())) {
+                return null; // các biến thể dùng KM khác nhau -> không đồng nhất
+            }
+        }
+        return common;
+    }
+
+    // ✅ Lấy khuyến mãi (còn hiệu lực) đang gán cho 1 biến thể cụ thể
+    private Promotion getSingleActivePromotion(Integer productDetailId) {
+        if (productDetailId == null) return null;
+        List<ProductPromotion> promotions = productPromotionRepository.findByProductDetailId(productDetailId);
+        for (ProductPromotion pp : promotions) {
+            Promotion promo = pp.getPromotion();
+            if (promo != null && promo.getPromotionDeletedAt() == null &&
+                    "ACTIVE".equals(promo.getPromotionStatus())) {
+                return promo;
             }
         }
         return null;
     }
 
-    // ✅ Tính giá sau khuyến mãi
-    private BigDecimal calculateDiscountedPrice(BigDecimal originalPrice, Promotion promotion) {
-        if (promotion == null || originalPrice == null) return originalPrice;
-        BigDecimal discountPercent = promotion.getPromotionDiscountPercent();
-        if (discountPercent == null || discountPercent.compareTo(BigDecimal.ZERO) == 0) return originalPrice;
+    // ✅ Tính giá sau khuyến mãi theo ĐÚNG khuyến mãi riêng của từng biến thể
+    // (đồng bộ với logic bên admin - QuanLySanPham.ProductService#calculateVariantDiscountedPrice)
+    private BigDecimal calculateDiscountedPrice(ProductDetail detail) {
+        if (detail == null || detail.getPrice() == null) return detail != null ? detail.getPrice() : BigDecimal.ZERO;
 
-        BigDecimal discount = originalPrice.multiply(discountPercent.divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP));
-        return originalPrice.subtract(discount).setScale(0, RoundingMode.HALF_UP);
+        List<ProductPromotion> promotions = productPromotionRepository
+                .findByProductDetailId(detail.getProductDetailId());
+        if (promotions == null || promotions.isEmpty()) return detail.getPrice();
+
+        int totalDiscountPercent = 0;
+        for (ProductPromotion pp : promotions) {
+            Promotion promo = pp.getPromotion();
+            if (promo != null && promo.getPromotionDeletedAt() == null &&
+                    "ACTIVE".equals(promo.getPromotionStatus()) &&
+                    promo.getPromotionDiscountPercent() != null) {
+                totalDiscountPercent += promo.getPromotionDiscountPercent().intValue();
+            }
+        }
+
+        if (totalDiscountPercent <= 0) return detail.getPrice();
+        if (totalDiscountPercent > 100) totalDiscountPercent = 100;
+
+        BigDecimal discount = detail.getPrice()
+                .multiply(BigDecimal.valueOf(totalDiscountPercent))
+                .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+
+        return detail.getPrice().subtract(discount).setScale(0, RoundingMode.HALF_UP);
     }
 
     @Override
@@ -257,9 +288,6 @@ public class CustomerProductServiceImpl implements CustomerProductService {
     }
 
     private ProductCardResponse convertToCardResponse(Product product) {
-        // ✅ Lấy promotion của sản phẩm
-        Promotion productPromotion = getPromotionForProduct(product);
-
         List<ProductDetail> variants = customerProductRepository.findActiveVariantsByProductId(product.getProductId());
 
         BigDecimal minPrice = BigDecimal.ZERO;
@@ -268,22 +296,15 @@ public class CustomerProductServiceImpl implements CustomerProductService {
         String mainImageUrl = null;
 
         if (variants != null && !variants.isEmpty()) {
-            // Tính giá gốc min/max
-            BigDecimal originalMinPrice = variants.stream()
-                    .map(ProductDetail::getPrice)
+            // ✅ Tính giá sau khuyến mãi theo TỪNG biến thể rồi mới lấy min/max
+            // (không dùng chung 1 promotion cho cả sản phẩm - mỗi biến thể có thể có KM khác nhau)
+            List<BigDecimal> discountedPrices = variants.stream()
+                    .map(this::calculateDiscountedPrice)
                     .filter(price -> price != null && price.compareTo(BigDecimal.ZERO) > 0)
-                    .min(BigDecimal::compareTo)
-                    .orElse(BigDecimal.ZERO);
+                    .collect(Collectors.toList());
 
-            BigDecimal originalMaxPrice = variants.stream()
-                    .map(ProductDetail::getPrice)
-                    .filter(price -> price != null && price.compareTo(BigDecimal.ZERO) > 0)
-                    .max(BigDecimal::compareTo)
-                    .orElse(BigDecimal.ZERO);
-
-            // ✅ Tính giá sau khuyến mãi
-            minPrice = calculateDiscountedPrice(originalMinPrice, productPromotion);
-            maxPrice = calculateDiscountedPrice(originalMaxPrice, productPromotion);
+            minPrice = discountedPrices.stream().min(BigDecimal::compareTo).orElse(BigDecimal.ZERO);
+            maxPrice = discountedPrices.stream().max(BigDecimal::compareTo).orElse(BigDecimal.ZERO);
 
             totalStock = variants.stream()
                     .mapToInt(pd -> pd.getQuantity() != null ? pd.getQuantity() : 0)
@@ -361,7 +382,7 @@ public class CustomerProductServiceImpl implements CustomerProductService {
                 .categoryId(product.getCategory() != null ? product.getCategory().getCategoryId() : null)
                 .variants(variants != null
                         ? variants.stream()
-                        .map(v -> convertToVariantResponse(v, productPromotion))
+                        .map(this::convertToVariantResponse)
                         .collect(Collectors.toList())
                         : Collections.emptyList())
                 .soldCount(soldCount != null ? soldCount : 0)
@@ -370,9 +391,9 @@ public class CustomerProductServiceImpl implements CustomerProductService {
                 .build();
     }
 
-    // ✅ Sửa: Thêm discountedPrice và promotionId
-    private VariantCustomerResponse convertToVariantResponse(ProductDetail detail, Promotion promotion) {
-        BigDecimal discountedPrice = calculateDiscountedPrice(detail.getPrice(), promotion);
+    // ✅ Mỗi biến thể tự tính giá sau KM theo đúng khuyến mãi riêng của nó
+    private VariantCustomerResponse convertToVariantResponse(ProductDetail detail) {
+        BigDecimal discountedPrice = calculateDiscountedPrice(detail);
 
         return VariantCustomerResponse.builder()
                 .productDetailId(detail.getProductDetailId())

@@ -3,6 +3,8 @@ package com.example.backend_fashionstore.QuanLyThongKe.service;
 
 import com.example.backend_fashionstore.QuanLyThongKe.dto.*;
 import com.example.backend_fashionstore.QuanLyThongKe.repository.StatisticsRepository;
+import com.example.backend_fashionstore.quanlyNhanVien.repo.EmployeeRepository;
+import com.example.backend_fashionstore.entity.Employee;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -24,6 +26,7 @@ import java.util.stream.Collectors;
 public class StatisticsService {
 
     private final StatisticsRepository statisticsRepository;
+    private final EmployeeRepository employeeRepository;
 
     private static final int TOP_PRODUCT_LIMIT = 10;
     private static final int TOP_STAFF_LIMIT = 10;
@@ -362,38 +365,117 @@ public class StatisticsService {
     }
 
     /**
-     * Lấy nhân viên xuất sắc (từ POS)
+     * Lấy nhân viên xuất sắc (tổng hợp từ danh sách Nhân viên, POS và Online)
      */
     public List<StaffPerformanceDTO> getTopStaff(LocalDateTime startDate, LocalDateTime endDate, int limit) {
         log.info("📊 Getting top {} staff from {} to {}", limit, startDate, endDate);
 
-        List<StaffPerformanceDTO> result = new ArrayList<>();
+        Map<Integer, StaffPerformanceDTO> staffMap = new HashMap<>();
 
         try {
-            List<Object[]> staffData = statisticsRepository.getTopPosStaff(startDate, endDate, limit);
+            // 1. Lấy danh sách tất cả nhân viên đang hoạt động trong hệ thống
+            if (employeeRepository != null) {
+                List<Employee> activeEmployees = employeeRepository.findAllActiveList();
+                if (activeEmployees != null) {
+                    for (Employee emp : activeEmployees) {
+                        String name = emp.getEmployeeFullname();
+                        if (name == null || name.isBlank() || "Ko có tên".equalsIgnoreCase(name.trim())) {
+                            if (emp.getUser() != null) {
+                                name = emp.getUser().getUsername() != null ? emp.getUser().getUsername() : emp.getUser().getEmail();
+                            }
+                        }
+                        if (name == null || name.isBlank() || "Ko có tên".equalsIgnoreCase(name.trim())) {
+                            name = "Nhân viên #" + emp.getEmployeeId();
+                        }
+                        String position = emp.getEmployeePosition() != null && !emp.getEmployeePosition().isBlank()
+                                ? emp.getEmployeePosition() : "Nhân viên bán hàng";
 
-            if (staffData != null) {
-                for (Object[] row : staffData) {
-                    if (row != null && row.length >= 4) {
-                        Integer staffId = ((Number) row[0]).intValue();
-                        String staffName = row[1] != null ? (String) row[1] : "Unknown";
-                        Long totalOrders = ((Number) row[2]).longValue();
-                        BigDecimal totalRevenue = row[3] != null ? (BigDecimal) row[3] : BigDecimal.ZERO;
-
-                        BigDecimal avgOrderValue = totalOrders > 0
-                                ? totalRevenue.divide(BigDecimal.valueOf(totalOrders), 2, RoundingMode.HALF_UP)
-                                : BigDecimal.ZERO;
-
-                        result.add(StaffPerformanceDTO.builder()
-                                .staffId(staffId)
-                                .staffName(staffName)
-                                .staffRole("Nhân viên bán hàng")
-                                .totalOrders(totalOrders)
-                                .totalRevenue(totalRevenue)
-                                .averageOrderValue(avgOrderValue)
+                        staffMap.put(emp.getEmployeeId(), StaffPerformanceDTO.builder()
+                                .staffId(emp.getEmployeeId())
+                                .staffName(name)
+                                .staffRole(position)
+                                .totalOrders(0L)
+                                .totalRevenue(BigDecimal.ZERO)
+                                .averageOrderValue(BigDecimal.ZERO)
                                 .totalCustomers(0L)
                                 .build());
                     }
+                }
+            }
+
+            // 2. Lấy doanh số POS theo nhân viên
+            try {
+                List<Object[]> posStaffData = statisticsRepository.getTopPosStaff(startDate, endDate);
+                log.info("📊 POS staff data rows retrieved: {}", posStaffData != null ? posStaffData.size() : 0);
+                if (posStaffData != null) {
+                    for (Object[] row : posStaffData) {
+                        if (row != null && row.length >= 4) {
+                            Integer staffId = ((Number) row[0]).intValue();
+                            String staffName = row[1] != null ? (String) row[1] : "Nhân viên #" + staffId;
+                            Long orders = ((Number) row[2]).longValue();
+                            BigDecimal revenue = row[3] != null ? (BigDecimal) row[3] : BigDecimal.ZERO;
+
+                            StaffPerformanceDTO dto = staffMap.get(staffId);
+                            if (dto == null) {
+                                dto = StaffPerformanceDTO.builder()
+                                        .staffId(staffId)
+                                        .staffName(staffName)
+                                        .staffRole("Nhân viên bán hàng")
+                                        .totalOrders(0L)
+                                        .totalRevenue(BigDecimal.ZERO)
+                                        .averageOrderValue(BigDecimal.ZERO)
+                                        .totalCustomers(0L)
+                                        .build();
+                                staffMap.put(staffId, dto);
+                            }
+                            dto.setTotalOrders(dto.getTotalOrders() + orders);
+                            dto.setTotalRevenue(dto.getTotalRevenue().add(revenue));
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                log.error("❌ Error fetching POS staff statistics: {}", e.getMessage(), e);
+            }
+
+            // 3. Lấy doanh số Online/Admin order được xử lý bởi nhân viên
+            try {
+                List<Object[]> onlineStaffData = statisticsRepository.getTopOnlineStaff(startDate, endDate);
+                log.info("📊 Online staff data rows retrieved: {}", onlineStaffData != null ? onlineStaffData.size() : 0);
+                if (onlineStaffData != null) {
+                    for (Object[] row : onlineStaffData) {
+                        if (row != null && row.length >= 4) {
+                            Integer staffId = ((Number) row[0]).intValue();
+                            String staffName = row[1] != null ? (String) row[1] : "Nhân viên #" + staffId;
+                            Long orders = ((Number) row[2]).longValue();
+                            BigDecimal revenue = row[3] != null ? (BigDecimal) row[3] : BigDecimal.ZERO;
+
+                            StaffPerformanceDTO dto = staffMap.get(staffId);
+                            if (dto == null) {
+                                dto = StaffPerformanceDTO.builder()
+                                        .staffId(staffId)
+                                        .staffName(staffName)
+                                        .staffRole("Nhân viên bán hàng")
+                                        .totalOrders(0L)
+                                        .totalRevenue(BigDecimal.ZERO)
+                                        .averageOrderValue(BigDecimal.ZERO)
+                                        .totalCustomers(0L)
+                                        .build();
+                                staffMap.put(staffId, dto);
+                            }
+                            dto.setTotalOrders(dto.getTotalOrders() + orders);
+                            dto.setTotalRevenue(dto.getTotalRevenue().add(revenue));
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                log.error("❌ Error fetching Online staff statistics: {}", e.getMessage(), e);
+            }
+
+            // 4. Tính toán giá trị đơn trung bình cho tất cả nhân viên
+            for (StaffPerformanceDTO dto : staffMap.values()) {
+                if (dto.getTotalOrders() > 0 && dto.getTotalRevenue().compareTo(BigDecimal.ZERO) > 0) {
+                    BigDecimal avg = dto.getTotalRevenue().divide(BigDecimal.valueOf(dto.getTotalOrders()), 2, RoundingMode.HALF_UP);
+                    dto.setAverageOrderValue(avg);
                 }
             }
 
@@ -401,7 +483,17 @@ public class StatisticsService {
             log.error("❌ Error getting top staff: {}", e.getMessage(), e);
         }
 
-        return result;
+        // 5. Sắp xếp theo doanh thu giảm dần, số đơn giảm dần, tên tăng dần
+        return staffMap.values().stream()
+                .sorted((a, b) -> {
+                    int revCompare = b.getTotalRevenue().compareTo(a.getTotalRevenue());
+                    if (revCompare != 0) return revCompare;
+                    int orderCompare = Long.compare(b.getTotalOrders(), a.getTotalOrders());
+                    if (orderCompare != 0) return orderCompare;
+                    return a.getStaffName().compareToIgnoreCase(b.getStaffName());
+                })
+                .limit(limit)
+                .collect(Collectors.toList());
     }
 
     /**

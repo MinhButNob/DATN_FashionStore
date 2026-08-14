@@ -295,8 +295,17 @@ export default {
     }
   },
   mounted() {
+    if (this.$route.query.search) {
+      this.searchKeyword = this.$route.query.search;
+    }
     this.loadData(0)
     this.loadStatistics()
+  },
+  watch: {
+    '$route.query.search'(newVal) {
+      this.searchKeyword = newVal || '';
+      this.loadData(0);
+    }
   },
   methods: {
     getInitials(name) {

@@ -292,6 +292,10 @@ public class SaleStaffService {
 
         order.setOrderStatus(OrderStatus.CANCELLED);
         order.setUpdatedAt(LocalDateTime.now());
+        // ✅ Ghi nhận loại hủy để thống kê "Thống kê hủy đơn" đếm đúng (countCancelledByType LIKE %tag%)
+        String existingNotes = order.getNotes();
+        order.setNotes((existingNotes != null && !existingNotes.isBlank() ? existingNotes + " | " : "")
+                + "Admin hủy" + (reason != null && !reason.isBlank() ? ": " + reason : ""));
         orderRepository.save(order);
 
         OrderHistory history = new OrderHistory();
@@ -442,8 +446,16 @@ public class SaleStaffService {
                 .findFirstByOrderIdAndDeletedAtIsNull(orderId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy yêu cầu hoàn hàng"));
 
-        if (!"PENDING".equals(returnRequest.getStatus())) {
-            throw new RuntimeException("Yêu cầu hoàn hàng đã được xử lý trước đó");
+        if ("REJECTED".equals(status)) {
+            if ("COMPLETED".equals(returnRequest.getStatus()) || "REJECTED".equals(returnRequest.getStatus())) {
+                throw new RuntimeException("Yêu cầu hoàn hàng đã kết thúc, không thể từ chối");
+            }
+        } else if ("APPROVED".equals(status)) {
+            if (!"PENDING".equals(returnRequest.getStatus())) {
+                throw new RuntimeException("Yêu cầu hoàn hàng đã được xử lý trước đó");
+            }
+        } else {
+            throw new RuntimeException("Trạng thái không hợp lệ. Chỉ chấp nhận APPROVED hoặc REJECTED");
         }
 
         returnRequest.setStatus(status);

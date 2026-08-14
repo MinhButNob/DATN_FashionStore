@@ -387,6 +387,10 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
 
         order.setOrderStatus(OrderStatus.CANCELLED);
         order.setUpdatedAt(LocalDateTime.now());
+        // ✅ Ghi nhận loại hủy để thống kê "Thống kê hủy đơn" đếm đúng (countCancelledByType LIKE %tag%)
+        String existingNotes = order.getNotes();
+        order.setNotes((existingNotes != null && !existingNotes.isBlank() ? existingNotes + " | " : "")
+                + "Khách hàng hủy");
         orderRepository.save(order);
 
         if (isStockDeducted(currentStatus)) {
@@ -783,7 +787,7 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
             String city = order.getShippingCity() != null ? order.getShippingCity() : "";
             String district = order.getShippingDistrict() != null ? order.getShippingDistrict() : "";
             String ward = order.getShippingWard() != null ? order.getShippingWard() : "";
-            
+
             shippingDTO = ShippingAddressDTO.builder()
                     .addressId(null)
                     .fullName(order.getCustomer() != null ? order.getCustomer().getCustomerName() : "")

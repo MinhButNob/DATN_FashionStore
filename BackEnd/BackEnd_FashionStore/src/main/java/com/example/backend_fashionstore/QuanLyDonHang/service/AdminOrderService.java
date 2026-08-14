@@ -21,6 +21,11 @@ public interface AdminOrderService {
     OrderStatisticsDTO getStatistics();
     Map<String, Long> getOrderStatusCounts();
 
+    // ===== 🆕 DOANH THU THEO THỜI GIAN (dùng cho biểu đồ) =====
+    // type = "daily": doanh thu theo từng ngày trong 1 tháng (cần year, month)
+    // type = "monthly": doanh thu theo từng tháng trong 1 năm (chỉ cần year)
+    java.util.List<java.util.Map<String, Object>> getRevenueByTime(String type, Integer year, Integer month);
+
     // ===== 🆕 ADMIN HỦY ĐƠN HÀNG =====
     AdminOrderResponseDTO adminCancelOrder(Long orderId, String reason);
 

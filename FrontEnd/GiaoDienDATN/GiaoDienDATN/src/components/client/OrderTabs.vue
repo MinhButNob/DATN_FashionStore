@@ -66,7 +66,7 @@ const mainTabs = [
 const subTabsMap = {
   orders: [
     { value: 'all', label: 'Tất cả', icon: 'fas fa-list' },
-    { value: 'PENDING_PAYMENT', label: 'Chờ thanh toán', icon: 'fas fa-clock' },
+    { value: 'PENDING_PAYMENT', label: 'Chờ xác nhận', icon: 'fas fa-clock' },
     { value: 'PROCESSING', label: 'Đang xử lý', icon: 'fas fa-spinner' },
     { value: 'SHIPPING', label: 'Đang giao', icon: 'fas fa-truck' },
     { value: 'DELIVERED', label: 'Đã giao', icon: 'fas fa-box' },

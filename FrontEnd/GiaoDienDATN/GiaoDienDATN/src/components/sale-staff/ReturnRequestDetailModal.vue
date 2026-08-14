@@ -79,9 +79,13 @@
                   <textarea v-model="adminNote" rows="2" placeholder="Nhập ghi chú khi nhận hàng trả..." class="form-control"></textarea>
                 </div>
                 <div class="button-group">
-                  <button class="btn btn-primary" @click="receiveReturn" :disabled="receiving">
+                  <button class="btn btn-primary" @click="receiveReturn" :disabled="receiving || processing">
                     <i v-if="receiving" class="fas fa-spinner fa-spin"></i>
                     {{ receiving ? 'Đang xử lý...' : 'Đã nhận hàng trả' }}
+                  </button>
+                  <button class="btn btn-danger" @click="processReturn('REJECTED')" :disabled="receiving || processing">
+                    <i v-if="processing" class="fas fa-spinner fa-spin"></i>
+                    {{ processing ? 'Đang xử lý...' : 'Từ chối' }}
                   </button>
                 </div>
               </div>

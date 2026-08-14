@@ -52,7 +52,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import DashboardService from '@/services/DashboardService'
 import DashboardKPIs from '@/components/admin/dashboard/DashboardKPIs.vue'
 import DashboardRevenueByDay from '@/components/admin/dashboard/DashboardRevenueByDay.vue'
@@ -62,11 +62,159 @@ import DashboardTopProducts from '@/components/admin/dashboard/DashboardTopProdu
 import DashboardRecentOrders from '@/components/admin/dashboard/DashboardRecentOrders.vue'
 import DashboardInventoryAlerts from '@/components/admin/dashboard/DashboardInventoryAlerts.vue'
 
+const IMAGE_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080'
+
+// ===== MAIN STATE =====
 const isRefreshing = ref(false)
 const summaryData = ref({})
 const topProductsData = ref([])
 const recentOrdersData = ref([])
 
+// ===== STATE (Dự phòng / mở rộng) =====
+const loading = ref(false)
+const loadingProduct = ref(false)
+const loadingCustomer = ref(false)
+const loadingOrder = ref(false)
+const loadingRevenue = ref(false)
+const lastUpdated = ref(null)
+
+// ===== STATS DATA =====
+const productStats = ref(null)
+const customerStats = ref(null)
+const orderStats = ref(null)
+const orderStatusCounts = ref({})
+const monthlyRevenueData = ref([])
+const topProducts = ref([])
+const recentOrders = ref([])
+
+// ===== FILTERS =====
+const selectedYear = ref(new Date().getFullYear())
+const availableYears = computed(() => {
+  const current = new Date().getFullYear()
+  return Array.from({ length: 5 }, (_, i) => current - i)
+})
+
+// ===== MODAL STATE =====
+const showDetailModal = ref(false)
+const selectedOrder = ref(null)
+
+// ===== TOAST =====
+const showToast = ref(false)
+const toastMessage = ref('')
+const toastType = ref('success')
+let toastTimer = null
+
+// ===== HELPERS =====
+const formatPrice = (price) => {
+  if (!price && price !== 0) return '0₫'
+  const num = Number(price)
+  if (isNaN(num)) return '0₫'
+  return num.toLocaleString('vi-VN') + '₫'
+}
+
+const formatDate = (dateString) => {
+  if (!dateString) return '---'
+  const date = new Date(dateString)
+  if (isNaN(date.getTime())) return '---'
+  return date.toLocaleDateString('vi-VN') + ' ' +
+    date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+}
+
+const getImageUrl = (imagePath) => {
+  if (!imagePath) return ''
+  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+    return imagePath
+  }
+  const cleanPath = imagePath.startsWith('/') ? imagePath : '/' + imagePath
+  return IMAGE_BASE + cleanPath
+}
+
+const getFullAddress = (shippingAddress) => {
+  if (!shippingAddress) return '---'
+  const parts = []
+  if (shippingAddress.addressLine) parts.push(shippingAddress.addressLine)
+  if (shippingAddress.ward) parts.push(shippingAddress.ward)
+  if (shippingAddress.district) parts.push(shippingAddress.district)
+  if (shippingAddress.city) parts.push(shippingAddress.city)
+  return parts.length > 0 ? parts.join(', ') : '---'
+}
+
+const getStatusText = (status) => {
+  const map = {
+    'PENDING_PAYMENT': 'Chờ xác nhận',
+    'CONFIRMED': 'Đã xác nhận',
+    'PROCESSING': 'Đang xử lý',
+    'SHIPPING': 'Đang giao',
+    'DELIVERED': 'Đã giao',
+    'COMPLETED': 'Hoàn thành',
+    'CANCELLED': 'Đã hủy',
+    'RETURN_REQUESTED': 'Yêu cầu hoàn hàng',
+    'RETURN_APPROVED': 'Đã duyệt hoàn hàng',
+    'RETURN_RECEIVED': 'Đã nhận hàng trả',
+    'RETURN_PENDING': 'Đang thu hồi hàng',
+    'RETURNED': 'Đã hoàn hàng',
+    'REJECTED': 'Từ chối hoàn trả'
+  }
+  return map[status] || status
+}
+
+const getStatusClass = (status) => {
+  const map = {
+    'PENDING_PAYMENT': 'status-pending',
+    'CONFIRMED': 'status-confirmed',
+    'PROCESSING': 'status-processing',
+    'SHIPPING': 'status-shipping',
+    'DELIVERED': 'status-delivered',
+    'COMPLETED': 'status-completed',
+    'CANCELLED': 'status-cancelled',
+    'RETURN_REQUESTED': 'status-return-requested',
+    'RETURN_APPROVED': 'status-return-approved',
+    'RETURN_RECEIVED': 'status-return-received',
+    'RETURN_PENDING': 'status-return-pending',
+    'RETURNED': 'status-returned',
+    'REJECTED': 'status-rejected'
+  }
+  return map[status] || ''
+}
+
+const getPaymentStatusText = (status) => {
+  const map = {
+    'PAID': 'Đã thanh toán',
+    'UNPAID': 'Chưa thanh toán'
+  }
+  return map[status] || status
+}
+
+const getPaymentClass = (status) => {
+  const map = {
+    'PAID': 'payment-paid',
+    'UNPAID': 'payment-unpaid'
+  }
+  return map[status] || ''
+}
+
+const getStatusPercent = (status) => {
+  const total = orderStats.value?.totalOrders || 1
+  const count = orderStatusCounts.value[status] || 0
+  return Math.round((count / total) * 100)
+}
+
+const getCustomerPercent = (count) => {
+  const total = customerStats.value?.totalCustomers || 1
+  return Math.round((count / total) * 100)
+}
+
+const showNotification = (message, type = 'success') => {
+  if (toastTimer) clearTimeout(toastTimer)
+  toastMessage.value = message
+  toastType.value = type
+  showToast.value = true
+  toastTimer = setTimeout(() => {
+    showToast.value = false
+  }, 3000)
+}
+
+// ===== API CALLS =====
 const fetchDashboardData = async () => {
   try {
     isRefreshing.value = true
@@ -76,7 +224,7 @@ const fetchDashboardData = async () => {
     // Map DTO to summary object expected by DashboardKPIs
     summaryData.value = {
       todayRevenue: data.orderStatistics?.todayRevenue || 0,
-      todayOrders: data.orderStatistics?.totalOrders || 0, // DTO doesn't have todayOrders specifically, use total for now or backend could add it
+      todayOrders: data.orderStatistics?.totalOrders || 0,
       pendingOrders: data.orderStatistics?.pendingOrders || 0,
       shippingOrders: data.orderStatistics?.shippingOrders || 0,
       completedOrders: data.orderStatistics?.completedOrders || 0,

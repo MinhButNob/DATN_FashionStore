@@ -107,7 +107,7 @@
         <option value="all">Tất cả trạng thái</option>
         <!-- Đơn hàng -->
         <template v-if="activeMainTab === 'orders'">
-          <option value="PENDING_PAYMENT">Chờ thanh toán</option>
+          <option value="PENDING_PAYMENT">Chờ xác nhận</option>
           <option value="CONFIRMED">Đã xác nhận</option>
           <option value="PROCESSING">Đang xử lý</option>
           <option value="SHIPPING">Đang giao</option>
@@ -721,9 +721,13 @@
                     <textarea v-model="adminNote" rows="2" placeholder="Nhập ghi chú khi nhận hàng trả..." class="form-control"></textarea>
                   </div>
                   <div class="button-group">
-                    <button class="btn btn-primary" @click="receiveReturnedItems" :disabled="receivingReturn">
+                    <button class="btn btn-primary" @click="receiveReturnedItems" :disabled="receivingReturn || processingReturn">
                       <i v-if="receivingReturn" class="fas fa-spinner fa-spin"></i>
                       {{ receivingReturn ? 'Đang xử lý...' : '📦 Đã nhận hàng trả' }}
+                    </button>
+                    <button class="btn btn-danger" @click="processReturn('REJECTED')" :disabled="receivingReturn || processingReturn">
+                      <i v-if="processingReturn" class="fas fa-spinner fa-spin"></i>
+                      {{ processingReturn ? 'Đang xử lý...' : '❌ Từ chối' }}
                     </button>
                   </div>
                 </div>
@@ -737,9 +741,13 @@
                     <textarea v-model="adminNote" rows="2" placeholder="Nhập ghi chú hoàn tất hoàn hàng..." class="form-control"></textarea>
                   </div>
                   <div class="button-group">
-                    <button class="btn btn-success" @click="completeReturn" :disabled="completingReturn">
+                    <button class="btn btn-success" @click="completeReturn" :disabled="completingReturn || processingReturn">
                       <i v-if="completingReturn" class="fas fa-spinner fa-spin"></i>
                       {{ completingReturn ? 'Đang xử lý...' : '✅ Hoàn tất hoàn hàng' }}
+                    </button>
+                    <button class="btn btn-danger" @click="processReturn('REJECTED')" :disabled="completingReturn || processingReturn">
+                      <i v-if="processingReturn" class="fas fa-spinner fa-spin"></i>
+                      {{ processingReturn ? 'Đang xử lý...' : '❌ Từ chối hoàn hàng' }}
                     </button>
                   </div>
                 </div>
@@ -858,7 +866,7 @@ const activeSubTab = ref('all')
 const subTabsMap = {
   orders: [
     { value: 'all', label: 'Tất cả', icon: 'fas fa-list' },
-    { value: 'PENDING_PAYMENT', label: 'Chờ thanh toán', icon: 'fas fa-clock' },
+    { value: 'PENDING_PAYMENT', label: 'Chờ xác nhận', icon: 'fas fa-clock' },
     { value: 'CONFIRMED', label: 'Đã xác nhận', icon: 'fas fa-check' },
     { value: 'PROCESSING', label: 'Đang xử lý', icon: 'fas fa-spinner' },
     { value: 'SHIPPING', label: 'Đang giao', icon: 'fas fa-truck' },

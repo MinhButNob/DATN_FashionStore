@@ -197,7 +197,7 @@ const availableStatuses = computed(() => {
 
 const getStatusText = (status) => {
   const map = {
-    'PENDING_PAYMENT': 'Chờ thanh toán',
+    'PENDING_PAYMENT': 'Chờ xác nhận',
     'CONFIRMED': 'Đã xác nhận',
     'PROCESSING': 'Đang xử lý',
     'SHIPPING': 'Đang giao hàng',

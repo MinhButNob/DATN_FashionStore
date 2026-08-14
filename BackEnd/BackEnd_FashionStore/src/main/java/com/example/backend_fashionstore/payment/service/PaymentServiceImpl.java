@@ -72,7 +72,7 @@ public class PaymentServiceImpl implements PaymentService {
                     return paymentMethodRepository.save(newMethod);
                 });
         payment.setPaymentMethod(paymentMethod);
-        
+
         paymentRepository.save(payment);
 
         long amount = paymentAmount.longValue() * 100;
@@ -103,7 +103,7 @@ public class PaymentServiceImpl implements PaymentService {
         Collections.sort(fieldNames);
         StringBuilder hashData = new StringBuilder();
         StringBuilder query = new StringBuilder();
-        
+
         Iterator<String> itr = fieldNames.iterator();
         while (itr.hasNext()) {
             String fieldName = itr.next();
@@ -114,12 +114,12 @@ public class PaymentServiceImpl implements PaymentService {
                     hashData.append(fieldName);
                     hashData.append('=');
                     hashData.append(URLEncoder.encode(fieldValue, StandardCharsets.UTF_8.toString()));
-                    
+
                     // Build query
                     query.append(URLEncoder.encode(fieldName, StandardCharsets.UTF_8.toString()));
                     query.append('=');
                     query.append(URLEncoder.encode(fieldValue, StandardCharsets.UTF_8.toString()));
-                    
+
                     if (itr.hasNext()) {
                         query.append('&');
                         hashData.append('&');
@@ -129,13 +129,13 @@ public class PaymentServiceImpl implements PaymentService {
                 }
             }
         }
-        
+
         String queryUrl = query.toString();
         String secretKey = vnPayConfig.getSecretKey().trim();
         String vnp_SecureHash = VNPayConfig.hmacSHA512(secretKey, hashData.toString());
         queryUrl += "&vnp_SecureHash=" + vnp_SecureHash;
         String paymentUrl = vnPayConfig.getVnp_PayUrl().trim() + "?" + queryUrl;
-        
+
         System.out.println("=== VNPAY PAYMENT GENERATION ===");
         System.out.println("hashData: " + hashData.toString());
         System.out.println("queryString: " + query.toString());
@@ -170,7 +170,7 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         String signValue = hashAllFields(fields);
-        
+
         String txnRef = request.getParameter("vnp_TxnRef");
         String responseCode = request.getParameter("vnp_ResponseCode");
         String transactionNo = request.getParameter("vnp_TransactionNo");
@@ -193,7 +193,7 @@ public class PaymentServiceImpl implements PaymentService {
                     order.setOrderStatus(OrderStatus.CONFIRMED); // Update order status on success
                     order.setPaymentStatus(PaymentStatus.SUCCESS);
                     orderRepository.save(order);
-                    
+
                     // Clear cart upon successful payment
                     try {
                         Integer customerId = order.getCustomer().getCustomerId();
@@ -217,7 +217,7 @@ public class PaymentServiceImpl implements PaymentService {
             payment.setPaymentStatus(PaymentStatus.FAILED);
             cancelOrderOnPaymentFail(payment.getOrder());
         }
-        
+
         paymentRepository.save(payment);
 
         // Save Payment Transaction Details
@@ -236,7 +236,7 @@ public class PaymentServiceImpl implements PaymentService {
         paymentTransaction.setStatus(payment.getPaymentStatus() == PaymentStatus.SUCCESS ? "COMPLETED" : "FAILED");
         paymentTransactionRepository.save(paymentTransaction);
     }
-    
+
     private void cancelOrderOnPaymentFail(Order order) {
         if (order == null || order.getOrderStatus() != OrderStatus.PENDING_PAYMENT) {
             return;
@@ -244,6 +244,10 @@ public class PaymentServiceImpl implements PaymentService {
         order.setOrderStatus(OrderStatus.CANCELLED);
         order.setPaymentStatus(PaymentStatus.FAILED);
         order.setUpdatedAt(java.time.LocalDateTime.now());
+        // ✅ Ghi nhận loại hủy để thống kê "Thống kê hủy đơn" đếm đúng (countCancelledByType LIKE %tag%)
+        String existingNotes = order.getNotes();
+        order.setNotes((existingNotes != null && !existingNotes.isBlank() ? existingNotes + " | " : "")
+                + "Hệ thống hủy");
         // Soft delete the order so it acts as "not placed" for the user
         order.setDeletedAt(java.time.LocalDateTime.now());
         orderRepository.save(order);
