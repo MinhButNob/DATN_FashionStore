@@ -407,41 +407,39 @@ const fetchAvailableVouchers = async () => {
   voucherError.value = ''
   
   try {
-    const token = localStorage.getItem('token')
+    const token = localStorage.getItem('accessToken') || localStorage.getItem('token')
     if (!token) {
       availableVouchers.value = []
       return
     }
 
-    const response = await api.get(`/vouchers/available`, {
+    const response = await api.get(`/vouchers/available/by-order-value`, {
       params: {
-        orderValue: cartStore.subtotal || 0
+        orderValue: Math.round(Number(cartStore.subtotal || 0))
       }
     })
 
     console.log('📦 Voucher API response:', response.data)
 
     // ✅ Lấy data từ ApiResponse
-    let vouchersData = []
-    if (response.data && response.data.data) {
-      vouchersData = response.data.data
-    } else if (Array.isArray(response.data)) {
-      vouchersData = response.data
-    }
+    // axios interceptor may return either the ApiResponse or its data payload.
+    const payload = response?.data ?? response
+    const vouchersData = Array.isArray(payload) ? payload : (payload?.data || [])
 
     // ✅ Lọc voucher hợp lệ
     const now = new Date()
     availableVouchers.value = vouchersData.filter(v => {
       // Kiểm tra status
-      if (v.voucherStatus !== 'ACTIVE') return false
+      if (String(v.voucherStatus || '').toUpperCase() !== 'ACTIVE') return false
       
       // Kiểm tra thời gian
-      const startDate = new Date(v.voucherStartDate)
-      const endDate = new Date(v.voucherEndDate)
-      if (now < startDate || now > endDate) return false
+      const startDate = v.voucherStartDate ? new Date(v.voucherStartDate) : null
+      const endDate = v.voucherEndDate ? new Date(v.voucherEndDate) : null
+      if ((startDate && !Number.isNaN(startDate.getTime()) && now < startDate) ||
+          (endDate && !Number.isNaN(endDate.getTime()) && now > endDate)) return false
       
       // Kiểm tra số lần sử dụng
-      if (v.voucherMaxUsage !== null && v.voucherUsedCount >= v.voucherMaxUsage) return false
+      if (v.voucherMaxUsage != null && Number(v.voucherUsedCount || 0) >= Number(v.voucherMaxUsage)) return false
       
       return true
     })

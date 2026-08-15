@@ -14,9 +14,11 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
+import java.math.BigDecimal;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import com.example.backend_fashionstore.QuanLyDonHang.repository.OrderDetailRepository;
 
 @Service
 @RequiredArgsConstructor
@@ -26,6 +28,7 @@ public class ReturnInspectionServiceImpl implements ReturnInspectionService {
     private final ProductDetailRepository productDetailRepository;
     private final OrderHistoryRepository orderHistoryRepository;
     private final ObjectMapper objectMapper;
+    private final OrderDetailRepository orderDetailRepository;
 
     @Override
     @Transactional
@@ -46,6 +49,7 @@ public class ReturnInspectionServiceImpl implements ReturnInspectionService {
 
         List<Integer> ids = parseIds(rr.getProductDetailIds());
         Map<Integer, Integer> quantities = parseQuantities(rr.getQuantities());
+        BigDecimal refundForRequest = BigDecimal.ZERO;
         if (ids.size() != new HashSet<>(ids).size()) {
             throw new IllegalArgumentException("Danh sách sản phẩm hoàn bị trùng");
         }
@@ -74,6 +78,12 @@ public class ReturnInspectionServiceImpl implements ReturnInspectionService {
                 pd.setQuantity((pd.getQuantity() == null ? 0 : pd.getQuantity()) + quantity);
                 productDetailRepository.save(pd);
             }
+            OrderDetail detail = orderDetailRepository.findByOrder_OrderId(order.getOrderId()).stream()
+                    .filter(d -> d.getProductDetail().getProductDetailId().equals(id)).findFirst().orElse(null);
+            if (detail != null) {
+                BigDecimal unitPaid = detail.getFinalAmount().divide(BigDecimal.valueOf(detail.getQuantity()), 2, java.math.RoundingMode.HALF_UP);
+                refundForRequest = refundForRequest.add(unitPaid.multiply(BigDecimal.valueOf(quantity)));
+            }
             String image = pd.getProductImages() != null && !pd.getProductImages().isEmpty()
                     ? pd.getProductImages().get(0).getProductImagePath() : null;
             ReturnInspectionResponseDTO.ReturnInspectionResultItem stored =
@@ -99,7 +109,18 @@ public class ReturnInspectionServiceImpl implements ReturnInspectionService {
         rr.setUpdatedAt(now);
         returnRequestRepository.save(rr);
 
-        order.setOrderStatus(OrderStatus.RETURNED);
+        orderDetailRepository.findByOrder_OrderId(order.getOrderId()).forEach(detail -> {
+            if (ids.contains(detail.getProductDetail().getProductDetailId())) {
+                detail.setStatus(OrderItemStatus.RETURNED);
+                orderDetailRepository.save(detail);
+            }
+        });
+        List<OrderDetail> allDetails = orderDetailRepository.findByOrder_OrderId(order.getOrderId());
+        boolean allReturned = allDetails.stream().allMatch(d -> d.getStatus() == OrderItemStatus.RETURNED);
+        boolean anyReturned = allDetails.stream().anyMatch(d -> d.getStatus() == OrderItemStatus.RETURNED);
+        order.setOrderStatus(allReturned ? OrderStatus.RETURNED :
+                (anyReturned ? OrderStatus.PARTIALLY_RETURNED : OrderStatus.COMPLETED));
+        order.setRefundAmount((order.getRefundAmount() == null ? BigDecimal.ZERO : order.getRefundAmount()).add(refundForRequest));
         order.setUpdatedAt(now);
         orderRepository.save(order);
         OrderHistory history = new OrderHistory();

@@ -154,6 +154,7 @@ public class CartService {
         }
 
         cartItem.setQuantity(quantity);
+        cartItem.setDiscountedPrice(getDiscountedPrice(cartItem.getProductDetail()));
         cartItem.calculateSubtotal();
         cartItemRepository.save(cartItem);
 
@@ -231,7 +232,8 @@ public class CartService {
             throw new RuntimeException("Voucher đã hết hạn hoặc chưa đến thời gian sử dụng");
         }
 
-        if (voucher.getVoucherUsedCount() >= voucher.getVoucherMaxUsage()) {
+        if (voucher.getVoucherMaxUsage() != null &&
+                voucher.getVoucherUsedCount() >= voucher.getVoucherMaxUsage()) {
             throw new RuntimeException("Voucher đã được sử dụng hết số lần");
         }
 

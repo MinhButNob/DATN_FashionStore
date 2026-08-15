@@ -64,7 +64,10 @@
                   <tr>
                     <th>Sản phẩm</th>
                     <th>Phân loại</th>
-                    <th>Đơn giá</th>
+                    <th>Giá gốc</th>
+                    <th>Voucher</th>
+                    <th>Thực trả</th>
+                    <th>Trạng thái</th>
                     <th>Số lượng</th>
                     <th>Thành tiền</th>
                   </tr>
@@ -87,25 +90,28 @@
                       </div>
                     </td>
                     <td class="price-cell">{{ formatPrice(item.unitPrice) }}</td>
+                    <td class="price-cell">-{{ formatPrice(item.discount || 0) }}</td>
+                    <td class="price-cell">{{ formatPrice((Number(item.finalAmount || 0) / Number(item.quantity || 1))) }}</td>
+                    <td><span class="status-badge" :class="getStatusClass(item.status)">{{ getItemStatusText(item.status) }}</span></td>
                     <td class="quantity-cell">{{ item.quantity }}</td>
                     <td class="total-cell">{{ formatPrice(item.finalAmount || (item.unitPrice * item.quantity)) }}</td>
                   </tr>
                 </tbody>
                 <tfoot>
                   <tr class="subtotal-row">
-                    <td colspan="4" class="text-right">Tạm tính:</td>
+                    <td colspan="7" class="text-right">Tạm tính:</td>
                     <td class="subtotal-value">{{ formatPrice(order.subtotalAmount || order.orderSubtotalAmount) }}</td>
                   </tr>
                   <tr class="discount-row" v-if="(order.discountAmount || order.orderDiscountAmount) > 0">
-                    <td colspan="4" class="text-right">Giảm giá:</td>
+                    <td colspan="7" class="text-right">Giảm giá:</td>
                     <td class="discount-value">-{{ formatPrice(order.discountAmount || order.orderDiscountAmount) }}</td>
                   </tr>
                   <tr class="shipping-row">
-                    <td colspan="4" class="text-right">Phí vận chuyển:</td>
+                    <td colspan="7" class="text-right">Phí vận chuyển:</td>
                     <td class="shipping-value">{{ formatPrice(order.shippingFee || order.orderShippingFee || 0) }}</td>
                   </tr>
                   <tr class="total-row">
-                    <td colspan="4" class="text-right">Tổng cộng:</td>
+                    <td colspan="7" class="text-right">Tổng cộng:</td>
                     <td class="total-value">{{ formatPrice(order.totalAmount) }}</td>
                   </tr>
                 </tfoot>
@@ -175,7 +181,8 @@ const getStatusText = (status) => {
     'PROCESSING': 'Đang xử lý',
     'COMPLETED': 'Hoàn thành',
     'CANCELLED': 'Đã hủy',
-    'RETURNED': 'Trả hàng'
+    'RETURNED': 'Trả hàng',
+    'PARTIALLY_RETURNED': 'Hoàn trả một phần'
   }
   return map[status] || status || 'Chưa xác định'
 }
@@ -186,10 +193,17 @@ const getStatusClass = (status) => {
     'PROCESSING': 'processing',
     'COMPLETED': 'completed',
     'CANCELLED': 'cancelled',
-    'RETURNED': 'returned'
+    'RETURNED': 'returned',
+    'PARTIALLY_RETURNED': 'returned'
   }
   return map[status] || ''
 }
+
+const getItemStatusText = (status) => ({
+  COMPLETED: 'Hoàn thành', RETURN_REQUESTED: 'Đang yêu cầu hoàn',
+  RETURN_APPROVED: 'Đã duyệt hoàn', RETURN_RECEIVED: 'Đã nhận hàng trả',
+  RETURNED: 'Đã hoàn', REJECTED: 'Từ chối'
+}[status] || 'Hoàn thành')
 
 const getPaymentStatusText = (status) => {
   const map = {

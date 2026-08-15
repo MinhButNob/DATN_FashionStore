@@ -292,7 +292,9 @@
               <thead>
                 <tr>
                   <th>Sản phẩm</th>
-                  <th class="price-cell">Đơn giá</th>
+                  <th class="price-cell">Giá biến thể</th>
+                  <th class="price-cell">Voucher</th>
+                  <th class="price-cell">Giá thực trả</th>
                   <th class="quantity-cell">Số lượng</th>
                   <th class="total-cell">Thành tiền</th>
                 </tr>
@@ -312,17 +314,19 @@
                     </div>
                   </td>
                   <td class="price-cell">{{ formatPrice(item.unitPrice) }}</td>
+                  <td class="price-cell">-{{ formatPrice(item.discount || 0) }}</td>
+                  <td class="price-cell">{{ formatPrice((Number(item.finalAmount || 0) / Number(item.quantity || 1))) }}</td>
                   <td class="quantity-cell">{{ item.quantity }}</td>
                   <td class="total-cell">{{ formatPrice(item.finalAmount ?? item.refundAmount) }}</td>
                 </tr>
               </tbody>
               <tfoot>
                 <tr>
-                  <td colspan="3" class="text-right">Tạm tính:</td>
+                  <td colspan="5" class="text-right">Tạm tính:</td>
                   <td class="text-right">{{ formatPrice(selectedOrder?.subtotalAmount) }}</td>
                 </tr>
                 <tr v-if="selectedOrder?.discountAmount && selectedOrder?.discountAmount > 0" class="discount-row">
-                  <td colspan="3" class="text-right">
+                  <td colspan="5" class="text-right">
                     <span class="voucher-label">
                       <i class="fas fa-ticket-alt"></i> Giảm giá 
                       ({{ selectedOrder?.voucher?.voucherCode || 'Voucher' }})
@@ -331,11 +335,11 @@
                   <td class="text-right discount-amount">-{{ formatPrice(selectedOrder?.discountAmount) }}</td>
                 </tr>
                 <tr>
-                  <td colspan="3" class="text-right">Phí vận chuyển:</td>
+                  <td colspan="5" class="text-right">Phí vận chuyển:</td>
                   <td class="text-right">{{ formatPrice(selectedOrder?.shippingFee || 0) }}</td>
                 </tr>
                 <tr class="total-row">
-                  <td colspan="3" class="text-right">Tổng cộng:</td>
+                  <td colspan="5" class="text-right">Tổng cộng:</td>
                   <td class="text-right grand-total">{{ formatPrice(selectedOrder?.totalAmount) }}</td>
                 </tr>
               </tfoot>
@@ -506,6 +510,9 @@
                 <strong>{{ item.productName }}</strong>
                 <span>{{ item.colorName || '---' }} · {{ item.sizeName || '---' }}</span>
                 <span>SL hoàn: {{ item.quantity }}</span>
+                <span>Giá gốc: {{ formatPrice(item.unitPrice) }}</span>
+                <span>Voucher: -{{ formatPrice(item.discountAmount || 0) }}</span>
+                <strong>Hoàn: {{ formatPrice(item.refundAmount || 0) }}</strong>
               </div>
             </div>
 

@@ -3,6 +3,7 @@ package com.example.backend_fashionstore.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import com.example.backend_fashionstore.enums.OrderItemStatus;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -40,6 +41,11 @@ public class OrderDetail {
 
     @Column(name = "order_detail_final_amount", nullable = false)
     private BigDecimal finalAmount;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "order_detail_status", nullable = false)
+    @Builder.Default
+    private OrderItemStatus status = OrderItemStatus.COMPLETED;
 
     @CreationTimestamp
     @Column(name = "order_detail_created_at", updatable = false)

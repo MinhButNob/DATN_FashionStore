@@ -41,6 +41,9 @@ public class ReturnRequestResponseDTO {
         private String imageUrl;
         private Integer quantity;
         private BigDecimal unitPrice;
+        private BigDecimal discountAmount;
+        private BigDecimal finalUnitPrice;
         private BigDecimal refundAmount;
+        private String status;
     }
 }

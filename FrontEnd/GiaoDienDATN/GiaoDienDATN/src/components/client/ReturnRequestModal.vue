@@ -29,7 +29,7 @@
           </div>
           
           <div class="product-select-list">
-            <div v-for="item in order?.items" :key="item.productDetailId" class="product-select-item">
+            <div v-for="item in order?.items?.filter(i => !['RETURNED', 'RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED'].includes(i.status))" :key="item.productDetailId" class="product-select-item">
               <label class="checkbox-label">
                 <input 
                   type="checkbox" 
@@ -45,7 +45,9 @@
                   <div class="product-details">
                     <span class="product-name">{{ item.productName }}</span>
                     <span class="product-variant">{{ item.colorName || '' }} {{ item.sizeName || '' }}</span>
-                    <span class="product-price">{{ formatPrice(item.unitPrice) }}</span>
+                    <span class="product-price">Giá gốc: {{ formatPrice(item.unitPrice) }}</span>
+                    <span class="product-price discount-line">Voucher: -{{ formatPrice(item.discount || 0) }}</span>
+                    <span class="product-price">Thực trả: {{ formatPrice((Number(item.finalAmount || 0) / Number(item.quantity || 1))) }}/sp</span>
                     <span class="product-quantity">Đã mua: {{ item.quantity }}</span>
                   </div>
                 </div>
@@ -233,7 +235,8 @@ const totalRefundAmount = computed(() => {
     const qty = quantities.value[pdId] || 0
     const item = props.order.items.find(i => i.productDetailId === pdId)
     if (item) {
-      total += item.unitPrice * qty
+      const finalUnitPrice = Number(item.finalAmount || 0) / Number(item.quantity || 1)
+      total += finalUnitPrice * qty
     }
   }
   return total
