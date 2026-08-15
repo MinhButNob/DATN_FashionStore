@@ -19,6 +19,9 @@ public class ProductCreateRequest {
     @Size(max = 100, message = "Mô tả không được vượt quá 100 ký tự")
     private String description;
 
+    @DecimalMin(value = "0.1", message = "Khối lượng phải lớn hơn 0")
+    private Double weight;
+
     @NotNull(message = "Category ID không được để trống")
     private Integer categoryId;
 

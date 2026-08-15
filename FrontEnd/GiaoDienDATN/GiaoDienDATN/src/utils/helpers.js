@@ -117,6 +117,7 @@ export function getStatusText(status) {
     RETURN_RECEIVED: "Đã nhận hàng trả",
     RETURN_PENDING: "Đang thu hồi hàng",
     RETURNED: "Đã hoàn trả",
+    PARTIALLY_RETURNED: "Hoàn trả một phần",
     REJECTED: "Từ chối hoàn trả",
     PENDING: "Chờ duyệt",
     APPROVED: "Đã duyệt",
@@ -203,6 +204,7 @@ export function getFullStatusText(status) {
     RETURN_RECEIVED: "Đã nhận hàng trả từ khách",
     RETURN_PENDING: "Đang thu hồi hàng",
     RETURNED: "Đã hoàn trả hàng",
+    PARTIALLY_RETURNED: "Hoàn trả một phần",
     REJECTED: "Yêu cầu hoàn hàng bị từ chối" };
   return map[status] || status || "---";
 }

@@ -23,6 +23,8 @@ import com.example.backend_fashionstore.customer.order.repository.ReturnRequestR
 import com.example.backend_fashionstore.entity.*;
 import com.example.backend_fashionstore.enums.OrderStatus;
 import com.example.backend_fashionstore.enums.PaymentStatus;
+import com.example.backend_fashionstore.shipping.dto.ShippingCalculateRequest;
+import com.example.backend_fashionstore.shipping.service.ShippingServiceImpl;
 import com.example.backend_fashionstore.quanLyVoucher.repository.VoucherRepository;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -56,11 +58,11 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
     private final CartRepository cartRepository;
     private final CartItemRepository cartItemRepository;
     private final ReturnRequestRepository returnRequestRepository;
+    private final ShippingServiceImpl shippingService;
 
     private final ProvinceRepository provinceRepository;
     private final WardRepository wardRepository;
 
-    private static final BigDecimal DEFAULT_SHIPPING_FEE = new BigDecimal("30000");
     private static final long CANCEL_HOURS_LIMIT = 48;
     private static final long RETURN_HOURS_LIMIT = 48;
 
@@ -190,6 +192,16 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
 
         BigDecimal subtotal = BigDecimal.ZERO;
         List<OrderDetail> orderDetails = new ArrayList<>();
+        Map<Integer, BigDecimal> cartPricesByVariant = cartRepository
+                .findByCustomerIdAndDeletedAtIsNull(customerId)
+                .map(Cart::getCartItems)
+                .orElse(Collections.emptyList())
+                .stream()
+                .collect(Collectors.toMap(
+                        item -> item.getProductDetail().getProductDetailId(),
+                        item -> item.getDiscountedPrice() != null
+                                ? item.getDiscountedPrice() : item.getProductDetail().getPrice(),
+                        (first, ignored) -> first));
 
         for (OrderItemRequestDTO itemReq : items) {
             ProductDetail productDetail = productDetailRepository.findById(itemReq.getProductDetailId())
@@ -200,7 +212,10 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
                         " không đủ số lượng. Còn: " + productDetail.getQuantity());
             }
 
-            BigDecimal unitPrice = productDetail.getPrice();
+            // Use the price snapshot shown in this customer's cart. This keeps
+            // variant-specific promotions consistent with voucher allocation.
+            BigDecimal unitPrice = cartPricesByVariant.getOrDefault(
+                    itemReq.getProductDetailId(), productDetail.getPrice());
             BigDecimal itemTotal = unitPrice.multiply(BigDecimal.valueOf(itemReq.getQuantity()));
             subtotal = subtotal.add(itemTotal);
 
@@ -248,6 +263,30 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
             }
         }
 
+        // Persist the voucher allocation on each line. The last line receives the
+        // rounding remainder so that line discounts always equal the order discount.
+        BigDecimal allocated = BigDecimal.ZERO;
+        for (int i = 0; i < orderDetails.size(); i++) {
+            OrderDetail detail = orderDetails.get(i);
+            BigDecimal lineSubtotal = detail.getUnitPrice().multiply(BigDecimal.valueOf(detail.getQuantity()));
+            BigDecimal lineDiscount;
+            if (i == orderDetails.size() - 1) {
+                lineDiscount = discountAmount.subtract(allocated);
+            } else if (subtotal.signum() == 0) {
+                lineDiscount = BigDecimal.ZERO;
+            } else {
+                lineDiscount = discountAmount.multiply(lineSubtotal)
+                        .divide(subtotal, 0, RoundingMode.HALF_UP);
+            }
+            lineDiscount = lineDiscount.max(BigDecimal.ZERO).min(lineSubtotal);
+            detail.setDiscount(lineDiscount);
+            detail.setFinalAmount(lineSubtotal.subtract(lineDiscount));
+            allocated = allocated.add(lineDiscount);
+        }
+
+        BigDecimal shippingFee = calculateShippingFee(customerId, request, shippingAddressStr,
+                shippingCity, shippingDistrict, shippingWard, subtotal.subtract(discountAmount));
+
         // ===== TẠO ĐƠN HÀNG =====
         Order order = new Order();
         order.setCustomer(customer);
@@ -260,7 +299,7 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
         order.setOrderStatus(OrderStatus.PENDING_PAYMENT);
         order.setOrderSubtotalAmount(subtotal);
         order.setOrderDiscountAmount(discountAmount);
-        order.setOrderShippingFee(DEFAULT_SHIPPING_FEE);
+        order.setOrderShippingFee(shippingFee);
         order.setPaymentStatus(PaymentStatus.UNPAID);
         order.setNotes(request.getNotes() != null ? request.getNotes() : "");
         order.setCreatedAt(LocalDateTime.now());
@@ -268,11 +307,11 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
         order.setDeletedAt(null);
         order.setVoucher(appliedVoucher);
 
-        BigDecimal totalAmount = subtotal.subtract(discountAmount).add(DEFAULT_SHIPPING_FEE);
+        BigDecimal totalAmount = subtotal.subtract(discountAmount).add(shippingFee);
         order.setOrderTotalAmount(totalAmount);
 
         log.info("Order summary: subtotal={}, discount={}, shipping={}, total={}",
-                subtotal, discountAmount, DEFAULT_SHIPPING_FEE, totalAmount);
+                subtotal, discountAmount, shippingFee, totalAmount);
 
         Order savedOrder = orderRepository.save(order);
 
@@ -314,6 +353,26 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
         log.info("Order created successfully: {}", savedOrder.getOrderId());
 
         return convertToResponse(savedOrder);
+    }
+
+    private BigDecimal calculateShippingFee(Integer customerId, OrderRequestDTO request,
+                                            String address, String province, String district,
+                                            String ward, BigDecimal subtotal) {
+        ShippingCalculateRequest quoteRequest = ShippingCalculateRequest.builder()
+                .province(province).district(district).ward(ward).address(address)
+                .orderValue(subtotal)
+                .shippingFee(request.getShippingFee()).build();
+        try {
+            return shippingService.calculate(customerId, quoteRequest).getShippingFee();
+        } catch (Exception ex) {
+            if (request.getShippingFee() != null && request.getShippingFee().compareTo(BigDecimal.ZERO) >= 0) {
+                log.warn("GHTK unavailable while creating order; using checkout quote {}. reason={}",
+                        request.getShippingFee(), ex.getMessage());
+                return request.getShippingFee();
+            }
+            log.error("Cannot calculate shipping fee from GHTK", ex);
+            throw new RuntimeException("Không thể tính phí vận chuyển. Vui lòng thử lại.", ex);
+        }
     }
 
     // ============================================
@@ -454,7 +513,8 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
         String errorMessage = null;
 
         // Trường hợp 1: Đơn hàng đã giao hoặc hoàn thành (có thể hoàn bất kỳ lúc nào)
-        if ("DELIVERED".equals(currentStatus) || "COMPLETED".equals(currentStatus)) {
+        if ("DELIVERED".equals(currentStatus) || "COMPLETED".equals(currentStatus) ||
+                "PARTIALLY_RETURNED".equals(currentStatus)) {
             canReturn = true;
             log.info("✅ Order {} is DELIVERED/COMPLETED - can return", orderId);
         }
@@ -534,6 +594,9 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
             if (returnQty <= 0) {
                 throw new RuntimeException("Số lượng hoàn phải lớn hơn 0 cho sản phẩm: " + productDetailId);
             }
+            if (detail.getStatus() != null && detail.getStatus() != com.example.backend_fashionstore.enums.OrderItemStatus.COMPLETED) {
+                throw new RuntimeException("Invalid return item status: " + productDetailId);
+            }
             if (returnQty > detail.getQuantity()) {
                 throw new RuntimeException("Số lượng hoàn vượt quá số lượng đã mua cho sản phẩm: " + productDetailId);
             }
@@ -576,6 +639,18 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
 
         returnRequest = returnRequestRepository.save(returnRequest);
         log.info("✅ Return request saved with ID: {}", returnRequest.getReturnRequestId());
+
+        // Mark only the requested lines; other lines remain completed.
+        for (OrderDetail detail : orderDetails) {
+            Integer productDetailId = detail.getProductDetail().getProductDetailId();
+            if (requestedIds.contains(detail.getProductDetail().getProductDetailId())) {
+                detail.setStatus(com.example.backend_fashionstore.enums.OrderItemStatus.RETURN_REQUESTED);
+                orderDetailRepository.save(detail);
+            }
+            if (false && detail.getStatus() != null && detail.getStatus() != com.example.backend_fashionstore.enums.OrderItemStatus.COMPLETED) {
+                throw new RuntimeException("Sản phẩm đã có yêu cầu hoàn hoặc đã hoàn: " + productDetailId);
+            }
+        }
 
         // ===== CẬP NHẬT TRẠNG THÁI ĐƠN HÀNG =====
         order.setOrderStatus(OrderStatus.RETURN_REQUESTED);
@@ -775,6 +850,7 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
                             .unitPrice(detail.getUnitPrice())
                             .discount(detail.getDiscount())
                             .finalAmount(detail.getFinalAmount())
+                            .status(detail.getStatus() != null ? detail.getStatus().name() : "COMPLETED")
                             .build();
                 })
                 .collect(Collectors.toList());
@@ -959,7 +1035,9 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
                         }
 
                         // Tính số tiền hoàn lại
-                        BigDecimal refundAmount = detail.getUnitPrice().multiply(BigDecimal.valueOf(quantity));
+                        BigDecimal finalUnitPrice = detail.getFinalAmount()
+                                .divide(BigDecimal.valueOf(detail.getQuantity()), 2, RoundingMode.HALF_UP);
+                        BigDecimal refundAmount = finalUnitPrice.multiply(BigDecimal.valueOf(quantity));
 
                         returnItems.add(ReturnRequestResponseDTO.ReturnItemDTO.builder()
                                 .productDetailId(pdId)
@@ -969,6 +1047,8 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
                                 .imageUrl(imageUrl)
                                 .quantity(quantity)
                                 .unitPrice(detail.getUnitPrice())
+                                .discountAmount(detail.getDiscount())
+                                .finalUnitPrice(finalUnitPrice)
                                 .refundAmount(refundAmount)
                                 .build());
                     }

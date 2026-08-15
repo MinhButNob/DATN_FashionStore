@@ -94,6 +94,8 @@ public class SecurityConfig {
 
                         // ===== CUSTOMER AUTHENTICATED =====
                         .requestMatchers("/api/cart/**").authenticated()
+                        .requestMatchers("/api/shipping/**").authenticated()
+                        .requestMatchers("/api/address-lookup/**").permitAll()
                         .requestMatchers("/api/orders/**").authenticated()
                         .requestMatchers("/api/customers/profile/**").authenticated()
                         .requestMatchers("/api/wishlist/**").authenticated()

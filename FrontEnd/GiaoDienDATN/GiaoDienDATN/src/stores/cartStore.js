@@ -9,7 +9,7 @@ export const useCartStore = defineStore("cart", {
     subtotal: 0,
     total: 0,
     totalItems: 0,
-    shippingFee: 30000,
+    shippingFee: 0,
     coupon: null,
     discount: 0,
     voucherDiscount: 0,
@@ -35,7 +35,7 @@ export const useCartStore = defineStore("cart", {
         return sum + price * (item.quantity || 0);
       }, 0);
       return (
-        subtotal - (state.voucherDiscount || 0) + (state.shippingFee || 30000)
+        subtotal - (state.voucherDiscount || 0) + (state.shippingFee || 0)
       );
     },
     // ✅ Thêm getter để kiểm tra có voucher không
@@ -49,7 +49,7 @@ export const useCartStore = defineStore("cart", {
         return sum + price * (item.quantity || 0);
       }, 0);
       return (
-        subtotal - (state.voucherDiscount || 0) + (state.shippingFee || 30000)
+        subtotal - (state.voucherDiscount || 0) + (state.shippingFee || 0)
       );
     } },
 
@@ -270,7 +270,7 @@ export const useCartStore = defineStore("cart", {
           }, 0);
 
           this.totalItems = cartData.totalQuantity || 0;
-          this.shippingFee = cartData.shippingFee || 30000;
+          this.shippingFee = cartData.shippingFee || 0;
           this.total = this.subtotal - this.voucherDiscount + this.shippingFee;
 
           // ✅ Lưu vào localStorage
@@ -322,7 +322,7 @@ export const useCartStore = defineStore("cart", {
           }, 0);
 
           this.totalItems = cartData.totalQuantity || 0;
-          this.shippingFee = cartData.shippingFee || 30000;
+          this.shippingFee = cartData.shippingFee || 0;
           this.total = this.subtotal - this.voucherDiscount + this.shippingFee;
 
           // ✅ Lưu vào localStorage
@@ -402,7 +402,7 @@ export const useCartStore = defineStore("cart", {
           this.voucherDiscount = cartData.voucherDiscount || 0;
           this.voucherCode = cartData.voucherCode || null;
           this.voucherId = cartData.voucherId || null; // ✅ THÊM
-          this.shippingFee = cartData.shippingFee || 30000;
+          this.shippingFee = cartData.shippingFee || 0;
 
           this.total = this.subtotal - this.voucherDiscount + this.shippingFee;
 
@@ -453,7 +453,7 @@ export const useCartStore = defineStore("cart", {
           this.subtotal = parsed.subtotal || 0;
           this.total = parsed.total || 0;
           this.totalItems = parsed.totalItems || 0;
-          this.shippingFee = parsed.shippingFee || 30000;
+          this.shippingFee = parsed.shippingFee || 0;
           this.voucherDiscount = parsed.voucherDiscount || 0;
           this.voucherCode = parsed.voucherCode || null;
           this.voucherId = parsed.voucherId || null; // ✅ THÊM voucherId

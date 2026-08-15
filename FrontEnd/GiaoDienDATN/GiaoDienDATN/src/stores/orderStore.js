@@ -225,7 +225,7 @@ export const useCartStore = defineStore("cart", () => {
   });
 
   const shippingFee = computed(() => {
-    return subtotal.value > 500000 ? 0 : 30000;
+    return 0;
   });
 
   const total = computed(() => {

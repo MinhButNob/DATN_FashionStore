@@ -13,5 +13,6 @@ public enum OrderStatus {
     RETURN_RECEIVED,      // 🆕 Admin xác nhận đã nhận hàng trả
     RETURN_PENDING,       // Đang thu hồi hàng
     RETURNED,              // Hoàn thành hoàn hàng
+    PARTIALLY_RETURNED,
     REJECTED
 }

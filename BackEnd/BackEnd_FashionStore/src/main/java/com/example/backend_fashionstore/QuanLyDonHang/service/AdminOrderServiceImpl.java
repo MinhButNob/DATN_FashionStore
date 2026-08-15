@@ -252,7 +252,14 @@ public class AdminOrderServiceImpl implements AdminOrderService {
                                     }
                                 }
 
-                                order.setRefundAmount(totalRefund);
+                                order.setRefundAmount((order.getRefundAmount() == null ? BigDecimal.ZERO : order.getRefundAmount()).add(totalRefund));
+                                Map<String, Integer> returnedQuantities = quantities;
+                                orderDetails.forEach(detail -> {
+                                    if (returnedQuantities.containsKey(String.valueOf(detail.getProductDetail().getProductDetailId()))) {
+                                        detail.setStatus(com.example.backend_fashionstore.enums.OrderItemStatus.RETURNED);
+                                        orderDetailRepository.save(detail);
+                                    }
+                                });
                                 log.info("💰 Đã tính tiền hoàn cho đơn hàng {} khi HOÀN TẤT: {}", orderId, totalRefund);
                             }
                         } catch (Exception e) {
@@ -544,9 +551,11 @@ public class AdminOrderServiceImpl implements AdminOrderService {
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng"));
 
         if ("APPROVED".equals(status)) {
+            updateRequestedItemStatuses(order, returnRequest, com.example.backend_fashionstore.enums.OrderItemStatus.RETURN_APPROVED);
             order.setOrderStatus(OrderStatus.RETURN_APPROVED);
             log.info("✅ Return request APPROVED for order {}", orderId);
         } else if ("REJECTED".equals(status)) {
+            updateRequestedItemStatuses(order, returnRequest, com.example.backend_fashionstore.enums.OrderItemStatus.COMPLETED);
             order.setOrderStatus(OrderStatus.REJECTED);
             log.info("❌ Return request REJECTED for order {}", orderId);
         } else {
@@ -599,6 +608,7 @@ public class AdminOrderServiceImpl implements AdminOrderService {
 
         // Đã bỏ tính tiền hoàn ở đây, chuyển sang lúc hoàn tất (RETURNED)
 
+        updateRequestedItemStatuses(order, returnRequest, com.example.backend_fashionstore.enums.OrderItemStatus.RETURN_RECEIVED);
         order.setOrderStatus(OrderStatus.RETURN_RECEIVED);
         order.setUpdatedAt(LocalDateTime.now());
         orderRepository.save(order);
@@ -617,6 +627,22 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         log.info("✅ Returned items received for order {}", orderId);
 
         return getReturnRequestByOrderId(orderId);
+    }
+
+    private void updateRequestedItemStatuses(Order order, ReturnRequest request,
+            com.example.backend_fashionstore.enums.OrderItemStatus status) {
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            List<Integer> ids = mapper.readValue(request.getProductDetailIds(), new TypeReference<List<Integer>>() {});
+            orderDetailRepository.findByOrder_OrderId(order.getOrderId()).forEach(detail -> {
+                if (ids.contains(detail.getProductDetail().getProductDetailId())) {
+                    detail.setStatus(status);
+                    orderDetailRepository.save(detail);
+                }
+            });
+        } catch (Exception e) {
+            throw new IllegalStateException("Dữ liệu sản phẩm hoàn hàng không hợp lệ", e);
+        }
     }
 
     @Override
@@ -787,6 +813,7 @@ public class AdminOrderServiceImpl implements AdminOrderService {
                             .unitPrice(detail.getUnitPrice())
                             .discount(detail.getDiscount())
                             .finalAmount(detail.getFinalAmount())
+                            .status(detail.getStatus() != null ? detail.getStatus().name() : "COMPLETED")
                             .build();
                 })
                 .collect(Collectors.toList());
@@ -992,8 +1019,11 @@ public class AdminOrderServiceImpl implements AdminOrderService {
                                 .sizeName(pd.getSize() != null ? pd.getSize().getSizeName() : null)
                                 .imageUrl(imageUrl)
                                 .quantity(returnQty)
-                                .unitPrice(unitFinalPrice)
+                                .unitPrice(detail.getUnitPrice())
+                                .discountAmount(detail.getDiscount())
+                                .finalUnitPrice(unitFinalPrice)
                                 .refundAmount(refundAmount)
+                                .status(detail.getStatus() != null ? detail.getStatus().name() : "COMPLETED")
                                 .build();
                         returnItems.add(itemDto);
                     }

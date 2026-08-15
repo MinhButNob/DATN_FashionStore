@@ -49,6 +49,17 @@
             </div>
           </div>
 
+          <div v-if="returnRequest.returnItems?.length" class="return-items-section">
+            <h3>Sản phẩm được hoàn</h3>
+            <div v-for="item in returnRequest.returnItems" :key="item.productDetailId" class="inspection-result-row">
+              <strong>{{ item.productName }}</strong>
+              <span>SL: {{ item.quantity }}</span>
+              <span>Giá gốc: {{ formatPrice(item.unitPrice) }}</span>
+              <span>Voucher: -{{ formatPrice(item.discountAmount || 0) }}</span>
+              <strong>Hoàn: {{ formatPrice(item.refundAmount || 0) }}</strong>
+            </div>
+          </div>
+
           <!-- Admin Actions -->
           <div class="admin-actions">
             <h3>Xử lý yêu cầu</h3>
@@ -173,6 +184,8 @@ const getImageUrl = (imagePath) => {
   const cleanPath = imagePath.startsWith('/') ? imagePath : '/' + imagePath
   return IMAGE_BASE + cleanPath
 }
+
+const formatPrice = (value) => `${Number(value || 0).toLocaleString('vi-VN')}₫`
 
 const close = () => {
   adminNote.value = ''

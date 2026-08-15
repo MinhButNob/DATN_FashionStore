@@ -103,8 +103,18 @@
               </div>
 
               <div class="form-group">
+                <label>Quận/Huyện <span class="required">*</span></label>
+                <select v-model="editForm.districtId" required :disabled="!editForm.provinceId" @change="onDistrictChange">
+                  <option :value="null">-- Chọn quận/huyện --</option>
+                  <option v-for="district in districts" :key="district.code" :value="district.code">
+                    {{ district.name }}
+                  </option>
+                </select>
+              </div>
+
+              <div class="form-group">
                 <label>Phường/Xã <span class="required">*</span></label>
-                <select v-model="editForm.wardId" required :disabled="!editForm.provinceId">
+                <select v-model="editForm.wardId" required :disabled="!editForm.districtId">
                   <option :value="null">-- Chọn phường/xã --</option>
                   <option 
                     v-for="ward in wards" 
@@ -196,8 +206,12 @@
               
               <div class="summary-row">
                 <span>Phí vận chuyển:</span>
-                <span>{{ formatPrice(shippingFee) }}</span>
+                <span>
+                  <i v-if="shippingLoading" class="fas fa-spinner fa-spin"></i>
+                  <span v-else>{{ formatPrice(shippingFee) }}</span>
+                </span>
               </div>
+              <div v-if="shippingError" class="shipping-error">{{ shippingError }}</div>
               
               <div class="summary-divider"></div>
               
@@ -236,7 +250,7 @@ const cartStore = useCartStore()
 const authStore = useAuthStore()
 
 const IMAGE_BASE = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "").replace(/\/api$/, "");
-const SHIPPING_FEE = 30000
+const SHIPPING_FEE_FALLBACK = 30000
 
 const placingOrder = ref(false)
 const saving = ref(false)
@@ -258,7 +272,7 @@ const profile = reactive({
   ward: '',
   email: '',
   provinceId: null,
-  provinceId: null,
+  districtId: null,
   wardId: null
 })
 
@@ -267,9 +281,10 @@ const editForm = reactive({
   phone: '',
   streetAddress: '',
   provinceId: null,
-  provinceId: null,
+  districtId: null,
   wardId: null,
   city: '',
+  district: '',
   ward: ''
 })
 
@@ -282,12 +297,15 @@ const orderData = ref({
 const addresses = ref([])
 const selectedAddressId = ref(null)
 const addressLoading = ref(false)
+const shippingLoading = ref(false)
+const shippingError = ref('')
+const shippingFee = ref(SHIPPING_FEE_FALLBACK)
 
 // ===== PROVINCE/WARD STATE =====
-const { 
-  provinces, wards, 
-  loadingProvinces: provinceLoading, 
-  fetchProvinces, fetchWards 
+const {
+  provinces, districts, wards,
+  loadingProvinces: provinceLoading,
+  fetchProvinces, fetchDistricts, fetchWards
 } = useVietnamAddress()
 
 // ===== FORMAT FUNCTIONS =====
@@ -313,6 +331,7 @@ const getFullAddress = (addr) => {
   const parts = []
   if (addr.streetAddress) parts.push(addr.streetAddress)
   if (addr.wardName) parts.push(addr.wardName)
+  if (addr.districtName) parts.push(addr.districtName)
   if (addr.provinceName) parts.push(addr.provinceName)
   return parts.join(', ') || 'Chưa có địa chỉ'
 }
@@ -329,16 +348,25 @@ const showNotification = (message, type = 'success') => {
 
 // ===== ON PROVINCE CHANGE =====
 const onProvinceChange = async () => {
+  editForm.districtId = null
   editForm.wardId = null
   editForm.ward = ''
   if (editForm.provinceId) {
     const province = provinces.value.find(p => p.code === editForm.provinceId)
     editForm.city = province?.name || ''
-    await fetchWards(editForm.provinceId)
+    await fetchDistricts(editForm.provinceId)
   } else {
     wards.value = []
+    districts.value = []
     editForm.city = ''
   }
+}
+
+const onDistrictChange = async () => {
+  editForm.wardId = null
+  const district = districts.value.find(d => d.code === editForm.districtId)
+  editForm.district = district?.name || ''
+  await fetchWards(editForm.districtId)
 }
 
 // ===== LẤY DANH SÁCH ĐỊA CHỈ =====
@@ -359,13 +387,17 @@ const fetchAddresses = async () => {
     console.log('✅ Addresses loaded:', addresses.value.length)
     
     // Tìm địa chỉ mặc định
-    const defaultAddr = addresses.value.find(a => a.isDefault)
+    const validAddresses = addresses.value.filter(a => a.provinceCode && a.districtCode && a.wardCode)
+    const defaultAddr = validAddresses.find(a => a.isDefault)
     if (defaultAddr) {
       selectedAddressId.value = defaultAddr.addressId
       updateProfileFromAddress(defaultAddr)
+    } else if (validAddresses.length > 0) {
+      selectedAddressId.value = validAddresses[0].addressId
+      updateProfileFromAddress(validAddresses[0])
     } else if (addresses.value.length > 0) {
-      selectedAddressId.value = addresses.value[0].addressId
-      updateProfileFromAddress(addresses.value[0])
+      console.warn('[Address] Các địa chỉ hiện tại thiếu mã chuẩn Open API:', addresses.value)
+      shippingError.value = 'Địa chỉ hiện tại cần được cập nhật lại theo tỉnh/quận/phường chuẩn.'
     }
   } catch (error) {
     console.error('❌ Error fetching addresses:', error)
@@ -381,8 +413,9 @@ const updateProfileFromAddress = (addr) => {
   profile.phone = addr.phone || profile.phone
   profile.address = addr.streetAddress || profile.address
   profile.fullAddress = getFullAddress(addr)
-  profile.provinceId = addr.provinceId
-  profile.wardId = addr.wardId
+  profile.provinceId = addr.provinceCode || addr.provinceId
+  profile.districtId = addr.districtCode || null
+  profile.wardId = addr.wardCode || addr.wardId
   profile.city = addr.provinceName || ''
   profile.district = addr.districtName || ''
   profile.ward = addr.wardName || ''
@@ -409,19 +442,24 @@ const fetchProfile = async () => {
     profile.ward = data.ward || ''
     profile.email = data.email || ''
     profile.provinceId = data.provinceId || null
+    profile.districtId = data.districtCode || null
     profile.wardId = data.wardId || null
 
     editForm.fullName = profile.fullName
     editForm.phone = profile.phone
     editForm.streetAddress = profile.address
     editForm.provinceId = profile.provinceId
+    editForm.districtId = profile.districtId
     editForm.wardId = profile.wardId
     editForm.city = profile.city
     editForm.district = profile.district
     editForm.ward = profile.ward
     
     if (editForm.provinceId) {
-      await fetchWards(editForm.provinceId)
+      await fetchDistricts(editForm.provinceId)
+    }
+    if (editForm.districtId) {
+      await fetchWards(editForm.districtId)
     }
   } catch (error) {
     console.error('❌ Error fetching profile:', error)
@@ -435,8 +473,68 @@ const selectAddress = (addressId) => {
   if (addr) {
     updateProfileFromAddress(addr)
     console.log('✅ Selected address:', addr)
+    calculateShippingFee()
   }
 }
+
+const calculateShippingFee = async () => {
+  if (!profile.city || !profile.district || !profile.ward || !profile.provinceId || !profile.districtId || !profile.wardId || !cartStore.items.length) {
+    console.warn('[GHTK][Checkout] Bỏ qua tính phí vì địa chỉ chưa chuẩn:', {
+      province: profile.city, provinceCode: profile.provinceId,
+      district: profile.district, districtCode: profile.districtId,
+      ward: profile.ward, wardCode: profile.wardId
+    })
+    return
+  }
+  shippingLoading.value = true
+  shippingError.value = ''
+  try {
+    const payload = {
+      province: profile.city,
+      district: profile.district,
+      ward: profile.ward,
+      address: profile.address,
+      orderValue: Math.max(0, (cartStore.subtotal || 0) - (cartStore.voucherDiscount || 0))
+    }
+    console.groupCollapsed('[GHTK][Checkout] Tính phí vận chuyển')
+    console.log('[GHTK][Checkout] Request:', payload)
+    const response = await api.post('/shipping/calculate', payload)
+    console.log('[GHTK][Checkout] Response:', response.status, response.data)
+    shippingFee.value = Number(response.data?.shippingFee ?? response.data?.data?.shippingFee)
+    console.info('GHTK shipping quote', {
+      address: `${profile.address}, ${profile.ward}, ${profile.district}, ${profile.city}`,
+      weight: response.data?.weight,
+      orderValue: (cartStore.subtotal || 0) - (cartStore.voucherDiscount || 0),
+      shippingFee: shippingFee.value
+    })
+    if (!Number.isFinite(shippingFee.value) || shippingFee.value < 0) {
+      throw new Error(`GHTK không trả shippingFee hợp lệ: ${JSON.stringify(response.data)}`)
+    }
+    console.info('[GHTK][Checkout] Áp dụng phí thành công:', shippingFee.value)
+  } catch (error) {
+    console.error('GHTK shipping calculation failed:', {
+      status: error.response?.status,
+      response: error.response?.data,
+      message: error.message
+    })
+    console.error('[GHTK][Checkout] Request/response lỗi:', {
+      request: error.config?.data,
+      response: error.response?.data
+    })
+    shippingFee.value = SHIPPING_FEE_FALLBACK
+    const backendMessage = error.response?.data?.message || error.response?.data?.error
+    shippingError.value = backendMessage
+      ? `${backendMessage} Phí tạm tính 30.000₫.`
+      : 'Không thể kết nối GHTK, phí tạm tính 30.000₫.'
+  } finally {
+    console.groupEnd()
+    shippingLoading.value = false
+  }
+}
+
+watch(() => [profile.city, profile.district, profile.ward, cartStore.subtotal, cartStore.voucherDiscount], () => {
+  calculateShippingFee()
+})
 
 // ===== TOGGLE EDIT =====
 const toggleEdit = () => {
@@ -445,12 +543,13 @@ const toggleEdit = () => {
     editForm.phone = profile.phone
     editForm.streetAddress = profile.address
     editForm.provinceId = profile.provinceId
+    editForm.districtId = profile.districtId
     editForm.wardId = profile.wardId
     editForm.city = profile.city
     editForm.district = profile.district
     editForm.ward = profile.ward
     if (editForm.provinceId) {
-      fetchWards(editForm.provinceId)
+      fetchDistricts(editForm.provinceId)
     }
   }
   isEditing.value = !isEditing.value
@@ -475,6 +574,11 @@ const saveProfileInfo = async () => {
     return
   }
 
+  if (!editForm.districtId) {
+    showNotification('Vui lòng chọn quận/huyện', 'error')
+    return
+  }
+
   if (!editForm.wardId) {
     showNotification('Vui lòng chọn phường/xã', 'error')
     return
@@ -492,6 +596,7 @@ const saveProfileInfo = async () => {
     }
 
     const province = provinces.value.find(p => p.code === editForm.provinceId)
+    const district = districts.value.find(d => d.code === editForm.districtId)
     const ward = wards.value.find(w => w.code === editForm.wardId)
 
     const payload = {
@@ -500,6 +605,12 @@ const saveProfileInfo = async () => {
       address: editForm.streetAddress.trim(),
       provinceId: editForm.provinceId,
       wardId: editForm.wardId,
+      provinceCode: province?.code || '',
+      provinceName: province?.name || editForm.city,
+      districtCode: district?.code || '',
+      districtName: district?.name || editForm.district,
+      wardCode: ward?.code || '',
+      wardName: ward?.name || editForm.ward,
       city: province?.name || editForm.city,
       ward: ward?.name || editForm.ward
     }
@@ -552,7 +663,8 @@ const placeOrder = async () => {
     notes: orderData.value.notes || '',
     items: orderItems,
     paymentMethod: orderData.value.paymentMethod || 'COD',
-    voucherId: voucherId
+    voucherId: voucherId,
+    shippingFee: shippingFee.value
   }
 
   // ✅ Nếu có shippingAddressId, gửi lên
@@ -624,11 +736,6 @@ const placeOrder = async () => {
 }
 
 // ===== COMPUTED =====
-const shippingFee = computed(() => {
-  const subtotal = cartStore.subtotal || 0
-  return subtotal >= 500000 ? 0 : SHIPPING_FEE
-})
-
 const totalAmount = computed(() => {
   const subtotal = cartStore.subtotal || 0
   const discount = cartStore.voucherDiscount || 0
@@ -648,6 +755,7 @@ onMounted(async () => {
   await fetchProfile()
   await fetchAddresses()
   await cartStore.fetchCart()
+  await calculateShippingFee()
   
   if (!profile.address && addresses.value.length === 0) {
     isEditing.value = true
@@ -660,6 +768,12 @@ onMounted(async () => {
 .checkout-page {
   background: #f8f9fa;
   min-height: 100vh;
+}
+
+.shipping-error {
+  margin-top: 8px;
+  color: #b42318;
+  font-size: 13px;
 }
 
 .container {

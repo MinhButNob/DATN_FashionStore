@@ -328,7 +328,7 @@ const shipping = ref({
       name: 'Giao hàng tiêu chuẩn',
       icon: 'fas fa-truck',
       enabled: true,
-      fee: 30000,
+      fee: 0,
       time: '3-5 ngày',
       freeFrom: 500000
     },

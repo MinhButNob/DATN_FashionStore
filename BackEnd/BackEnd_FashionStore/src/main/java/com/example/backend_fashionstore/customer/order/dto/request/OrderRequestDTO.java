@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.List;
+import java.math.BigDecimal;
 
 @Data
 @Builder
@@ -31,4 +32,5 @@ public class OrderRequestDTO {
     private List<OrderItemRequestDTO> items;
     private String paymentMethod;
     private Integer voucherId;
+    private BigDecimal shippingFee;
 }

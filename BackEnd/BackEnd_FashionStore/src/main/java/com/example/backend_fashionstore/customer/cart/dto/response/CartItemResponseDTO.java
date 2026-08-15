@@ -24,4 +24,5 @@ public class CartItemResponseDTO {
     private BigDecimal subtotal;
     private String imageUrl;
     private Integer stock;
+    private Double weight;
 }

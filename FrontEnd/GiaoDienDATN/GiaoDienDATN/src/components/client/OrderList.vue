@@ -43,7 +43,7 @@
               <p class="item-quantity">x{{ item.quantity }}</p>
             </div>
             <div class="item-price">
-              {{ formatPrice(item.finalAmount ?? item.refundAmount) }}
+              {{ formatPrice(displayItemAmount(order, item)) }}
             </div>
             
             <!-- Nút Đánh giá cho từng sản phẩm (chỉ dùng trong Profile) -->
@@ -200,6 +200,15 @@ const displayItems = (order) => {
   return Array.isArray(order.returnItems) ? order.returnItems : (order.items || [])
 }
 
+const displayItemAmount = (order, item) => {
+  // Return requests show the actual refundable amount. Normal orders show
+  // the variant line amount; voucher discount is displayed separately below.
+  if (Array.isArray(order?.returnItems)) {
+    return item.refundAmount ?? item.finalAmount ?? 0
+  }
+  return Number(item.unitPrice || 0) * Number(item.quantity || 0)
+}
+
 const displayTotal = (order) => {
   if (!Array.isArray(order?.returnItems)) return order?.totalAmount
 
@@ -331,6 +340,7 @@ const getStatusText = (status) => {
     'RETURN_RECEIVED': 'Đã nhận hàng trả',
     'RETURN_PENDING': 'Đang thu hồi hàng',
     'RETURNED': 'Đã hoàn trả',
+    'PARTIALLY_RETURNED': 'Hoàn trả một phần',
     'REJECTED': 'Từ chối hoàn trả'
   }
   return map[status] || status

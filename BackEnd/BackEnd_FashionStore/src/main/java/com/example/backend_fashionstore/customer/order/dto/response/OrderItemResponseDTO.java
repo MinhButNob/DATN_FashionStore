@@ -21,4 +21,5 @@ public class OrderItemResponseDTO {
     private BigDecimal unitPrice;
     private BigDecimal discount;
     private BigDecimal finalAmount;
+    private String status;
 }

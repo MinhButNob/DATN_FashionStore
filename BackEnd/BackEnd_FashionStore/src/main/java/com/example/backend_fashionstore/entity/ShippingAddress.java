@@ -43,6 +43,24 @@ public class ShippingAddress {
     @Column(name = "shipping_address_street", columnDefinition = "TEXT")
     private String streetAddress;
 
+    @Column(name = "shipping_address_province_code", length = 20)
+    private String provinceCode;
+    @Column(name = "shipping_address_province_name", length = 150)
+    private String provinceName;
+    @Column(name = "shipping_address_district_code", length = 20)
+    private String districtCode;
+    @Column(name = "shipping_address_district_name", length = 150)
+    private String districtName;
+    @Column(name = "shipping_address_ward_code", length = 20)
+    private String wardCode;
+    @Column(name = "shipping_address_ward_name", length = 150)
+    private String wardName;
+    @Column(name = "shipping_address_detail", columnDefinition = "TEXT")
+    private String addressDetail;
+
+    @Column(name = "shipping_address_needs_update", nullable = false)
+    private Boolean needsUpdate = true;
+
     @Column(name = "shipping_address_full", columnDefinition = "TEXT")
     private String fullAddress;
 
@@ -84,12 +102,14 @@ public class ShippingAddress {
         updatedAt = LocalDateTime.now();
         if (status == null) status = "ACTIVE";
         if (isDefault == null) isDefault = false;
+        if (needsUpdate == null) needsUpdate = true;
         buildFullAddress();
     }
 
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
+        if (needsUpdate == null) needsUpdate = true;
         buildFullAddress();
     }
 
@@ -101,17 +121,25 @@ public class ShippingAddress {
         if (streetAddress != null && !streetAddress.isEmpty()) {
             sb.append(streetAddress);
         }
-        if (shippingAddressWard != null && !shippingAddressWard.isEmpty()) {
-            if (sb.length() > 0) sb.append(", ");
-            sb.append(shippingAddressWard);
+        String normalizedWard = wardName != null && !wardName.isBlank() ? wardName : shippingAddressWard;
+        String normalizedDistrict = districtName != null && !districtName.isBlank() ? districtName : shippingAddressDistrict;
+        String normalizedProvince = provinceName != null && !provinceName.isBlank() ? provinceName : shippingAddressCity;
+        String detail = addressDetail != null && !addressDetail.isBlank() ? addressDetail : streetAddress;
+        sb.setLength(0);
+        if (detail != null && !detail.isEmpty()) {
+            sb.append(detail);
         }
-        if (shippingAddressDistrict != null && !shippingAddressDistrict.isEmpty()) {
+        if (normalizedWard != null && !normalizedWard.isEmpty()) {
             if (sb.length() > 0) sb.append(", ");
-            sb.append(shippingAddressDistrict);
+            sb.append(normalizedWard);
         }
-        if (shippingAddressCity != null && !shippingAddressCity.isEmpty()) {
+        if (normalizedDistrict != null && !normalizedDistrict.isEmpty()) {
             if (sb.length() > 0) sb.append(", ");
-            sb.append(shippingAddressCity);
+            sb.append(normalizedDistrict);
+        }
+        if (normalizedProvince != null && !normalizedProvince.isEmpty()) {
+            if (sb.length() > 0) sb.append(", ");
+            sb.append(normalizedProvince);
         }
         this.fullAddress = sb.toString();
     }
