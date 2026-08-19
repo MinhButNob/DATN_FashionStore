@@ -20,7 +20,6 @@
               <div class="section-heading-group">
                 <span class="section-eyebrow">Xu hướng tìm kiếm</span>
                 <h2 class="section-title-line">
-                  <i class="fas fa-fire flame-icon"></i>
                   SẢN PHẨM BÁN CHẠY NHẤT
                 </h2>
               </div>
@@ -58,7 +57,6 @@
               <div class="section-heading-group">
                 <span class="section-eyebrow">Yêu thích nhất</span>
                 <h2 class="section-title-line">
-                  <i class="fas fa-star star-icon"></i>
                   SẢN PHẨM ĐƯỢC ĐÁNH GIÁ CAO
                 </h2>
               </div>
