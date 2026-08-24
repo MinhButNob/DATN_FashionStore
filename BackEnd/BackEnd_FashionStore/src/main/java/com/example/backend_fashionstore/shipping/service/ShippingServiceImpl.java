@@ -61,18 +61,20 @@ public class ShippingServiceImpl implements ShippingService {
     }
 
     public BigDecimal requestGhtk(ShippingCalculateRequest request, int weight) {
-        String ghtkProvince = normalizeProvince(request.getProvince());
-        String ghtkDistrict = normalizeDistrict(request.getDistrict());
-        String ghtkWard = normalizeWard(request.getWard());
+        GhtkAddressFormatter.FormattedAddress formatted = GhtkAddressFormatter.format(
+                request.getProvince(), request.getDistrict(), request.getWard());
+        String ghtkProvince = formatted.province();
+        String ghtkDistrict = formatted.district();
+        String ghtkWard = formatted.ward();
         log.info("Shipping Address: province={}, district={}, ward={}",
                 request.getProvince(), request.getDistrict(), request.getWard());
         log.info("GHTK Address: province={}, district={}, ward={}",
                 ghtkProvince, ghtkDistrict, ghtkWard);
         UriComponentsBuilder urlBuilder = UriComponentsBuilder.fromUriString(ghtkApiUrl)
                 .path("/services/shipment/fee")
-                .queryParam("pick_province", normalizeProvince(pickProvince))
-                .queryParam("pick_district", normalizeDistrict(pickDistrict))
-                .queryParam("pick_ward", normalizeWard(pickWard))
+                .queryParam("pick_province", GhtkAddressFormatter.formatProvince(pickProvince))
+                .queryParam("pick_district", pickDistrict == null ? "" : pickDistrict.trim())
+                .queryParam("pick_ward", GhtkAddressFormatter.formatWard(pickWard))
                 .queryParam("address", request.getAddress())
                 .queryParam("province", ghtkProvince)
                 .queryParam("district", ghtkDistrict)
@@ -103,7 +105,13 @@ public class ShippingServiceImpl implements ShippingService {
         }
         JsonNode root;
         try {
+            if (response.getBody() == null || response.getBody().isBlank()) {
+                throw new IllegalStateException("GHTK trả về phản hồi rỗng");
+            }
             root = objectMapper.readTree(response.getBody());
+            if (root == null || root.isMissingNode()) {
+                throw new IllegalStateException("GHTK trả về JSON không hợp lệ");
+            }
         } catch (Exception e) {
             throw new IllegalStateException("Không đọc được phản hồi phí vận chuyển GHTK", e);
         }
@@ -143,18 +151,6 @@ public class ShippingServiceImpl implements ShippingService {
         }
     }
 
-    private String normalizeProvince(String value) {
-        return removePrefix(value, "Thành phố ", "Thành Phố ", "TP. ", "TP ", "Tỉnh ").trim();
-    }
-
-    private String normalizeDistrict(String value) {
-        return value.trim();
-    }
-
-    private String normalizeWard(String value) {
-        return value == null ? "" : value.trim();
-    }
-
     private boolean isConfiguredPickupAddress(String value) {
         if (value == null || value.isBlank()) return false;
         String normalized = value.trim().toLowerCase();
@@ -163,13 +159,4 @@ public class ShippingServiceImpl implements ShippingService {
                 && !normalized.equals("địa chỉ shop");
     }
 
-    private String removePrefix(String value, String... prefixes) {
-        String normalized = value == null ? "" : value.trim();
-        for (String prefix : prefixes) {
-            if (normalized.regionMatches(true, 0, prefix, 0, prefix.length())) {
-                return normalized.substring(prefix.length());
-            }
-        }
-        return normalized;
-    }
 }

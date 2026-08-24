@@ -99,12 +99,20 @@
         </button>
       </div>
     </div>
+    <ConfirmDialog
+      :visible="showConfirmation"
+      title="Xác nhận chuyển trạng thái"
+      :message="`Bạn có chắc chắn muốn chuyển trạng thái đơn hàng sang ${getStatusText(selectedStatus)} không?`"
+      @confirm="confirmStatusUpdate"
+      @cancel="showConfirmation = false"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, watch, computed } from 'vue'
 import api from "@/api/axios";
+import ConfirmDialog from './ConfirmDialog.vue'
 
 const props = defineProps({
   visible: Boolean,
@@ -117,6 +125,7 @@ const loading = ref(false)
 const error = ref('')
 const notes = ref('')
 const selectedStatus = ref('')
+const showConfirmation = ref(false)
 
 // ===== ADMIN STATUS TRANSITIONS =====
 const ADMIN_STATUS_TRANSITIONS = {
@@ -258,18 +267,24 @@ const formatDate = (dateString) => {
 }
 
 const close = () => {
+  showConfirmation.value = false
   error.value = ''
   notes.value = ''
   selectedStatus.value = ''
   emit('close')
 }
 
-const updateStatus = async () => {
+const updateStatus = () => {
   if (!selectedStatus.value) {
     error.value = 'Vui lòng chọn trạng thái mới'
     return
   }
 
+  showConfirmation.value = true
+}
+
+const confirmStatusUpdate = async () => {
+  showConfirmation.value = false
   loading.value = true
   error.value = ''
 

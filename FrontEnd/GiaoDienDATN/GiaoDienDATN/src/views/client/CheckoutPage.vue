@@ -250,7 +250,11 @@ const cartStore = useCartStore()
 const authStore = useAuthStore()
 
 const IMAGE_BASE = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "").replace(/\/api$/, "");
-const SHIPPING_FEE_FALLBACK = 30000
+const SHIPPING_FEE_STANDARD = 20000
+const SHIPPING_FREE_THRESHOLD = 300000
+
+const calculateFixedShippingFee = subtotal =>
+  Number(subtotal || 0) >= SHIPPING_FREE_THRESHOLD ? 0 : SHIPPING_FEE_STANDARD
 
 const placingOrder = ref(false)
 const saving = ref(false)
@@ -299,7 +303,7 @@ const selectedAddressId = ref(null)
 const addressLoading = ref(false)
 const shippingLoading = ref(false)
 const shippingError = ref('')
-const shippingFee = ref(SHIPPING_FEE_FALLBACK)
+const shippingFee = ref(0)
 
 // ===== PROVINCE/WARD STATE =====
 const {
@@ -478,58 +482,10 @@ const selectAddress = (addressId) => {
 }
 
 const calculateShippingFee = async () => {
-  if (!profile.city || !profile.district || !profile.ward || !profile.provinceId || !profile.districtId || !profile.wardId || !cartStore.items.length) {
-    console.warn('[GHTK][Checkout] Bỏ qua tính phí vì địa chỉ chưa chuẩn:', {
-      province: profile.city, provinceCode: profile.provinceId,
-      district: profile.district, districtCode: profile.districtId,
-      ward: profile.ward, wardCode: profile.wardId
-    })
-    return
-  }
-  shippingLoading.value = true
+  // Không gọi GHTK nữa: hệ thống đang áp dụng phí vận chuyển cố định 0₫.
+  shippingLoading.value = false
   shippingError.value = ''
-  try {
-    const payload = {
-      province: profile.city,
-      district: profile.district,
-      ward: profile.ward,
-      address: profile.address,
-      orderValue: Math.max(0, (cartStore.subtotal || 0) - (cartStore.voucherDiscount || 0))
-    }
-    console.groupCollapsed('[GHTK][Checkout] Tính phí vận chuyển')
-    console.log('[GHTK][Checkout] Request:', payload)
-    const response = await api.post('/shipping/calculate', payload)
-    console.log('[GHTK][Checkout] Response:', response.status, response.data)
-    shippingFee.value = Number(response.data?.shippingFee ?? response.data?.data?.shippingFee)
-    console.info('GHTK shipping quote', {
-      address: `${profile.address}, ${profile.ward}, ${profile.district}, ${profile.city}`,
-      weight: response.data?.weight,
-      orderValue: (cartStore.subtotal || 0) - (cartStore.voucherDiscount || 0),
-      shippingFee: shippingFee.value
-    })
-    if (!Number.isFinite(shippingFee.value) || shippingFee.value < 0) {
-      throw new Error(`GHTK không trả shippingFee hợp lệ: ${JSON.stringify(response.data)}`)
-    }
-    console.info('[GHTK][Checkout] Áp dụng phí thành công:', shippingFee.value)
-  } catch (error) {
-    console.error('GHTK shipping calculation failed:', {
-      status: error.response?.status,
-      response: error.response?.data,
-      message: error.message
-    })
-    console.error('[GHTK][Checkout] Request/response lỗi:', {
-      request: error.config?.data,
-      response: error.response?.data
-    })
-    shippingFee.value = SHIPPING_FEE_FALLBACK
-    const backendMessage = error.response?.data?.message || error.response?.data?.error
-    shippingError.value = backendMessage
-      ? `${backendMessage} Phí tạm tính 30.000₫.`
-      : 'Không thể kết nối GHTK, phí tạm tính 30.000₫.'
-  } finally {
-    console.groupEnd()
-    shippingLoading.value = false
-  }
+  shippingFee.value = calculateFixedShippingFee(cartStore.subtotal)
 }
 
 watch(() => [profile.city, profile.district, profile.ward, cartStore.subtotal, cartStore.voucherDiscount], () => {
