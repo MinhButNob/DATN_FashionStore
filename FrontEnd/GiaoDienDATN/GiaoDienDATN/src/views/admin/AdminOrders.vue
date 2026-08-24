@@ -128,7 +128,7 @@
             </td>
             <td>
               <div class="product-count">{{ order.items?.length || 0 }} sản phẩm</div>
-              <button class="view-items-btn" @click="viewOrderItems(order)" title="Xem chi tiết">
+              <button class="view-items-btn" @click="viewOrderDetail(order)" title="Xem chi tiết và đổi trạng thái">
                 <i class="fas fa-eye"></i>
               </button>
             </td>
@@ -161,16 +161,13 @@
                 <button 
                   v-if="activeMainTab === 'orders' && shouldShowUpdateButton(order)"
                   class="action-btn update-status-btn" 
-                  @click="openUpdateStatusModal(order)"
+                  @click="quickUpdateStatus(order)"
                   :disabled="updatingOrderIds.has(order.orderId) || !canUpdateStatus(order)"
                   :title="getUpdateStatusTooltip(order)"
                 >
-                  <i class="fas fa-edit"></i>
+                  <i class="fas fa-exchange-alt"></i>
                 </button>
                 
-                <button class="action-btn view-btn" @click="viewOrderDetail(order)" title="Xem chi tiết">
-                  <i class="fas fa-eye"></i>
-                </button>
                 
                 <button 
                   v-if="activeMainTab === 'returns' && isReturnOrder(order.orderStatus)"
@@ -360,6 +357,9 @@
           </div>
         </div>
         <div class="modal-footer">
+          <button v-if="activeMainTab === 'orders' && canUpdateStatus(selectedOrder)" class="btn btn-primary" @click="openStatusFromDetail">
+            <i class="fas fa-exchange-alt"></i> Đổi trạng thái
+          </button>
           <button class="btn btn-outline" @click="closeDetailModal">Đóng</button>
         </div>
       </div>
@@ -1448,6 +1448,32 @@ const viewOrderItems = async (order) => {
 const closeDetailModal = () => {
   showDetailModal.value = false
   selectedOrder.value = null
+}
+
+const openStatusFromDetail = () => {
+  const order = selectedOrder.value
+  closeDetailModal()
+  if (order) openUpdateStatusModal(order)
+}
+
+const quickUpdateStatus = async (order) => {
+  const nextStatus = {
+    PENDING_PAYMENT: 'CONFIRMED', CONFIRMED: 'PROCESSING', PROCESSING: 'SHIPPING',
+    SHIPPING: 'DELIVERED', DELIVERED: 'COMPLETED'
+  }[order?.orderStatus]
+  if (!nextStatus || !canUpdateStatus(order)) return
+
+  updatingOrderIds.value.add(order.orderId)
+  try {
+    await adminOrderService.updateOrderStatus(order.orderId, { orderStatus: nextStatus })
+    showNotification(`Đã chuyển đơn hàng #${order.orderCode || order.orderId} sang ${getStatusText(nextStatus)}`, 'success')
+    await fetchOrders()
+    await fetchStatistics()
+  } catch (error) {
+    showNotification(error.response?.data?.message || 'Không thể cập nhật trạng thái đơn hàng', 'error')
+  } finally {
+    updatingOrderIds.value.delete(order.orderId)
+  }
 }
 
 const closeItemsModal = () => {

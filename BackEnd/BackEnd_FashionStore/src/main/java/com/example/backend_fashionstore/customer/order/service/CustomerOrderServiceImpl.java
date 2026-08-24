@@ -23,8 +23,6 @@ import com.example.backend_fashionstore.customer.order.repository.ReturnRequestR
 import com.example.backend_fashionstore.entity.*;
 import com.example.backend_fashionstore.enums.OrderStatus;
 import com.example.backend_fashionstore.enums.PaymentStatus;
-import com.example.backend_fashionstore.shipping.dto.ShippingCalculateRequest;
-import com.example.backend_fashionstore.shipping.service.ShippingServiceImpl;
 import com.example.backend_fashionstore.quanLyVoucher.repository.VoucherRepository;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -47,6 +45,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Transactional
 public class CustomerOrderServiceImpl implements CustomerOrderService {
+    private static final BigDecimal SHIPPING_FEE_STANDARD = BigDecimal.valueOf(20_000);
+    private static final BigDecimal SHIPPING_FREE_THRESHOLD = BigDecimal.valueOf(300_000);
 
     private final OrderRepository orderRepository;
     private final OrderDetailRepository orderDetailRepository;
@@ -58,7 +58,6 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
     private final CartRepository cartRepository;
     private final CartItemRepository cartItemRepository;
     private final ReturnRequestRepository returnRequestRepository;
-    private final ShippingServiceImpl shippingService;
 
     private final ProvinceRepository provinceRepository;
     private final WardRepository wardRepository;
@@ -358,21 +357,10 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
     private BigDecimal calculateShippingFee(Integer customerId, OrderRequestDTO request,
                                             String address, String province, String district,
                                             String ward, BigDecimal subtotal) {
-        ShippingCalculateRequest quoteRequest = ShippingCalculateRequest.builder()
-                .province(province).district(district).ward(ward).address(address)
-                .orderValue(subtotal)
-                .shippingFee(request.getShippingFee()).build();
-        try {
-            return shippingService.calculate(customerId, quoteRequest).getShippingFee();
-        } catch (Exception ex) {
-            if (request.getShippingFee() != null && request.getShippingFee().compareTo(BigDecimal.ZERO) >= 0) {
-                log.warn("GHTK unavailable while creating order; using checkout quote {}. reason={}",
-                        request.getShippingFee(), ex.getMessage());
-                return request.getShippingFee();
-            }
-            log.error("Cannot calculate shipping fee from GHTK", ex);
-            throw new RuntimeException("Không thể tính phí vận chuyển. Vui lòng thử lại.", ex);
-        }
+        // GHTK đã được tắt: miễn phí từ 300.000đ, còn lại 20.000đ.
+        return subtotal.compareTo(SHIPPING_FREE_THRESHOLD) >= 0
+                ? BigDecimal.ZERO
+                : SHIPPING_FEE_STANDARD;
     }
 
     // ============================================
