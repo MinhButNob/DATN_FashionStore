@@ -254,7 +254,7 @@
                </button>
              </div>
 
-             <div class="variants-table-wrapper">
+           <div class="variants-table-wrapper">
                <table class="variants-table">
                  <thead>
                    <tr>
@@ -313,9 +313,71 @@
                      </td>
                    </tr>
                  </tbody>
-               </table>
-             </div>
+             </table>
            </div>
+
+           <div class="product-images-section">
+             <div class="images-section-header">
+               <div>
+                 <h4>🖼️ Hình ảnh sản phẩm</h4>
+                 <p class="section-help">Quản lý bộ ảnh riêng cho từng màu - kích thước. Ảnh được lưu theo biến thể để hiển thị đúng khi khách chọn sản phẩm.</p>
+               </div>
+               <span class="image-count-badge">{{ productImageSummary.total }} ảnh</span>
+             </div>
+
+             <div v-if="!isEdit" class="image-save-note">
+               Vui lòng lưu sản phẩm trước, sau đó mở chỉnh sửa để tải ảnh cho từng biến thể.
+             </div>
+
+             <template v-else>
+               <div class="image-variant-toolbar">
+                 <label>Chọn biến thể:</label>
+                 <select v-model="selectedImageVariantId" @change="loadVariantImages" class="image-variant-select">
+                   <option :value="null">-- Chọn màu - kích thước --</option>
+                   <option v-for="variant in form.variants" :key="variant.productDetailId" :value="variant.productDetailId">
+                     {{ getVariantLabel(variant) }}
+                   </option>
+                 </select>
+                 <span v-if="selectedImageVariantId" class="image-count-inline">{{ images.length }} ảnh của biến thể này</span>
+               </div>
+
+               <div v-if="selectedImageVariantId" class="variant-image-manager">
+                 <div class="image-upload-row" @dragover.prevent @drop.prevent="handleImageDrop">
+                   <input ref="productImageInput" type="file" multiple accept="image/jpeg,image/png,image/webp,image/gif" class="hidden-file-input" @change="handleImageSelect" />
+                   <button type="button" class="btn-image-upload" @click="$refs.productImageInput.click()">⬆️ Chọn ảnh</button>
+                   <span>Kéo thả ảnh vào đây hoặc chọn nhiều ảnh (tối đa 5MB/ảnh)</span>
+                 </div>
+
+                 <div v-if="uploadPreviews.length" class="pending-image-grid">
+                   <div v-for="(preview, index) in uploadPreviews" :key="preview.url" class="pending-image-item">
+                     <img :src="preview.url" alt="Ảnh xem trước" />
+                     <button type="button" @click="removeImagePreview(index)">×</button>
+                   </div>
+                   <button type="button" class="btn-upload-images" :disabled="uploadingImages" @click="uploadProductImages">
+                     {{ uploadingImages ? 'Đang tải...' : `Tải lên ${uploadPreviews.length} ảnh` }}
+                   </button>
+                 </div>
+
+                 <div v-if="loadingImages" class="image-loading">Đang tải ảnh...</div>
+                 <div v-else-if="images.length" class="existing-image-grid">
+                   <div v-for="image in images" :key="image.productImageId" class="existing-image-item" :class="{ 'image-deleted': image.status === 'DELETED' }">
+                     <img :src="getImageUrl(image.productImagePath)" alt="Ảnh sản phẩm" @error="handleProductImageError" />
+                     <div class="existing-image-actions">
+                       <label v-if="image.status !== 'DELETED'" class="main-image-option">
+                         <input type="radio" :name="`main-image-${selectedImageVariantId}`" :checked="image.isMain === true" @change="setVariantMainImage(image)" /> Ảnh chính
+                       </label>
+                       <input :id="`replace-image-${image.productImageId}`" type="file" accept="image/jpeg,image/png,image/webp,image/gif" class="hidden-file-input" @change="replaceProductImage(image, $event)" />
+                       <label v-if="image.status !== 'DELETED'" :for="`replace-image-${image.productImageId}`" class="image-replace-btn">Thay</label>
+                       <button v-if="image.status !== 'DELETED'" type="button" class="image-delete-btn" @click="deleteProductImage(image)">Xóa</button>
+                       <button v-else type="button" class="image-restore-btn" @click="restoreProductImage(image)">Khôi phục</button>
+                     </div>
+                   </div>
+                 </div>
+                 <div v-else-if="!loadingImages" class="image-empty">Chưa có ảnh cho biến thể này.</div>
+               </div>
+             </template>
+           </div>
+         </div>
          </div>
 
          <div class="modal-footer">
@@ -428,6 +490,19 @@ const form = ref({
   isActive: true,
   variants: []
 });
+
+// Quản lý ảnh được tích hợp trong form sản phẩm, dùng lại API /product-images.
+const selectedImageVariantId = ref(null);
+const images = ref([]);
+const uploadPreviews = ref([]);
+const selectedImageFiles = ref([]);
+const loadingImages = ref(false);
+const uploadingImages = ref(false);
+const imageCountsByVariant = ref({});
+
+const productImageSummary = computed(() => ({
+  total: Object.values(imageCountsByVariant.value).reduce((sum, count) => sum + count, 0)
+}));
 
 // Computed
 const filteredProducts = computed(() => {
@@ -688,6 +763,7 @@ const goToPage = (page) => {
 // Variant functions
 const addVariant = () => {
   form.value.variants.push({
+    productDetailId: null,
     colorId: null,
     sizeId: null,
     price: 0,
@@ -742,6 +818,7 @@ const openCreateModal = () => {
     variants: []
   };
   categorySearchQuery.value = '';
+  resetImageManager();
   showModal.value = true;
 };
 
@@ -789,6 +866,7 @@ const openEditModal = async (product) => {
       : null;
 
     return {
+      productDetailId: v.productDetailId || null,
       colorId: colorId,
       sizeId: sizeId,
       price: Number(v.price) || 0,
@@ -809,6 +887,12 @@ const openEditModal = async (product) => {
 
   const currentCategory = categoryList.value.find(c => c.categoryId === categoryId);
   categorySearchQuery.value = currentCategory?.categoryName || product.category?.categoryName || '';
+  resetImageManager();
+  if (variants.length > 0 && variants[0].productDetailId) {
+    selectedImageVariantId.value = variants[0].productDetailId;
+    await loadVariantImages();
+  }
+  await loadProductImageSummary();
 
   showModal.value = true;
 };
@@ -826,6 +910,183 @@ const closeModal = () => {
   };
   categorySearchQuery.value = '';
   showCategorySuggestions.value = false;
+  resetImageManager();
+};
+
+const resetImageManager = () => {
+  selectedImageVariantId.value = null;
+  images.value = [];
+  imageCountsByVariant.value = {};
+  selectedImageFiles.value = [];
+  uploadPreviews.value.forEach(preview => URL.revokeObjectURL(preview.url));
+  uploadPreviews.value = [];
+};
+
+const getVariantLabel = (variant) => {
+  const color = colorList.value.find(item => Number(item.colorId) === Number(variant.colorId))?.colorName || 'Chưa chọn màu';
+  const size = sizeList.value.find(item => Number(item.sizeId) === Number(variant.sizeId))?.sizeName || 'Chưa chọn size';
+  return `${color} - ${size}`;
+};
+
+const getImageUrl = (path) => {
+  if (!path) return '';
+  if (path.startsWith('http://') || path.startsWith('https://')) return path;
+  const apiBase = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || '').replace(/\/api$/, '');
+  if (path.startsWith('uploads/')) return `${apiBase}/${path}`;
+  if (path.startsWith('/uploads/')) return `${apiBase}${path}`;
+  if (path.startsWith('product-images/')) return `${apiBase}/uploads/${path}`;
+  return `${apiBase}/uploads/${path.replace(/^\//, '')}`;
+};
+
+const normalizeImageResponse = (response) => {
+  const body = response?.data;
+  const list = body?.content || body?.data?.content || body?.data || body;
+  return Array.isArray(list) ? list : [];
+};
+
+const loadVariantImages = async () => {
+  if (!selectedImageVariantId.value) {
+    images.value = [];
+    return;
+  }
+  loadingImages.value = true;
+  try {
+    const response = await api.get('/product-images', {
+      params: { productDetailId: selectedImageVariantId.value, page: 0, size: 100 }
+    });
+    images.value = normalizeImageResponse(response).sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
+    imageCountsByVariant.value[selectedImageVariantId.value] = images.value.filter(image => image.status !== 'DELETED').length;
+  } catch (error) {
+    console.error('Lỗi tải ảnh biến thể:', error);
+    images.value = [];
+    showNotification('Không thể tải ảnh của biến thể', 'error');
+  } finally {
+    loadingImages.value = false;
+  }
+};
+
+const loadProductImageSummary = async () => {
+  const variantIds = form.value.variants.map(variant => variant.productDetailId).filter(Boolean);
+  const counts = await Promise.all(variantIds.map(async id => {
+    try {
+      const response = await api.get('/product-images', { params: { productDetailId: id, page: 0, size: 100 } });
+      return [id, normalizeImageResponse(response).filter(image => image.status !== 'DELETED').length];
+    } catch (error) {
+      return [id, 0];
+    }
+  }));
+  imageCountsByVariant.value = Object.fromEntries(counts);
+};
+
+const addImageFiles = (files) => {
+  files.filter(file => file.type.startsWith('image/')).forEach(file => {
+    if (file.size > 5 * 1024 * 1024) {
+      showNotification(`Ảnh ${file.name} vượt quá 5MB`, 'error');
+      return;
+    }
+    selectedImageFiles.value.push(file);
+    uploadPreviews.value.push({ file, url: URL.createObjectURL(file) });
+  });
+};
+
+const handleImageSelect = (event) => {
+  addImageFiles(Array.from(event.target.files || []));
+  event.target.value = '';
+};
+
+const handleImageDrop = (event) => addImageFiles(Array.from(event.dataTransfer.files || []));
+
+const removeImagePreview = (index) => {
+  URL.revokeObjectURL(uploadPreviews.value[index].url);
+  uploadPreviews.value.splice(index, 1);
+  selectedImageFiles.value.splice(index, 1);
+};
+
+const uploadProductImages = async () => {
+  if (!selectedImageVariantId.value || !selectedImageFiles.value.length) return;
+  uploadingImages.value = true;
+  let successCount = 0;
+  for (const file of selectedImageFiles.value) {
+    try {
+      const data = new FormData();
+      data.append('productDetailId', selectedImageVariantId.value);
+      data.append('imageFile', file);
+      data.append('productImageType', 'gallery');
+      await api.post('/product-images', data);
+      successCount++;
+    } catch (error) {
+      console.error('Lỗi upload ảnh:', error);
+    }
+  }
+  selectedImageFiles.value = [];
+  uploadPreviews.value.forEach(preview => URL.revokeObjectURL(preview.url));
+  uploadPreviews.value = [];
+  uploadingImages.value = false;
+  if (successCount) {
+    showNotification(`Đã tải lên ${successCount} ảnh`);
+    await loadVariantImages();
+  } else {
+    showNotification('Không thể tải ảnh lên', 'error');
+  }
+};
+
+const setVariantMainImage = async (image) => {
+  try {
+    const data = new FormData();
+    data.append('isMain', 'true');
+    await api.put(`/product-images/${image.productImageId}`, data);
+    images.value.forEach(item => { item.isMain = item.productImageId === image.productImageId; });
+    showNotification('Đã đặt ảnh chính');
+  } catch (error) {
+    showNotification('Không thể đặt ảnh chính', 'error');
+  }
+};
+
+const replaceProductImage = async (image, event) => {
+  const file = event.target.files?.[0];
+  event.target.value = '';
+  if (!file) return;
+  if (file.size > 5 * 1024 * 1024) {
+    showNotification('Ảnh vượt quá 5MB', 'error');
+    return;
+  }
+  try {
+    const data = new FormData();
+    data.append('imageFile', file);
+    data.append('productImageType', image.productImageType || 'gallery');
+    data.append('displayOrder', image.displayOrder || 0);
+    data.append('isMain', image.isMain ? 'true' : 'false');
+    await api.put(`/product-images/${image.productImageId}`, data);
+    await loadVariantImages();
+    showNotification('Đã thay ảnh thành công');
+  } catch (error) {
+    showNotification('Không thể thay ảnh', 'error');
+  }
+};
+
+const deleteProductImage = async (image) => {
+  if (!confirm('Bạn có chắc muốn xóa ảnh này?')) return;
+  try {
+    await api.delete(`/product-images/${image.productImageId}`);
+    await loadVariantImages();
+    showNotification('Đã xóa ảnh');
+  } catch (error) {
+    showNotification('Không thể xóa ảnh', 'error');
+  }
+};
+
+const restoreProductImage = async (image) => {
+  try {
+    await api.patch(`/product-images/${image.productImageId}/restore`);
+    await loadVariantImages();
+    showNotification('Đã khôi phục ảnh');
+  } catch (error) {
+    showNotification('Không thể khôi phục ảnh', 'error');
+  }
+};
+
+const handleProductImageError = (event) => {
+  event.target.style.opacity = '0.35';
 };
 
 // Submit form
@@ -889,8 +1150,20 @@ const handleSubmit = async () => {
       await api.put(`/products/${form.value.productId}`, submitData);
       showNotification('Cập nhật sản phẩm thành công!');
     } else {
-      await api.post(`/products`, submitData);
-      showNotification('Thêm sản phẩm thành công!');
+      const response = await api.post(`/products`, submitData);
+      const createdProduct = response?.data?.data || response?.data;
+      const createdVariants = createdProduct?.variants || [];
+      form.value.productId = createdProduct?.productId || createdProduct?.id || null;
+      form.value.variants = form.value.variants.map((variant, index) => ({
+        ...variant,
+        productDetailId: createdVariants[index]?.productDetailId || null
+      }));
+      isEdit.value = true;
+      showNotification('Thêm sản phẩm thành công. Hãy chọn biến thể để tải ảnh.');
+      await fetchProducts();
+      await fetchStatistics();
+      saving.value = false;
+      return;
     }
 
     closeModal();
@@ -1806,6 +2079,56 @@ onMounted(async () => {
   border-radius: 6px;
   font-size: 13px;
 }
+
+.product-images-section {
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.images-section-header,
+.image-variant-toolbar,
+.image-upload-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.images-section-header {
+  justify-content: space-between;
+}
+
+.images-section-header h4 { margin: 0; }
+.section-help { margin: 6px 0 0; color: #64748b; font-size: 13px; }
+.image-count-badge,
+.image-count-inline { color: #475569; font-size: 13px; }
+.image-save-note,
+.image-empty,
+.image-loading { padding: 16px; margin-top: 14px; border-radius: 8px; background: #f8fafc; color: #64748b; }
+.image-variant-toolbar { margin-top: 18px; flex-wrap: wrap; }
+.image-variant-select { min-width: 260px; padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 6px; }
+.variant-image-manager { margin-top: 14px; }
+.image-upload-row { padding: 14px; border: 1px dashed #94a3b8; border-radius: 8px; color: #64748b; flex-wrap: wrap; }
+.hidden-file-input { display: none; }
+.btn-image-upload,
+.btn-upload-images { border: 0; border-radius: 6px; padding: 9px 14px; color: white; background: #4f46e5; cursor: pointer; }
+.btn-upload-images { margin-top: 12px; background: #16a34a; }
+.pending-image-grid,
+.existing-image-grid { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 14px; }
+.pending-image-item,
+.existing-image-item { position: relative; width: 112px; padding: 6px; border: 1px solid #e2e8f0; border-radius: 8px; background: white; }
+.pending-image-item img,
+.existing-image-item img { width: 100px; height: 100px; object-fit: cover; border-radius: 5px; display: block; }
+.pending-image-item button { position: absolute; top: 2px; right: 2px; border: 0; border-radius: 50%; background: #ef4444; color: white; width: 22px; height: 22px; cursor: pointer; }
+.existing-image-actions { display: flex; align-items: center; justify-content: space-between; gap: 4px; margin-top: 6px; font-size: 11px; }
+.main-image-option { white-space: nowrap; }
+.image-delete-btn,
+.image-restore-btn,
+.image-replace-btn { border: 0; border-radius: 4px; padding: 4px 6px; color: white; cursor: pointer; font-size: 11px; }
+.image-delete-btn { background: #ef4444; }
+.image-restore-btn { background: #16a34a; }
+.image-replace-btn { background: #2563eb; }
+.image-deleted img { filter: grayscale(1); }
 
 .discounted-price {
   background-color: #e8f5e9;

@@ -31,7 +31,6 @@ import AdminCustomers from "../views/admin/AdminCustomers.vue";
 import AdminSettings from "../views/admin/AdminSettings.vue";
 import AdminLogin from "../views/admin/AdminLogin.vue";
 import AdminSizes from "../views/admin/AdminSizes.vue";
-import AdminImages from "../views/admin/AdminImages.vue";
 import AdminEmployees from "../views/admin/AdminEmployees.vue";
 import AdminRoles from "../views/admin/AdminRoles.vue";
 import AdminColors from "../views/admin/AdminColors.vue";
@@ -155,7 +154,6 @@ const routes = [
         component: AdminCategoryHierarchy,
       },
       { path: "sizes", name: "admin-sizes", component: AdminSizes },
-      { path: "images", name: "admin-images", component: AdminImages },
       { path: "customers", name: "admin-customers", component: AdminCustomers },
       { path: "employees", name: "admin-employees", component: AdminEmployees },
       { path: "roles", name: "admin-roles", component: AdminRoles },

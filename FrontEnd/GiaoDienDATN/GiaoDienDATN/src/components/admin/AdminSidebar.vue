@@ -58,7 +58,6 @@ const menuSections = [
       { name: "Quản lý danh mục", path: "/admin/categories", icon: "fas fa-tags" },
       { name: "Quản lý nhân viên", path: "/admin/employees", icon: "fas fa-user-tie" },
       { name: "Quản lý vai trò", path: "/admin/roles", icon: "fas fa-user-shield" },
-      { name: "Quản lý hình ảnh", path: "/admin/images", icon: "fas fa-images" },
       { name: "Quản lý banner", path: "/admin/banners", icon: "fas fa-images" },
       { name: "Quản lý size", path: "/admin/sizes", icon: "fas fa-ruler-combined" },
       { name: "Quản lý màu sắc", path: "/admin/colors", icon: "fas fa-boxes" },
