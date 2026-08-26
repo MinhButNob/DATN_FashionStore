@@ -292,6 +292,7 @@
                   <th class="price-cell">Giá biến thể</th>
                   <th class="price-cell">Voucher</th>
                   <th class="price-cell">Giá thực trả</th>
+                  <th class="status-cell">Trạng thái</th>
                   <th class="quantity-cell">Số lượng</th>
                   <th class="total-cell">Thành tiền</th>
                 </tr>
@@ -313,17 +314,22 @@
                   <td class="price-cell">{{ formatPrice(item.unitPrice) }}</td>
                   <td class="price-cell">-{{ formatPrice(item.discount || 0) }}</td>
                   <td class="price-cell">{{ formatPrice((Number(item.finalAmount || 0) / Number(item.quantity || 1))) }}</td>
+                  <td class="status-cell">
+                    <span class="status-badge" :class="getItemStatusClass(item.status)">
+                      {{ getItemStatusText(item.status) }}
+                    </span>
+                  </td>
                   <td class="quantity-cell">{{ item.quantity }}</td>
                   <td class="total-cell">{{ formatPrice(item.finalAmount ?? item.refundAmount) }}</td>
                 </tr>
               </tbody>
               <tfoot>
                 <tr>
-                  <td colspan="5" class="text-right">Tạm tính:</td>
+                  <td colspan="6" class="text-right">Tạm tính:</td>
                   <td class="text-right">{{ formatPrice(selectedOrder?.subtotalAmount) }}</td>
                 </tr>
                 <tr v-if="selectedOrder?.discountAmount && selectedOrder?.discountAmount > 0" class="discount-row">
-                  <td colspan="5" class="text-right">
+                  <td colspan="6" class="text-right">
                     <span class="voucher-label">
                       <i class="fas fa-ticket-alt"></i> Giảm giá 
                       ({{ selectedOrder?.voucher?.voucherCode || 'Voucher' }})
@@ -332,11 +338,11 @@
                   <td class="text-right discount-amount">-{{ formatPrice(selectedOrder?.discountAmount) }}</td>
                 </tr>
                 <tr>
-                  <td colspan="5" class="text-right">Phí vận chuyển:</td>
+                  <td colspan="6" class="text-right">Phí vận chuyển:</td>
                   <td class="text-right">{{ formatPrice(selectedOrder?.shippingFee || 0) }}</td>
                 </tr>
                 <tr class="total-row">
-                  <td colspan="5" class="text-right">Tổng cộng:</td>
+                  <td colspan="6" class="text-right">Tổng cộng:</td>
                   <td class="text-right grand-total">{{ formatPrice(selectedOrder?.totalAmount) }}</td>
                 </tr>
               </tfoot>
@@ -1003,6 +1009,10 @@ const getStatusClass = (status) => {
   }
   return map[status] || ''
 }
+
+const getItemStatusText = (status) => status === 'RETURNED' ? 'Đã hoàn' : 'Hoàn thành'
+
+const getItemStatusClass = (status) => status === 'RETURNED' ? 'status-returned' : 'status-completed'
 
 const getPaymentStatusText = (status) => {
   const map = {

@@ -959,6 +959,7 @@ public class SaleStaffService {
                             .unitPrice(detail.getUnitPrice())
                             .discount(detail.getDiscount())
                             .finalAmount(detail.getFinalAmount())
+                            .status(detail.getStatus() != null ? detail.getStatus().name() : "COMPLETED")
                             .build();
                 })
                 .collect(Collectors.toList());

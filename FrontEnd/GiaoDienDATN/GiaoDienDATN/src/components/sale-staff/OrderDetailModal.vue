@@ -40,6 +40,7 @@
               <tr>
                 <th>Sản phẩm</th>
                 <th class="price-cell">Đơn giá</th>
+                <th class="status-cell">Trạng thái</th>
                 <th class="quantity-cell">Số lượng</th>
                 <th class="total-cell">Thành tiền</th>
               </tr>
@@ -59,17 +60,22 @@
                   </div>
                 </td>
                 <td class="price-cell">{{ formatPrice(item.unitPrice) }}</td>
+                <td class="status-cell">
+                  <span class="status-badge" :class="getItemStatusClass(item.status)">
+                    {{ getItemStatusText(item.status) }}
+                  </span>
+                </td>
                 <td class="quantity-cell">{{ item.quantity }}</td>
                 <td class="total-cell">{{ formatPrice(item.finalAmount) }}</td>
               </tr>
             </tbody>
             <tfoot>
               <tr>
-                <td colspan="3" class="text-right">Tạm tính:</td>
+                <td colspan="4" class="text-right">Tạm tính:</td>
                 <td class="text-right">{{ formatPrice(order?.subtotalAmount) }}</td>
               </tr>
               <tr v-if="order?.discountAmount && order?.discountAmount > 0" class="discount-row">
-                <td colspan="3" class="text-right">
+                <td colspan="4" class="text-right">
                   <span class="voucher-label">
                     <i class="fas fa-ticket-alt"></i> Giảm giá 
                     ({{ order?.voucher?.voucherCode || 'Voucher' }})
@@ -78,11 +84,11 @@
                 <td class="text-right discount-amount">-{{ formatPrice(order?.discountAmount) }}</td>
               </tr>
               <tr>
-                <td colspan="3" class="text-right">Phí vận chuyển:</td>
+                <td colspan="4" class="text-right">Phí vận chuyển:</td>
                 <td class="text-right">{{ formatPrice(order?.shippingFee || 0) }}</td>
               </tr>
               <tr class="total-row">
-                <td colspan="3" class="text-right">Tổng cộng:</td>
+                <td colspan="4" class="text-right">Tổng cộng:</td>
                 <td class="text-right grand-total">{{ formatPrice(order?.totalAmount) }}</td>
               </tr>
             </tfoot>
@@ -132,6 +138,9 @@ const getImageUrl = (imagePath) => {
   const cleanPath = imagePath.startsWith('/') ? imagePath : '/' + imagePath
   return IMAGE_BASE + cleanPath
 }
+
+const getItemStatusText = (status) => status === 'RETURNED' ? 'Đã hoàn' : 'Hoàn thành'
+const getItemStatusClass = (status) => status === 'RETURNED' ? 'status-returned' : 'status-completed'
 
 const handleImageError = (event) => {
   event.target.style.display = 'none'
