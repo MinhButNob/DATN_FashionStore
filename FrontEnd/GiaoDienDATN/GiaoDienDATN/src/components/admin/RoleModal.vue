@@ -99,6 +99,7 @@ export default {
       return isValid;
     },
     async handleSubmit() {
+      if (!(await window.appConfirm(this.isEdit ? 'Bạn có chắc chắn muốn lưu các thay đổi này không?' : 'Bạn có chắc chắn muốn thêm dữ liệu này không?'))) return
       if (!this.validateForm()) return;
 
       this.isSubmitting = true;

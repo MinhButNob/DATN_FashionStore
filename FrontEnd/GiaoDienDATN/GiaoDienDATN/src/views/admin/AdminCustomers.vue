@@ -316,6 +316,7 @@ const closeCustomerModal = () => {
 };
 
 const handleCustomerSubmit = async (data) => {
+  if (!(await window.appConfirm(editingCustomer.value?.customerId ? 'Bạn có chắc chắn muốn lưu các thay đổi này không?' : 'Bạn có chắc chắn muốn thêm dữ liệu này không?'))) return;
   try {
     if (editingCustomer.value?.customerId) {
       const currentIsLocked = !!editingCustomer.value.isLocked;

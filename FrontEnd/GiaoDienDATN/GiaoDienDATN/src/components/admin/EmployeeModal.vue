@@ -293,7 +293,7 @@ export default {
       return isValid
     },
 
-    submit() {
+    async submit() {
       this.clearAllErrors()
       if (!this.validate()) {
         const firstError = this.$el.querySelector('.has-error')
@@ -302,6 +302,8 @@ export default {
       }
 
       // ✅ Tạo submitData với đầy đủ các trường bắt buộc
+      if (!(await window.appConfirm(this.isEdit ? 'Bạn có chắc chắn muốn lưu các thay đổi này không?' : 'Bạn có chắc chắn muốn thêm dữ liệu này không?'))) return
+
       const submitData = {
         employeeFullname: this.formData.employeeFullname.trim(),
         employeeGender: this.formData.employeeGender,

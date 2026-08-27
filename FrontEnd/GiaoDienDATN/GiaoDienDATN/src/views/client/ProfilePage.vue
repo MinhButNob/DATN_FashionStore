@@ -1120,7 +1120,7 @@ const setDefaultAddress = async (addressId) => {
 };
 
 const deleteAddress = async (addressId) => {
-  if (!confirm('Bạn có chắc muốn xóa địa chỉ này?')) return;
+  if (!(await window.appConfirm('Bạn có chắc muốn xóa địa chỉ này?'))) return;
   
   try {
     const token = localStorage.getItem('token');
@@ -1527,8 +1527,8 @@ const closeViewReview = () => {
   viewingReview.value = null;
 };
 
-const deleteReview = ({ orderId, productDetailId }) => {
-  if (!confirm("Bạn có chắc muốn xóa đánh giá này?")) return;
+const deleteReview = async ({ orderId, productDetailId }) => {
+  if (!(await window.appConfirm("Bạn có chắc muốn xóa đánh giá này?"))) return;
   
   try {
     const reviewData = reviewedItems.value.get(`${orderId}_${productDetailId}`);
@@ -1682,8 +1682,8 @@ const changeAvatar = () => {
   showNotificationMsg("Chức năng đang phát triển", "info");
 };
 
-const logout = () => {
-  if (confirm("Bạn có chắc muốn đăng xuất?")) {
+const logout = async () => {
+  if (await window.appConfirm("Bạn có chắc muốn đăng xuất?")) {
     authStore.logout();
     router.push("/home");
   }

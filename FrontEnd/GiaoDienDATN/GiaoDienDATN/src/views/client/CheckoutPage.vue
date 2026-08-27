@@ -645,6 +645,8 @@ const placeOrder = async () => {
 
   console.log('📦 Order payload:', orderPayload)
 
+  if (!(await window.appConfirm('Bạn có chắc chắn muốn thanh toán đơn hàng này không?'))) return
+
   placingOrder.value = true
 
   try {

@@ -325,7 +325,8 @@ onMounted(() => {
   }
 })
 
-const handleSubmit = () => {
+const handleSubmit = async () => {
+  if (!(await window.appConfirm(props.product ? 'Bạn có chắc chắn muốn lưu các thay đổi này không?' : 'Bạn có chắc chắn muốn thêm dữ liệu này không?'))) return
   const productData = {
     ...form,
     price: parseInt(form.price),

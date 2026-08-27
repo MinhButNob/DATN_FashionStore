@@ -64,8 +64,8 @@ const isActive = (path) => {
   return false
 }
 
-const handleLogout = () => {
-  if (confirm('Bạn có chắc muốn đăng xuất?')) {
+const handleLogout = async () => {
+  if (await window.appConfirm('Bạn có chắc muốn đăng xuất?')) {
     authStore.logout()
     router.push('/login')
   }

@@ -192,7 +192,8 @@ const close = () => {
   emit('close')
 }
 
-const processReturn = (status) => {
+const processReturn = async (status) => {
+  if (!(await window.appConfirm('Bạn có chắc chắn muốn thực hiện thao tác này không?'))) return
   processing.value = true
   emit('process', {
     status: status,

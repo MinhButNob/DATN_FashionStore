@@ -104,29 +104,24 @@ public class PaymentServiceImpl implements PaymentService {
         StringBuilder hashData = new StringBuilder();
         StringBuilder query = new StringBuilder();
 
-        Iterator<String> itr = fieldNames.iterator();
-        while (itr.hasNext()) {
-            String fieldName = itr.next();
+        boolean firstField = true;
+        for (String fieldName : fieldNames) {
             String fieldValue = vnp_Params.get(fieldName);
-            if ((fieldValue != null) && (fieldValue.length() > 0)) {
-                try {
-                    // Build hash data
-                    hashData.append(fieldName);
-                    hashData.append('=');
-                    hashData.append(URLEncoder.encode(fieldValue, StandardCharsets.UTF_8.toString()));
-
-                    // Build query
-                    query.append(URLEncoder.encode(fieldName, StandardCharsets.UTF_8.toString()));
-                    query.append('=');
-                    query.append(URLEncoder.encode(fieldValue, StandardCharsets.UTF_8.toString()));
-
-                    if (itr.hasNext()) {
-                        query.append('&');
-                        hashData.append('&');
-                    }
-                } catch (Exception e) {
-                    e.printStackTrace();
+            if (fieldValue == null || fieldValue.isEmpty()) {
+                continue;
+            }
+            try {
+                if (!firstField) {
+                    query.append('&');
+                    hashData.append('&');
                 }
+                String encodedName = URLEncoder.encode(fieldName, StandardCharsets.UTF_8.toString());
+                String encodedValue = URLEncoder.encode(fieldValue, StandardCharsets.UTF_8.toString());
+                hashData.append(encodedName).append('=').append(encodedValue);
+                query.append(encodedName).append('=').append(encodedValue);
+                firstField = false;
+            } catch (Exception e) {
+                throw new IllegalStateException("Không thể tạo dữ liệu ký VNPay", e);
             }
         }
 
@@ -185,8 +180,18 @@ public class PaymentServiceImpl implements PaymentService {
             return;
         }
 
-        if (signValue.equals(vnp_SecureHash)) {
-            if ("00".equals(responseCode)) {
+        boolean validSignature = vnp_SecureHash != null
+                && signValue.equalsIgnoreCase(vnp_SecureHash);
+        BigDecimal callbackAmount = amountStr == null ? null
+                : new BigDecimal(amountStr).divide(new BigDecimal(100));
+        boolean validAmount = callbackAmount != null
+                && callbackAmount.compareTo(payment.getPaymentAmount()) == 0;
+
+        if (!validSignature || !validAmount) {
+            throw new IllegalArgumentException("Callback VNPay không hợp lệ: sai chữ ký hoặc số tiền");
+        }
+
+        if ("00".equals(responseCode)) {
                 payment.setPaymentStatus(PaymentStatus.SUCCESS);
                 Order order = payment.getOrder();
                 if(order != null) {
@@ -209,10 +214,6 @@ public class PaymentServiceImpl implements PaymentService {
                         e.printStackTrace();
                     }
                 }
-            } else {
-                payment.setPaymentStatus(PaymentStatus.FAILED);
-                cancelOrderOnPaymentFail(payment.getOrder());
-            }
         } else {
             payment.setPaymentStatus(PaymentStatus.FAILED);
             cancelOrderOnPaymentFail(payment.getOrder());
@@ -281,21 +282,21 @@ public class PaymentServiceImpl implements PaymentService {
         List<String> fieldNames = new ArrayList<>(fields.keySet());
         Collections.sort(fieldNames);
         StringBuilder sb = new StringBuilder();
-        Iterator<String> itr = fieldNames.iterator();
-        while (itr.hasNext()) {
-            String fieldName = itr.next();
+        boolean firstField = true;
+        for (String fieldName : fieldNames) {
             String fieldValue = fields.get(fieldName);
-            if ((fieldValue != null) && (fieldValue.length() > 0)) {
-                try {
-                    sb.append(fieldName);
-                    sb.append("=");
-                    sb.append(URLEncoder.encode(fieldValue, StandardCharsets.UTF_8.toString()));
-                } catch (Exception e) {
-                    e.printStackTrace();
+            if (fieldValue == null || fieldValue.isEmpty()) {
+                continue;
+            }
+            try {
+                if (!firstField) {
+                    sb.append('&');
                 }
-                if (itr.hasNext()) {
-                    sb.append("&");
-                }
+                sb.append(URLEncoder.encode(fieldName, StandardCharsets.UTF_8.toString()));
+                sb.append('=').append(URLEncoder.encode(fieldValue, StandardCharsets.UTF_8.toString()));
+                firstField = false;
+            } catch (Exception e) {
+                throw new IllegalStateException("Không thể tạo dữ liệu kiểm tra chữ ký VNPay", e);
             }
         }
         return VNPayConfig.hmacSHA512(vnPayConfig.getSecretKey().trim(), sb.toString());

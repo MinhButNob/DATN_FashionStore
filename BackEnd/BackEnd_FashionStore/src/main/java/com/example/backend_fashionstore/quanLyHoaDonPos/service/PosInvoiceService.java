@@ -6,6 +6,8 @@ import com.example.backend_fashionstore.entity.PosOrder;
 import com.example.backend_fashionstore.entity.PosOrderItem;
 import com.example.backend_fashionstore.entity.PosPayment;
 import com.example.backend_fashionstore.entity.PosSession;
+import com.example.backend_fashionstore.entity.PaymentMethod;
+import com.example.backend_fashionstore.payment.repository.PaymentMethodRepository;
 import com.example.backend_fashionstore.quanLyBanhangTaiQuay.repository.PosOrderItemRepository;
 import com.example.backend_fashionstore.quanLyBanhangTaiQuay.repository.PosOrderRepository;
 import com.example.backend_fashionstore.quanLyBanhangTaiQuay.repository.PosPaymentRepository;
@@ -41,6 +43,7 @@ public class PosInvoiceService {
     private final EmployeeRepository employeeRepository;
     private final ProductDetailRepository productDetailRepository;
     private final PosInvoiceRepository posInvoiceRepository;
+    private final PaymentMethodRepository paymentMethodRepository;
     // =====================================================
     // TÌM KIẾM HÓA ĐƠN
     // =====================================================
@@ -293,12 +296,17 @@ public class PosInvoiceService {
         dto.setReferenceNumber(payment.getPosPaymentReferenceNumber());
         dto.setProcessedAt(payment.getPosPaymentProcessedAt());
 
-        if (payment.getPosPaymentMethodId() == 1) {
+        String methodName = paymentMethodRepository.findById(Long.valueOf(payment.getPosPaymentMethodId()))
+                .map(PaymentMethod::getMethodName)
+                .orElse(null);
+        if ("CASH".equalsIgnoreCase(methodName)) {
             dto.setPaymentMethod("Tiền mặt");
-        } else if (payment.getPosPaymentMethodId() == 2) {
+        } else if ("VNPAY".equalsIgnoreCase(methodName)) {
+            dto.setPaymentMethod("VNPay");
+        } else if ("BANK_TRANSFER".equalsIgnoreCase(methodName)) {
             dto.setPaymentMethod("Chuyển khoản");
         } else {
-            dto.setPaymentMethod("Khác");
+            dto.setPaymentMethod(methodName != null ? methodName : "Khác");
         }
 
         return dto;

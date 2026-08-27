@@ -11,15 +11,18 @@
             <i class="fas fa-search"></i>
             <input v-model="keyword" type="text" placeholder="Tìm theo tên sản phẩm, SKU, phân loại..." />
           </div>
-          <div class="category-tabs">
+          <div class="category-filter">
+            <span class="category-filter-label"><i class="fas fa-layer-group"></i> Danh mục</span>
+            <div class="category-tabs">
             <button
               v-for="cat in categoryList"
               :key="cat.id"
               :class="['cat-tab', { active: category === cat.id }]"
               @click="category = cat.id"
             >
-              {{ cat.name }}
+              {{ cat.name }} <span class="cat-count">{{ cat.count }}</span>
             </button>
+            </div>
           </div>
         </div>
 
@@ -124,7 +127,10 @@
               <h4>{{ item.productDetail?.product?.name || 'Sản phẩm' }}</h4>
               <p class="variant-label">
                 {{ item.productDetail?.skuDetail }}
-                <span class="badge">{{ item.productDetail?.size }} / {{ item.productDetail?.color }}</span>
+                <span class="variant-badges">
+                  <span class="variant-badge size-badge"><b>Size</b> {{ item.productDetail?.size }}</span>
+                  <span class="variant-badge color-badge"><b>Màu</b> {{ item.productDetail?.color }}</span>
+                </span>
               </p>
               <p class="price-label">{{ formatPrice(item.unitPrice) }}</p>
             </div>
@@ -330,15 +336,21 @@ const isLoadingProducts = ref(false);
 
 // Danh sách danh mục cho tab lọc
 const categoryList = computed(() => [
-  { id: "all", name: "Tất cả" },
-  ...categories.value.map(c => ({ id: String(c.categoryId), name: c.categoryName }))
+  { id: "all", name: "Tất cả", count: products.value.length },
+  ...categories.value.filter(c => !['áo', 'quần', 'phụ kiện'].includes((c.categoryName || '').trim().toLowerCase())).map(c => ({
+    id: String(c.categoryId),
+    name: c.categoryName,
+    count: products.value.filter(p => p.category === String(c.categoryId)).length
+  }))
 ]);
 
 // Load danh mục từ API
 const loadCategories = async () => {
   try {
     const res = await api.get("/categories/active");
-    if (res?.data?.success && Array.isArray(res.data.data)) {
+    if (Array.isArray(res?.data)) {
+      categories.value = res.data;
+    } else if (res?.data?.success && Array.isArray(res.data.data)) {
       categories.value = res.data.data;
     } else if (res?.data?.success && Array.isArray(res.data.data?.content)) {
       categories.value = res.data.data.content;
@@ -681,6 +693,8 @@ const checkout = async () => {
     showNotification("Giỏ hàng trống!", "warning");
     return;
   }
+
+  if (!(await window.appConfirm('Bạn có chắc chắn muốn thanh toán đơn hàng này không?'))) return;
 
   if (paymentMethod.value === 'VNPAY') {
     await checkoutVnpay();
@@ -1061,6 +1075,19 @@ onMounted(() => {
   gap: 8px;
   flex-wrap: wrap;
 }
+.category-filter {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.category-filter-label {
+  color: #666;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.category-filter-label i { color: #e63946; margin-right: 4px; }
 .cat-tab {
   border: 1.5px solid #e1e1e6;
   background: white;
@@ -1079,6 +1106,20 @@ onMounted(() => {
   color: white;
   font-weight: 600;
 }
+.cat-count {
+  display: inline-flex;
+  min-width: 18px;
+  height: 18px;
+  align-items: center;
+  justify-content: center;
+  margin-left: 4px;
+  padding: 0 5px;
+  border-radius: 10px;
+  background: #f1f1f4;
+  color: #777;
+  font-size: 11px;
+}
+.cat-tab.active .cat-count { background: rgba(255,255,255,.22); color: #fff; }
 
 .loading-state {
   text-align: center;
@@ -1090,8 +1131,8 @@ onMounted(() => {
 
 .product-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
 }
 
 .product-card-pos {
@@ -1111,7 +1152,7 @@ onMounted(() => {
 .pc-img-wrapper {
   position: relative;
   width: 100%;
-  padding-top: 100%;
+  padding-top: 68%;
   background: #f4f4f6;
 }
 .pc-img-wrapper img {
@@ -1140,14 +1181,14 @@ onMounted(() => {
 }
 
 .pc-info-wrapper {
-  padding: 14px;
+  padding: 9px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 6px;
   flex: 1;
 }
 .pc-name-pos {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   color: #1a1a2e;
   display: -webkit-box;
@@ -1155,34 +1196,43 @@ onMounted(() => {
   line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  height: 40px;
+  height: 34px;
 }
 .pc-price-pos {
   color: #e63946;
   font-weight: 700;
-  font-size: 16px;
+  font-size: 14px;
 }
 
 .attr-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-items: center;
+  gap: 5px;
 }
 .attr-group label {
-  font-size: 12px;
-  color: #555;
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 2px 6px;
+  border-radius: 5px;
+  font-size: 10px;
+  color: #be123c;
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
   font-weight: 600;
 }
+.attr-group:nth-of-type(2) label { color: #1d4ed8; background: #eff6ff; border-color: #bfdbfe; }
 .chip-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 4px;
 }
 .chip {
-  padding: 5px 12px;
+  padding: 4px 8px;
   border: 1px solid #e1e1e6;
   border-radius: 6px;
-  font-size: 12px;
+  font-size: 11px;
   cursor: pointer;
   background: #fafafc;
   transition: 0.15s;
@@ -1208,11 +1258,11 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding-top: 12px;
+  padding-top: 7px;
   border-top: 1px dashed #eee;
 }
 .stock-info {
-  font-size: 12px;
+  font-size: 11px;
   color: #2a9d8f;
   font-weight: 600;
 }
@@ -1223,9 +1273,9 @@ onMounted(() => {
   color: white;
   border: none;
   border-radius: 8px;
-  padding: 8px 14px;
+  padding: 6px 10px;
   font-weight: 600;
-  font-size: 13px;
+  font-size: 12px;
   cursor: pointer;
   transition: 0.2s;
   display: flex;
@@ -1323,7 +1373,20 @@ onMounted(() => {
 .cart-item:hover { border-color: #e63946; background: #fffafa; }
 .item-info h4 { font-size: 13px; margin: 0 0 3px; color: #1a1a2e; font-weight: 600; }
 .variant-label { font-size: 11px; color: #666; margin: 0 0 3px; }
-.badge { background: #eef1f6; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; }
+.variant-badges { display: inline-flex; gap: 5px; margin-left: 4px; vertical-align: middle; }
+.variant-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 7px;
+  border-radius: 5px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+}
+.variant-badge b { font-size: 9px; text-transform: uppercase; letter-spacing: .2px; }
+.size-badge { background: #fff1f2; color: #be123c; border: 1px solid #fecdd3; }
+.color-badge { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
 .price-label { color: #e63946; font-weight: 700; margin: 0; font-size: 13px; }
 .qty-control { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 .qty-control button {
@@ -1533,6 +1596,19 @@ onMounted(() => {
   transition: 0.15s;
 }
 .btn-cancel-vnpay:hover { border-color: #aaa; }
+
+@media (max-width: 1350px) {
+  .staff-pos { grid-template-columns: minmax(0, 1fr) 360px; gap: 14px; }
+  .product-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 1050px) {
+  .product-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 760px) {
+  .staff-pos { display: flex; flex-direction: column; }
+  .product-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cart-panel { width: 100%; }
+}
 
 /* Animations */
 @keyframes modalPop { from { opacity:0; transform: scale(0.88) translateY(20px); } to { opacity:1; transform: none; } }

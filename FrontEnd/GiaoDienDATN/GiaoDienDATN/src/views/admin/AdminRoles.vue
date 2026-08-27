@@ -327,7 +327,7 @@ const confirmDelete = async (role) => {
     return;
   }
   
-  if (confirm(`Bạn có chắc chắn muốn xóa vai trò "${role.roleName}" không?`)) {
+  if (await window.appConfirm(`Bạn có chắc chắn muốn xóa vai trò "${role.roleName}" không?`)) {
     try {
       await roleStore.deleteRole(id);
       showToast(`Đã chuyển vai trò "${role.roleName}" sang trạng thái đã xóa!`);

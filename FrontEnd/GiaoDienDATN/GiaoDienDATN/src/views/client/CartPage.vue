@@ -620,7 +620,7 @@ const updateAllCart = async () => {
 }
 
 const removeItem = async (item) => {
-  if (confirm(`Bạn có chắc muốn xóa "${item.name}" khỏi giỏ hàng?`)) {
+  if (await window.appConfirm(`Bạn có chắc muốn xóa "${item.name}" khỏi giỏ hàng?`)) {
     try {
       await cartStore.removeFromCart(item.cartItemId, item.id, item.size, item.color)
       showNotification('Đã xóa sản phẩm khỏi giỏ hàng', 'success')
@@ -637,7 +637,7 @@ const removeItem = async (item) => {
 }
 
 const clearAllCart = async () => {
-  if (confirm('Bạn có chắc muốn xóa toàn bộ giỏ hàng?')) {
+  if (await window.appConfirm('Bạn có chắc muốn xóa toàn bộ giỏ hàng?')) {
     try {
       await cartStore.clearCart()
       selectedVoucher.value = null

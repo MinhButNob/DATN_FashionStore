@@ -8,6 +8,7 @@ import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
+import java.sql.Statement;
 import java.util.*;
 
 @Component
@@ -24,6 +25,8 @@ public class SchemaValidator implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
+        repairPosOrderStatusConstraint();
+
         System.out.println("========================================");
         System.out.println("BẮT ĐẦU KIỂM TRA SCHEMA DATABASE");
         System.out.println("========================================");
@@ -79,6 +82,70 @@ public class SchemaValidator implements CommandLineRunner {
             }
         }
         System.out.println("========================================");
+    }
+
+    /**
+     * VNPay POS phải tạo đơn chờ thanh toán trước khi chuyển sang VNPay.
+     * Một số database cũ chỉ có constraint cho PENDING nên insert bị từ chối.
+     * Chạy idempotent lúc backend khởi động để các môi trường hiện tại đều được sửa.
+     */
+    private void repairPosOrderStatusConstraint() throws Exception {
+        String dropStatusChecks = """
+                DO $$
+                DECLARE constraint_name text;
+                BEGIN
+                    FOR constraint_name IN
+                        SELECT con.conname
+                        FROM pg_constraint con
+                        JOIN pg_class rel ON rel.oid = con.conrelid
+                        JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
+                        WHERE rel.relname = 'pos_orders'
+                          AND nsp.nspname = current_schema()
+                          AND con.contype = 'c'
+                          AND pg_get_constraintdef(con.oid) ILIKE '%pos_order_status%'
+                    LOOP
+                        EXECUTE format('ALTER TABLE pos_orders DROP CONSTRAINT IF EXISTS %I', constraint_name);
+                    END LOOP;
+                END $$;
+                """;
+        String addStatusCheck = """
+                ALTER TABLE pos_orders
+                ADD CONSTRAINT chk_pos_order_status CHECK (pos_order_status IN (
+                    'PENDING', 'PENDING_PAYMENT', 'COMPLETED', 'CANCELLED', 'REFUNDED', 'DELETED'
+                ))
+                """;
+        String dropPaymentStatusChecks = """
+                DO $$
+                DECLARE constraint_name text;
+                BEGIN
+                    FOR constraint_name IN
+                        SELECT con.conname
+                        FROM pg_constraint con
+                        JOIN pg_class rel ON rel.oid = con.conrelid
+                        JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
+                        WHERE rel.relname = 'pos_payments'
+                          AND nsp.nspname = current_schema()
+                          AND con.contype = 'c'
+                          AND pg_get_constraintdef(con.oid) ILIKE '%pos_payment_status%'
+                    LOOP
+                        EXECUTE format('ALTER TABLE pos_payments DROP CONSTRAINT IF EXISTS %I', constraint_name);
+                    END LOOP;
+                END $$;
+                """;
+        String addPaymentStatusCheck = """
+                ALTER TABLE pos_payments
+                ADD CONSTRAINT chk_pos_payment_status CHECK (pos_payment_status IN (
+                    'PENDING', 'COMPLETED', 'FAILED', 'REFUNDED', 'CANCELLED', 'DELETED'
+                ))
+                """;
+
+        try (Connection connection = dataSource.getConnection(); Statement statement = connection.createStatement()) {
+            statement.execute(dropStatusChecks);
+            statement.execute(addStatusCheck);
+            statement.execute(dropPaymentStatusChecks);
+            statement.execute(addPaymentStatusCheck);
+            System.out.println("Đã đồng bộ constraint trạng thái POS cho VNPay.");
+        }
     }
 
     private List<String> getEntityTables() {

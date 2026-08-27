@@ -95,8 +95,8 @@ const refreshData = () => {
   window.location.reload()
 }
 
-const handleLogout = () => {
-  if (confirm('Bạn có chắc muốn đăng xuất?')) {
+const handleLogout = async () => {
+  if (await window.appConfirm('Bạn có chắc muốn đăng xuất?')) {
     authStore.logout()
     router.push('/login')
   }

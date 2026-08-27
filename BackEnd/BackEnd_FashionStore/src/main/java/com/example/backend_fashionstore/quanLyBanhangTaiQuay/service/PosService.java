@@ -9,6 +9,7 @@ import com.example.backend_fashionstore.quanLyBanhangTaiQuay.repository.*;
 import com.example.backend_fashionstore.quanLyVoucher.repository.VoucherRepository;
 import com.example.backend_fashionstore.quanlyNhanVien.service.EmployeeService;
 import com.example.backend_fashionstore.security.SecurityUtils;
+import com.example.backend_fashionstore.payment.repository.PaymentMethodRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,6 +40,7 @@ public class PosService {
     private final CashRegisterRepository cashRegisterRepository;
     private final EmployeeService employeeService;
     private final VoucherRepository voucherRepository;
+    private final PaymentMethodRepository paymentMethodRepository;
     // Tái sử dụng VNPayConfig từ luồng online — không tạo lại
     private final VNPayConfig vnPayConfig;
     private static final DateTimeFormatter INVOICE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
@@ -135,8 +137,9 @@ public class PosService {
             }
         }
 
-        // Xác định trạng thái đơn: PENDING nếu chưa có payment (VNPay), COMPLETED nếu đã có
-        String orderStatus = hasPayments ? "COMPLETED" : "PENDING";
+        // Đơn VNPay chưa thanh toán dùng cùng trạng thái với đơn online.
+        // PENDING không còn được database hiện tại chấp nhận trong chk_pos_order_status.
+        String orderStatus = hasPayments ? "COMPLETED" : "PENDING_PAYMENT";
         String paymentStatus = hasPayments ? "PAID" : "UNPAID";
 
         // Tạo mã hóa đơn
@@ -194,9 +197,10 @@ public class PosService {
 
         // Tạo payments
         for (PosPaymentRequest paymentReq : request.getPayments()) {
+            Integer paymentMethodId = resolvePosPaymentMethodId(paymentReq.getPaymentMethodId());
             PosPayment payment = PosPayment.builder()
                     .posPaymentOrderId(savedOrder.getPosOrderId())
-                    .posPaymentMethodId(paymentReq.getPaymentMethodId())
+                    .posPaymentMethodId(paymentMethodId)
                     .posPaymentAmount(paymentReq.getAmount())
                     .posPaymentReferenceNumber(paymentReq.getReferenceNumber())
                     .posPaymentStatus("COMPLETED")
@@ -499,18 +503,24 @@ public class PosService {
         Collections.sort(fieldNames);
         StringBuilder hashData = new StringBuilder();
         StringBuilder query = new StringBuilder();
-        Iterator<String> itr = fieldNames.iterator();
-        while (itr.hasNext()) {
-            String fieldName = itr.next();
+        boolean firstField = true;
+        for (String fieldName : fieldNames) {
             String fieldValue = vnpParams.get(fieldName);
-            if (fieldValue != null && !fieldValue.isEmpty()) {
-                try {
-                    hashData.append(fieldName).append('=')
-                            .append(URLEncoder.encode(fieldValue, StandardCharsets.UTF_8.toString()));
-                    query.append(URLEncoder.encode(fieldName, StandardCharsets.UTF_8.toString()))
-                            .append('=').append(URLEncoder.encode(fieldValue, StandardCharsets.UTF_8.toString()));
-                } catch (Exception e) { /* ignore */ }
-                if (itr.hasNext()) { query.append('&'); hashData.append('&'); }
+            if (fieldValue == null || fieldValue.isEmpty()) {
+                continue;
+            }
+            try {
+                if (!firstField) {
+                    query.append('&');
+                    hashData.append('&');
+                }
+                String encodedName = URLEncoder.encode(fieldName, StandardCharsets.UTF_8.toString());
+                String encodedValue = URLEncoder.encode(fieldValue, StandardCharsets.UTF_8.toString());
+                hashData.append(encodedName).append('=').append(encodedValue);
+                query.append(encodedName).append('=').append(encodedValue);
+                firstField = false;
+            } catch (Exception e) {
+                throw new IllegalStateException("Không thể tạo dữ liệu ký VNPay", e);
             }
         }
         String secureHash = VNPayConfig.hmacSHA512(vnPayConfig.getSecretKey().trim(), hashData.toString());
@@ -519,7 +529,7 @@ public class PosService {
         // Lưu bản ghi pos_payment với trạng thái PENDING, referenceNumber = txnRef
         PosPayment pending = PosPayment.builder()
                 .posPaymentOrderId(orderId)
-                .posPaymentMethodId(2) // 2 = VNPAY
+                .posPaymentMethodId(resolvePosPaymentMethodId(2)) // 2 = VNPAY (logical ID from frontend)
                 .posPaymentAmount(vnpayAmount)
                 .posPaymentReferenceNumber(txnRef)
                 .posPaymentStatus("PENDING")
@@ -575,6 +585,12 @@ public class PosService {
                 .findFirst()
                 .orElseThrow(() -> new BusinessException("Không tìm thấy bản ghi thanh toán VNPay cho đơn " + orderId));
 
+        BigDecimal callbackAmount = params.get("vnp_Amount") == null ? null
+                : new BigDecimal(params.get("vnp_Amount")).divide(new BigDecimal(100));
+        if (callbackAmount == null || callbackAmount.compareTo(payment.getPosPaymentAmount()) != 0) {
+            throw new BusinessException("Số tiền VNPay không khớp với đơn hàng");
+        }
+
         if ("COMPLETED".equals(payment.getPosPaymentStatus())) {
             // Idempotency: đã xử lý rồi, trả về luôn
             return convertPaymentToResponse(payment);
@@ -618,7 +634,7 @@ public class PosService {
             posPaymentRepository.save(payment);
             
             order.setPosOrderPaymentStatus("UNPAID");
-            order.setPosOrderStatus("PENDING");
+            order.setPosOrderStatus("PENDING_PAYMENT");
             posOrderRepository.save(order);
             
             log.info("paymentStatus sau update (Thất bại): {}", order.getPosOrderPaymentStatus());
@@ -636,15 +652,19 @@ public class PosService {
         List<String> fieldNames = new ArrayList<>(fields.keySet());
         Collections.sort(fieldNames);
         StringBuilder sb = new StringBuilder();
-        Iterator<String> itr = fieldNames.iterator();
-        while (itr.hasNext()) {
-            String name = itr.next();
+        boolean firstField = true;
+        for (String name : fieldNames) {
             String val  = fields.get(name);
-            if (val != null && !val.isEmpty()) {
-                try { sb.append(name).append("=")
-                        .append(URLEncoder.encode(val, StandardCharsets.UTF_8.toString())); }
-                catch (Exception e) { /* ignore */ }
-                if (itr.hasNext()) sb.append("&");
+            if (val == null || val.isEmpty()) {
+                continue;
+            }
+            try {
+                if (!firstField) sb.append('&');
+                sb.append(URLEncoder.encode(name, StandardCharsets.UTF_8.toString())).append('=')
+                        .append(URLEncoder.encode(val, StandardCharsets.UTF_8.toString()));
+                firstField = false;
+            } catch (Exception e) {
+                throw new IllegalStateException("Không thể tạo dữ liệu kiểm tra chữ ký VNPay", e);
             }
         }
         return VNPayConfig.hmacSHA512(vnPayConfig.getSecretKey().trim(), sb.toString());
@@ -671,6 +691,22 @@ public class PosService {
         return payments.stream()
                 .map(PosPaymentRequest::getAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    /**
+     * Frontend dùng ID logic (1=CASH, 2=VNPAY), còn ID trong database là SERIAL
+     * và có thể khác giữa các môi trường. Luôn ghi ID thật theo method_name.
+     */
+    private Integer resolvePosPaymentMethodId(Integer logicalMethodId) {
+        String methodName = Integer.valueOf(1).equals(logicalMethodId) ? "CASH" : "VNPAY";
+        PaymentMethod method = paymentMethodRepository.findByMethodName(methodName)
+                .orElseGet(() -> {
+                    PaymentMethod created = new PaymentMethod();
+                    created.setMethodName(methodName);
+                    created.setDescription("CASH".equals(methodName) ? "Thanh toán tiền mặt" : "Thanh toán VNPay");
+                    return paymentMethodRepository.save(created);
+                });
+        return Math.toIntExact(method.getPaymentMethodId());
     }
 
     private void updateSessionSales(PosSession session, BigDecimal amount, List<PosPaymentRequest> payments) {

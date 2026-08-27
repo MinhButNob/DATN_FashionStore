@@ -59,8 +59,8 @@ const menuSections = [
 
 const isActive = (path) => route.path === path;
 
-const handleLogout = () => {
-  if (confirm("Bạn có chắc muốn đăng xuất?")) {
+const handleLogout = async () => {
+  if (await window.appConfirm("Bạn có chắc muốn đăng xuất?")) {
     authStore.logout();
     showNotification("Đã đăng xuất thành công!", "success");
     router.push("/login");

@@ -326,6 +326,18 @@
              </div>
 
              <div v-if="!isEdit" class="image-save-note">
+               Có thể chọn ảnh ngay bây giờ. Ảnh sẽ được gắn vào biến thể đầu tiên sau khi bấm “Lưu sản phẩm”.
+               <div class="image-upload-row create-image-upload-row" @dragover.prevent @drop.prevent="handleImageDrop">
+                 <input ref="productImageInput" type="file" multiple accept="image/jpeg,image/png,image/webp,image/gif" class="hidden-file-input" @change="handleImageSelect" />
+                 <button type="button" class="btn-image-upload" @click="$refs.productImageInput.click()">⬆️ Chọn ảnh</button>
+                 <span v-if="uploadPreviews.length">{{ uploadPreviews.length }} ảnh sẽ được lưu cùng sản phẩm</span>
+               </div>
+               <div v-if="uploadPreviews.length" class="pending-image-grid create-pending-image-grid">
+                 <div v-for="(preview, index) in uploadPreviews" :key="preview.url" class="pending-image-item">
+                   <img :src="preview.url" alt="Ảnh xem trước" />
+                   <button type="button" @click="removeImagePreview(index)">×</button>
+                 </div>
+               </div>
                Vui lòng lưu sản phẩm trước, sau đó mở chỉnh sửa để tải ảnh cho từng biến thể.
              </div>
 
@@ -1003,19 +1015,42 @@ const removeImagePreview = (index) => {
 };
 
 const uploadProductImages = async () => {
-  if (!selectedImageVariantId.value || !selectedImageFiles.value.length) return;
+  if (!selectedImageVariantId.value) {
+    showNotification('Vui lòng chọn biến thể trước khi tải ảnh lên', 'warning');
+    console.warn('[ProductImages] Chưa có productDetailId');
+    return;
+  }
+  if (!selectedImageFiles.value.length) {
+    showNotification('Vui lòng chọn ít nhất một ảnh', 'warning');
+    return;
+  }
   uploadingImages.value = true;
   let successCount = 0;
+  const failedFiles = [];
   for (const file of selectedImageFiles.value) {
     try {
       const data = new FormData();
       data.append('productDetailId', selectedImageVariantId.value);
       data.append('imageFile', file);
       data.append('productImageType', 'gallery');
-      await api.post('/product-images', data);
+      console.info('[ProductImages] Đang upload:', {
+        productDetailId: selectedImageVariantId.value,
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type
+      });
+      const response = await api.post('/product-images', data);
+      console.info('[ProductImages] Upload thành công:', response?.data);
       successCount++;
     } catch (error) {
-      console.error('Lỗi upload ảnh:', error);
+      failedFiles.push(file.name);
+      console.error('[ProductImages] Upload thất bại:', {
+        fileName: file.name,
+        status: error?.response?.status,
+        response: error?.response?.data,
+        message: error?.message,
+        error
+      });
     }
   }
   selectedImageFiles.value = [];
@@ -1023,10 +1058,11 @@ const uploadProductImages = async () => {
   uploadPreviews.value = [];
   uploadingImages.value = false;
   if (successCount) {
-    showNotification(`Đã tải lên ${successCount} ảnh`);
+    showNotification(`Đã tải lên ${successCount} ảnh${failedFiles.length ? `; thất bại: ${failedFiles.join(', ')}` : ''}`,
+      failedFiles.length ? 'warning' : 'success');
     await loadVariantImages();
   } else {
-    showNotification('Không thể tải ảnh lên', 'error');
+    showNotification(`Không thể tải ảnh lên${failedFiles.length ? `: ${failedFiles.join(', ')}` : ''}`, 'error');
   }
 };
 
@@ -1065,7 +1101,7 @@ const replaceProductImage = async (image, event) => {
 };
 
 const deleteProductImage = async (image) => {
-  if (!confirm('Bạn có chắc muốn xóa ảnh này?')) return;
+  if (!(await window.appConfirm('Bạn có chắc muốn xóa ảnh này?'))) return;
   try {
     await api.delete(`/product-images/${image.productImageId}`);
     await loadVariantImages();
@@ -1103,6 +1139,8 @@ const handleSubmit = async () => {
     showNotification('Vui lòng thêm ít nhất 1 biến thể!', 'error');
     return;
   }
+
+  if (!(await window.appConfirm(form.value.productId ? 'Bạn có chắc chắn muốn lưu các thay đổi này không?' : 'Bạn có chắc chắn muốn thêm dữ liệu này không?'))) return;
 
   // ✅ Chốt an toàn: gộp mọi biến thể trùng màu/size trước khi validate & lưu
   mergeAllDuplicateVariants();
@@ -1159,6 +1197,13 @@ const handleSubmit = async () => {
         productDetailId: createdVariants[index]?.productDetailId || null
       }));
       isEdit.value = true;
+      selectedImageVariantId.value = form.value.variants.find(v => v.productDetailId)?.productDetailId || null;
+      if (selectedImageVariantId.value && selectedImageFiles.value.length) {
+        await uploadProductImages();
+      } else if (selectedImageVariantId.value) {
+        await loadVariantImages();
+      }
+      // Ảnh đã được tải lên ở nhánh trên nếu người dùng chọn ảnh khi tạo mới.
       showNotification('Thêm sản phẩm thành công. Hãy chọn biến thể để tải ảnh.');
       await fetchProducts();
       await fetchStatistics();

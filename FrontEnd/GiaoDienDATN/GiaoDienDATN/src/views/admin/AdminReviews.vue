@@ -671,7 +671,7 @@ const clearProductFilter = () => {
 
 // Approve review
 const approveReview = async (reviewId) => {
-  if (!confirm('Bạn có chắc muốn duyệt đánh giá này?')) return
+  if (!(await window.appConfirm('Bạn có chắc muốn duyệt đánh giá này?'))) return
 
   try {
     const token = localStorage.getItem('token')
@@ -740,7 +740,7 @@ const closeDetail = () => {
 
 // Delete review
 const deleteReview = async (reviewId) => {
-  if (!confirm('Bạn có chắc muốn xóa đánh giá này? Hành động này không thể hoàn tác!')) return
+  if (!(await window.appConfirm('Bạn có chắc muốn xóa đánh giá này? Hành động này không thể hoàn tác!'))) return
 
   try {
     const token = localStorage.getItem('token')

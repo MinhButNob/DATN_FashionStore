@@ -806,7 +806,7 @@ const closeConversation = async () => {
     return;
   }
   
-  if (confirm('Bạn có chắc muốn đóng cuộc trò chuyện này?')) {
+  if (await window.appConfirm('Bạn có chắc muốn đóng cuộc trò chuyện này?')) {
     try {
       await chatStaffService.closeChat(selectedConversation.value.chatId, staffId);
       showNotification('Đã đóng cuộc trò chuyện', 'success');

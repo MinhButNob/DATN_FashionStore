@@ -134,6 +134,7 @@ watch(
 const close = () => emit("close");
 
 const handleSubmit = async () => {
+  if (!(await window.appConfirm(props.promotion ? 'Bạn có chắc chắn muốn lưu các thay đổi này không?' : 'Bạn có chắc chắn muốn thêm dữ liệu này không?'))) return;
   // Trim inputs
   const nameClean = form.value.promotionName ? form.value.promotionName.trim() : "";
   const descClean = form.value.promotionDescription ? form.value.promotionDescription.trim() : "";

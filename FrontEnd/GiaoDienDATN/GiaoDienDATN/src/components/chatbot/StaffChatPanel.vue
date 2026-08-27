@@ -1130,13 +1130,13 @@ const disconnectWebSocket = () => {
 
 // ===== CHAT ACTIONS =====
 const cancelWaiting = async () => {
-  if (!confirm('Bạn có muốn hủy yêu cầu hỗ trợ không?')) return
+  if (!(await window.appConfirm('Bạn có muốn hủy yêu cầu hỗ trợ không?'))) return
   resetChat()
 }
 
 const closeStaffChat = async () => {
   if (!currentChatId.value) return
-  if (!confirm('Bạn có muốn kết thúc cuộc trò chuyện này không?')) return
+  if (!(await window.appConfirm('Bạn có muốn kết thúc cuộc trò chuyện này không?'))) return
   chatStatus.value = 'CLOSED'
   disconnectWebSocket()
   emit('status-change', 'CLOSED')

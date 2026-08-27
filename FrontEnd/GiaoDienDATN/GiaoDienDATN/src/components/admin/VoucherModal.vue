@@ -201,6 +201,7 @@ watch(
 const close = () => emit("close");
 
 const handleSubmit = async () => {
+  if (!(await window.appConfirm(props.voucher ? 'Bạn có chắc chắn muốn lưu các thay đổi này không?' : 'Bạn có chắc chắn muốn thêm dữ liệu này không?'))) return;
   const codeClean = form.value.voucherCode ? form.value.voucherCode.trim().toUpperCase() : "";
   if (!codeClean) {
     showNotification("Mã voucher không được để trống hoặc chỉ chứa khoảng trắng!", "error");

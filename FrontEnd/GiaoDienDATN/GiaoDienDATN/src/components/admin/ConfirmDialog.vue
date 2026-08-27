@@ -4,15 +4,15 @@
       <div class="confirm-dialog">
         <div class="confirm-header">
           <h3>{{ title }}</h3>
-          <button class="close-btn" @click="cancel">&times;</button>
+          <button class="close-btn" :disabled="loading" @click="cancel">&times;</button>
         </div>
         <div class="confirm-body">
           <p>{{ message }}</p>
         </div>
         <div class="confirm-footer">
-          <button class="btn-cancel" @click="cancel">Hủy</button>
-          <button class="btn-confirm" @click="confirm">
-            {{ confirmText }}
+          <button class="btn-cancel" :disabled="loading" @click="cancel">Hủy</button>
+          <button class="btn-confirm" :disabled="loading" @click="confirm">
+            {{ loading ? 'Đang xử lý...' : confirmText }}
           </button>
         </div>
       </div>
@@ -25,7 +25,8 @@ defineProps({
   visible: { type: Boolean, default: false },
   title: { type: String, default: "Xác nhận" },
   message: { type: String, default: "Bạn có chắc chắn?" },
-  confirmText: { type: String, default: "Xác nhận" } });
+  confirmText: { type: String, default: "Xác nhận" },
+  loading: { type: Boolean, default: false } });
 
 const emit = defineEmits(["confirm", "cancel"]);
 
@@ -112,4 +113,7 @@ const cancel = () => emit("cancel");
 .btn-confirm:hover {
   background: #c82333;
 }
+.btn-cancel:disabled,
+.btn-confirm:disabled,
+.close-btn:disabled { opacity: .6; cursor: not-allowed; }
 </style>

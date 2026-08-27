@@ -830,7 +830,7 @@ async function saveBanner() {
 
 // ========== DELETE / RESTORE ==========
 async function confirmDelete(banner) {
-  if (!confirm(`Bạn có chắc muốn xóa banner "${banner.title}"?`)) return
+  if (!(await window.appConfirm(`Bạn có chắc muốn xóa banner "${banner.title}"?`))) return
   const result = await store.deleteBanner(banner.bannerId)
   if (result.success) {
     alert('✅ Xóa banner thành công!')
@@ -840,7 +840,7 @@ async function confirmDelete(banner) {
 }
 
 async function handleRestore(banner) {
-  if (!confirm(`Bạn có chắc muốn khôi phục banner "${banner.title}"?`)) return
+  if (!(await window.appConfirm(`Bạn có chắc muốn khôi phục banner "${banner.title}"?`))) return
   const result = await store.restoreBanner(banner.bannerId)
   if (result.success) {
     alert('✅ Khôi phục banner thành công!')

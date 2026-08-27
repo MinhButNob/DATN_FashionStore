@@ -1473,6 +1473,8 @@ const quickUpdateStatus = async (order) => {
   }[order?.orderStatus]
   if (!nextStatus || !canUpdateStatus(order)) return
 
+  if (!(await window.appConfirm('Bạn có chắc chắn muốn chuyển sang trạng thái này không?'))) return
+
   updatingOrderIds.value.add(order.orderId)
   try {
     await adminOrderService.updateOrderStatus(order.orderId, { orderStatus: nextStatus })
@@ -1726,7 +1728,7 @@ const inspectReturn = async () => {
     showNotification(`Vui lòng nhập lý do loại bỏ cho sản phẩm ${invalid.productName || invalid.productDetailId}`, 'warning')
     return
   }
-  if (!confirm('Xác nhận kết quả kiểm tra hàng hoàn trả?')) return
+  if (!(await window.appConfirm('Xác nhận kết quả kiểm tra hàng hoàn trả?'))) return
   inspectionLoading.value = true
   try {
     await adminOrderService.inspectReturn(returnRequestDetail.value.returnRequestId, {
@@ -1752,7 +1754,7 @@ const processReturn = async (status) => {
   if (!returnRequestDetail.value) return
   
   const actionText = status === 'APPROVED' ? 'duyệt' : 'từ chối'
-  if (!confirm(`Bạn có chắc muốn ${actionText} yêu cầu hoàn hàng này?`)) return
+  if (!(await window.appConfirm(`Bạn có chắc muốn ${actionText} yêu cầu hoàn hàng này?`))) return
   
   processingReturn.value = true
   
@@ -1797,7 +1799,7 @@ const processReturn = async (status) => {
 const receiveReturnedItems = async () => {
   if (!returnRequestDetail.value) return
   
-  if (!confirm('Bạn đã kiểm tra và nhận đủ hàng trả từ khách hàng?')) return
+  if (!(await window.appConfirm('Bạn đã kiểm tra và nhận đủ hàng trả từ khách hàng?'))) return
   
   receivingReturn.value = true
   
@@ -1835,7 +1837,7 @@ const receiveReturnedItems = async () => {
 const completeReturn = async () => {
   if (!returnRequestDetail.value) return
   
-  if (!confirm('Bạn có chắc muốn hoàn tất hoàn hàng cho đơn hàng này?')) return
+  if (!(await window.appConfirm('Bạn có chắc muốn hoàn tất hoàn hàng cho đơn hàng này?'))) return
   
   completingReturn.value = true
   

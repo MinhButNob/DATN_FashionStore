@@ -518,6 +518,7 @@ export default {
         }
       }
 
+      if (!(await window.appConfirm(this.isEdit ? 'Bạn có chắc chắn muốn lưu các thay đổi này không?' : 'Bạn có chắc chắn muốn thêm dữ liệu này không?'))) return;
       this.saving = true;
       try {
         const submitData = {
@@ -553,7 +554,8 @@ export default {
       }
       
       try {
-        const newStatus = color.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+      const newStatus = color.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+        if (!(await window.appConfirm('Bạn có chắc chắn muốn chuyển sang trạng thái này không?'))) return;
         const submitData = {
           colorCode: color.colorCode,
           colorName: color.colorName,

@@ -482,8 +482,8 @@ const createBackup = () => {
   }, 2000)
 }
 
-const restoreBackup = () => {
-  if (confirm('Bạn có chắc muốn khôi phục dữ liệu từ bản sao lưu?')) {
+const restoreBackup = async () => {
+  if (await window.appConfirm('Bạn có chắc muốn khôi phục dữ liệu từ bản sao lưu?')) {
     showNotification('Đang khôi phục dữ liệu...', 'info')
     setTimeout(() => {
       showNotification('Khôi phục dữ liệu thành công!', 'success')

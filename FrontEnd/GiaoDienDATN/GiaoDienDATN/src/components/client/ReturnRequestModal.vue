@@ -406,6 +406,7 @@ const removeImage = (index) => {
 
 // ===== SUBMIT =====
 const submitReturnRequest = async () => {
+  if (!(await window.appConfirm('Bạn có chắc chắn muốn thực hiện thao tác này không?'))) return
   if (selectedProductIds.value.length === 0) {
     error.value = 'Vui lòng chọn ít nhất 1 sản phẩm để hoàn'
     return

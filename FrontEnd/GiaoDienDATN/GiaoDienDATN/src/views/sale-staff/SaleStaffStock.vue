@@ -420,6 +420,7 @@ const updateStock = async (product, variant) => {
     showNotification('Số lượng không thể nhỏ hơn 0', 'error');
     return;
   }
+  if (!(await window.appConfirm('Bạn có chắc chắn muốn lưu các thay đổi này không?'))) return;
   
   updating.value = true;
   try {
@@ -456,6 +457,7 @@ const increaseStock = async (product, variant) => {
     showNotification('Không thể cập nhật sản phẩm đã xóa!', 'error');
     return;
   }
+  if (!(await window.appConfirm('Bạn có chắc chắn muốn chuyển sang trạng thái này không?'))) return;
   
   updating.value = true;
   try {
@@ -495,6 +497,7 @@ const decreaseStock = async (product, variant) => {
     showNotification('Số lượng đã là 0, không thể giảm', 'warning');
     return;
   }
+  if (!(await window.appConfirm('Bạn có chắc chắn muốn chuyển sang trạng thái này không?'))) return;
   
   updating.value = true;
   try {

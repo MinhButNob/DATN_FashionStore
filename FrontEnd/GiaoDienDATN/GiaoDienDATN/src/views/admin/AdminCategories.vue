@@ -720,6 +720,7 @@ export default {
         this.showNotification('Vui lòng nhập tên danh mục', 'error');
         return;
       }
+      if (!(await window.appConfirm(this.isEdit ? 'Bạn có chắc chắn muốn lưu các thay đổi này không?' : 'Bạn có chắc chắn muốn thêm dữ liệu này không?'))) return;
       this.saving = true;
       try {
         const data = {
@@ -768,6 +769,7 @@ export default {
         this.showNotification('Không thể thay đổi trạng thái danh mục đã xóa!', 'error');
         return;
       }
+      if (!(await window.appConfirm('Bạn có chắc chắn muốn chuyển sang trạng thái này không?'))) return;
       
       this.saving = true;
       try {

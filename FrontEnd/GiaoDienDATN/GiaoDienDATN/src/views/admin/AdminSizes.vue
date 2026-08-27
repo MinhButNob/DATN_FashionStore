@@ -387,7 +387,7 @@ const saveSize = async () => {
 };
 
 const confirmDelete = async (id, name) => {
-  if (confirm(`Bạn có chắc chắn muốn xóa size "${name || id}" không?`)) {
+  if (await window.appConfirm(`Bạn có chắc chắn muốn xóa size "${name || id}" không?`)) {
     try {
       await sizeService.deleteSize(id);
       showToast(`Đã chuyển size "${name}" sang trạng thái đã xóa!`);
@@ -400,7 +400,7 @@ const confirmDelete = async (id, name) => {
 };
 
 const confirmRestore = async (id, name) => {
-  if (confirm(`Bạn có chắc chắn muốn khôi phục size "${name}" không?`)) {
+  if (await window.appConfirm(`Bạn có chắc chắn muốn khôi phục size "${name}" không?`)) {
     try {
       await sizeService.restoreSize(id);
       showToast("Đã khôi phục size thành công!");

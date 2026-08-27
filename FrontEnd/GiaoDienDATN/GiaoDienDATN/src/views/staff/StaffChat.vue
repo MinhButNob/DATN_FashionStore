@@ -602,7 +602,7 @@ const closeConversation = async () => {
     error('Không tìm thấy thông tin nhân viên. Vui lòng đăng nhập lại!');
     return;
   }
-  if (confirm('Bạn có chắc muốn đóng cuộc trò chuyện này?')) {
+  if (await window.appConfirm('Bạn có chắc muốn đóng cuộc trò chuyện này?')) {
     try {
       // FIX: bản cũ thiếu staffUserId -> URL bị lỗi /close/undefined
       await chatStaffService.closeChat(selectedConversation.value.chatId, staffId);

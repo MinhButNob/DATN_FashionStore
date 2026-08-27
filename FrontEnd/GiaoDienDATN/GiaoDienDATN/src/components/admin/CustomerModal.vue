@@ -252,6 +252,7 @@ const close = () => {
 }
 
 const handleSubmit = async () => {
+  if (!(await window.appConfirm(props.customer ? 'Bạn có chắc chắn muốn lưu các thay đổi này không?' : 'Bạn có chắc chắn muốn thêm dữ liệu này không?'))) return;
   // Validate
   if (!isEdit.value) {
     // Validate cho thêm mới

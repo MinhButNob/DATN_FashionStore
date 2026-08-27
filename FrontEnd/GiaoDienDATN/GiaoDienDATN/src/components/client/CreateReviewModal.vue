@@ -372,6 +372,7 @@ const close = () => {
 }
 
 const submitReview = async () => {
+  if (!(await window.appConfirm('Bạn có chắc chắn muốn thêm dữ liệu này không?'))) return
   if (rating.value === 0) {
     error.value = 'Vui lòng chọn số sao đánh giá'
     return

@@ -1502,7 +1502,7 @@ const processReturn = async (status) => {
   if (!returnRequestDetail.value) return
   
   const actionText = status === 'APPROVED' ? 'duyệt' : 'từ chối'
-  if (!confirm(`Bạn có chắc muốn ${actionText} yêu cầu hoàn hàng này?`)) return
+  if (!(await window.appConfirm(`Bạn có chắc muốn ${actionText} yêu cầu hoàn hàng này?`))) return
   
   processingReturn.value = true
   
@@ -1551,7 +1551,7 @@ const processReturn = async (status) => {
 const receiveReturnedItems = async () => {
   if (!returnRequestDetail.value) return
   
-  if (!confirm('Bạn đã kiểm tra và nhận đủ hàng trả từ khách hàng?')) return
+  if (!(await window.appConfirm('Bạn đã kiểm tra và nhận đủ hàng trả từ khách hàng?'))) return
   
   receivingReturn.value = true
   
@@ -1589,7 +1589,7 @@ const receiveReturnedItems = async () => {
 const completeReturn = async () => {
   if (!returnRequestDetail.value) return
   
-  if (!confirm('Bạn có chắc muốn hoàn tất hoàn hàng cho đơn hàng này?')) return
+  if (!(await window.appConfirm('Bạn có chắc muốn hoàn tất hoàn hàng cho đơn hàng này?'))) return
   
   completingReturn.value = true
   

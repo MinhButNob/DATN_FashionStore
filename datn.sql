@@ -855,7 +855,7 @@ CREATE TABLE pos_orders (
     pos_order_paid_amount DECIMAL(15,2) NOT NULL DEFAULT 0 CHECK (pos_order_paid_amount >= 0),
     pos_order_change_amount DECIMAL(15,2),  -- ✅ Bỏ GENERATED, tính bằng trigger hoặc application
     pos_order_status VARCHAR(20) NOT NULL DEFAULT 'PENDING'
-        CHECK (pos_order_status IN ('PENDING', 'COMPLETED', 'CANCELLED', 'REFUNDED', 'DELETED')),
+        CHECK (pos_order_status IN ('PENDING', 'PENDING_PAYMENT', 'COMPLETED', 'CANCELLED', 'REFUNDED', 'DELETED')),
     pos_order_payment_status VARCHAR(20) NOT NULL DEFAULT 'UNPAID'
         CHECK (pos_order_payment_status IN ('UNPAID', 'PAID', 'PARTIAL', 'REFUNDED', 'DELETED')),
     pos_order_customer_name VARCHAR(100),
