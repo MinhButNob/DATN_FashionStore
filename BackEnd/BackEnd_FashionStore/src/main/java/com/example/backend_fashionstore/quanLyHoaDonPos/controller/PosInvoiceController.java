@@ -2,7 +2,9 @@ package com.example.backend_fashionstore.quanLyHoaDonPos.controller;
 
 import com.example.backend_fashionstore.quanLyHoaDonPos.dto.*;
 import com.example.backend_fashionstore.quanLyHoaDonPos.service.PosInvoiceService;
+import com.example.backend_fashionstore.quanLyVoucher.dto.VoucherDTO;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
@@ -11,6 +13,8 @@ import org.springframework.web.bind.annotation.*;
 import com.example.backend_fashionstore.QuanLySanPham.dto.response.ApiResponse;
 
 import java.time.LocalDate;
+
+@Slf4j
 @RestController
 @RequestMapping("/api/pos/invoices")
 @RequiredArgsConstructor
@@ -62,5 +66,19 @@ public class PosInvoiceController {
     @GetMapping("/{orderId}/print")
     public ResponseEntity<ApiResponse<PosInvoiceDTO>> printInvoice(@PathVariable Integer orderId) {
         return ResponseEntity.ok(ApiResponse.ok(posInvoiceService.getInvoiceForPrinting(orderId)));
+    }
+
+    // ✅ Thêm endpoint lấy voucher của đơn hàng
+    @GetMapping("/{orderId}/voucher")
+    public ResponseEntity<ApiResponse<VoucherDTO>> getVoucherByOrderId(@PathVariable Integer orderId) {
+        log.info("📋 Getting voucher for order: {}", orderId);
+
+        try {
+            VoucherDTO voucher = posInvoiceService.getVoucherByOrderId(orderId);
+            return ResponseEntity.ok(ApiResponse.success(voucher));
+        } catch (Exception e) {
+            log.error("❌ Error getting voucher: {}", e.getMessage());
+            return ResponseEntity.status(404).body(ApiResponse.error(e.getMessage()));
+        }
     }
 }

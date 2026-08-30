@@ -1,6 +1,5 @@
 package com.example.backend_fashionstore.quanLyHoaDonPos.service;
 
-
 import com.example.backend_fashionstore.QuanLySanPham.repository.ProductDetail.ProductDetailRepository;
 import com.example.backend_fashionstore.entity.PosOrder;
 import com.example.backend_fashionstore.entity.PosOrderItem;
@@ -8,15 +7,18 @@ import com.example.backend_fashionstore.entity.PosPayment;
 import com.example.backend_fashionstore.entity.PosSession;
 import com.example.backend_fashionstore.entity.PaymentMethod;
 import com.example.backend_fashionstore.payment.repository.PaymentMethodRepository;
+import com.example.backend_fashionstore.entity.Voucher;
 import com.example.backend_fashionstore.quanLyBanhangTaiQuay.repository.PosOrderItemRepository;
 import com.example.backend_fashionstore.quanLyBanhangTaiQuay.repository.PosOrderRepository;
 import com.example.backend_fashionstore.quanLyBanhangTaiQuay.repository.PosPaymentRepository;
 import com.example.backend_fashionstore.quanLyBanhangTaiQuay.repository.PosSessionRepository;
 import com.example.backend_fashionstore.quanLyHoaDonPos.dto.*;
-
 import com.example.backend_fashionstore.quanLyHoaDonPos.repository.PosInvoiceRepository;
+import com.example.backend_fashionstore.quanLyVoucher.dto.VoucherDTO;
+import com.example.backend_fashionstore.quanLyVoucher.repository.VoucherRepository;
 import com.example.backend_fashionstore.quanlyNhanVien.repo.EmployeeRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -32,6 +34,7 @@ import java.time.LocalTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class PosInvoiceService {
@@ -44,25 +47,21 @@ public class PosInvoiceService {
     private final ProductDetailRepository productDetailRepository;
     private final PosInvoiceRepository posInvoiceRepository;
     private final PaymentMethodRepository paymentMethodRepository;
+    private final VoucherRepository voucherRepository; // ✅ Thêm VoucherRepository
     // =====================================================
     // TÌM KIẾM HÓA ĐƠN
     // =====================================================
-    // quanLyHoaDonPos/service/PosInvoiceService.java
-// Sửa method searchInvoices
     @Transactional(readOnly = true)
     public Page<PosInvoiceDTO> searchInvoices(PosInvoiceFilterDTO filter) {
 
-        // 1. Khởi tạo mốc thời gian bắt đầu (Nếu null mặc định lùi về 30 ngày trước)
         LocalDateTime startDate = filter.getStartDate() != null
                 ? filter.getStartDate().atStartOfDay()
                 : LocalDate.now().minusDays(30).atStartOfDay();
 
-        // 2. Khởi tạo mốc thời gian kết thúc (Ép kịch khung đến cuối ngày hôm nay để tránh lệch múi giờ hệ thống)
         LocalDateTime endDate = filter.getEndDate() != null
                 ? filter.getEndDate().atTime(LocalTime.MAX)
                 : LocalDate.now().atTime(LocalTime.MAX);
 
-        // 3. Khởi tạo và ánh xạ cột Sort (Đồng bộ với các thuộc tính thực tế của DB)
         String sortByColumn = "posOrderCreatedAt";
         if (filter.getSortBy() != null) {
             switch (filter.getSortBy()) {
@@ -81,18 +80,15 @@ public class PosInvoiceService {
             }
         }
 
-        // 4. KHAI BÁO BIẾN PAGEABLE (Để giải quyết triệt để lỗi gạch đỏ của bạn)
         Sort sort = Sort.by(Sort.Direction.fromString(filter.getSortDir() != null ? filter.getSortDir() : "DESC"), sortByColumn);
         Pageable pageable = PageRequest.of(filter.getPage(), filter.getSize(), sort);
 
-        // Xử lý chuỗi rỗng thành null để query JPQL không bị sai khi so sánh LIKE với cột có giá trị NULL
         String invoiceNumber = filter.getInvoiceNumber() != null && !filter.getInvoiceNumber().trim().isEmpty() ? filter.getInvoiceNumber().trim() : null;
         String customerName = filter.getCustomerName() != null && !filter.getCustomerName().trim().isEmpty() ? filter.getCustomerName().trim() : null;
         String customerPhone = filter.getCustomerPhone() != null && !filter.getCustomerPhone().trim().isEmpty() ? filter.getCustomerPhone().trim() : null;
         String orderStatus = filter.getOrderStatus() != null && !filter.getOrderStatus().trim().isEmpty() ? filter.getOrderStatus().trim() : null;
         String paymentStatus = filter.getPaymentStatus() != null && !filter.getPaymentStatus().trim().isEmpty() ? filter.getPaymentStatus().trim() : null;
 
-        // 5. Thực hiện gọi hàm xử lý từ PosOrderRepository (Sử dụng JPQL chuẩn)
         Page<PosOrder> orders = posOrderRepository.searchInvoices(
                 invoiceNumber,
                 customerName,
@@ -102,11 +98,12 @@ public class PosInvoiceService {
                 filter.getPosSessionId(),
                 startDate,
                 endDate,
-                pageable // 👈 Biến pageable bây giờ đã sáng đèn và hoạt động chuẩn xác!
+                pageable
         );
 
         return orders.map(this::convertToDTO);
     }
+
     // =====================================================
     // LẤY CHI TIẾT HÓA ĐƠN
     // =====================================================
@@ -125,6 +122,28 @@ public class PosInvoiceService {
     }
 
     // =====================================================
+    // LẤY THÔNG TIN VOUCHER CỦA ĐƠN HÀNG
+    // =====================================================
+    @Transactional(readOnly = true)
+    public VoucherDTO getVoucherByOrderId(Integer orderId) {
+        log.info("📋 Getting voucher for order: {}", orderId);
+
+        PosOrder order = posOrderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng"));
+
+        // Lấy voucherId từ order
+        Integer voucherId = order.getVoucherId();
+        if (voucherId == null) {
+            throw new RuntimeException("Đơn hàng không áp dụng mã giảm giá");
+        }
+
+        Voucher voucher = voucherRepository.findById(voucherId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy voucher"));
+
+        return convertVoucherToDTO(voucher);
+    }
+
+    // =====================================================
     // HỦY HÓA ĐƠN
     // =====================================================
     @Transactional
@@ -140,7 +159,6 @@ public class PosInvoiceService {
             throw new RuntimeException("Hóa đơn đã được hoàn tiền, không thể hủy");
         }
 
-        // Cộng lại tồn kho
         List<PosOrderItem> items = posOrderItemRepository.findByPosOrderItemOrderId(orderId);
         for (PosOrderItem item : items) {
             productDetailRepository.increaseQuantity(
@@ -149,13 +167,11 @@ public class PosInvoiceService {
             );
         }
 
-        // Cập nhật trạng thái
         order.setPosOrderStatus("CANCELLED");
         order.setPosOrderPaymentStatus("CANCELLED");
         order.setPosOrderNotes((order.getPosOrderNotes() != null ? order.getPosOrderNotes() + " | " : "") + "Hủy đơn: " + reason);
         posOrderRepository.save(order);
 
-        // Cập nhật lại doanh số session
         updateSessionOnCancel(order);
     }
 
@@ -175,7 +191,6 @@ public class PosInvoiceService {
                 ? totalRevenue.divide(BigDecimal.valueOf(totalOrders), 2, RoundingMode.HALF_UP)
                 : BigDecimal.ZERO;
 
-        // Tính tổng giảm giá và thuế (có thể query riêng)
         BigDecimal totalDiscount = BigDecimal.ZERO;
         BigDecimal totalTax = BigDecimal.ZERO;
 
@@ -207,10 +222,9 @@ public class PosInvoiceService {
         if (order.getPosOrderSessionId() == null) return;
         PosSession session = posSessionRepository.findById(order.getPosOrderSessionId()).orElse(null);
         if (session != null) {
-            // Tính total runtime (tránh null nếu không có DB trigger)
-            BigDecimal subtotal = order.getPosOrderSubtotal()      != null ? order.getPosOrderSubtotal()      : BigDecimal.ZERO;
+            BigDecimal subtotal = order.getPosOrderSubtotal() != null ? order.getPosOrderSubtotal() : BigDecimal.ZERO;
             BigDecimal discount = order.getPosOrderDiscountAmount() != null ? order.getPosOrderDiscountAmount() : BigDecimal.ZERO;
-            BigDecimal tax      = order.getPosOrderTaxAmount()      != null ? order.getPosOrderTaxAmount()      : BigDecimal.ZERO;
+            BigDecimal tax = order.getPosOrderTaxAmount() != null ? order.getPosOrderTaxAmount() : BigDecimal.ZERO;
             BigDecimal orderTotal = subtotal.subtract(discount).add(tax);
 
             BigDecimal newCashSales = session.getPosSessionCashSales().subtract(orderTotal);
@@ -228,10 +242,9 @@ public class PosInvoiceService {
         dto.setCustomerName(order.getPosOrderCustomerName());
         dto.setCustomerPhone(order.getPosOrderCustomerPhone());
 
-        BigDecimal subtotal  = order.getPosOrderSubtotal()       != null ? order.getPosOrderSubtotal()       : BigDecimal.ZERO;
-        BigDecimal discount  = order.getPosOrderDiscountAmount()  != null ? order.getPosOrderDiscountAmount()  : BigDecimal.ZERO;
-        BigDecimal tax       = order.getPosOrderTaxAmount()       != null ? order.getPosOrderTaxAmount()       : BigDecimal.ZERO;
-        // Tính total tại runtime thay vì dùng posOrderTotalAmount (có thể null nếu không có DB trigger)
+        BigDecimal subtotal = order.getPosOrderSubtotal() != null ? order.getPosOrderSubtotal() : BigDecimal.ZERO;
+        BigDecimal discount = order.getPosOrderDiscountAmount() != null ? order.getPosOrderDiscountAmount() : BigDecimal.ZERO;
+        BigDecimal tax = order.getPosOrderTaxAmount() != null ? order.getPosOrderTaxAmount() : BigDecimal.ZERO;
         BigDecimal total = subtotal.subtract(discount).add(tax);
 
         dto.setSubtotal(subtotal);
@@ -244,7 +257,12 @@ public class PosInvoiceService {
         dto.setPaymentStatus(order.getPosOrderPaymentStatus());
         dto.setCreatedAt(order.getPosOrderCreatedAt());
 
-        System.out.println("Converting Invoice: " + order.getPosOrderInvoiceNumber() + " - Session ID: " + order.getPosOrderSessionId());
+        // ✅ Lấy voucherCode từ voucherId
+        if (order.getVoucherId() != null) {
+            voucherRepository.findById(order.getVoucherId()).ifPresent(voucher -> {
+                dto.setVoucherCode(voucher.getVoucherCode());
+            });
+        }
 
         // Lấy thông tin nhân viên thu ngân
         if (order.getPosOrderSessionId() != null) {
@@ -260,7 +278,7 @@ public class PosInvoiceService {
         List<PosOrderItem> items = posOrderItemRepository.findByPosOrderItemOrderId(order.getPosOrderId());
         dto.setItems(items.stream().map(this::convertItemToDTO).collect(Collectors.toList()));
 
-        // Lấy payments — chỉ lấy COMPLETED, bỏ qua PENDING/FAILED (VNPay chưa xác nhận)
+        // Lấy payments — chỉ lấy COMPLETED
         List<PosPayment> payments = posPaymentRepository.findByPosPaymentOrderId(order.getPosOrderId())
                 .stream()
                 .filter(p -> "COMPLETED".equals(p.getPosPaymentStatus()))
@@ -271,7 +289,6 @@ public class PosInvoiceService {
     }
 
     private PosInvoiceItemDTO convertItemToDTO(PosOrderItem item) {
-
         PosInvoiceItemDTO dto = new PosInvoiceItemDTO();
         dto.setProductDetailId(item.getPosOrderItemProductDetailId());
         dto.setQuantity(item.getPosOrderItemQuantity());
@@ -309,6 +326,25 @@ public class PosInvoiceService {
             dto.setPaymentMethod(methodName != null ? methodName : "Khác");
         }
 
+        return dto;
+    }
+
+    // ✅ Chuyển đổi Voucher entity sang VoucherDTO
+    private VoucherDTO convertVoucherToDTO(Voucher voucher) {
+        VoucherDTO dto = new VoucherDTO();
+        dto.setVoucherId(voucher.getVoucherId());
+        dto.setVoucherCode(voucher.getVoucherCode());
+        dto.setVoucherDiscountAmount(voucher.getVoucherDiscountAmount());
+        dto.setVoucherDiscountPercent(voucher.getVoucherDiscountPercent());
+        dto.setVoucherStartDate(voucher.getVoucherStartDate());
+        dto.setVoucherEndDate(voucher.getVoucherEndDate());
+        dto.setVoucherMaxUsage(voucher.getVoucherMaxUsage());
+        dto.setVoucherUsedCount(voucher.getVoucherUsedCount());
+        dto.setVoucherMinOrderValue(voucher.getVoucherMinOrderValue());
+        dto.setVoucherStatus(voucher.getVoucherStatus());
+        dto.setVoucherCreatedAt(voucher.getVoucherCreatedAt());
+        dto.setVoucherUpdatedAt(voucher.getVoucherUpdatedAt());
+        dto.setVoucherDeletedAt(voucher.getVoucherDeletedAt());
         return dto;
     }
 }

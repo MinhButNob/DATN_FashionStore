@@ -1,19 +1,26 @@
 package com.example.backend_fashionstore.quanLyBanhangTaiQuay.service;
 
+import com.example.backend_fashionstore.auth.repository.CustomerRepository;
+import com.example.backend_fashionstore.auth.repository.UserRepository;
 import com.example.backend_fashionstore.entity.*;
 import com.example.backend_fashionstore.QuanLySanPham.repository.ProductDetail.ProductDetailRepository;
 import com.example.backend_fashionstore.config.VNPayConfig;
+import com.example.backend_fashionstore.enums.UserStatus;
 import com.example.backend_fashionstore.exception.BusinessException;
 import com.example.backend_fashionstore.quanLyBanhangTaiQuay.dto.*;
 import com.example.backend_fashionstore.quanLyBanhangTaiQuay.repository.*;
+import com.example.backend_fashionstore.quanLyKhachHang.dto.CustomerDTO;
+import com.example.backend_fashionstore.quanLyVoucher.dto.VoucherDTO;
 import com.example.backend_fashionstore.quanLyVoucher.repository.VoucherRepository;
 import com.example.backend_fashionstore.quanlyNhanVien.service.EmployeeService;
 import com.example.backend_fashionstore.security.SecurityUtils;
 import com.example.backend_fashionstore.payment.repository.PaymentMethodRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import lombok.extern.slf4j.Slf4j;
+import java.util.ArrayList; // ✅ Thêm nếu chưa có
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -42,6 +49,9 @@ public class PosService {
     private final VoucherRepository voucherRepository;
     private final PaymentMethodRepository paymentMethodRepository;
     // Tái sử dụng VNPayConfig từ luồng online — không tạo lại
+    private final CustomerRepository customerRepository;
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
     private final VNPayConfig vnPayConfig;
     private static final DateTimeFormatter INVOICE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
 
@@ -50,17 +60,13 @@ public class PosService {
         return employeeService.getEmployeeIdByUserId(userId);
     }
 
-    // =====================================================
-    // TẠO ĐƠN HÀNG MỚI
-    // =====================================================
     @Transactional
     public PosOrderResponse createOrder(PosOrderRequest request) {
-        // Tự động resolve session: tìm hoặc tạo session để đảm bảo pos_order_session_id không null
+        // Tự động resolve session
         PosSession session;
         Integer resolvedSessionId = request.getPosSessionId();
 
         if (resolvedSessionId != null) {
-            // Frontend gửi kèm sessionId — kiểm tra và dùng
             session = posSessionRepository.findById(resolvedSessionId).orElse(null);
             if (session != null && !"ACTIVE".equals(session.getPosSessionStatus())) {
                 throw new BusinessException("Phiên bán hàng đã đóng, vui lòng mở phiên mới");
@@ -69,20 +75,40 @@ public class PosService {
                 session = getOrCreateActiveSession();
             }
         } else {
-            // Không có sessionId — tự động tìm hoặc tạo session
             session = getOrCreateActiveSession();
         }
         resolvedSessionId = session.getPosSessionId();
 
+        // ===== XỬ LÝ KHÁCH HÀNG =====
+        Integer customerId = null;
+        String customerName = request.getPosOrderCustomerName();
+        String customerPhone = request.getPosOrderCustomerPhone();
+
+        if (customerPhone != null && !customerPhone.trim().isEmpty()) {
+            Customer existingCustomer = customerRepository.findByPhone(customerPhone.trim()).orElse(null);
+            if (existingCustomer != null) {
+                customerId = existingCustomer.getCustomerId();
+                if (customerName != null && !customerName.trim().isEmpty()) {
+                    existingCustomer.setCustomerName(customerName.trim());
+                    customerRepository.save(existingCustomer);
+                }
+            } else {
+                Customer newCustomer = createNewCustomer(customerName, customerPhone);
+                customerId = newCustomer.getCustomerId();
+            }
+        }
+
         // Tính toán
         BigDecimal subtotal = calculateSubtotal(request.getItems());
-        
-        // Xác thực voucher
+
+        // ===== XỬ LÝ VOUCHER =====
         BigDecimal discountAmount = BigDecimal.ZERO;
+        Voucher appliedVoucher = null;
+
         if (request.getVoucherCode() != null && !request.getVoucherCode().trim().isEmpty()) {
             Voucher voucher = voucherRepository.findActiveByVoucherCode(request.getVoucherCode())
                     .orElseThrow(() -> new BusinessException("Mã giảm giá không tồn tại hoặc không còn hoạt động"));
-            
+
             if (!"ACTIVE".equals(voucher.getVoucherStatus()) || voucher.getVoucherDeletedAt() != null) {
                 throw new BusinessException("Mã giảm giá đang bị tạm dừng hoặc đã bị xóa");
             }
@@ -96,9 +122,11 @@ public class PosService {
             if (voucher.getVoucherMinOrderValue() != null && subtotal.compareTo(voucher.getVoucherMinOrderValue()) < 0) {
                 throw new BusinessException("Đơn hàng chưa đạt giá trị tối thiểu để áp dụng mã giảm giá này");
             }
-            
+
+            // Tính giảm giá
             if (voucher.getVoucherDiscountPercent() != null && voucher.getVoucherDiscountPercent().compareTo(BigDecimal.ZERO) > 0) {
-                discountAmount = subtotal.multiply(voucher.getVoucherDiscountPercent()).divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP);
+                discountAmount = subtotal.multiply(voucher.getVoucherDiscountPercent())
+                        .divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP);
                 if (voucher.getVoucherDiscountAmount() != null && voucher.getVoucherDiscountAmount().compareTo(BigDecimal.ZERO) > 0) {
                     if (discountAmount.compareTo(voucher.getVoucherDiscountAmount()) > 0) {
                         discountAmount = voucher.getVoucherDiscountAmount();
@@ -107,16 +135,17 @@ public class PosService {
             } else if (voucher.getVoucherDiscountAmount() != null) {
                 discountAmount = voucher.getVoucherDiscountAmount();
             }
-            
+
             if (discountAmount.compareTo(subtotal) > 0) {
                 discountAmount = subtotal;
             }
-            
-            // Tăng số lần sử dụng
+
             voucher.setVoucherUsedCount(voucher.getVoucherUsedCount() + 1);
             voucherRepository.save(voucher);
+            appliedVoucher = voucher;
         } else {
-            discountAmount = request.getPosOrderDiscountAmount() != null ? request.getPosOrderDiscountAmount() : BigDecimal.ZERO;
+            discountAmount = request.getPosOrderDiscountAmount() != null ?
+                    request.getPosOrderDiscountAmount() : BigDecimal.ZERO;
         }
 
         BigDecimal taxAmount = request.getPosOrderTaxAmount() != null ? request.getPosOrderTaxAmount() : BigDecimal.ZERO;
@@ -125,14 +154,11 @@ public class PosService {
         boolean hasPayments = request.getPayments() != null && !request.getPayments().isEmpty();
         BigDecimal paidAmount = hasPayments ? calculatePaidAmount(request.getPayments()) : BigDecimal.ZERO;
 
-        // Chỉ validate số tiền khi có payment (tiền mặt).
-        // Đơn VNPay gửi payments=[] là hợp lệ — chưa thanh toán, chờ xác nhận từ cổng.
         if (hasPayments) {
             BigDecimal changeAmount = paidAmount.subtract(totalAmount);
             if (changeAmount.compareTo(BigDecimal.ZERO) < 0) {
                 throw new BusinessException(
-                        "Số tiền thanh toán không đủ. Thiếu: " + changeAmount.abs() + "đ" +
-                                " (subtotal=" + subtotal + ", discount=" + discountAmount + ", total=" + totalAmount + ", paid=" + paidAmount + ")"
+                        "Số tiền thanh toán không đủ. Thiếu: " + changeAmount.abs() + "đ"
                 );
             }
         }
@@ -141,40 +167,36 @@ public class PosService {
         // PENDING không còn được database hiện tại chấp nhận trong chk_pos_order_status.
         String orderStatus = hasPayments ? "COMPLETED" : "PENDING_PAYMENT";
         String paymentStatus = hasPayments ? "PAID" : "UNPAID";
-
-        // Tạo mã hóa đơn
         String invoiceNumber = generateInvoiceNumber();
 
-        // Tạo order — gán resolvedSessionId (có thể null nếu không có session nào)
         PosOrder order = PosOrder.builder()
                 .posOrderSessionId(resolvedSessionId)
-                .posOrderCustomerId(request.getPosOrderCustomerId())
-                .posOrderCustomerName(request.getPosOrderCustomerName())
-                .posOrderCustomerPhone(request.getPosOrderCustomerPhone())
+                .posOrderCustomerId(customerId)
+                .posOrderCustomerName(customerName != null ? customerName : "Khách lẻ")
+                .posOrderCustomerPhone(customerPhone)
                 .posOrderInvoiceNumber(invoiceNumber)
                 .posOrderType(request.getPosOrderType())
                 .posOrderSubtotal(subtotal)
                 .posOrderDiscountAmount(discountAmount)
                 .posOrderTaxAmount(taxAmount)
                 .posOrderPaidAmount(paidAmount)
-                .posOrderTotalAmount(totalAmount)   // lưu vào DB để query/sort đúng
+                .posOrderTotalAmount(totalAmount)
                 .posOrderChangeAmount(hasPayments ? paidAmount.subtract(totalAmount) : BigDecimal.ZERO)
                 .posOrderStatus(orderStatus)
                 .posOrderPaymentStatus(paymentStatus)
                 .posOrderNotes(request.getPosOrderNotes())
+                .voucherId(appliedVoucher != null ? appliedVoucher.getVoucherId() : null)
                 .build();
 
         PosOrder savedOrder = posOrderRepository.save(order);
 
         // Tạo order items VÀ TRỪ TỒN KHO
         for (PosOrderItemRequest itemReq : request.getItems()) {
-            // Kiểm tra tồn kho trước khi bán
             Integer currentStock = productDetailRepository.getQuantityById(itemReq.getProductDetailId());
             if (currentStock == null || currentStock < itemReq.getQuantity()) {
                 throw new BusinessException("Sản phẩm không đủ tồn kho. Còn: " + currentStock);
             }
 
-            // Trừ tồn kho
             int updated = productDetailRepository.decreaseQuantity(
                     itemReq.getProductDetailId(),
                     itemReq.getQuantity()
@@ -183,7 +205,6 @@ public class PosService {
                 throw new BusinessException("Cập nhật tồn kho thất bại, vui lòng thử lại");
             }
 
-            // Tạo order item
             PosOrderItem item = PosOrderItem.builder()
                     .posOrderItemOrderId(savedOrder.getPosOrderId())
                     .posOrderItemProductDetailId(itemReq.getProductDetailId())
@@ -209,7 +230,6 @@ public class PosService {
             posPaymentRepository.save(payment);
         }
 
-        // Cập nhật doanh số cho session (chỉ khi tìm được session VÀ có payment thực)
         if (session != null && hasPayments) {
             updateSessionSales(session, totalAmount, request.getPayments());
         }
@@ -217,9 +237,27 @@ public class PosService {
         return convertToResponse(savedOrder);
     }
 
-    // =====================================================
-    // LẤY ĐƠN HÀNG THEO SESSION
-    // =====================================================
+    private Customer createNewCustomer(String customerName, String phone) {
+        User user = User.builder()
+                .username("customer_" + System.currentTimeMillis())
+                .email("customer_" + System.currentTimeMillis() + "@temp.com")
+                .passwordHash(passwordEncoder.encode("123456"))
+                .status(UserStatus.ACTIVE)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
+        user = userRepository.save(user);
+
+        Customer customer = Customer.builder()
+                .user(user)
+                .customerName(customerName != null ? customerName : "Khách lẻ")
+                .phone(phone)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
+        return customerRepository.save(customer);
+    }
+
     public List<PosOrderResponse> getOrdersBySession(Integer sessionId) {
         return posOrderRepository.findByPosOrderSessionId(sessionId)
                 .stream()
@@ -227,27 +265,18 @@ public class PosService {
                 .collect(Collectors.toList());
     }
 
-    // =====================================================
-    // LẤY ĐƠN HÀNG THEO MÃ HÓA ĐƠN
-    // =====================================================
     public PosOrderResponse getOrderByInvoiceNumber(String invoiceNumber) {
         return posOrderRepository.findByPosOrderInvoiceNumber(invoiceNumber)
                 .map(this::convertToResponse)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy đơn hàng với mã: " + invoiceNumber));
     }
 
-    // =====================================================
-    // LẤY ĐƠN HÀNG THEO ID
-    // =====================================================
     public PosOrderResponse getOrderById(Integer orderId) {
         return posOrderRepository.findById(orderId)
                 .map(this::convertToResponse)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy đơn hàng với ID: " + orderId));
     }
 
-    // =====================================================
-    // LẤY DANH SÁCH ĐƠN HÀNG THEO KHOẢNG THỜI GIAN
-    // =====================================================
     public List<PosOrderResponse> getOrdersByDateRange(LocalDateTime startDate, LocalDateTime endDate) {
         return posOrderRepository.findOrdersBetweenDates(startDate, endDate)
                 .stream()
@@ -255,9 +284,6 @@ public class PosService {
                 .collect(Collectors.toList());
     }
 
-    // =====================================================
-    // HOÀN TIỀN / TRẢ HÀNG
-    // =====================================================
     @Transactional
     public PosRefundResponse refundOrder(PosRefundRequest request) {
         PosOrder order = posOrderRepository.findById(request.getOrderId())
@@ -271,7 +297,6 @@ public class PosService {
             throw new BusinessException("Đơn hàng này đã được hoàn tiền trước đó");
         }
 
-        // Tính tổng tiền = subtotal - discount + tax (tránh phụ thuộc DB trigger)
         BigDecimal orderTotal = order.getPosOrderSubtotal()
                 .subtract(order.getPosOrderDiscountAmount())
                 .add(order.getPosOrderTaxAmount());
@@ -280,10 +305,8 @@ public class PosService {
             throw new BusinessException("Số tiền hoàn không được lớn hơn tổng đơn hàng");
         }
 
-        // Lấy danh sách sản phẩm trong đơn hàng
         List<PosOrderItem> items = posOrderItemRepository.findByPosOrderItemOrderId(order.getPosOrderId());
 
-        // CỘNG LẠI TỒN KHO cho từng sản phẩm
         for (PosOrderItem item : items) {
             productDetailRepository.increaseQuantity(
                     item.getPosOrderItemProductDetailId(),
@@ -291,10 +314,8 @@ public class PosService {
             );
         }
 
-        // Lấy employee ID từ security context
         Integer currentEmployeeId = getCurrentEmployeeId();
 
-        // Tạo refund record
         PosRefund refund = PosRefund.builder()
                 .posRefundOrderId(request.getOrderId())
                 .posRefundAmount(request.getAmount())
@@ -305,12 +326,10 @@ public class PosService {
                 .posRefundApprovedAt(LocalDateTime.now())
                 .build();
 
-        // Cập nhật trạng thái order
         order.setPosOrderStatus("REFUNDED");
         order.setPosOrderPaymentStatus("REFUNDED");
         posOrderRepository.save(order);
 
-        // Cập nhật lại doanh số của session (trừ đi)
         updateSessionOnRefund(order, request.getAmount());
 
         PosRefund savedRefund = posRefundRepository.save(refund);
@@ -318,9 +337,6 @@ public class PosService {
         return convertRefundToResponse(savedRefund);
     }
 
-    // =====================================================
-    // IN HÓA ĐƠN
-    // =====================================================
     @Transactional
     public PosReceiptLog printReceipt(Integer orderId, Integer copies) {
         posOrderRepository.findById(orderId)
@@ -356,23 +372,33 @@ public class PosService {
         return response;
     }
 
-    // =====================================================
-    // LẤY LỊCH SỬ IN HÓA ĐƠN
-    // =====================================================
     public List<PosReceiptLog> getReceiptLogsByOrder(Integer orderId) {
         return posReceiptLogRepository.findByReceiptLogOrderId(orderId);
     }
 
-    // =====================================================
-    // LẤY CHI TIẾT ĐƠN HÀNG KÈM THÔNG TIN SẢN PHẨM
-    // =====================================================
+    // PosService.java - Thay thế method này
     public PosOrderDetailResponse getOrderDetailWithProducts(Integer orderId) {
         PosOrder order = posOrderRepository.findById(orderId)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy đơn hàng"));
 
+        // ✅ Log để debug
+        log.info("📦 Getting order detail for orderId: {}", orderId);
+
+        // ✅ Lấy danh sách items
         List<PosOrderItem> items = posOrderItemRepository.findByPosOrderItemOrderId(orderId);
 
-        List<PosOrderItemDetailResponse> itemDetails = items.stream().map(item -> {
+        // ✅ Log số lượng items
+        log.info("📦 Found {} items for order: {}", items.size(), orderId);
+
+        // ✅ Tính tổng giảm giá và subtotal
+        BigDecimal totalDiscount = order.getPosOrderDiscountAmount() != null ?
+                order.getPosOrderDiscountAmount() : BigDecimal.ZERO;
+        BigDecimal subtotal = order.getPosOrderSubtotal() != null ?
+                order.getPosOrderSubtotal() : BigDecimal.ZERO;
+
+        List<PosOrderItemDetailResponse> itemDetails = new ArrayList<>();
+
+        for (PosOrderItem item : items) {
             ProductDetail productDetail = productDetailRepository.findByIdWithRelations(item.getPosOrderItemProductDetailId())
                     .orElse(null);
 
@@ -383,26 +409,65 @@ public class PosService {
             detail.setDiscount(item.getPosOrderItemDiscount());
             detail.setTotal(item.getPosOrderItemTotal());
 
+            // ✅ Lấy thông tin sản phẩm
             if (productDetail != null) {
-                detail.setProductName(productDetail.getProduct() != null ? productDetail.getProduct().getProductName() : null);
-                detail.setColorName(productDetail.getColor() != null ? productDetail.getColor().getColorName() : null);
-                detail.setSizeName(productDetail.getSize() != null ? productDetail.getSize().getSizeName() : null);
+                detail.setProductName(productDetail.getProduct() != null ?
+                        productDetail.getProduct().getProductName() : "Sản phẩm");
+                detail.setColorName(productDetail.getColor() != null ?
+                        productDetail.getColor().getColorName() : "N/A");
+                detail.setSizeName(productDetail.getSize() != null ?
+                        productDetail.getSize().getSizeName() : "N/A");
                 detail.setSku(productDetail.getSku());
+            } else {
+                // ✅ Fallback nếu không tìm thấy ProductDetail
+                detail.setProductName("Sản phẩm #" + item.getPosOrderItemProductDetailId());
+                detail.setColorName("N/A");
+                detail.setSizeName("N/A");
             }
 
-            return detail;
-        }).collect(Collectors.toList());
+            // ✅ Tính discountPerUnit và finalUnitPrice
+            BigDecimal itemTotal = item.getPosOrderItemUnitPrice()
+                    .multiply(BigDecimal.valueOf(item.getPosOrderItemQuantity()));
+
+            BigDecimal discountPerUnit = BigDecimal.ZERO;
+            if (totalDiscount.compareTo(BigDecimal.ZERO) > 0 && subtotal.compareTo(BigDecimal.ZERO) > 0) {
+                // Tính tỷ lệ giảm giá theo item
+                BigDecimal ratio = itemTotal.divide(subtotal, 10, RoundingMode.HALF_UP);
+                BigDecimal itemDiscount = totalDiscount.multiply(ratio)
+                        .divide(BigDecimal.valueOf(item.getPosOrderItemQuantity()), 0, RoundingMode.HALF_UP);
+                discountPerUnit = itemDiscount;
+            }
+
+            // Nếu có giảm giá từng sản phẩm riêng, cộng thêm
+            if (item.getPosOrderItemDiscount() != null) {
+                discountPerUnit = discountPerUnit.add(item.getPosOrderItemDiscount());
+            }
+
+            BigDecimal finalUnitPrice = item.getPosOrderItemUnitPrice().subtract(discountPerUnit);
+            if (finalUnitPrice.compareTo(BigDecimal.ZERO) < 0) {
+                finalUnitPrice = BigDecimal.ZERO;
+            }
+
+            detail.setDiscountPerUnit(discountPerUnit);
+            detail.setFinalUnitPrice(finalUnitPrice);
+
+            // ✅ Log chi tiết từng item
+            log.info("📦 Item: productName={}, quantity={}, unitPrice={}, discountPerUnit={}, finalUnitPrice={}",
+                    detail.getProductName(), detail.getQuantity(), detail.getUnitPrice(),
+                    discountPerUnit, finalUnitPrice);
+
+            itemDetails.add(detail);
+        }
 
         PosOrderDetailResponse response = new PosOrderDetailResponse();
         response.setOrder(convertToResponse(order));
         response.setItems(itemDetails);
 
+        log.info("✅ Returning {} items for order: {}", itemDetails.size(), orderId);
+
         return response;
     }
 
-    // =====================================================
-    // THỐNG KÊ NHANH THEO SESSION
-    // =====================================================
     public PosSessionStatsResponse getSessionStats(Integer sessionId) {
         PosSession session = posSessionRepository.findById(sessionId)
                 .orElseThrow(() -> new BusinessException("Phiên bán hàng không tồn tại"));
@@ -433,22 +498,6 @@ public class PosService {
         return stats;
     }
 
-    // =====================================================
-    // PRIVATE METHODS
-    // =====================================================
-
-    // =====================================================
-    // VNPAY TẠI QUẦY (POS)
-    // =====================================================
-
-    /**
-     * Bước 1: Tạo link thanh toán VNPay cho đơn POS.
-     * txnRef = "POS-" + invoiceNumber + "-" + random(6) — phân biệt với đơn online.
-     * returnUrl lấy từ request (quầy thu ngân tự cung cấp), fallback về vnPayConfig.
-     *
-     * Καλών: Tái sử dụng VNPayConfig.hmacSHA512() và VNPayConfig.getRandomNumber()
-     * đã có trong luồng online, không duplicate logic.
-     */
     @Transactional
     public PosPaymentResponse createVnpayPaymentForPos(Integer orderId, String returnUrl, String clientIp) {
         PosOrder order = posOrderRepository.findById(orderId)
@@ -458,10 +507,8 @@ public class PosService {
             throw new BusinessException("Đơn hàng đã được thanh toán hoặc đã hoàn tiền, không thể tạo link VNPay");
         }
 
-        // txnRef riêng cho POS — prefix POS- để phân biệt trên dashboard VNPay
         String txnRef = "POS-" + order.getPosOrderInvoiceNumber() + "-" + VNPayConfig.getRandomNumber(4);
 
-        // Tính tổng đơn hàng để tạo link VNPay
         BigDecimal orderTotal = order.getPosOrderSubtotal()
                 .subtract(order.getPosOrderDiscountAmount())
                 .add(order.getPosOrderTaxAmount());
@@ -471,10 +518,8 @@ public class PosService {
             throw new BusinessException("Tổng đơn hàng không hợp lệ để tạo link VNPay");
         }
 
+        long amountVnd = vnpayAmount.longValue() * 100;
 
-        long amountVnd = vnpayAmount.longValue() * 100; // VNPay nhân 100
-
-        // Dùng returnUrl do quầy gửi lên; fallback về config nếu thiếu
         String effectiveReturnUrl = (returnUrl != null && !returnUrl.isBlank())
                 ? returnUrl
                 : vnPayConfig.getVnp_ReturnUrl();
@@ -498,7 +543,6 @@ public class PosService {
         cld.add(Calendar.MINUTE, 15);
         vnpParams.put("vnp_ExpireDate", formatter.format(cld.getTime()));
 
-        // Ký hash — dùng lại VNPayConfig.hmacSHA512() đã có sẵn
         List<String> fieldNames = new ArrayList<>(vnpParams.keySet());
         Collections.sort(fieldNames);
         StringBuilder hashData = new StringBuilder();
@@ -526,7 +570,6 @@ public class PosService {
         String secureHash = VNPayConfig.hmacSHA512(vnPayConfig.getSecretKey().trim(), hashData.toString());
         String paymentUrl = vnPayConfig.getVnp_PayUrl().trim() + "?" + query + "&vnp_SecureHash=" + secureHash;
 
-        // Lưu bản ghi pos_payment với trạng thái PENDING, referenceNumber = txnRef
         PosPayment pending = PosPayment.builder()
                 .posPaymentOrderId(orderId)
                 .posPaymentMethodId(resolvePosPaymentMethodId(2)) // 2 = VNPAY (logical ID from frontend)
@@ -543,10 +586,6 @@ public class PosService {
         return response;
     }
 
-    /**
-     * Bước 2: Xác nhận kết quả VNPay cho đơn POS.
-     * Verify chữ ký, cập nhật PosPayment + PosOrder nếu thành công.
-     */
     @Transactional
     public PosPaymentResponse confirmVnpayForPos(Integer orderId, Map<String, String> params) {
         PosOrder order = posOrderRepository.findById(orderId)
@@ -560,7 +599,6 @@ public class PosService {
         log.info("paymentStatus trước update: {}", order.getPosOrderPaymentStatus());
         log.info("orderStatus trước update: {}", order.getPosOrderStatus());
 
-        // Verify chữ ký — lấy toàn bộ fields bắt đầu bằng vnp_
         Map<String, String> fields = new LinkedHashMap<>();
         for (Map.Entry<String, String> entry : params.entrySet()) {
             if (entry.getKey().startsWith("vnp_")) {
@@ -575,10 +613,6 @@ public class PosService {
             throw new BusinessException("Chữ ký VNPay không hợp lệ");
         }
 
-//        String txnRef = params.getVnp_TxnRef();
-//        String responseCode = params.getVnp_ResponseCode();
-
-        // Tìm pos_payment tương ứng
         PosPayment payment = posPaymentRepository.findByPosPaymentOrderId(orderId)
                 .stream()
                 .filter(p -> txnRef.equals(p.getPosPaymentReferenceNumber()))
@@ -592,17 +626,14 @@ public class PosService {
         }
 
         if ("COMPLETED".equals(payment.getPosPaymentStatus())) {
-            // Idempotency: đã xử lý rồi, trả về luôn
             return convertPaymentToResponse(payment);
         }
 
         if ("00".equals(responseCode)) {
-            // Thành công
             payment.setPosPaymentStatus("COMPLETED");
             payment.setPosPaymentProcessedAt(LocalDateTime.now());
             posPaymentRepository.save(payment);
 
-            // Cập nhật đơn hàng: cộng paidAmount, kiểm tra đã đủ chưa
             BigDecimal orderTotal = order.getPosOrderSubtotal()
                     .subtract(order.getPosOrderDiscountAmount())
                     .add(order.getPosOrderTaxAmount());
@@ -615,11 +646,10 @@ public class PosService {
                 order.setPosOrderStatus("COMPLETED");
             }
             posOrderRepository.save(order);
-            
+
             log.info("paymentStatus sau update: {}", order.getPosOrderPaymentStatus());
             log.info("orderStatus sau update: {}", order.getPosOrderStatus());
 
-            // Cập nhật doanh số session
             if (order.getPosOrderSessionId() != null) {
                 posSessionRepository.findById(order.getPosOrderSessionId()).ifPresent(session -> {
                     BigDecimal transfer = session.getPosSessionTransferSales().add(payment.getPosPaymentAmount());
@@ -628,15 +658,14 @@ public class PosService {
                 });
             }
         } else {
-            // Thất bại — giữ nguyên đơn, cho phép tạo lại link
             payment.setPosPaymentStatus("FAILED");
             payment.setPosPaymentProcessedAt(LocalDateTime.now());
             posPaymentRepository.save(payment);
-            
+
             order.setPosOrderPaymentStatus("UNPAID");
             order.setPosOrderStatus("PENDING_PAYMENT");
             posOrderRepository.save(order);
-            
+
             log.info("paymentStatus sau update (Thất bại): {}", order.getPosOrderPaymentStatus());
             log.info("orderStatus sau update (Thất bại): {}", order.getPosOrderStatus());
             log.info("--- [DEBUG VNPAY POS] End confirmVnpayForPos (Failed) ---");
@@ -647,7 +676,6 @@ public class PosService {
         return convertPaymentToResponse(payment);
     }
 
-    /** Hash các field — cùng thuật toán với PaymentServiceImpl.hashAllFields() */
     private String hashAllFieldsPos(Map<String, String> fields) {
         List<String> fieldNames = new ArrayList<>(fields.keySet());
         Collections.sort(fieldNames);
@@ -716,9 +744,9 @@ public class PosService {
 
         for (PosPaymentRequest payment : payments) {
             Integer methodId = payment.getPaymentMethodId();
-            if (methodId == 1) { // Tiền mặt
+            if (methodId == 1) {
                 cashSales = cashSales.add(payment.getAmount());
-            } else if (methodId == 2 || methodId == 3) { // VNPAY / MOMO
+            } else if (methodId == 2 || methodId == 3) {
                 transferSales = transferSales.add(payment.getAmount());
             } else {
                 cardSales = cardSales.add(payment.getAmount());
@@ -743,6 +771,7 @@ public class PosService {
         }
     }
 
+    // ===== CONVERT TO RESPONSE =====
     private PosOrderResponse convertToResponse(PosOrder order) {
         PosOrderResponse response = new PosOrderResponse();
         response.setPosOrderId(order.getPosOrderId());
@@ -763,11 +792,19 @@ public class PosService {
         response.setPosOrderNotes(order.getPosOrderNotes());
         response.setPosOrderCreatedAt(order.getPosOrderCreatedAt());
 
-        // Lấy items
+        // Lấy thông tin voucher từ voucherId
+        if (order.getVoucherId() != null) {
+            voucherRepository.findById(order.getVoucherId()).ifPresent(voucher -> {
+                response.setVoucherCode(voucher.getVoucherCode());
+                response.setVoucherDiscountAmount(voucher.getVoucherDiscountAmount());
+                response.setVoucherDiscountPercent(voucher.getVoucherDiscountPercent());
+                response.setVoucherId(voucher.getVoucherId());
+            });
+        }
+
         List<PosOrderItem> items = posOrderItemRepository.findByPosOrderItemOrderId(order.getPosOrderId());
         response.setItems(items.stream().map(this::convertItemToResponse).collect(Collectors.toList()));
 
-        // Lấy payments
         List<PosPayment> payments = posPaymentRepository.findByPosPaymentOrderId(order.getPosOrderId());
         response.setPayments(payments.stream().map(this::convertPaymentToResponse).collect(Collectors.toList()));
 
@@ -811,15 +848,8 @@ public class PosService {
         return response;
     }
 
-    /**
-     * Tìm session ACTIVE của nhân viên hiện tại.
-     * Nếu không có → tìm bất kỳ session ACTIVE nào trong hệ thống.
-     * Nếu vẫn không có → tự động tạo session mặc định.
-     * Đảm bảo luôn trả về session hợp lệ (không bao giờ null).
-     */
     @Transactional
     protected PosSession getOrCreateActiveSession() {
-        // Bước 1: Tìm hoặc tự động tạo ca bán hàng ACTIVE cho chính nhân viên đang đăng nhập
         try {
             Integer employeeId = getCurrentEmployeeId();
             if (employeeId != null) {
@@ -828,7 +858,6 @@ public class PosService {
                         .orElse(null);
                 if (mySession != null) return mySession;
 
-                // Nếu nhân viên chưa có ca, tự động tạo ca mới riêng cho nhân viên này
                 Integer cashRegisterId = cashRegisterRepository.findAll()
                         .stream()
                         .filter(cr -> !"DELETED".equals(cr.getCashRegisterStatus()))
@@ -854,13 +883,11 @@ public class PosService {
             log.warn("⚠️ Cannot resolve current employeeId for POS session: {}", e.getMessage());
         }
 
-        // Bước 2: Fallback — lấy ca ACTIVE đầu tiên nếu có
         List<PosSession> activeSessions = posSessionRepository.findAllActiveSessions();
         if (!activeSessions.isEmpty()) {
             return activeSessions.get(0);
         }
 
-        // Bước 3: Không có ca nào — tạo ca mặc định
         Integer cashRegisterId = cashRegisterRepository.findAll()
                 .stream()
                 .filter(cr -> !"DELETED".equals(cr.getCashRegisterStatus()))
@@ -880,5 +907,77 @@ public class PosService {
                 .build();
 
         return posSessionRepository.save(defaultSession);
+    }
+    public List<PosOrderResponse> getOrdersByPhone(String phone) {
+        if (phone == null || phone.trim().isEmpty()) {
+            throw new BusinessException("Vui lòng nhập số điện thoại");
+        }
+        List<PosOrder> orders = posOrderRepository.findByPosOrderCustomerPhoneContaining(phone.trim());
+        return orders.stream()
+                .filter(o -> "COMPLETED".equals(o.getPosOrderStatus()))
+                .map(this::convertToResponse)
+                .collect(Collectors.toList());
+    }
+
+    public List<CustomerDTO> getAllCustomers() {
+        List<Customer> customers = customerRepository.findAllActiveCustomers();
+        return customers.stream()
+                .map(this::convertToCustomerDTO)
+                .collect(Collectors.toList());
+    }
+
+    public List<CustomerDTO> searchCustomers(String keyword) {
+        if (keyword == null || keyword.trim().isEmpty()) {
+            return getAllCustomers();
+        }
+        List<Customer> customers = customerRepository.searchCustomers(keyword.trim());
+        return customers.stream()
+                .map(this::convertToCustomerDTO)
+                .collect(Collectors.toList());
+    }
+
+    private CustomerDTO convertToCustomerDTO(Customer customer) {
+        CustomerDTO dto = new CustomerDTO();
+        dto.setCustomerId(customer.getCustomerId());
+        dto.setCustomerName(customer.getCustomerName());
+        dto.setPhone(customer.getPhone());
+        dto.setUserId(customer.getUser().getUserId());
+        return dto;
+    }
+
+    // ✅ Thêm method getVoucherByOrderId
+    @Transactional(readOnly = true)
+    public VoucherDTO getVoucherByOrderId(Integer orderId) {
+        PosOrder order = posOrderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng"));
+
+        Integer voucherId = order.getVoucherId();
+        if (voucherId == null) {
+            throw new RuntimeException("Đơn hàng không áp dụng mã giảm giá");
+        }
+
+        Voucher voucher = voucherRepository.findById(voucherId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy voucher"));
+
+        return convertVoucherToDTO(voucher);
+    }
+
+    // ✅ Thêm method convertVoucherToDTO
+    private VoucherDTO convertVoucherToDTO(Voucher voucher) {
+        VoucherDTO dto = new VoucherDTO();
+        dto.setVoucherId(voucher.getVoucherId());
+        dto.setVoucherCode(voucher.getVoucherCode());
+        dto.setVoucherDiscountAmount(voucher.getVoucherDiscountAmount());
+        dto.setVoucherDiscountPercent(voucher.getVoucherDiscountPercent());
+        dto.setVoucherStartDate(voucher.getVoucherStartDate());
+        dto.setVoucherEndDate(voucher.getVoucherEndDate());
+        dto.setVoucherMaxUsage(voucher.getVoucherMaxUsage());
+        dto.setVoucherUsedCount(voucher.getVoucherUsedCount());
+        dto.setVoucherMinOrderValue(voucher.getVoucherMinOrderValue());
+        dto.setVoucherStatus(voucher.getVoucherStatus());
+        dto.setVoucherCreatedAt(voucher.getVoucherCreatedAt());
+        dto.setVoucherUpdatedAt(voucher.getVoucherUpdatedAt());
+        dto.setVoucherDeletedAt(voucher.getVoucherDeletedAt());
+        return dto;
     }
 }

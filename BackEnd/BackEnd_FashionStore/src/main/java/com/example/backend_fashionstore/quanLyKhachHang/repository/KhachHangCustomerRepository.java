@@ -10,7 +10,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -19,7 +19,18 @@ public interface KhachHangCustomerRepository extends JpaRepository<Customer, Int
     Optional<Customer> findByUserUserId(Integer userId);
     Optional<Customer> findByUserEmail(String email);
 
-    // ✅ Tìm kiếm khách hàng (kể cả đã xóa? tùy logic)
+    // ✅ SỬA: Tìm theo phone - trả về Optional (nếu có nhiều thì lấy cái đầu tiên)
+    @Query("SELECT c FROM Customer c WHERE c.phone = :phone AND c.user.status <> 'DELETED'")
+    Optional<Customer> findByPhone(@Param("phone") String phone);
+
+    // ✅ THÊM MỚI: Tìm tất cả theo phone
+    @Query("SELECT c FROM Customer c WHERE c.phone = :phone AND c.user.status <> 'DELETED'")
+    List<Customer> findAllByPhone(@Param("phone") String phone);
+
+    // ✅ Kiểm tra tồn tại theo phone
+    @Query("SELECT COUNT(c) > 0 FROM Customer c WHERE c.phone = :phone AND c.user.status <> 'DELETED'")
+    boolean existsByPhone(@Param("phone") String phone);
+
     @Query("SELECT c FROM Customer c WHERE " +
             "c.user.status <> 'DELETED' AND (" +
             "LOWER(c.customerName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
@@ -36,72 +47,48 @@ public interface KhachHangCustomerRepository extends JpaRepository<Customer, Int
     @Query("SELECT c FROM Customer c WHERE c.user.status = :status")
     Page<Customer> findAllByStatus(@Param("status") UserStatus status, Pageable pageable);
 
-    // ✅ Lấy tất cả khách hàng chưa xóa
     @Query("SELECT c FROM Customer c WHERE c.user.status <> 'DELETED'")
     Page<Customer> findAllActiveCustomers(Pageable pageable);
 
-    // ✅ Đếm theo status của user
     @Query("SELECT COUNT(c) FROM Customer c WHERE c.user.status = :status")
     long countByUserStatus(@Param("status") UserStatus status);
 
-    // ===== DASHBOARD - THÊM MỚI =====
-
-    /**
-     * Đếm tổng số khách hàng (bao gồm cả đã xóa)
-     */
+    // ===== DASHBOARD =====
     @Query("SELECT COUNT(c) FROM Customer c")
     long countAllCustomers();
 
-    /**
-     * Đếm khách hàng theo trạng thái (có thể truyền vào status)
-     */
-    @Query("SELECT COUNT(c) FROM Customer c WHERE c.user.status = :status")
-    long countCustomersByStatus(@Param("status") UserStatus status);
-
-    /**
-     * Lấy danh sách khách hàng đã xóa
-     */
     @Query("SELECT c FROM Customer c WHERE c.user.status = 'DELETED'")
     Page<Customer> findAllDeletedCustomers(Pageable pageable);
 
-    /**
-     * Đếm số khách hàng mới trong tháng
-     */
     @Query("SELECT COUNT(c) FROM Customer c WHERE c.user.status <> 'DELETED' " +
             "AND EXTRACT(YEAR FROM c.createdAt) = :year " +
             "AND EXTRACT(MONTH FROM c.createdAt) = :month")
     long countNewCustomersByMonth(@Param("year") int year, @Param("month") int month);
 
-    /**
-     * Đếm số khách hàng mới trong ngày
-     * ✅ SỬA: Dùng native query để so sánh DATE
-     */
     @Query(value = "SELECT COUNT(*) FROM customers c " +
             "JOIN users u ON c.customer_user_id = u.user_id " +
             "WHERE u.user_status <> 'DELETED' " +
             "AND DATE(c.customer_created_at) = CURRENT_DATE", nativeQuery = true)
     long countNewCustomersToday();
 
-    /**
-     * Tìm kiếm khách hàng (bao gồm cả đã xóa)
-     */
     @Query("SELECT c FROM Customer c WHERE " +
             "LOWER(c.customerName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
             "LOWER(c.user.email) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
             "c.phone LIKE CONCAT('%', :keyword, '%')")
     Page<Customer> searchAllCustomers(@Param("keyword") String keyword, Pageable pageable);
 
-    /**
-     * Lấy khách hàng theo số điện thoại
-     */
-    Optional<Customer> findByPhone(String phone);
-
-    /**
-     * ✅ THÊM MỚI: Đếm khách hàng mới theo ngày cụ thể
-     */
     @Query(value = "SELECT COUNT(*) FROM customers c " +
             "JOIN users u ON c.customer_user_id = u.user_id " +
             "WHERE u.user_status <> 'DELETED' " +
             "AND DATE(c.customer_created_at) = DATE(:date)", nativeQuery = true)
     long countNewCustomersByDate(@Param("date") LocalDate date);
+
+    // ✅ SỬA: Tìm kiếm khách hàng trả về List
+    @Query("SELECT c FROM Customer c WHERE c.user.status <> 'DELETED' " +
+            "AND (LOWER(c.customerName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+            "OR c.phone LIKE CONCAT('%', :keyword, '%'))")
+    List<Customer> searchCustomers(@Param("keyword") String keyword);
+
+    @Query("SELECT c FROM Customer c WHERE c.user.status <> 'DELETED'")
+    List<Customer> findAllActiveCustomers();
 }

@@ -25,4 +25,7 @@ public class PosInvoiceDTO {
     private Integer cashierId;
     private List<PosInvoiceItemDTO> items;
     private List<PosInvoicePaymentDTO> payments;
+
+    // ✅ Thêm trường voucherCode để hiển thị mã giảm giá
+    private String voucherCode;
 }

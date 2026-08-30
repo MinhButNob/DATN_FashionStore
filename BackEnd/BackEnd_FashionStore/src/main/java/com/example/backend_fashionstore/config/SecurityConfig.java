@@ -77,10 +77,9 @@ public class SecurityConfig {
                         // ===== PUBLIC ENDPOINTS =====
                         .requestMatchers("/api/auth/**", "/oauth2/**", "/error", "/favicon.ico").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        // ===== WEBSOCKET =====
                         .requestMatchers("/ws/**").permitAll()
 
-                        // ===== CLIENT ENDPOINTS (Khách hàng) =====
+                        // ===== CLIENT ENDPOINTS =====
                         .requestMatchers("/api/customer/home/**").permitAll()
                         .requestMatchers("/api/products/**").permitAll()
                         .requestMatchers("/api/categories/**").permitAll()
@@ -106,26 +105,21 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/orders/**").hasAnyRole("ADMIN", "STAFF")
                         .requestMatchers("/api/admin/products/**").hasAnyRole("ADMIN", "STAFF")
 
+                        // ✅ SỬA: Thêm dòng này để cho STAFF truy cập customer API
+                        .requestMatchers("/api/admin/customers/**").hasAnyRole("ADMIN", "STAFF")
+
                         // ===== ADMIN ENDPOINTS (Chỉ ADMIN) =====
-                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")  // ⚠️ Dòng này vẫn chặn nếu đặt trước
 
-                        // ===== STAFF ENDPOINTS (ADMIN + STAFF) =====
+                        // ===== STAFF ENDPOINTS =====
                         .requestMatchers("/api/staff/**").hasAnyRole("ADMIN", "STAFF")
-
-                        // ===== SALE STAFF ENDPOINTS (ADMIN + STAFF + SALE_STAFF) =====
                         .requestMatchers("/api/sale-staff/**").hasAnyRole("ADMIN", "STAFF", "SALE_STAFF")
-
-                        // ===== POS ENDPOINTS (ADMIN + STAFF + SALE_STAFF) =====
                         .requestMatchers("/api/pos/**").hasAnyRole("ADMIN", "STAFF", "SALE_STAFF")
-
-                        // ===== USER ENDPOINTS =====
                         .requestMatchers("/api/user/**").authenticated()
 
-                        // ===== ALL OTHER REQUESTS =====
                         .anyRequest().permitAll()
                 )
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
-    }
-}
+    }}

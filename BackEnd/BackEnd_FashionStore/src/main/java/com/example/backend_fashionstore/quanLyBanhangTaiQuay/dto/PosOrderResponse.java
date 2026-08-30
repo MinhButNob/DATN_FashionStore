@@ -26,5 +26,10 @@ public class PosOrderResponse {
     private LocalDateTime posOrderCreatedAt;
     private List<PosOrderItemResponse> items;
     private List<PosPaymentResponse> payments;
-}
 
+    // ✅ Thêm thông tin voucher
+    private String voucherCode;
+    private BigDecimal voucherDiscountAmount;
+    private BigDecimal voucherDiscountPercent;
+    private Integer voucherId;
+}

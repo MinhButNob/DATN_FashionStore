@@ -133,7 +133,9 @@ public interface PosOrderRepository extends JpaRepository<PosOrder, Integer> {
     BigDecimal getTotalTax(@Param("startDate") LocalDateTime startDate,
                            @Param("endDate") LocalDateTime endDate);
 
-    // ========== TÌM KIẾM HÓA ĐƠN (PHÂN TRANG) ==========
+    // Thêm vào PosOrderRepository.java
+    @Query("SELECT o FROM PosOrder o WHERE o.posOrderCustomerPhone LIKE %:phone% AND o.posOrderDeletedAt IS NULL")
+    List<PosOrder> findByPosOrderCustomerPhoneContaining(@Param("phone") String phone);
 
     // ========== TÌM KIẾM HÓA ĐƠN (PHÂN TRANG - ĐÃ CẬP NHẬT CHUẨN) ==========
 
