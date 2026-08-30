@@ -77,4 +77,23 @@ public class PosOrder {
 
     @Column(name = "pos_order_deleted_at")
     private LocalDateTime posOrderDeletedAt;
+
+    @Column(name = "parent_order_id")
+    private Integer parentOrderId; // Đơn hàng gốc (nếu là đơn hàng thay thế)
+
+    @Column(name = "return_exchange_id")
+    private Integer returnExchangeId; // ID phiếu đổi/trả
+
+    @Column(name = "exchange_order_id")
+    private Integer exchangeOrderId; // ID đơn hàng thay thế (nếu đổi sp mới)
+
+    @Column(name = "refund_amount", nullable = false)
+    @Builder.Default
+    private BigDecimal refundAmount = BigDecimal.ZERO;
+
+    // Thêm vào PosOrder.java
+    @Column(name = "voucher_id")
+    private Integer voucherId;
+
+
 }

@@ -25,7 +25,7 @@ public class Customer {
     @Column(name = "customer_name", nullable = false)
     private String customerName;
 
-    @Column(name = "phone")
+    @Column(name = "phone", unique = true, nullable = false) // ✅ THÊM unique = true
     private String phone;
 
     // ===== ĐỊA CHỈ THEO THÔNG TƯ MỚI =====
@@ -50,6 +50,8 @@ public class Customer {
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+
 
     @PrePersist
     public void prePersist() {
@@ -80,4 +82,6 @@ public class Customer {
         }
         return sb.toString();
     }
+
+
 }

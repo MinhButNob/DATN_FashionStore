@@ -40,7 +40,6 @@ import AdminVouchers from "../views/admin/AdminVouchers.vue";
 import AdminBanners from "../views/admin/AdminBanners.vue";
 import AdminReviews from "../views/admin/AdminReviews.vue";
 import AdminStatistics from "../views/admin/AdminStatistics.vue";
-// ✅ THÊM: Admin Chat
 import AdminChat from "../views/admin/AdminChat.vue";
 
 // Staff views
@@ -52,13 +51,16 @@ import StaffCustomers from "../views/staff/StaffCustomers.vue";
 import StaffReturns from "../views/staff/StaffReturns.vue";
 import StaffChat from "../views/staff/StaffChat.vue";
 
-// ===== SALE STAFF VIEWS =====
+// Staff Return views
+import StaffReturnCreate from "../views/staff/StaffReturnCreate.vue";
+import StaffReturnDetail from "../views/staff/StaffReturnDetail.vue";
+
+// Sale Staff views
 import SaleStaffLayout from "../views/sale-staff/SaleStaffLayout.vue";
 import SaleStaffDashboard from "../views/sale-staff/SaleStaffDashboard.vue";
 import SaleStaffOrders from "../views/sale-staff/SaleStaffOrders.vue";
 import SaleStaffCustomers from "../views/sale-staff/SaleStaffCustomers.vue";
 import SaleStaffStock from "../views/sale-staff/SaleStaffStock.vue";
-// ✅ THÊM: Sale Staff Chat
 import SaleStaffChat from "../views/sale-staff/SaleStaffChat.vue";
 
 const routes = [
@@ -174,7 +176,6 @@ const routes = [
         name: "admin-statistics",
         component: AdminStatistics,
       },
-      // ✅ THÊM: Admin Chat
       { path: "chat", name: "admin-chat", component: AdminChat },
     ],
   },
@@ -190,7 +191,23 @@ const routes = [
       { path: "orders", name: "staff-orders", component: StaffOrders },
       { path: "customers", name: "staff-customers", component: StaffCustomers },
       { path: "returns", name: "staff-returns", component: StaffReturns },
+      {
+        path: "returns/create",
+        name: "staff-return-create",
+        component: StaffReturnCreate,
+      },
+      {
+        path: "returns/:id",
+        name: "staff-return-detail",
+        component: StaffReturnDetail,
+      },
       { path: "chat", name: "staff-chat", component: StaffChat },
+      {
+        path: "damaged-products",
+        name: "StaffDamagedProducts",
+        component: () => import("../views/staff/StaffDamagedProducts.vue"),
+        meta: { title: "Quản lý sản phẩm hỏng" },
+      },
     ],
   },
 
@@ -208,7 +225,6 @@ const routes = [
         component: SaleStaffCustomers,
       },
       { path: "stock", name: "sale-staff-stock", component: SaleStaffStock },
-      // ✅ THÊM: Sale Staff Chat
       { path: "chat", name: "sale-staff-chat", component: SaleStaffChat },
     ],
   },

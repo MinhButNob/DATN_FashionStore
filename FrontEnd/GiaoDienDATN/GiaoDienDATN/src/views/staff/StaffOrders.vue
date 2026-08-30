@@ -97,6 +97,15 @@
                 <button class="action-btn print-btn" title="In hóa đơn" @click="printInvoice(order.posOrderId)">
                   <i class="fas fa-print"></i>
                 </button>
+                <!-- NÚT HOÀN HÀNG -->
+                <button 
+                  v-if="order.orderStatus === 'COMPLETED' && order.paymentStatus === 'PAID'"
+                  class="action-btn return-btn" 
+                  title="Hoàn hàng" 
+                  @click="openReturnModal(order)"
+                >
+                  <i class="fas fa-undo-alt"></i>
+                </button>
               </div>
             </td>
           </tr>
@@ -123,6 +132,7 @@
         </button>
       </div>
     </div>
+
     <!-- Modal chi tiết hóa đơn -->
     <transition name="modal-fade">
       <div class="modal-overlay" v-if="showDetailModal">
@@ -217,18 +227,18 @@
 
 <script setup>
 import { ref, onMounted } from "vue";
+import { useRouter } from "vue-router";
 import {
   searchInvoices,
   cancelInvoice,
-  printInvoiceApi,
   getInvoiceDetail
 } from "../../services/posOrderService";
-
 import { getMyActiveSession, printPosReceipt } from "../../services/posService";
 import { useNotification } from '../../composables/useNotification';
 import { formatPrice } from '../../utils/helpers';
 import { printReceiptHTML, createPrintWindow } from '../../utils/printHelper';
 
+const router = useRouter();
 const { showNotification } = useNotification();
 
 // Quản lý thông tin ca/quầy làm việc của nhân viên
@@ -270,7 +280,6 @@ const fetchCurrentSession = async () => {
 
     if (session) {
       currentSession.value = session;
-      // Đảm bảo gán chính xác ID phiên đang mở của ngày hôm nay vào bộ lọc
       filter.value.posSessionId = session.posSessionId; 
     }
     await fetchInvoicesData();
@@ -281,7 +290,8 @@ const fetchCurrentSession = async () => {
     loadingSession.value = false;
   }
 };
-// Gọi API lấy danh sách hóa đơn theo các điều kiện lọc (Server-side Pagination)
+
+// Gọi API lấy danh sách hóa đơn theo các điều kiện lọc
 const fetchInvoicesData = async () => {
   loading.value = true;
 
@@ -289,24 +299,14 @@ const fetchInvoicesData = async () => {
     console.log("FILTER =", JSON.stringify(filter.value));
 
     const response = await searchInvoices(filter.value);
-
-    console.log("FULL RESPONSE =", response);
-
-    // Xác định xem data thực sự nằm ở đâu (Phòng trường hợp axios interceptor đã bóc tách sẵn)
-    // Nếu response có thuộc tính content thì lấy luôn, không thì lấy từ response.data
     const targetData = response?.content ? response : response?.data;
 
-    console.log("TARGET DATA COMPARED =", targetData);
-
-    // Gán dữ liệu an toàn, nếu hoàn toàn trống thì trả về giá trị mặc định tránh crash
     invoices.value = targetData?.content || [];
     totalPages.value = targetData?.totalPages || 0;
     totalElements.value = targetData?.totalElements || 0;
 
   } catch (error) {
     console.error("FULL ERROR =", error);
-    console.error("ERROR RESPONSE =", error?.response);
-    console.error("ERROR DATA =", error?.response?.data);
   } finally {
     loading.value = false;
   }
@@ -321,14 +321,12 @@ onMounted(() => {
 const parseSearchKeyword = () => {
   const value = searchKeyword.value.trim();
   
-  // Reset trạng thái tìm kiếm text cũ trước khi gán mới
   filter.value.invoiceNumber = "";
   filter.value.customerName = "";
   filter.value.customerPhone = "";
 
   if (!value) return;
 
-  // Tự động nhận diện định dạng đầu vào (Số điện thoại, Mã HD hay Tên khách)
   if (/^\d+$/.test(value)) {
     filter.value.customerPhone = value;
   } else if (value.toUpperCase().startsWith("HD") || value.includes("-")) {
@@ -338,24 +336,21 @@ const parseSearchKeyword = () => {
   }
 };
 
-// Tránh spam liên tục request lên Server khi nhân viên đang gõ chữ
 let timeoutId = null;
 const debouncedSearch = () => {
   clearTimeout(timeoutId);
   timeoutId = setTimeout(() => {
     parseSearchKeyword();
-    filter.value.page = 0; // Đưa về trang đầu khi tìm kiếm mới
+    filter.value.page = 0;
     fetchInvoicesData();
   }, 400);
 };
 
-// Gọi lại API khi thay đổi trạng thái hoặc kiểu thanh toán trên Select Box
 const handleFilterChange = () => {
   filter.value.page = 0;
   fetchInvoicesData();
 };
 
-// Xử lý chuyển trang khi nhấn nút Phân trang
 const changePage = (newPage) => {
   if (newPage >= 0 && newPage < totalPages.value) {
     filter.value.page = newPage;
@@ -363,7 +358,6 @@ const changePage = (newPage) => {
   }
 };
 
-// Khôi phục bộ lọc về trạng thái ban đầu mặc định của quầy
 const resetFilter = () => {
   searchKeyword.value = "";
 
@@ -382,10 +376,10 @@ const resetFilter = () => {
 
   fetchInvoicesData();
 };
-// Thao tác hủy hóa đơn trực tiếp từ giao diện bảng
+
 const handleCancelInvoice = async (order) => {
   const reason = prompt("Nhập lý do hủy hóa đơn này:");
-  if (reason === null) return; // Nhân viên bấm nút Hủy bỏ trên prompt
+  if (reason === null) return;
   if (!reason.trim()) {
     showNotification("Bạn bắt buộc phải nhập lý do hủy đơn!", "warning");
     return;
@@ -394,14 +388,13 @@ const handleCancelInvoice = async (order) => {
   try {
     await cancelInvoice(order.posOrderId, reason);
     showNotification("Hủy hóa đơn thành công, số lượng sản phẩm đã hoàn trả kho quầy!", "success");
-    await fetchInvoicesData(); // Tải lại bảng dữ liệu mới nhất
+    await fetchInvoicesData();
   } catch (error) {
     console.error("Cancel order error:", error);
     showNotification(error.response?.data?.message || "Lỗi xảy ra khi thực hiện hủy đơn hàng", "error");
   }
 };
 
-// Lắng nghe sự thay đổi trạng thái đơn từ Select Box
 const handleStatusChange = async (order) => {
   if (order.orderStatus === 'CANCELLED') {
     handleCancelInvoice(order);
@@ -410,12 +403,21 @@ const handleStatusChange = async (order) => {
   showNotification(`Hệ thống ghi nhận chuyển trạng thái sang: ${order.orderStatus}`, 'info');
 };
 
-// Gọi API lấy dữ liệu chi tiết hóa đơn
+// ===== MỞ MODAL TẠO PHIẾU ĐỔI/TRẢ =====
+const openReturnModal = (order) => {
+  router.push({
+    path: '/staff/returns/create',
+    query: { 
+      orderId: order.posOrderId,
+      phone: order.customerPhone || ''  // ✅ Truyền SĐT sang trang tạo phiếu
+    }
+  });
+};
+
 const viewDetail = async (orderId) => {
   try {
     const response = await getInvoiceDetail(orderId);
     if (response && response.data) {
-      // response.data có thể nằm trong response.data.data nếu dùng ApiResponse wrapper
       selectedInvoice.value = response.data.data || response.data;
       showDetailModal.value = true;
     }
@@ -429,21 +431,16 @@ const closeDetailModal = () => {
   selectedInvoice.value = null;
 };
 
-// Gửi lệnh in hóa đơn xuống Backend và in ra trình duyệt
 const printInvoice = async (orderId) => {
   const win = createPrintWindow();
-  if (!win) return; // Bị chặn popup
+  if (!win) return;
   
   try {
-    // Lấy chi tiết
     const response = await getInvoiceDetail(orderId);
     const invoice = response?.data?.data || response?.data;
     if (!invoice) throw new Error("No data");
 
-    // Gửi lệnh log in hóa đơn xuống Backend
     await printPosReceipt(orderId, 1);
-
-    // In hóa đơn trên trình duyệt
     printReceiptHTML(invoice, win);
 
     showNotification(`Đã in hóa đơn ID: ${orderId} thành công!`, 'success');
@@ -454,20 +451,17 @@ const printInvoice = async (orderId) => {
   }
 };
 
-// Đổi màu sắc hiển thị Badge Trạng thái thanh toán
 const getPaymentBadge = (status) => {
   if (status === 'PAID') return 'badge-success';
   if (status === 'UNPAID') return 'badge-warning';
-  return 'badge-danger'; // Trạng thái CANCELLED hoặc lỗi
+  return 'badge-danger';
 };
 
-// Nối chuỗi hiển thị toàn bộ các phương thức thanh toán của đơn
 const getPaymentMethodText = (payments) => {
   if (!payments || payments.length === 0) return 'Chưa thanh toán';
   return payments.map(p => p.paymentMethod).join(', ');
 };
 
-// Format định dạng ngày giờ hiển thị lên banner thông tin phiên
 const formatDate = (dateString) => {
   if (!dateString) return 'N/A';
   return new Date(dateString).toLocaleString('vi-VN');
@@ -475,7 +469,115 @@ const formatDate = (dateString) => {
 </script>
 
 <style scoped>
-/* Thêm CSS cho phần Banner quầy POS ở trên cùng */
+.staff-page { animation: fadeIn 0.3s; }
+
+.filters-bar {
+  background: white;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  display: flex;
+  gap: 15px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.search-box {
+  flex: 1;
+  min-width: 260px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--light-gray);
+  border-radius: 8px;
+  padding: 0 14px;
+}
+
+.search-box input {
+  border: none;
+  background: transparent;
+  outline: none;
+  padding: 12px 0;
+  width: 100%;
+}
+
+.filters-bar select {
+  padding: 12px 15px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  outline: none;
+  background: white;
+}
+
+.main-text { color: var(--dark-gray); font-weight: 600; }
+.sub-text { color: var(--medium-gray); font-size: 12px; margin-top: 3px; }
+.price { color: var(--primary-red); font-weight: 700; }
+
+.status-select {
+  padding: 8px 12px;
+  border: none;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  outline: none;
+}
+
+.status-pending { background: #fff3cd; color: #856404; }
+.status-completed { background: #d4edda; color: #155724; }
+.status-cancelled { background: #f8d7da; color: #721c24; }
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.action-btn {
+  width: 35px;
+  height: 35px;
+  border: none;
+  border-radius: 8px;
+  color: white;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.view-btn { background: #17a2b8; }
+.edit-btn { background: #dc3545; }
+.print-btn { background: #28a745; }
+.return-btn { background: #fd7e14; }
+.return-btn:hover { background: #e06b0a; }
+
+.pagination-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  background: white;
+  border-radius: 10px;
+  margin-top: 15px;
+  box-shadow: var(--shadow);
+}
+
+.pagination-info { font-size: 14px; color: var(--dark-gray); }
+.pagination-buttons { display: flex; align-items: center; gap: 12px; }
+.pagination-buttons button {
+  padding: 8px 14px;
+  border: 1px solid var(--border-color);
+  background: white;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+.pagination-buttons button:hover:not(:disabled) { background: var(--light-gray); }
+.pagination-buttons button:disabled { opacity: 0.5; cursor: not-allowed; }
+.page-number { font-size: 14px; font-weight: 600; }
+
+.loading-text { text-align: center; padding: 30px; color: var(--medium-gray); font-weight: 500; }
+
+/* Session banner */
 .session-info-banner {
   background: #e6f7ff;
   border: 1px solid #91d5ff;
@@ -489,45 +591,7 @@ const formatDate = (dateString) => {
   font-size: 14px;
 }
 
-.session-info-banner.error {
-  background: #fff2f0;
-  border: 1px solid #ffccc7;
-  color: #a8071a;
-}
-
-.session-info-banner i {
-  font-size: 16px;
-}
-
-/* Các thuộc tính CSS cũ của bạn giữ nguyên bên dưới */
-.staff-page { animation: fadeIn 0.3s; }
-.filters-bar { background: white; padding: 20px; border-radius: 10px; box-shadow: var(--shadow); display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 20px; }
-.search-box { flex: 1; min-width: 260px; display: flex; align-items: center; gap: 10px; background: var(--light-gray); border-radius: 8px; padding: 0 14px; }
-.search-box input { border: none; background: transparent; outline: none; padding: 12px 0; width: 100%; }
-.filters-bar select { padding: 12px 15px; border: 1px solid var(--border-color); border-radius: 8px; outline: none; background: white; }
-.main-text { color: var(--dark-gray); font-weight: 600; }
-.sub-text { color: var(--medium-gray); font-size: 12px; margin-top: 3px; }
-.price { color: var(--primary-red); font-weight: 700; }
-.status-select { padding: 8px 12px; border: none; border-radius: 20px; font-size: 12px; font-weight: 600; outline: none; }
-.status-pending { background: #fff3cd; color: #856404; }
-.status-completed { background: #d4edda; color: #155724; }
-.status-cancelled { background: #f8d7da; color: #721c24; }
-.action-buttons { display: flex; gap: 8px; }
-.action-btn { width: 35px; height: 35px; border: none; border-radius: 8px; color: white; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
-.view-btn { background: #17a2b8; }
-.edit-btn { background: #dc3545; }
-.print-btn { background: #28a745; }
-.pagination-bar { display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; background: white; border-radius: 10px; margin-top: 15px; box-shadow: var(--shadow); }
-.pagination-info { font-size: 14px; color: var(--dark-gray); }
-.pagination-buttons { display: flex; align-items: center; gap: 12px; }
-.pagination-buttons button { padding: 8px 14px; border: 1px solid var(--border-color); background: white; border-radius: 6px; cursor: pointer; transition: 0.2s; }
-.pagination-buttons button:hover:not(:disabled) { background: var(--light-gray); }
-.pagination-buttons button:disabled { opacity: 0.5; cursor: not-allowed; }
-.page-number { font-size: 14px; font-weight: 600; }
-.loading-text { text-align: center; padding: 30px; color: var(--medium-gray); font-weight: 500; }
-@keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-
-/* MODAL STYLES */
+/* Modal styles */
 .modal-overlay {
   position: fixed;
   z-index: 9998;
@@ -539,7 +603,6 @@ const formatDate = (dateString) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: opacity 0.3s ease;
 }
 
 .modal-wrapper {
@@ -556,15 +619,12 @@ const formatDate = (dateString) => {
   background-color: #fff;
   border-radius: 8px;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-  transition: all 0.3s ease;
   display: flex;
   flex-direction: column;
   max-height: 90vh;
 }
 
-.modal-lg {
-  max-width: 800px;
-}
+.modal-lg { max-width: 800px; }
 
 .modal-header {
   padding: 15px 20px;
@@ -574,10 +634,7 @@ const formatDate = (dateString) => {
   align-items: center;
 }
 
-.modal-header h3 {
-  margin: 0;
-  color: #333;
-}
+.modal-header h3 { margin: 0; color: #333; }
 
 .close-btn {
   background: none;
@@ -587,11 +644,7 @@ const formatDate = (dateString) => {
   color: #999;
 }
 
-.modal-body {
-  padding: 20px;
-  overflow-y: auto;
-}
-
+.modal-body { padding: 20px; overflow-y: auto; }
 .modal-footer {
   padding: 15px 20px;
   border-top: 1px solid #eee;
@@ -606,28 +659,11 @@ const formatDate = (dateString) => {
   gap: 15px;
 }
 
-.info-group label {
-  font-weight: 600;
-  color: #555;
-  font-size: 0.9em;
-  display: block;
-  margin-bottom: 5px;
-}
+.info-group label { font-weight: 600; color: #555; font-size: 0.9em; display: block; margin-bottom: 5px; }
 
-.items-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.items-table th, .items-table td {
-  padding: 10px;
-  border-bottom: 1px solid #eee;
-}
-
-.items-table th {
-  background: #f8f9fa;
-  font-weight: 600;
-}
+.items-table { width: 100%; border-collapse: collapse; }
+.items-table th, .items-table td { padding: 10px; border-bottom: 1px solid #eee; }
+.items-table th { background: #f8f9fa; font-weight: 600; }
 
 .text-right { text-align: right; }
 .text-center { text-align: center; }
@@ -654,6 +690,18 @@ const formatDate = (dateString) => {
 .mt-4 { margin-top: 1.5rem; }
 .mb-2 { margin-bottom: 0.5rem; }
 
+.badge {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  display: inline-block;
+}
+
+.badge-success { background: #d4edda; color: #155724; }
+.badge-warning { background: #fff3cd; color: #856404; }
+.badge-danger { background: #f8d7da; color: #721c24; }
+
 .modal-fade-enter-active,
 .modal-fade-leave-active {
   transition: opacity 0.3s ease;
@@ -662,5 +710,10 @@ const formatDate = (dateString) => {
 .modal-fade-enter-from,
 .modal-fade-leave-to {
   opacity: 0;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 </style>

@@ -120,6 +120,7 @@ import { useNotificationNhanVien } from '../../composables/useNotificationNhanVi
 import StatsCard from '../../components/admin/StatsCard.vue';
 import RevenueChart from '../../components/admin/RevenueChart.vue';
 import api from '../../services/api';
+import damagedProductService from '../../services/damagedProductService';
 
 const router = useRouter();
 const chatStore = useChatStore();
@@ -138,6 +139,7 @@ const topProducts = computed(() => {
 const isLoadingOrders = ref(true);
 const isLoadingTasks = ref(true);
 const todayOrders = ref([]);
+const pendingDamagedCount = ref(0);
 
 const stats = ref([
   { title: "Doanh thu hôm nay", value: "0 ₫", change: "0 đơn hôm nay", icon: "fas fa-coins", color: "#e63946" },
@@ -178,6 +180,16 @@ const tasks = ref([
     color: "#17a2b8",
     path: "/staff/chat"
   },
+  // ✅ Thêm task sản phẩm hỏng
+  {
+    id: 4,
+    title: "Sản phẩm hỏng",
+    description: "Cần xử lý sản phẩm hỏng",
+    count: 0,
+    icon: "fas fa-box-open",
+    color: "#fd7e14",
+    path: "/staff/damaged-products"
+  },
 ]);
 
 const quickActions = [
@@ -185,6 +197,7 @@ const quickActions = [
   { name: 'Tra cứu đơn',        path: '/staff/orders',    icon: 'fas fa-search'      },
   { name: 'Thêm khách',         path: '/staff/customers', icon: 'fas fa-user-plus'   },
   { name: 'Tiếp nhận đổi trả',  path: '/staff/returns',   icon: 'fas fa-receipt'     },
+  { name: 'Sản phẩm hỏng',      path: '/staff/damaged-products', icon: 'fas fa-box-open' },
 ];
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -223,8 +236,6 @@ const loadOrderCounts = async () => {
 };
 
 // 2. Đơn hôm nay từ /api/pos/invoices/search
-//    → tự tính doanh thu + số đơn tại quầy từ dữ liệu trả về
-//    (không dùng /statistics vì query đó chỉ tính COMPLETED, bỏ sót PAID)
 const loadTodayOrders = async () => {
   isLoadingOrders.value = true;
   try {
@@ -266,6 +277,24 @@ const loadTodayOrders = async () => {
     stats.value[1].value = 0;
   } finally {
     isLoadingOrders.value = false;
+  }
+};
+
+// 3. Load số lượng sản phẩm hỏng chờ xử lý
+const loadPendingDamagedCount = async () => {
+  try {
+    const response = await damagedProductService.getDamagedProductStats();
+    const stats = response?.data?.data || response?.data;
+    if (stats) {
+      pendingDamagedCount.value = stats.pendingDamagedProducts || 0;
+      // Cập nhật task count
+      const damagedTask = tasks.value.find(t => t.id === 4);
+      if (damagedTask) {
+        damagedTask.count = pendingDamagedCount.value;
+      }
+    }
+  } catch (error) {
+    console.error('[Dashboard] Load damaged stats error:', error);
   }
 };
 
@@ -352,6 +381,7 @@ const initWebSocket = () => {
 
 let interval = null;
 let wsInterval = null;
+let damagedInterval = null;
 
 // ── Lifecycle ──────────────────────────────────────────────────────────────
 onMounted(async () => {
@@ -359,9 +389,11 @@ onMounted(async () => {
   await loadUnreadCount();
   loadOrderCounts();
   loadTodayOrders();
+  await loadPendingDamagedCount();
 
   interval = setInterval(loadUnreadCount, 30000);
   wsInterval = setInterval(updateUnreadCount, 5000);
+  damagedInterval = setInterval(loadPendingDamagedCount, 60000); // Cập nhật mỗi phút
 
   successWithIcon('Chào mừng bạn đến với Dashboard nhân viên', '👋');
 });
@@ -369,9 +401,8 @@ onMounted(async () => {
 onUnmounted(() => {
   if (interval) clearInterval(interval);
   if (wsInterval) clearInterval(wsInterval);
+  if (damagedInterval) clearInterval(damagedInterval);
   if (notificationTimer) clearTimeout(notificationTimer);
-  // KHÔNG gọi chatStore.resetState() ở đây — sẽ phá hủy store data
-  // khiến các component khác (StaffChat) crash khi mount lại
 });
 </script>
 

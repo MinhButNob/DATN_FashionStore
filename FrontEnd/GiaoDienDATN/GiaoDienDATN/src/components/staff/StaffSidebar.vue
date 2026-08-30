@@ -17,6 +17,7 @@
         >
           <i :class="item.icon"></i>
           <span>{{ item.name }}</span>
+          <span v-if="item.badge && item.badge > 0" class="badge-count">{{ item.badge }}</span>
         </router-link>
       </div>
     </nav>
@@ -31,14 +32,19 @@
 </template>
 
 <script setup>
+import { ref, onMounted, onUnmounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useAuthStore } from "../../stores/authStore";
 import { useNotification } from "../../composables/useNotification";
+import damagedProductService from "../../services/damagedProductService";
 
 const route = useRoute();
 const router = useRouter();
 const authStore = useAuthStore();
 const { showNotification } = useNotification();
+
+const pendingDamagedCount = ref(0);
+let intervalId = null;
 
 const menuSections = [
   {
@@ -47,17 +53,32 @@ const menuSections = [
       { name: "Thống kê hôm nay", path: "/staff", icon: "fas fa-chart-line" },
       { name: "Bán hàng tại quầy", path: "/staff/pos", icon: "fas fa-cash-register" },
       { name: "Đơn hàng", path: "/staff/orders", icon: "fas fa-shopping-cart" },
-    ] },
+    ]
+  },
   {
     title: "WORK",
     items: [
       { name: "Khách hàng", path: "/staff/customers", icon: "fas fa-users" },
       { name: "Đổi trả", path: "/staff/returns", icon: "fas fa-undo-alt" },
+      { name: "Sản phẩm hỏng", path: "/staff/damaged-products", icon: "fas fa-box-open", badge: pendingDamagedCount },
       { name: "Chat khách hàng", path: "/staff/chat", icon: "fas fa-comments" },
-    ] },
+    ]
+  },
 ];
 
 const isActive = (path) => route.path === path;
+
+const loadPendingDamagedCount = async () => {
+  try {
+    const response = await damagedProductService.getDamagedProductStats();
+    const stats = response?.data?.data || response?.data;
+    if (stats) {
+      pendingDamagedCount.value = stats.pendingDamagedProducts || 0;
+    }
+  } catch (error) {
+    console.error("Load pending damaged count error:", error);
+  }
+};
 
 const handleLogout = () => {
   if (confirm("Bạn có chắc muốn đăng xuất?")) {
@@ -66,6 +87,18 @@ const handleLogout = () => {
     router.push("/login");
   }
 };
+
+onMounted(() => {
+  loadPendingDamagedCount();
+  intervalId = setInterval(loadPendingDamagedCount, 30000); // Cập nhật mỗi 30s
+});
+
+onUnmounted(() => {
+  if (intervalId) {
+    clearInterval(intervalId);
+    intervalId = null;
+  }
+});
 </script>
 
 <style scoped>
@@ -78,6 +111,7 @@ const handleLogout = () => {
   display: flex;
   flex-direction: column;
   box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+  z-index: 100;
 }
 
 .sidebar-header {
@@ -147,6 +181,18 @@ const handleLogout = () => {
   font-size: 16px;
 }
 
+.menu-item .badge-count {
+  margin-left: auto;
+  background: #e63946;
+  color: white;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 12px;
+  min-width: 20px;
+  text-align: center;
+}
+
 .sidebar-footer {
   padding: 20px;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
@@ -181,7 +227,8 @@ const handleLogout = () => {
   .sidebar-header p,
   .menu-item span,
   .menu-category,
-  .logout-btn span {
+  .logout-btn span,
+  .menu-item .badge-count {
     display: none;
   }
 

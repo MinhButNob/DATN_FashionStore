@@ -43,7 +43,7 @@ public class OrderDetail {
     private BigDecimal finalAmount;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "order_detail_status", nullable = false)
+    @Column(name = "order_detail_status", nullable = true)
     @Builder.Default
     private OrderItemStatus status = OrderItemStatus.COMPLETED;
 
