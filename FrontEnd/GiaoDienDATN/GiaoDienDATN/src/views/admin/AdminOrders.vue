@@ -983,6 +983,7 @@ const getStatusText = (status) => {
     'RETURN_RECEIVED': 'Đã nhận hàng trả',
     'RETURN_PENDING': 'Đang thu hồi hàng',
     'RETURNED': 'Đã hoàn hàng',
+    'PARTIALLY_RETURNED': 'Hoàn hàng một phần',
     'REJECTED': 'Từ chối hoàn trả',
     'PENDING': 'Chờ duyệt',
     'APPROVED': 'Đã duyệt',
@@ -1005,6 +1006,7 @@ const getStatusClass = (status) => {
     'RETURN_RECEIVED': 'status-return-received',
     'RETURN_PENDING': 'status-return-pending',
     'RETURNED': 'status-returned',
+    'PARTIALLY_RETURNED': 'status-return-pending',
     'REJECTED': 'status-rejected' 
   }
   return map[status] || ''

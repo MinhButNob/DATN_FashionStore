@@ -22,7 +22,7 @@ public interface StatisticsRepository extends JpaRepository<Order, Long> {
      * Doanh thu online theo khoảng thời gian (chỉ COMPLETED)
      */
     @Query("SELECT COALESCE(SUM(o.orderTotalAmount - CASE WHEN o.orderStatus = 'RETURNED' THEN COALESCE(o.refundAmount, 0) ELSE 0 END), 0) FROM Order o " +
-            "WHERE o.orderStatus IN ('COMPLETED', 'RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED') " +
+            "WHERE o.orderStatus IN ('COMPLETED', 'RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED', 'PARTIALLY_RETURNED') " +
             "AND o.deletedAt IS NULL " +
             "AND o.createdAt BETWEEN :startDate AND :endDate")
     BigDecimal getOnlineRevenue(@Param("startDate") LocalDateTime startDate,
@@ -32,7 +32,7 @@ public interface StatisticsRepository extends JpaRepository<Order, Long> {
      * Số đơn hàng online theo khoảng thời gian (chỉ COMPLETED)
      */
     @Query("SELECT COUNT(o) FROM Order o " +
-            "WHERE o.orderStatus IN ('COMPLETED', 'RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED') " +
+            "WHERE o.orderStatus IN ('COMPLETED', 'RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED', 'PARTIALLY_RETURNED') " +
             "AND o.deletedAt IS NULL " +
             "AND o.createdAt BETWEEN :startDate AND :endDate")
     Long getOnlineOrderCount(@Param("startDate") LocalDateTime startDate,
@@ -42,7 +42,7 @@ public interface StatisticsRepository extends JpaRepository<Order, Long> {
      * Số khách hàng online theo khoảng thời gian (chỉ COMPLETED)
      */
     @Query("SELECT COUNT(DISTINCT o.customer.customerId) FROM Order o " +
-            "WHERE o.orderStatus IN ('COMPLETED', 'RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED') " +
+            "WHERE o.orderStatus IN ('COMPLETED', 'RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED', 'PARTIALLY_RETURNED') " +
             "AND o.deletedAt IS NULL " +
             "AND o.createdAt BETWEEN :startDate AND :endDate")
     Long getOnlineCustomerCount(@Param("startDate") LocalDateTime startDate,
@@ -88,7 +88,7 @@ public interface StatisticsRepository extends JpaRepository<Order, Long> {
      * Doanh thu online cho tăng trưởng (chỉ COMPLETED)
      */
     @Query("SELECT COALESCE(SUM(o.orderTotalAmount - CASE WHEN o.orderStatus = 'RETURNED' THEN COALESCE(o.refundAmount, 0) ELSE 0 END), 0) FROM Order o " +
-            "WHERE o.orderStatus IN ('COMPLETED', 'RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED') " +
+            "WHERE o.orderStatus IN ('COMPLETED', 'RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED', 'PARTIALLY_RETURNED') " +
             "AND o.deletedAt IS NULL " +
             "AND o.createdAt BETWEEN :startDate AND :endDate")
     BigDecimal getOnlineRevenueBetween(@Param("startDate") LocalDateTime startDate,
@@ -98,7 +98,7 @@ public interface StatisticsRepository extends JpaRepository<Order, Long> {
      * Số đơn hàng online cho tăng trưởng (chỉ COMPLETED)
      */
     @Query("SELECT COUNT(o) FROM Order o " +
-            "WHERE o.orderStatus IN ('COMPLETED', 'RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED') " +
+            "WHERE o.orderStatus IN ('COMPLETED', 'RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED', 'PARTIALLY_RETURNED') " +
             "AND o.deletedAt IS NULL " +
             "AND o.createdAt BETWEEN :startDate AND :endDate")
     Long getOnlineOrderCountBetween(@Param("startDate") LocalDateTime startDate,
@@ -127,13 +127,13 @@ public interface StatisticsRepository extends JpaRepository<Order, Long> {
     // =========================================
 
     @Query(value = "SELECT COALESCE(SUM(o.order_total_amount - CASE WHEN o.order_status = 'RETURNED' THEN COALESCE(o.order_refund_amount, 0) ELSE 0 END), 0) FROM orders o " +
-            "WHERE o.order_status IN ('COMPLETED', 'RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED') " +
+            "WHERE o.order_status IN ('COMPLETED', 'RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED', 'PARTIALLY_RETURNED') " +
             "AND o.order_deleted_at IS NULL " +
             "AND DATE(o.order_created_at) = CURRENT_DATE", nativeQuery = true)
     BigDecimal getTodayOnlineRevenue();
 
     @Query(value = "SELECT COUNT(o.order_id) FROM orders o " +
-            "WHERE o.order_status IN ('COMPLETED', 'RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED') " +
+            "WHERE o.order_status IN ('COMPLETED', 'RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED', 'PARTIALLY_RETURNED') " +
             "AND o.order_deleted_at IS NULL " +
             "AND DATE(o.order_created_at) = CURRENT_DATE", nativeQuery = true)
     Long getTodayOnlineOrders();
@@ -156,7 +156,7 @@ public interface StatisticsRepository extends JpaRepository<Order, Long> {
             "COALESCE(SUM(o.order_total_amount - CASE WHEN o.order_status = 'RETURNED' THEN COALESCE(o.order_refund_amount, 0) ELSE 0 END), 0) as revenue, " +
             "COUNT(o.order_id) as orders " +
             "FROM orders o " +
-            "WHERE o.order_status IN ('COMPLETED', 'RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED') " +
+            "WHERE o.order_status IN ('COMPLETED', 'RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED', 'PARTIALLY_RETURNED') " +
             "AND o.order_deleted_at IS NULL " +
             "AND o.order_created_at BETWEEN :startDate AND :endDate " +
             "GROUP BY DATE(o.order_created_at) " +
@@ -190,7 +190,7 @@ public interface StatisticsRepository extends JpaRepository<Order, Long> {
             "JOIN product_details pd ON od.order_detail_product_detail_id = pd.product_detail_id " +
             "JOIN products p ON pd.product_detail_product_id = p.product_id " +
             "LEFT JOIN categories c ON p.product_category_id = c.category_id " +
-            "WHERE o.order_status IN ('COMPLETED', 'RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED') " +
+            "WHERE o.order_status IN ('COMPLETED', 'RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED', 'PARTIALLY_RETURNED') " +
             "AND o.order_deleted_at IS NULL " +
             "AND o.order_created_at BETWEEN :startDate AND :endDate " +
             "GROUP BY p.product_id, p.product_name, c.category_name " +
@@ -255,7 +255,7 @@ public interface StatisticsRepository extends JpaRepository<Order, Long> {
             "GROUP BY e.employee_id, COALESCE(NULLIF(NULLIF(e.employee_fullname, ''), 'Ko có tên'), NULLIF(u.username, ''), 'Nhân viên') " +
             "ORDER BY total_revenue DESC", nativeQuery = true)
     List<Object[]> getTopOnlineStaff(@Param("startDate") LocalDateTime startDate,
-                                    @Param("endDate") LocalDateTime endDate);
+                                     @Param("endDate") LocalDateTime endDate);
 
     // =========================================
     // 8. TỔNG DOANH THU TÍCH LŨY (ALL TIME)
@@ -265,7 +265,7 @@ public interface StatisticsRepository extends JpaRepository<Order, Long> {
      * Tổng doanh thu online từ trước đến nay (chỉ COMPLETED)
      */
     @Query("SELECT COALESCE(SUM(o.orderTotalAmount - CASE WHEN o.orderStatus = 'RETURNED' THEN COALESCE(o.refundAmount, 0) ELSE 0 END), 0) FROM Order o " +
-            "WHERE o.orderStatus IN ('COMPLETED', 'RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED') " +
+            "WHERE o.orderStatus IN ('COMPLETED', 'RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED', 'PARTIALLY_RETURNED') " +
             "AND o.deletedAt IS NULL")
     BigDecimal getTotalOnlineRevenueAllTime();
 
@@ -280,7 +280,7 @@ public interface StatisticsRepository extends JpaRepository<Order, Long> {
      * Tổng số đơn hàng online từ trước đến nay (chỉ COMPLETED)
      */
     @Query("SELECT COUNT(o) FROM Order o " +
-            "WHERE o.orderStatus IN ('COMPLETED', 'RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED') " +
+            "WHERE o.orderStatus IN ('COMPLETED', 'RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED', 'PARTIALLY_RETURNED') " +
             "AND o.deletedAt IS NULL")
     Long getTotalOnlineOrdersAllTime();
 
@@ -299,7 +299,7 @@ public interface StatisticsRepository extends JpaRepository<Order, Long> {
      * Tổng doanh thu từ tất cả đơn hàng COMPLETED (Online + POS)
      */
     @Query("SELECT COALESCE(SUM(o.orderTotalAmount - CASE WHEN o.orderStatus = 'RETURNED' THEN COALESCE(o.refundAmount, 0) ELSE 0 END), 0) FROM Order o " +
-            "WHERE o.orderStatus IN ('COMPLETED', 'RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED') " +
+            "WHERE o.orderStatus IN ('COMPLETED', 'RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED', 'PARTIALLY_RETURNED') " +
             "AND o.deletedAt IS NULL")
     BigDecimal getTotalRevenueFromAllOrders();
 
@@ -307,7 +307,7 @@ public interface StatisticsRepository extends JpaRepository<Order, Long> {
      * Tổng doanh thu từ tất cả đơn hàng COMPLETED theo khoảng thời gian
      */
     @Query("SELECT COALESCE(SUM(o.orderTotalAmount - CASE WHEN o.orderStatus = 'RETURNED' THEN COALESCE(o.refundAmount, 0) ELSE 0 END), 0) FROM Order o " +
-            "WHERE o.orderStatus IN ('COMPLETED', 'RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED') " +
+            "WHERE o.orderStatus IN ('COMPLETED', 'RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED', 'PARTIALLY_RETURNED') " +
             "AND o.deletedAt IS NULL " +
             "AND o.createdAt BETWEEN :startDate AND :endDate")
     BigDecimal getTotalRevenueFromAllOrdersBetween(@Param("startDate") LocalDateTime startDate,
@@ -317,7 +317,7 @@ public interface StatisticsRepository extends JpaRepository<Order, Long> {
      * Tổng số đơn hàng COMPLETED từ tất cả
      */
     @Query("SELECT COUNT(o) FROM Order o " +
-            "WHERE o.orderStatus IN ('COMPLETED', 'RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED') " +
+            "WHERE o.orderStatus IN ('COMPLETED', 'RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED', 'PARTIALLY_RETURNED') " +
             "AND o.deletedAt IS NULL")
     Long getTotalCompletedOrdersAllTime();
 
@@ -325,7 +325,7 @@ public interface StatisticsRepository extends JpaRepository<Order, Long> {
      * Tổng số đơn hàng COMPLETED theo khoảng thời gian
      */
     @Query("SELECT COUNT(o) FROM Order o " +
-            "WHERE o.orderStatus IN ('COMPLETED', 'RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED') " +
+            "WHERE o.orderStatus IN ('COMPLETED', 'RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED', 'PARTIALLY_RETURNED') " +
             "AND o.deletedAt IS NULL " +
             "AND o.createdAt BETWEEN :startDate AND :endDate")
     Long getTotalCompletedOrdersBetween(@Param("startDate") LocalDateTime startDate,
@@ -335,7 +335,7 @@ public interface StatisticsRepository extends JpaRepository<Order, Long> {
      * Tổng doanh thu trung bình mỗi đơn hàng COMPLETED
      */
     @Query("SELECT COALESCE(AVG(o.orderTotalAmount - CASE WHEN o.orderStatus = 'RETURNED' THEN COALESCE(o.refundAmount, 0) ELSE 0 END), 0) FROM Order o " +
-            "WHERE o.orderStatus IN ('COMPLETED', 'RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED') " +
+            "WHERE o.orderStatus IN ('COMPLETED', 'RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED', 'PARTIALLY_RETURNED') " +
             "AND o.deletedAt IS NULL")
     BigDecimal getAverageOrderValueAllTime();
 
@@ -343,7 +343,7 @@ public interface StatisticsRepository extends JpaRepository<Order, Long> {
      * Tổng doanh thu trung bình mỗi đơn hàng COMPLETED theo khoảng thời gian
      */
     @Query("SELECT COALESCE(AVG(o.orderTotalAmount - CASE WHEN o.orderStatus = 'RETURNED' THEN COALESCE(o.refundAmount, 0) ELSE 0 END), 0) FROM Order o " +
-            "WHERE o.orderStatus IN ('COMPLETED', 'RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED') " +
+            "WHERE o.orderStatus IN ('COMPLETED', 'RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED', 'PARTIALLY_RETURNED') " +
             "AND o.deletedAt IS NULL " +
             "AND o.createdAt BETWEEN :startDate AND :endDate")
     BigDecimal getAverageOrderValueBetween(@Param("startDate") LocalDateTime startDate,

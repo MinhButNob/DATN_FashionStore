@@ -361,13 +361,15 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         long shippingOrders = orderRepository.countByOrderStatus(OrderStatus.SHIPPING);
         long confirmedOrders = orderRepository.countByOrderStatus(OrderStatus.CONFIRMED);
         long deliveredOrders = orderRepository.countByOrderStatus(OrderStatus.DELIVERED);
-        long returnedOrders = orderRepository.countByOrderStatus(OrderStatus.RETURNED);
+        long returnedOrders = orderRepository.countByOrderStatus(OrderStatus.RETURNED)
+                + orderRepository.countByOrderStatus(OrderStatus.PARTIALLY_RETURNED);
 
         long returnRequested = orderRepository.countByOrderStatus(OrderStatus.RETURN_REQUESTED);
         long returnApproved = orderRepository.countByOrderStatus(OrderStatus.RETURN_APPROVED);
         long returnReceived = orderRepository.countByOrderStatus(OrderStatus.RETURN_RECEIVED);
         long returnPending = orderRepository.countByOrderStatus(OrderStatus.RETURN_PENDING);
-        long returnCompleted = orderRepository.countByOrderStatus(OrderStatus.RETURNED);
+        long returnCompleted = orderRepository.countByOrderStatus(OrderStatus.RETURNED)
+                + orderRepository.countByOrderStatus(OrderStatus.PARTIALLY_RETURNED);
         long returnRejected = orderRepository.countByOrderStatus(OrderStatus.REJECTED);
 
         BigDecimal todayRevenue = orderRepository.getTodayRevenue();
@@ -385,7 +387,7 @@ public class AdminOrderServiceImpl implements AdminOrderService {
 
         BigDecimal totalRevenue = orderRepository.getTotalRevenue();
         if (totalRevenue == null) totalRevenue = BigDecimal.ZERO;
-        
+
         BigDecimal totalPosRevenue = posOrderRepository.getTotalRevenue(
                 LocalDateTime.of(1970, 1, 1, 0, 0),
                 LocalDateTime.now()
@@ -630,7 +632,7 @@ public class AdminOrderServiceImpl implements AdminOrderService {
     }
 
     private void updateRequestedItemStatuses(Order order, ReturnRequest request,
-            com.example.backend_fashionstore.enums.OrderItemStatus status) {
+                                             com.example.backend_fashionstore.enums.OrderItemStatus status) {
         try {
             ObjectMapper mapper = new ObjectMapper();
             List<Integer> ids = mapper.readValue(request.getProductDetailIds(), new TypeReference<List<Integer>>() {});
@@ -1008,7 +1010,7 @@ public class AdminOrderServiceImpl implements AdminOrderService {
                         if (pd.getProductImages() != null && !pd.getProductImages().isEmpty()) {
                             imageUrl = pd.getProductImages().get(0).getProductImagePath();
                         }
-                        
+
                         BigDecimal unitFinalPrice = detail.getFinalAmount().divide(BigDecimal.valueOf(detail.getQuantity()), 2, java.math.RoundingMode.HALF_UP);
                         BigDecimal refundAmount = unitFinalPrice.multiply(BigDecimal.valueOf(returnQty));
 
