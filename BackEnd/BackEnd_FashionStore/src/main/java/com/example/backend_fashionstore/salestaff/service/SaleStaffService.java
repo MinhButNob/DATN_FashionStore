@@ -320,13 +320,15 @@ public class SaleStaffService {
         long shippingOrders = orderRepository.countByOrderStatus(OrderStatus.SHIPPING);
         long confirmedOrders = orderRepository.countByOrderStatus(OrderStatus.CONFIRMED);
         long deliveredOrders = orderRepository.countByOrderStatus(OrderStatus.DELIVERED);
-        long returnedOrders = orderRepository.countByOrderStatus(OrderStatus.RETURNED);
+        long returnedOrders = orderRepository.countByOrderStatus(OrderStatus.RETURNED)
+                + orderRepository.countByOrderStatus(OrderStatus.PARTIALLY_RETURNED);
 
         long returnRequested = orderRepository.countByOrderStatus(OrderStatus.RETURN_REQUESTED);
         long returnApproved = orderRepository.countByOrderStatus(OrderStatus.RETURN_APPROVED);
         long returnReceived = orderRepository.countByOrderStatus(OrderStatus.RETURN_RECEIVED);
         long returnPending = orderRepository.countByOrderStatus(OrderStatus.RETURN_PENDING);
-        long returnCompleted = orderRepository.countByOrderStatus(OrderStatus.RETURNED);
+        long returnCompleted = orderRepository.countByOrderStatus(OrderStatus.RETURNED)
+                + orderRepository.countByOrderStatus(OrderStatus.PARTIALLY_RETURNED);
         long returnRejected = orderRepository.countByOrderStatus(OrderStatus.REJECTED);
 
         BigDecimal todayRevenue = orderRepository.getTodayRevenue();
@@ -344,7 +346,7 @@ public class SaleStaffService {
 
         BigDecimal totalRevenue = orderRepository.getTotalRevenue();
         if (totalRevenue == null) totalRevenue = BigDecimal.ZERO;
-        
+
         BigDecimal totalPosRevenue = posOrderRepository.getTotalRevenue(
                 LocalDateTime.of(1970, 1, 1, 0, 0),
                 LocalDateTime.now()
