@@ -57,7 +57,10 @@ public class AIChatService {
     private final ObjectMapper objectMapper = new ObjectMapper();
     //  Link truy cap a.i model
     private static final String OPENROUTER_URL = "https://api.groq.com/openai/v1/chat/completions";
-    private static final String OPENROUTER_MODEL = "llama-3.3-70b-versatile";
+    // Model Groq hiện đang hỗ trợ; gemma2-9b-it đã bị ngừng từ 08/10/2025.
+    // GPT-OSS 20B có tốc độ cao, phù hợp cho chatbot hội thoại và dùng được
+    // trong hạn mức developer/free của Groq.
+    private static final String OPENROUTER_MODEL = "openai/gpt-oss-20b";
 
 //    private static final String OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 //    private static final String OPENROUTER_MODEL = "openrouter/free";
