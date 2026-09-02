@@ -250,10 +250,10 @@
       </div>
       <div class="header-actions">
         <button type="button" class="btn-hierarchy" @click="showHierarchy = true">
-          <span class="btn-icon">🗂️</span> Phân cấp danh mục
+          <i class="fas fa-sitemap"></i> Phân cấp danh mục
         </button>
         <button class="btn-add" @click="openCreateModal">
-          <span class="btn-icon">＋</span> Thêm danh mục
+          <i class="fas fa-plus"></i> Thêm danh mục
         </button>
       </div>
     </div>
@@ -261,28 +261,24 @@
     <!-- Stats Row -->
     <div class="stats-row">
       <div class="stat-card stat-total">
-        <div class="stat-icon">📁</div>
         <div class="stat-info">
           <div class="stat-value">{{ totalCategories }}</div>
           <div class="stat-label">Tổng danh mục</div>
         </div>
       </div>
       <div class="stat-card stat-active">
-        <div class="stat-icon">✅</div>
         <div class="stat-info">
           <div class="stat-value">{{ activeCount }}</div>
           <div class="stat-label">Đang hoạt động</div>
         </div>
       </div>
       <div class="stat-card stat-inactive">
-        <div class="stat-icon">⏸️</div>
         <div class="stat-info">
           <div class="stat-value">{{ inactiveCount }}</div>
           <div class="stat-label">Tạm dừng</div>
         </div>
       </div>
       <div class="stat-card stat-deleted">
-        <div class="stat-icon">🗑️</div>
         <div class="stat-info">
           <div class="stat-value">{{ deletedCount }}</div>
           <div class="stat-label">Đã xóa</div>
@@ -293,14 +289,14 @@
     <!-- Filter Bar -->
     <div class="filter-bar">
       <div class="search-box">
-        <span class="search-icon">🔍</span>
+        <i class="fas fa-search search-icon"></i>
         <input
           v-model="searchKeyword"
           @keyup.enter="searchCategories"
           placeholder="Tìm kiếm danh mục..."
           autocomplete="off"
         />
-        <button v-if="searchKeyword" class="clear-search" @click="searchKeyword = ''; searchCategories()">✕</button>
+        <button v-if="searchKeyword" class="clear-search" @click="searchKeyword = ''; searchCategories()"><i class="fas fa-times"></i></button>
       </div>
       <select v-model="statusFilter" @change="filterCategories" class="filter-select">
         <option value="all">Tất cả trạng thái</option>
@@ -308,9 +304,11 @@
         <option value="INACTIVE">Tạm dừng</option>
         <option value="DELETED">Đã xóa</option>
       </select>
-      <button class="btn-search" @click="searchCategories">Tìm kiếm</button>
+      <button class="btn-search" @click="searchCategories">
+        <i class="fas fa-search"></i> Tìm kiếm
+      </button>
       <button v-if="searchKeyword || statusFilter !== 'all'" class="btn-reset" @click="resetFilters">
-        <span class="btn-icon">↺</span> Reset
+        <i class="fas fa-sync-alt"></i> Làm mới
       </button>
     </div>
 
@@ -357,20 +355,20 @@
                 <template v-if="item._deletedAt">
                   <span class="readonly-label">Đã xóa</span>
                   <button class="action-btn restore-btn" @click="confirmRestore(item)" title="Khôi phục">
-                    ↩️
+                    <i class="fas fa-undo"></i>
                   </button>
                 </template>
                 <!-- Nếu chưa xóa: hiển thị đầy đủ -->
                 <template v-else>
                   <button class="action-btn edit-btn" @click="openEditModal(item)" title="Sửa">
-                    ✏️
+                    <i class="fas fa-edit"></i>
                   </button>
                   <button class="action-btn toggle-btn" @click="toggleStatus(item)" :title="item.status === 'ACTIVE' ? 'Tạm dừng' : 'Kích hoạt'">
-                    {{ item.status === 'ACTIVE' ? '⏸️' : '▶️' }}
+                    <i :class="item.status === 'ACTIVE' ? 'fas fa-pause' : 'fas fa-play'"></i>
                   </button>
                   <button class="action-btn delete-btn" @click="confirmDelete(item)" title="Xóa" :disabled="checkingProducts">
                     <span v-if="checkingProducts && checkingCategoryId === item.categoryId" class="loading-spinner-small"></span>
-                    <span v-else>🗑️</span>
+                    <i v-else class="fas fa-trash-alt"></i>
                   </button>
                 </template>
               </div>
@@ -379,7 +377,7 @@
           <tr v-if="paginatedCategories.length === 0">
             <td colspan="5" class="empty-row">
               <div class="empty-state">
-                <div class="empty-icon">📭</div>
+                <div class="empty-icon"><i class="fas fa-box-open"></i></div>
                 <p>Không có dữ liệu danh mục</p>
                 <button class="btn-retry" @click="loadCategories">Tải lại</button>
               </div>
@@ -1398,39 +1396,71 @@ export default {
 }
 
 .action-btn {
-  background: none;
+  width: 35px;
+  height: 35px;
   border: none;
-  padding: 6px;
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
-  font-size: 16px;
-  transition: all 0.2s;
   display: flex;
   align-items: center;
   justify-content: center;
+  font-size: 14px;
+  transition: all 0.3s;
 }
 
-.edit-btn:hover { background-color: #fef3c7; }
-.toggle-btn:hover { background-color: #e8f4f8; }
-.delete-btn:hover { background-color: #fde8e8; }
-.delete-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.edit-btn {
+  background: #ffc107;
+  color: #212529;
+}
+
+.edit-btn:hover {
+  background: #e0a800;
+  transform: translateY(-2px);
+}
+
+.delete-btn {
+  background: #dc3545;
+  color: white;
+}
+
+.delete-btn:hover:not(:disabled) {
+  background: #c82333;
+  transform: translateY(-2px);
+}
+
+.delete-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.view-btn {
+  background: #17a2b8;
+  color: white;
+}
+
+.view-btn:hover {
+  background: #138496;
+  transform: translateY(-2px);
+}
 
 .restore-btn {
-  background: #10b981;
+  background: #28a745;
   color: white;
-  border-radius: 6px;
-  padding: 6px 10px;
-  border: none;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
 }
 
 .restore-btn:hover {
-  background: #059669;
-  transform: scale(1.05);
+  background: #218838;
+  transform: translateY(-2px);
+}
+
+.toggle-btn {
+  background: #6c757d;
+  color: white;
+}
+
+.toggle-btn:hover {
+  background: #5a6268;
+  transform: translateY(-2px);
 }
 
 .readonly-label {
@@ -1783,13 +1813,12 @@ export default {
 .tree-container { background: white; border-radius: 12px; padding: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
 .parent-block { border-bottom: 1px solid #eee; }
 .parent-block:last-child { border-bottom: none; }
-.parent-row { display: flex; align-items: center; gap: 10px; padding: 14px 10px; }
-.toggle-btn { background: none; border: none; font-size: 16px; cursor: pointer; width: 20px; }
+.parent-row .toggle-btn { background: none; border: none; font-size: 16px; cursor: pointer; width: 20px; }
 .parent-name { flex: 1; font-size: 16px; }
 .locked-badge { font-size: 12px; color: #8e44ad; background: #f3e8ff; padding: 3px 10px; border-radius: 20px; }
 .row-actions { display: flex; gap: 6px; }
-.action-btn { border: 1px solid #ddd; background: white; border-radius: 6px; padding: 6px 10px; cursor: pointer; font-size: 13px; }
-.action-btn:hover { background: #f5f5f5; }
+.row-actions .action-btn { width: auto; height: auto; border: 1px solid #ddd; background: white; border-radius: 6px; padding: 6px 10px; cursor: pointer; font-size: 13px; }
+.row-actions .action-btn:hover { background: #f5f5f5; transform: none; }
 .action-assign { border-color: #667eea; color: #667eea; }
 .action-assign:hover { background: #eef0ff; }
 .action-detach { border-color: #e67e22; color: #e67e22; }

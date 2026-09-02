@@ -4,13 +4,21 @@ import api from "@/api/axios";
 export const cartService = {
   // Áp dụng voucher
   applyVoucher(voucherCode) {
-    return api.post("/cart/apply-voucher", null, {
-      params: { voucherCode } });
+    return api.post("/cart/apply-voucher", { voucherCode }, {
+      params: { voucherCode }
+    });
   },
 
   // Xóa voucher
   removeVoucher() {
     return api.delete("/cart/remove-voucher");
+  },
+
+  // Lấy danh sách voucher khả dụng cho đơn hàng online
+  getAvailableVouchers(orderValue = 0) {
+    return api.get("/vouchers/available/by-order-value", {
+      params: { orderValue }
+    });
   },
 
   // Lấy giỏ hàng

@@ -114,7 +114,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="order in orders" :key="order.orderId">
+          <tr v-for="order in displayOrders" :key="order.orderId">
             <td>
               <strong>#{{ order.orderCode || order.orderId }}</strong>
             </td>
@@ -206,7 +206,7 @@
               </div>
             </td>
           </tr>
-          <tr v-if="orders.length === 0 && !loading">
+          <tr v-if="displayOrders.length === 0 && !loading">
             <td colspan="10" class="no-data">
               <i class="fas fa-box-open"></i>
               <p>Không tìm thấy đơn hàng nào</p>
@@ -474,56 +474,139 @@
 
     <!-- Return Request Detail Modal -->
     <div v-if="showReturnModal" class="modal-overlay">
-      <div class="modal-content modal-lg">
+      <div class="modal-content return-modal modal-lg">
         <div class="modal-header">
-          <h2>Chi tiết yêu cầu hoàn hàng</h2>
-          <button class="close-btn" @click="closeReturnModal">✕</button>
+          <div class="header-title">
+            <h2>Chi tiết yêu cầu hoàn hàng</h2>
+          </div>
+          <div class="header-actions">
+            <span class="request-status" :class="getStatusClass(returnRequestDetail?.status)">
+              {{ getStatusText(returnRequestDetail?.status) }}
+            </span>
+            <button class="close-btn" @click="closeReturnModal">✕</button>
+          </div>
         </div>
         <div class="modal-body">
           <div v-if="returnRequestDetail" class="return-detail">
-            <div class="return-info-grid">
-              <div class="info-section">
-                <h3>Thông tin khách hàng</h3>
-                <p><strong>Khách hàng:</strong> {{ returnRequestDetail.customerName || 'N/A' }}</p>
-                <p><strong>SĐT:</strong> {{ returnRequestDetail.customerPhone || 'N/A' }}</p>
-                <p><strong>Email:</strong> {{ returnRequestDetail.customerEmail || 'N/A' }}</p>
-              </div>
-              <div class="info-section">
-                <h3>Thông tin đơn hàng</h3>
-                <p><strong>Mã đơn:</strong> #{{ returnRequestDetail.orderCode || returnRequestDetail.orderId }}</p>
-                <p><strong>Trạng thái:</strong> 
-                  <span :class="['status-badge', getStatusClass(returnRequestDetail.status)]">
-                    {{ getStatusText(returnRequestDetail.status) }}
-                  </span>
-                </p>
-                <p><strong>Ngày yêu cầu:</strong> {{ formatDate(returnRequestDetail.createdAt) }}</p>
+            <!-- Header bar đơn hàng -->
+            <div class="return-order-info">
+              <div class="order-header-info">
+                <div class="order-code">
+                  <span class="label">Mã đơn hàng:</span>
+                  <span class="value">#{{ returnRequestDetail.orderCode || returnRequestDetail.orderId }}</span>
+                </div>
+                <div class="order-date">
+                  <span class="label">Ngày yêu cầu:</span>
+                  <span class="value">{{ formatDate(returnRequestDetail.createdAt) }}</span>
+                </div>
               </div>
             </div>
 
-            <div class="return-reason">
-              <h3>Lý do hoàn hàng</h3>
-              <div class="reason-content">
-                <p><strong>Lý do:</strong> {{ returnRequestDetail.reason }}</p>
-                <p><strong>Mô tả:</strong> {{ returnRequestDetail.description }}</p>
-                <p v-if="returnRequestDetail.adminNote"><strong>Phản hồi Admin:</strong> {{ returnRequestDetail.adminNote }}</p>
+            <div class="return-info-grid">
+              <div class="info-card customer-card">
+                <div class="card-header">
+                  <i class="fas fa-user-circle card-icon"></i>
+                  <h3>Thông tin khách hàng</h3>
+                </div>
+                <div class="card-body">
+                  <div class="info-row">
+                    <span class="label">Khách hàng:</span>
+                    <span class="value">{{ returnRequestDetail.customerName || 'N/A' }}</span>
+                  </div>
+                  <div class="info-row">
+                    <span class="label">SĐT:</span>
+                    <span class="value">{{ returnRequestDetail.customerPhone || 'N/A' }}</span>
+                  </div>
+                  <div class="info-row">
+                    <span class="label">Email:</span>
+                    <span class="value">{{ returnRequestDetail.customerEmail || 'N/A' }}</span>
+                  </div>
+                </div>
+              </div>
+              <div class="info-card order-card">
+                <div class="card-header">
+                  <i class="fas fa-shopping-bag card-icon"></i>
+                  <h3>Thông tin đơn hàng</h3>
+                </div>
+                <div class="card-body">
+                  <div class="info-row">
+                    <span class="label">Trạng thái:</span>
+                    <span :class="['status-badge', getStatusClass(returnRequestDetail.status)]">
+                      {{ getStatusText(returnRequestDetail.status) }}
+                    </span>
+                  </div>
+                  <div class="info-row">
+                    <span class="label">Ngày đặt:</span>
+                    <span class="value">{{ formatDate(returnRequestDetail.orderDate || returnRequestDetail.createdAt) }}</span>
+                  </div>
+                  <div v-if="returnRequestDetail.totalAmount" class="info-row">
+                    <span class="label">Tổng tiền:</span>
+                    <span class="value total-amount">{{ formatPrice(returnRequestDetail.totalAmount) }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="return-reason-card">
+              <div class="card-header">
+                <i class="fas fa-comment-dots card-icon"></i>
+                <h3>Lý do hoàn hàng</h3>
+              </div>
+              <div class="card-body">
+                <div class="reason-row">
+                  <span class="label">Lý do:</span>
+                  <span class="value highlight-reason">{{ returnRequestDetail.reason || 'N/A' }}</span>
+                </div>
+                <div class="reason-row">
+                  <span class="label">Mô tả:</span>
+                  <span class="value">{{ returnRequestDetail.description || 'Không có mô tả chi tiết' }}</span>
+                </div>
+                <div v-if="returnRequestDetail.adminNote" class="reason-row admin-note-row">
+                  <span class="label">Phản hồi:</span>
+                  <span class="value note-text">{{ returnRequestDetail.adminNote }}</span>
+                </div>
               </div>
             </div>
 
             <div v-if="returnRequestDetail.returnItems?.length" class="return-items-section">
-              <h3>Sản phẩm yêu cầu hoàn</h3>
-              <div v-for="item in returnRequestDetail.returnItems" :key="item.productDetailId" class="inspection-result-row">
-                <img v-if="item.imageUrl" :src="getImageUrl(item.imageUrl)" class="inspection-image" @error="handleImageError" />
-                <strong>{{ item.productName }}</strong>
-                <span>{{ item.colorName || '---' }} · {{ item.sizeName || '---' }}</span>
-                <span>SL hoàn: {{ item.quantity }}</span>
-                <span>Giá gốc: {{ formatPrice(item.unitPrice) }}</span>
-                <span>Voucher: -{{ formatPrice(item.discountAmount || 0) }}</span>
-                <strong>Hoàn: {{ formatPrice(item.refundAmount || 0) }}</strong>
+              <div class="section-header">
+                <h3><i class="fas fa-boxes"></i> Sản phẩm yêu cầu hoàn</h3>
+                <span class="items-count">{{ returnRequestDetail.returnItems.length }} sản phẩm</span>
+              </div>
+              <div class="return-items-list">
+                <div 
+                  v-for="(item, index) in returnRequestDetail.returnItems" 
+                  :key="item.productDetailId || index"
+                  class="return-item-card"
+                >
+                  <div class="item-image">
+                    <img v-if="item.imageUrl" :src="getImageUrl(item.imageUrl)" :alt="item.productName" @error="handleImageError" />
+                    <i v-else class="fas fa-tshirt"></i>
+                  </div>
+                  <div class="item-details">
+                    <div class="item-name">{{ item.productName }}</div>
+                    <div class="item-variant">
+                      Màu: {{ item.colorName || '---' }} · Size: {{ item.sizeName || '---' }}
+                    </div>
+                    <div class="item-meta">
+                      <span>SL hoàn: <strong>{{ item.quantity }}</strong></span>
+                      <span>Đơn giá: {{ formatPrice(item.unitPrice) }}</span>
+                      <span v-if="item.discountAmount > 0">Voucher: -{{ formatPrice(item.discountAmount) }}</span>
+                    </div>
+                  </div>
+                  <div class="item-refund">
+                    <span class="refund-label">Số tiền hoàn</span>
+                    <span class="refund-amount">{{ formatPrice(item.refundAmount || 0) }}</span>
+                  </div>
+                </div>
               </div>
             </div>
 
             <div v-if="returnRequestDetail.images && returnRequestDetail.images.length > 0" class="return-images">
-              <h3>Hình ảnh minh họa</h3>
+              <div class="section-header">
+                <h3><i class="fas fa-images"></i> Hình ảnh minh họa</h3>
+                <span class="images-count">{{ returnRequestDetail.images.length }} ảnh</span>
+              </div>
               <div class="image-list">
                 <img 
                   v-for="(img, index) in returnRequestDetail.images" 
@@ -536,7 +619,7 @@
             </div>
 
             <div v-if="activeMainTab === 'returns'" class="admin-actions">
-              <h3>Xử lý yêu cầu</h3>
+              <h3><i class="fas fa-cogs"></i> Xử lý yêu cầu</h3>
               
               <template v-if="returnRequestDetail.status === 'PENDING'">
                 <div class="action-group">
@@ -547,10 +630,12 @@
                   <div class="button-group">
                     <button class="btn btn-success" @click="processReturn('APPROVED')" :disabled="processingReturn">
                       <i v-if="processingReturn" class="fas fa-spinner fa-spin"></i>
+                      <i v-else class="fas fa-check"></i>
                       {{ processingReturn ? 'Đang xử lý...' : 'Duyệt hoàn hàng' }}
                     </button>
                     <button class="btn btn-danger" @click="processReturn('REJECTED')" :disabled="processingReturn">
                       <i v-if="processingReturn" class="fas fa-spinner fa-spin"></i>
+                      <i v-else class="fas fa-times"></i>
                       {{ processingReturn ? 'Đang xử lý...' : 'Từ chối' }}
                     </button>
                   </div>
@@ -566,10 +651,12 @@
                   <div class="button-group">
                     <button class="btn btn-primary" @click="receiveReturnedItems" :disabled="receivingReturn || processingReturn">
                       <i v-if="receivingReturn" class="fas fa-spinner fa-spin"></i>
+                      <i v-else class="fas fa-box-open"></i>
                       {{ receivingReturn ? 'Đang xử lý...' : 'Đã nhận hàng trả' }}
                     </button>
                     <button class="btn btn-danger" @click="processReturn('REJECTED')" :disabled="receivingReturn || processingReturn">
                       <i v-if="processingReturn" class="fas fa-spinner fa-spin"></i>
+                      <i v-else class="fas fa-times"></i>
                       {{ processingReturn ? 'Đang xử lý...' : 'Từ chối hoàn hàng' }}
                     </button>
                   </div>
@@ -596,10 +683,12 @@
                   <div class="button-group">
                     <button class="btn btn-success" @click="inspectReturn" :disabled="inspectionLoading || processingReturn">
                       <i v-if="inspectionLoading" class="fas fa-spinner fa-spin"></i>
+                      <i v-else class="fas fa-check-circle"></i>
                       {{ inspectionLoading ? 'Đang kiểm tra...' : 'Xác nhận kết quả kiểm tra' }}
                     </button>
                     <button class="btn btn-danger" @click="processReturn('REJECTED')" :disabled="inspectionLoading || processingReturn">
                       <i v-if="processingReturn" class="fas fa-spinner fa-spin"></i>
+                      <i v-else class="fas fa-times"></i>
                       {{ processingReturn ? 'Đang xử lý...' : 'Từ chối hoàn hàng' }}
                     </button>
                   </div>
@@ -806,6 +895,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { adminOrderService } from '../../services/adminOrderService'
 import UpdateStatusModal from '../../components/admin/UpdateStatusModal.vue'
 import api from "@/api/axios";
+import { getLoggedInUserInfo } from '../../utils/helpers';
 
 // ===== STATE =====
 const loading = ref(false)
@@ -813,7 +903,7 @@ const orders = ref([])
 const currentPage = ref(0)
 const totalPages = ref(0)
 const totalElements = ref(0)
-const pageSize = ref(10)
+const pageSize = ref(20)
 const statistics = ref(null)
 const updatingOrderIds = ref(new Set())
 
@@ -855,6 +945,14 @@ const subTabsMap = {
 
 const subTabs = computed(() => {
   return subTabsMap[activeMainTab.value] || []
+})
+
+const RETURN_STATUSES = ['RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED', 'PARTIALLY_RETURNED', 'REJECTED']
+
+const allOrdersRaw = ref([])
+
+const displayOrders = computed(() => {
+  return orders.value
 })
 
 // ===== FILTERS =====
@@ -1197,7 +1295,7 @@ const canAdminCancel = (status) => {
 }
 
 const isReturnOrder = (status) => {
-  return ['RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED', 'REJECTED'].includes(status)
+  return RETURN_STATUSES.includes(status)
 }
 
 const applyReturnItemsToOrder = (order, returnRequest) => {
@@ -1246,17 +1344,17 @@ const enrichReturnOrders = async (orderList) => {
 
 const getMainTabCount = (tab) => {
   if (tab === 'orders') {
-    return orders.value.filter(o => 
-      !['RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED', 'REJECTED', 'CANCELLED'].includes(o.orderStatus)
+    return allOrdersRaw.value.filter(o => 
+      !RETURN_STATUSES.includes(o.orderStatus) && o.orderStatus !== 'CANCELLED'
     ).length
   }
   if (tab === 'returns') {
-    return orders.value.filter(o => 
-      ['RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED', 'REJECTED'].includes(o.orderStatus)
+    return allOrdersRaw.value.filter(o => 
+      RETURN_STATUSES.includes(o.orderStatus)
     ).length
   }
   if (tab === 'cancelled') {
-    return orders.value.filter(o => o.orderStatus === 'CANCELLED').length
+    return allOrdersRaw.value.filter(o => o.orderStatus === 'CANCELLED').length
   }
   return 0
 }
@@ -1265,7 +1363,7 @@ const getSubTabCount = (status) => {
   if (status === 'all') {
     return getMainTabCount(activeMainTab.value)
   }
-  return orders.value.filter(o => o.orderStatus === status).length
+  return allOrdersRaw.value.filter(o => o.orderStatus === status).length
 }
 
 // ===== FETCH ORDERS =====
@@ -1273,47 +1371,23 @@ const fetchOrders = async () => {
   loading.value = true
   try {
     const params = {
-      page: currentPage.value,
-      size: pageSize.value,
+      page: 0,
+      size: 500,
       _t: Date.now()
     }
     
-    let statusFilters = []
-    
-    if (activeMainTab.value === 'orders') {
-      const normalStatuses = ['PENDING_PAYMENT', 'CONFIRMED', 'PROCESSING', 'SHIPPING', 'DELIVERED', 'COMPLETED']
-      if (activeSubTab.value === 'all') {
-        statusFilters = normalStatuses
-      } else {
-        statusFilters = [activeSubTab.value]
-      }
-    } else if (activeMainTab.value === 'returns') {
-      const returnStatuses = ['RETURN_REQUESTED', 'RETURN_APPROVED', 'RETURN_RECEIVED', 'RETURN_PENDING', 'RETURNED', 'REJECTED']
-      if (activeSubTab.value === 'all') {
-        statusFilters = returnStatuses
-      } else {
-        statusFilters = [activeSubTab.value]
-      }
-    } else if (activeMainTab.value === 'cancelled') {
-      if (activeSubTab.value === 'all' || activeSubTab.value === 'CANCELLED') {
-        statusFilters = ['CANCELLED']
-      } else {
-        statusFilters = [activeSubTab.value]
-      }
-    }
+    let statusParam = null
     
     if (filters.value.status !== 'all') {
-      if (statusFilters.length === 0) {
-        statusFilters = [filters.value.status]
-      } else if (!statusFilters.includes(filters.value.status)) {
-        statusFilters = [filters.value.status]
-      } else {
-        statusFilters = [filters.value.status]
-      }
+      statusParam = filters.value.status
+    } else if (activeSubTab.value !== 'all') {
+      statusParam = activeSubTab.value
+    } else if (activeMainTab.value === 'cancelled') {
+      statusParam = 'CANCELLED'
     }
     
-    if (statusFilters.length > 0) {
-      params.status = statusFilters.join(',')
+    if (statusParam) {
+      params.status = statusParam
     }
     
     if (filters.value.search) {
@@ -1324,25 +1398,58 @@ const fetchOrders = async () => {
     
     const response = await adminOrderService.getAllOrders(params)
     
-    console.log('📦 Orders response:', response.data)
-    
+    let rawList = []
     if (response.data && response.data.content) {
-      orders.value = await enrichReturnOrders(response.data.content)
-      totalPages.value = response.data.totalPages || 0
-      totalElements.value = response.data.totalElements || 0
-      currentPage.value = response.data.number || 0
+      rawList = response.data.content
     } else if (Array.isArray(response.data)) {
-      orders.value = await enrichReturnOrders(response.data)
-      totalPages.value = 1
-    } else {
-      orders.value = []
+      rawList = response.data
     }
+    
+    const enrichedList = await enrichReturnOrders(rawList)
+    allOrdersRaw.value = enrichedList
+
+    // Lọc danh sách theo tab chính và sub-tab hiện tại
+    let tabFiltered = []
+    if (activeMainTab.value === 'orders') {
+      tabFiltered = enrichedList.filter(o => 
+        !RETURN_STATUSES.includes(o.orderStatus) && o.orderStatus !== 'CANCELLED'
+      )
+      if (activeSubTab.value !== 'all') {
+        tabFiltered = tabFiltered.filter(o => o.orderStatus === activeSubTab.value)
+      }
+    } else if (activeMainTab.value === 'returns') {
+      tabFiltered = enrichedList.filter(o => 
+        RETURN_STATUSES.includes(o.orderStatus)
+      )
+      if (activeSubTab.value !== 'all') {
+        tabFiltered = tabFiltered.filter(o => o.orderStatus === activeSubTab.value)
+      }
+    } else if (activeMainTab.value === 'cancelled') {
+      tabFiltered = enrichedList.filter(o => o.orderStatus === 'CANCELLED')
+    } else {
+      tabFiltered = enrichedList
+    }
+
+    // Tính toán phân trang chính xác dựa trên số lượng phần tử thực tế của tab
+    const itemsPerPage = 20
+    totalElements.value = tabFiltered.length
+    totalPages.value = Math.ceil(tabFiltered.length / itemsPerPage) || 1
+    
+    if (currentPage.value >= totalPages.value) {
+      currentPage.value = Math.max(0, totalPages.value - 1)
+    }
+    
+    const start = currentPage.value * itemsPerPage
+    orders.value = tabFiltered.slice(start, start + itemsPerPage)
+
   } catch (error) {
     console.error('❌ Error fetching orders:', error)
     if (error.code !== 'ERR_NETWORK') {
       showNotification(error.response?.data?.message || 'Không thể tải danh sách đơn hàng', 'error')
     }
     orders.value = []
+    totalPages.value = 1
+    totalElements.value = 0
   } finally {
     loading.value = false
   }
@@ -1479,7 +1586,18 @@ const quickUpdateStatus = async (order) => {
 
   updatingOrderIds.value.add(order.orderId)
   try {
-    await adminOrderService.updateOrderStatus(order.orderId, { orderStatus: nextStatus })
+    const userInfo = getLoggedInUserInfo()
+    await adminOrderService.updateOrderStatus(order.orderId, { 
+      orderStatus: nextStatus,
+      employeeId: userInfo.employeeId,
+      userId: userInfo.userId,
+      confirmedBy: userInfo.confirmedBy,
+      processedBy: userInfo.processedBy,
+      processedByEmail: userInfo.processedByEmail,
+      updatedBy: userInfo.updatedBy,
+      username: userInfo.username,
+      employeeName: userInfo.employeeName
+    })
     showNotification(`Đã chuyển đơn hàng #${order.orderCode || order.orderId} sang ${getStatusText(nextStatus)}`, 'success')
     await fetchOrders()
     await fetchStatistics()
@@ -2941,7 +3059,302 @@ watch([activeMainTab, activeSubTab], () => {
   color: #555;
 }
 
-/* ===== RETURN REQUEST ===== */
+/* ===== RETURN REQUEST ENHANCED ===== */
+.return-modal .modal-header {
+  background: white;
+  color: #1e293b;
+  padding: 18px 24px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.return-modal .modal-header h2 {
+  color: #1e293b;
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.return-modal .modal-header .header-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.return-modal .modal-header .header-actions {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.return-modal .modal-header .request-status {
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.return-modal .modal-header .request-status.status-pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+.return-modal .modal-header .request-status.status-approved {
+  background: #dcfce7;
+  color: #166534;
+}
+.return-modal .modal-header .request-status.status-rejected {
+  background: #fee2e2;
+  color: #991b1b;
+}
+.return-modal .modal-header .request-status.status-return-received {
+  background: #e0f2fe;
+  color: #075985;
+}
+.return-modal .modal-header .request-status.status-completed {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.return-modal .close-btn {
+  color: #64748b;
+}
+
+.return-modal .close-btn:hover {
+  color: #ef4444;
+  transform: rotate(90deg);
+}
+
+.return-order-info {
+  background: #f8fafc;
+  padding: 14px 20px;
+  border-radius: 10px;
+  margin-bottom: 20px;
+  border-left: 4px solid #0284c7;
+}
+
+.return-order-info .order-header-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.return-order-info .order-header-info .label {
+  font-weight: 600;
+  color: #64748b;
+  margin-right: 8px;
+}
+
+.return-order-info .order-header-info .value {
+  color: #1e293b;
+  font-weight: 500;
+}
+
+.return-order-info .order-code .value {
+  font-size: 16px;
+  color: #0284c7;
+  font-weight: 700;
+}
+
+.info-card {
+  background: #f8fafc;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  transition: all 0.3s;
+}
+
+.info-card:hover {
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+}
+
+.info-card .card-header {
+  padding: 12px 16px;
+  background: white;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.info-card .card-header .card-icon {
+  font-size: 18px;
+  color: #0284c7;
+}
+
+.info-card .card-header h3 {
+  margin: 0;
+  font-size: 15px;
+  color: #1e293b;
+}
+
+.info-card .card-body {
+  padding: 15px 16px;
+}
+
+.info-card .card-body .info-row {
+  display: flex;
+  align-items: baseline;
+  padding: 5px 0;
+  font-size: 14px;
+}
+
+.info-card .card-body .info-row .label {
+  font-weight: 600;
+  color: #64748b;
+  min-width: 90px;
+  flex-shrink: 0;
+}
+
+.info-card .card-body .info-row .value {
+  color: #1e293b;
+}
+
+.info-card .card-body .info-row .total-amount {
+  font-weight: 700;
+  color: #ef4444;
+  font-size: 16px;
+}
+
+.return-reason-card {
+  background: #fffbe6;
+  border-radius: 12px;
+  border: 1px solid #ffe58f;
+  margin-bottom: 25px;
+  overflow: hidden;
+}
+
+.return-reason-card .card-header {
+  padding: 12px 16px;
+  background: #fff1b8;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.return-reason-card .card-header .card-icon {
+  color: #d48806;
+  font-size: 18px;
+}
+
+.return-reason-card .card-header h3 {
+  margin: 0;
+  color: #873800;
+  font-size: 15px;
+}
+
+.return-reason-card .card-body {
+  padding: 15px 16px;
+}
+
+.return-reason-card .reason-row {
+  display: flex;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.return-reason-card .reason-row:last-child {
+  margin-bottom: 0;
+}
+
+.return-reason-card .reason-row .label {
+  font-weight: 600;
+  color: #873800;
+  min-width: 80px;
+  flex-shrink: 0;
+}
+
+.return-reason-card .reason-row .value.highlight-reason {
+  font-weight: 700;
+  color: #d48806;
+}
+
+.return-items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.return-item-card {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 14px 18px;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  transition: all 0.3s;
+}
+
+.return-item-card:hover {
+  border-color: #3b82f6;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.08);
+}
+
+.return-item-card .item-image {
+  width: 60px;
+  height: 60px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.return-item-card .item-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.return-item-card .item-details {
+  flex: 1;
+}
+
+.return-item-card .item-details .item-name {
+  font-weight: 600;
+  color: #1e293b;
+  font-size: 15px;
+}
+
+.return-item-card .item-details .item-variant {
+  font-size: 13px;
+  color: #64748b;
+  margin: 3px 0;
+}
+
+.return-item-card .item-details .item-meta {
+  display: flex;
+  gap: 15px;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.return-item-card .item-refund {
+  text-align: right;
+  padding-left: 18px;
+  border-left: 1px solid #e2e8f0;
+  flex-shrink: 0;
+}
+
+.return-item-card .item-refund .refund-label {
+  display: block;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.return-item-card .item-refund .refund-amount {
+  display: block;
+  font-size: 16px;
+  font-weight: 700;
+  color: #10b981;
+}
+
 .return-info-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

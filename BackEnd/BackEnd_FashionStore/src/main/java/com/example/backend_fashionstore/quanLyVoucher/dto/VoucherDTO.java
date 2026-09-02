@@ -14,6 +14,7 @@ public class VoucherDTO {
     private String voucherCode;
     private BigDecimal voucherDiscountAmount;
     private BigDecimal voucherDiscountPercent;
+    private BigDecimal voucherMaxDiscountAmount; // ✅ THÊM
     private LocalDateTime voucherStartDate;
     private LocalDateTime voucherEndDate;
     private Integer voucherMaxUsage;

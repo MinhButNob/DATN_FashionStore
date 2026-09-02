@@ -1,5 +1,5 @@
-// src/services/adminOrderService.js
 import api from "@/api/axios";
+import { getLoggedInUserInfo } from "@/utils/helpers";
 
 export const adminOrderService = {
   // Lấy tất cả đơn hàng (Admin)
@@ -33,9 +33,23 @@ export const adminOrderService = {
 
   // Cập nhật trạng thái đơn hàng (Admin)
   updateOrderStatus(orderId, data) {
+    const userInfo = getLoggedInUserInfo();
+    const statusVal = typeof data === "string" ? data : (data?.orderStatus || data);
+    const notesVal = typeof data === "object" ? (data?.notes || "") : "";
+
     const requestData = {
-      orderStatus: data.orderStatus || data,
-      notes: data.notes || "" };
+      orderStatus: statusVal,
+      notes: notesVal,
+      employeeId: data?.employeeId || userInfo.employeeId,
+      userId: data?.userId || userInfo.userId,
+      confirmedBy: data?.confirmedBy || userInfo.confirmedBy,
+      processedBy: data?.processedBy || userInfo.processedBy,
+      processedByEmail: data?.processedByEmail || userInfo.processedByEmail,
+      updatedBy: data?.updatedBy || userInfo.updatedBy,
+      username: userInfo.username,
+      employeeName: userInfo.employeeName,
+      ...(typeof data === "object" ? data : {})
+    };
     return api.put(`/admin/orders/${orderId}/status`, requestData);
   },
 

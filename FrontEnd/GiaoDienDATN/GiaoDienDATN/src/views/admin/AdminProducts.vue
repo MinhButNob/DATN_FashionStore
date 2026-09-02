@@ -7,53 +7,49 @@
       <p class="subtitle">Quản lý danh sách sản phẩm, biến thể màu sắc và kích thước</p>
    </div>
     <button class="btn-add" @click="openCreateModal">
-       <span class="btn-icon">＋</span> Thêm sản phẩm
+      <i class="fas fa-plus"></i> Thêm sản phẩm
     </button>
   </div>
 
   <!-- Stats Row -->
   <div class="stats-row" v-if="statistics">
-   <div class="stat-card stat-total">
-      <div class="stat-icon">📦</div>
-     <div class="stat-info">
-         <div class="stat-value">{{ statistics.totalProducts || 0 }}</div>
+    <div class="stat-card stat-total">
+      <div class="stat-info">
+        <div class="stat-value">{{ statistics.totalProducts || 0 }}</div>
         <div class="stat-label">Tổng sản phẩm</div>
-    </div>
-    </div>
-    <div class="stat-card stat-active">
-     <div class="stat-icon">✅</div>
-     <div class="stat-info">
-       <div class="stat-value">{{ statistics.inStockVariants || 0 }}</div>
-       <div class="stat-label">Biến thể còn hàng</div>
       </div>
     </div>
-     <div class="stat-card stat-warning">
-      <div class="stat-icon">⚠️</div>
+    <div class="stat-card stat-active">
+      <div class="stat-info">
+        <div class="stat-value">{{ statistics.inStockVariants || 0 }}</div>
+        <div class="stat-label">Biến thể còn hàng</div>
+      </div>
+    </div>
+    <div class="stat-card stat-warning">
       <div class="stat-info">
         <div class="stat-value">{{ statistics.lowStockVariants || 0 }}</div>
         <div class="stat-label">Sắp hết hàng</div>
       </div>
-     </div>
-     <div class="stat-card stat-deleted">
-       <div class="stat-icon">🗑️</div>
+    </div>
+    <div class="stat-card stat-deleted">
       <div class="stat-info">
-         <div class="stat-value">{{ statistics.deletedProducts || 0 }}</div>
-         <div class="stat-label">Đã xóa</div>
-       </div>
-     </div>
-   </div>
+        <div class="stat-value">{{ statistics.deletedProducts || 0 }}</div>
+        <div class="stat-label">Đã xóa</div>
+      </div>
+    </div>
+  </div>
 
    <!-- Filter Bar -->
    <div class="filter-bar">
      <div class="search-box">
-       <span class="search-icon">🔍</span>
+       <i class="fas fa-search search-icon"></i>
        <input
          v-model="searchKeyword"
          @keyup.enter="fetchProducts"
          placeholder="Tìm kiếm sản phẩm..."
          autocomplete="off"
        />
-       <button v-if="searchKeyword" class="clear-search" @click="searchKeyword = ''; fetchProducts()">✕</button>
+       <button v-if="searchKeyword" class="clear-search" @click="searchKeyword = ''; fetchProducts()"><i class="fas fa-times"></i></button>
      </div>
      <select v-model="selectedCategoryId" @change="fetchProducts" class="filter-select">
        <option :value="null">Tất cả danh mục</option>
@@ -67,9 +63,11 @@
        <option value="INACTIVE">Ngừng bán</option>
        <option value="DELETED">Đã xóa</option>
      </select>
-     <button class="btn-search" @click="fetchProducts">Tìm kiếm</button>
+     <button class="btn-search" @click="fetchProducts">
+       <i class="fas fa-search"></i> Tìm kiếm
+     </button>
      <button v-if="searchKeyword || selectedCategoryId || selectedStatus" class="btn-reset" @click="resetFilters">
-       <span class="btn-icon">↺</span> Reset
+       <i class="fas fa-sync-alt"></i> Làm mới
      </button>
    </div>
 
@@ -105,7 +103,7 @@
                    <span class="variant-color" :style="{ backgroundColor: getColorHex(v.color) }"></span>
                    <span class="variant-name">{{ v.color || '?' }} - {{ v.size || '?' }}</span>
                    <span v-if="v.promotions && v.promotions.length" class="promotion-badge variant-promotion-badge">
-                     🎁 {{ v.promotions[v.promotions.length - 1].promotionName }} (-{{ v.promotions[v.promotions.length - 1].promotionDiscountPercent }}%)
+                     <i class="fas fa-gift"></i> {{ v.promotions[v.promotions.length - 1].promotionName }} (-{{ v.promotions[v.promotions.length - 1].promotionDiscountPercent }}%)
                    </span>
                  </div>
                  <div class="variant-price-stock">
@@ -124,7 +122,7 @@
                        'stock-out': v.quantity === 0
                      }"
                    >
-                     📦 {{ v.quantity }}
+                     <i class="fas fa-box"></i> {{ v.quantity }}
                    </span>
                  </div>
                </div>
@@ -146,18 +144,18 @@
              <div class="action-buttons">
                <template v-if="product._deletedAt">
                  <button class="action-btn restore-btn" @click="confirmRestore(product)" title="Khôi phục">
-                   ↩️
+                   <i class="fas fa-undo"></i>
                  </button>
                  <button class="action-btn view-btn" @click="viewProductDetail(product)" title="Xem chi tiết">
-                   👁️
+                   <i class="fas fa-eye"></i>
                  </button>
                </template>
                <template v-else>
                  <button class="action-btn edit-btn" @click="openEditModal(product)" title="Sửa">
-                   ✏️
+                   <i class="fas fa-edit"></i>
                  </button>
                  <button class="action-btn delete-btn" @click="confirmDelete(product)" title="Xóa">
-                   🗑️
+                   <i class="fas fa-trash-alt"></i>
                  </button>
                </template>
              </div>
@@ -166,7 +164,7 @@
          <tr v-if="allProducts.length === 0 && !loading">
            <td colspan="6" class="empty-row">
              <div class="empty-state">
-               <div class="empty-icon">📭</div>
+               <div class="empty-icon"><i class="fas fa-box-open"></i></div>
                <p>Không có sản phẩm nào</p>
                <button class="btn-retry" @click="fetchProducts">Tải lại</button>
              </div>
@@ -1635,13 +1633,18 @@ onMounted(async () => {
 .variant-stock {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   padding: 2px 8px;
   border-radius: 20px;
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
   background-color: #e8f5e9;
-  color: #2e7d32;
+  color: #1e7e34;
+}
+
+.variant-stock i {
+  color: #2563eb;
+  font-size: 11px;
 }
 
 .variant-stock.stock-low {
@@ -1649,9 +1652,17 @@ onMounted(async () => {
   color: #e65100;
 }
 
+.variant-stock.stock-low i {
+  color: #d97706;
+}
+
 .variant-stock.stock-out {
   background-color: #ffebee;
   color: #c62828;
+}
+
+.variant-stock.stock-out i {
+  color: #dc2626;
 }
 
 .no-variant {
@@ -1680,36 +1691,56 @@ onMounted(async () => {
 }
 
 .action-btn {
-  background: none;
+  width: 35px;
+  height: 35px;
   border: none;
-  padding: 6px;
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
-  font-size: 16px;
-  transition: all 0.2s;
   display: flex;
   align-items: center;
   justify-content: center;
+  font-size: 14px;
+  transition: all 0.3s;
 }
 
-.edit-btn:hover { background-color: #fef3c7; }
-.delete-btn:hover { background-color: #fde8e8; }
-.restore-btn:hover { background-color: #d1fae5; }
-.view-btn:hover { background-color: #e5e7eb; }
+.edit-btn {
+  background: #ffc107;
+  color: #212529;
+}
+
+.edit-btn:hover {
+  background: #e0a800;
+  transform: translateY(-2px);
+}
+
+.delete-btn {
+  background: #dc3545;
+  color: white;
+}
+
+.delete-btn:hover {
+  background: #c82333;
+  transform: translateY(-2px);
+}
+
+.view-btn {
+  background: #17a2b8;
+  color: white;
+}
+
+.view-btn:hover {
+  background: #138496;
+  transform: translateY(-2px);
+}
 
 .restore-btn {
-  background: #10b981;
+  background: #28a745;
   color: white;
-  border-radius: 6px;
-  padding: 6px 10px;
-  border: none;
-  cursor: pointer;
-  transition: all 0.2s;
 }
 
 .restore-btn:hover {
-  background: #059669;
-  transform: scale(1.05);
+  background: #218838;
+  transform: translateY(-2px);
 }
 
 .view-btn {

@@ -60,6 +60,10 @@ public class PosReturnExchange {
     @Column(name = "notes", columnDefinition = "TEXT")
     private String notes;
 
+    // ✅ THÊM: ID đơn hàng mới được tạo (khi đổi sản phẩm)
+    @Column(name = "exchange_order_id")
+    private Integer exchangeOrderId;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

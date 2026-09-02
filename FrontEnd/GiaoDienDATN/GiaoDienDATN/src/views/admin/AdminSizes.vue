@@ -7,14 +7,14 @@
         <p class="subtitle">Quản lý danh sách kích thước sản phẩm</p>
       </div>
       <button class="btn-add" @click="openAddModal">
-        <span class="btn-icon-add">＋</span> Thêm Size mới
+        <i class="fas fa-plus"></i> Thêm Size mới
       </button>
     </div>
 
     <!-- Filter Bar -->
     <div class="filter-bar">
       <div class="search-box">
-        <span class="search-icon">🔍</span>
+        <i class="fas fa-search search-icon"></i>
         <input
           v-model="searchQuery"
           placeholder="Tìm kiếm size..."
@@ -29,7 +29,7 @@
             fetchSizes();
           "
         >
-          ✕
+          <i class="fas fa-times"></i>
         </button>
       </div>
       <select
@@ -57,7 +57,9 @@
         <option :value="10">10 / trang</option>
         <option :value="20">20 / trang</option>
       </select>
-      <button class="btn-search" @click="currentPage = 0; fetchSizes()">Tìm kiếm</button>
+      <button class="btn-search" @click="currentPage = 0; fetchSizes()">
+        <i class="fas fa-search"></i> Tìm kiếm
+      </button>
     </div>
 
     <!-- Data Table -->
@@ -77,7 +79,7 @@
           <tr v-if="sizes.length === 0">
             <td colspan="6" class="empty-row">
               <div class="empty-state">
-                <div class="empty-icon">📭</div>
+                <div class="empty-icon"><i class="fas fa-box-open"></i></div>
                 <p>Không có dữ liệu size</p>
                 <button class="btn-retry" @click="fetchSizes">Tải lại</button>
               </div>
@@ -122,18 +124,18 @@
               <!-- Nút Sửa & Xóa: chỉ hiện với ACTIVE và INACTIVE -->
               <template v-if="size.status !== 'DELETED'">
                 <button
-                  class="btn-edit"
+                  class="action-btn edit-btn"
                   @click="openEditModal(size)"
                   title="Sửa"
                 >
-                  ✏️
+                  <i class="fas fa-edit"></i>
                 </button>
                 <button
-                  class="btn-delete"
+                  class="action-btn delete-btn"
                   @click="confirmDelete(size.sizeId, size.sizeName)"
                   title="Xóa"
                 >
-                  🗑️
+                  <i class="fas fa-trash-alt"></i>
                 </button>
               </template>
               <!-- DELETED: chỉ xem, không có thao tác -->
@@ -885,5 +887,65 @@ const confirmRestore = async (id, name) => {
 
 .toast.toast-error {
   background-color: #e74c3c;
+}
+
+/* Action buttons */
+.actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.action-btn {
+  width: 35px;
+  height: 35px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  transition: all 0.3s;
+}
+
+.edit-btn {
+  background: #ffc107;
+  color: #212529;
+}
+
+.edit-btn:hover {
+  background: #e0a800;
+  transform: translateY(-2px);
+}
+
+.delete-btn {
+  background: #dc3545;
+  color: white;
+}
+
+.delete-btn:hover {
+  background: #c82333;
+  transform: translateY(-2px);
+}
+
+.view-btn {
+  background: #17a2b8;
+  color: white;
+}
+
+.view-btn:hover {
+  background: #138496;
+  transform: translateY(-2px);
+}
+
+.restore-btn {
+  background: #28a745;
+  color: white;
+}
+
+.restore-btn:hover {
+  background: #218838;
+  transform: translateY(-2px);
 }
 </style>

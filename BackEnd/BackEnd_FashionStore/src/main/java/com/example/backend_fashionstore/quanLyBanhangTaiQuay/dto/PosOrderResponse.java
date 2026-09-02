@@ -24,12 +24,14 @@ public class PosOrderResponse {
     private String posOrderCustomerPhone;
     private String posOrderNotes;
     private LocalDateTime posOrderCreatedAt;
+    private Integer exchangeOrderId;
+    private Integer parentOrderId;
     private List<PosOrderItemResponse> items;
     private List<PosPaymentResponse> payments;
 
-    // ✅ Thêm thông tin voucher
+    private Integer voucherId;
     private String voucherCode;
     private BigDecimal voucherDiscountAmount;
     private BigDecimal voucherDiscountPercent;
-    private Integer voucherId;
+    private BigDecimal voucherMaxDiscountAmount; // ✅ Đã có
 }

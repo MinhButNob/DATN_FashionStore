@@ -3,30 +3,27 @@
     <!-- Header -->
     <div class="page-header">
       <div class="header-left">
-        <h2>🖼️ Quản lý Banner</h2>
+        <h2>Quản lý Banner</h2>
         <p class="subtitle">Quản lý banner trang chủ – click để điều hướng đến đúng trang sản phẩm</p>
       </div>
-      <button class="btn-add" @click="openCreate">+ Thêm Banner</button>
+      <button class="btn-add" @click="openCreate"><i class="fas fa-plus"></i> Thêm Banner</button>
     </div>
 
     <!-- Stats -->
     <div class="stats-row">
       <div class="stat-card stat-active">
-        <div class="stat-icon">✅</div>
         <div class="stat-info">
           <div class="stat-value">{{ store.activeBannerCount || 0 }}</div>
           <div class="stat-label">Đang hiển thị</div>
         </div>
       </div>
       <div class="stat-card stat-inactive">
-        <div class="stat-icon">⏸️</div>
         <div class="stat-info">
           <div class="stat-value">{{ store.inactiveBannerCount || 0 }}</div>
           <div class="stat-label">Tạm ẩn</div>
         </div>
       </div>
       <div class="stat-card stat-total">
-        <div class="stat-icon">🖼️</div>
         <div class="stat-info">
           <div class="stat-value">{{ store.totalVisibleCount || 0 }}</div>
           <div class="stat-label">Tổng banner</div>
@@ -38,14 +35,14 @@
     <div class="search-bar">
       <input
         v-model="keyword"
-        placeholder="🔍 Tìm theo tiêu đề banner..."
+        placeholder="Tìm theo tiêu đề banner..."
         @input="store.search(keyword)"
       />
     </div>
 
     <!-- Error Display -->
     <div v-if="store.error" class="error-message">
-      ⚠️ {{ store.error }}
+      <i class="fas fa-exclamation-triangle"></i> {{ store.error }}
     </div>
 
     <!-- Loading -->
@@ -79,7 +76,7 @@
             </td>
             <td>
               <span v-if="banner.customUrl === FOOTER_BANNER_MARKER" class="link-badge link-footer">
-                🦶 Cuối trang
+                Cuối trang
               </span>
               <span v-else :class="'link-badge link-' + (banner.linkType || '').toLowerCase()">
                 {{ linkTypeLabel(banner.linkType) }}
@@ -93,9 +90,11 @@
               </span>
             </td>
             <td class="actions">
-              <button class="btn-edit" @click="openEdit(banner)">✏️ Sửa</button>
-              <button v-if="banner.status !== 'DELETED'" class="btn-delete" @click="confirmDelete(banner)">🗑️ Xóa</button>
-              <button v-else class="btn-restore" @click="handleRestore(banner)">♻️ Khôi phục</button>
+              <div class="action-buttons">
+                <button class="action-btn edit-btn" @click="openEdit(banner)" title="Sửa"><i class="fas fa-edit"></i></button>
+                <button v-if="banner.status !== 'DELETED'" class="action-btn delete-btn" @click="confirmDelete(banner)" title="Xóa"><i class="fas fa-trash-alt"></i></button>
+                <button v-else class="action-btn restore-btn" @click="handleRestore(banner)" title="Khôi phục"><i class="fas fa-undo"></i></button>
+              </div>
             </td>
           </tr>
           <tr v-if="!store.banners || store.banners.length === 0">
@@ -1484,8 +1483,72 @@ function resolvedLabel(banner) {
     width: 80px;
     height: 30px;
   }
-  .actions {
-    flex-direction: column;
-  }
+}
+
+/* Action buttons */
+.action-buttons {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.action-btn {
+  width: 35px;
+  height: 35px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  transition: all 0.3s;
+}
+
+.edit-btn {
+  background: #ffc107;
+  color: #212529;
+}
+
+.edit-btn:hover {
+  background: #e0a800;
+  transform: translateY(-2px);
+}
+
+.delete-btn {
+  background: #dc3545;
+  color: white;
+}
+
+.delete-btn:hover {
+  background: #c82333;
+  transform: translateY(-2px);
+}
+
+.view-btn {
+  background: #17a2b8;
+  color: white;
+}
+
+.view-btn:hover {
+  background: #138496;
+  transform: translateY(-2px);
+}
+
+.restore-btn {
+  background: #28a745;
+  color: white;
+}
+
+.restore-btn:hover {
+  background: #218838;
+  transform: translateY(-2px);
 }
 </style>

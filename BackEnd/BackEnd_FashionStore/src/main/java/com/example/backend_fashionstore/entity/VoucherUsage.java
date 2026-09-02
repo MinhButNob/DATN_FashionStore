@@ -40,5 +40,8 @@ public class VoucherUsage {
     @PrePersist
     protected void onCreate() {
         usedAt = LocalDateTime.now();
+        if (discountApplied == null) {
+            discountApplied = BigDecimal.ZERO;
+        }
     }
 }

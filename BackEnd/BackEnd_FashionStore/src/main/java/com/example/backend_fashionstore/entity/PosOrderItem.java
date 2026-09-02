@@ -1,4 +1,3 @@
-// entity/PosOrderItem.java
 package com.example.backend_fashionstore.entity;
 
 import jakarta.persistence.*;
@@ -42,6 +41,11 @@ public class PosOrderItem {
 
     @Column(name = "pos_order_item_notes")
     private String posOrderItemNotes;
+
+    // ✅ THÊM: Tình trạng sản phẩm khi trả/đổi
+    @Column(name = "pos_order_item_condition", length = 20)
+    @Builder.Default
+    private String condition = "GOOD"; // GOOD, DAMAGED
 
     @CreationTimestamp
     @Column(name = "pos_order_item_created_at", updatable = false)

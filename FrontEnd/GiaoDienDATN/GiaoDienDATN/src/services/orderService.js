@@ -41,25 +41,21 @@ export const orderService = {
 
 // ============= ADMIN ORDER =============
 export const adminOrderService = {
-  // Lấy tất cả đơn hàng
+  // Lấy danh sách đơn hàng cho Admin có phân trang và bộ lọc
   getAllOrders(params = {}) {
-    const queryParams = {
-      page: params.page || 0,
-      size: params.size || 10 };
+    const queryParams = {};
     if (params.status && params.status !== "all") {
       queryParams.status = params.status;
     }
     if (params.keyword) {
       queryParams.keyword = params.keyword;
     }
-    if (params.fromDate) {
-      queryParams.fromDate = params.fromDate;
-    }
-    if (params.toDate) {
-      queryParams.toDate = params.toDate;
-    }
+    queryParams.page = params.page || 0;
+    queryParams.size = params.size || 10;
+
     return api.get("/admin/orders", {
-      params: queryParams });
+      params: queryParams
+    });
   },
 
   // Lấy chi tiết đơn hàng
@@ -69,9 +65,23 @@ export const adminOrderService = {
 
   // Cập nhật trạng thái đơn hàng
   updateOrderStatus(orderId, data) {
+    const userInfo = getLoggedInUserInfo();
+    const statusVal = typeof data === "string" ? data : (data?.orderStatus || data);
+    const notesVal = typeof data === "object" ? (data?.notes || "") : "";
+
     const requestData = {
-      orderStatus: data.orderStatus || data,
-      notes: data.notes || "" };
+      orderStatus: statusVal,
+      notes: notesVal,
+      employeeId: data?.employeeId || userInfo.employeeId,
+      userId: data?.userId || userInfo.userId,
+      confirmedBy: data?.confirmedBy || userInfo.confirmedBy,
+      processedBy: data?.processedBy || userInfo.processedBy,
+      processedByEmail: data?.processedByEmail || userInfo.processedByEmail,
+      updatedBy: data?.updatedBy || userInfo.updatedBy,
+      username: userInfo.username,
+      employeeName: userInfo.employeeName,
+      ...(typeof data === "object" ? data : {})
+    };
     return api.put(`/admin/orders/${orderId}/status`, requestData);
   },
 

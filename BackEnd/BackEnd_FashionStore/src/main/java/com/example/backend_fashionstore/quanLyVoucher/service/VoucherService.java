@@ -93,20 +93,29 @@ public class VoucherService {
         }
 
         // Kiểm tra chỉ được chọn 1 loại giảm giá
-        if ((dto.getVoucherDiscountAmount() != null && dto.getVoucherDiscountAmount().compareTo(BigDecimal.ZERO) > 0) &&
-                (dto.getVoucherDiscountPercent() != null && dto.getVoucherDiscountPercent().compareTo(BigDecimal.ZERO) > 0)) {
+        boolean hasAmount = dto.getVoucherDiscountAmount() != null && dto.getVoucherDiscountAmount().compareTo(BigDecimal.ZERO) > 0;
+        boolean hasPercent = dto.getVoucherDiscountPercent() != null && dto.getVoucherDiscountPercent().compareTo(BigDecimal.ZERO) > 0;
+
+        if (hasAmount && hasPercent) {
             throw new RuntimeException("Chỉ được chọn một loại giảm giá: theo số tiền hoặc theo phần trăm");
         }
 
-        if ((dto.getVoucherDiscountAmount() == null || dto.getVoucherDiscountAmount().compareTo(BigDecimal.ZERO) == 0) &&
-                (dto.getVoucherDiscountPercent() == null || dto.getVoucherDiscountPercent().compareTo(BigDecimal.ZERO) == 0)) {
+        if (!hasAmount && !hasPercent) {
             throw new RuntimeException("Phải chọn một loại giảm giá");
+        }
+
+        // ✅ Nếu là giảm theo %, kiểm tra số tiền giảm tối đa
+        if (hasPercent) {
+            if (dto.getVoucherMaxDiscountAmount() == null || dto.getVoucherMaxDiscountAmount().compareTo(BigDecimal.ZERO) <= 0) {
+                throw new RuntimeException("Vui lòng nhập số tiền giảm tối đa cho voucher giảm theo %");
+            }
         }
 
         Voucher voucher = Voucher.builder()
                 .voucherCode(dto.getVoucherCode())
                 .voucherDiscountAmount(dto.getVoucherDiscountAmount())
                 .voucherDiscountPercent(dto.getVoucherDiscountPercent())
+                .voucherMaxDiscountAmount(dto.getVoucherMaxDiscountAmount() != null ? dto.getVoucherMaxDiscountAmount() : BigDecimal.ZERO)
                 .voucherStartDate(dto.getVoucherStartDate())
                 .voucherEndDate(dto.getVoucherEndDate())
                 .voucherMaxUsage(dto.getVoucherMaxUsage())
@@ -137,9 +146,18 @@ public class VoucherService {
             throw new RuntimeException("Ngày kết thúc phải sau ngày bắt đầu");
         }
 
+        // ✅ Nếu là giảm theo %, kiểm tra số tiền giảm tối đa
+        boolean hasPercent = dto.getVoucherDiscountPercent() != null && dto.getVoucherDiscountPercent().compareTo(BigDecimal.ZERO) > 0;
+        if (hasPercent) {
+            if (dto.getVoucherMaxDiscountAmount() == null || dto.getVoucherMaxDiscountAmount().compareTo(BigDecimal.ZERO) <= 0) {
+                throw new RuntimeException("Vui lòng nhập số tiền giảm tối đa cho voucher giảm theo %");
+            }
+        }
+
         voucher.setVoucherCode(dto.getVoucherCode());
         voucher.setVoucherDiscountAmount(dto.getVoucherDiscountAmount());
         voucher.setVoucherDiscountPercent(dto.getVoucherDiscountPercent());
+        voucher.setVoucherMaxDiscountAmount(dto.getVoucherMaxDiscountAmount() != null ? dto.getVoucherMaxDiscountAmount() : BigDecimal.ZERO);
         voucher.setVoucherStartDate(dto.getVoucherStartDate());
         voucher.setVoucherEndDate(dto.getVoucherEndDate());
         voucher.setVoucherMaxUsage(dto.getVoucherMaxUsage());
@@ -217,6 +235,7 @@ public class VoucherService {
         dto.setVoucherCode(v.getVoucherCode());
         dto.setVoucherDiscountAmount(v.getVoucherDiscountAmount());
         dto.setVoucherDiscountPercent(v.getVoucherDiscountPercent());
+        dto.setVoucherMaxDiscountAmount(v.getVoucherMaxDiscountAmount()); // ✅ THÊM
         dto.setVoucherStartDate(v.getVoucherStartDate());
         dto.setVoucherEndDate(v.getVoucherEndDate());
         dto.setVoucherMaxUsage(v.getVoucherMaxUsage());

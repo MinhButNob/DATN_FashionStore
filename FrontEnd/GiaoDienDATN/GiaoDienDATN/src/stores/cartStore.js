@@ -238,42 +238,42 @@ export const useCartStore = defineStore("cart", {
         }
 
         const response = await api.post(
-          `/cart/apply-voucher?voucherCode=${voucherCode}`,
-          {},
+          `/cart/apply-voucher`,
+          { voucherCode: voucherCode },
+          { params: { voucherCode: voucherCode } }
         );
 
         console.log("✅ Apply voucher response:", response.data);
 
-        if (response.data && response.data.data) {
-          const cartData = response.data.data;
+        const cartData = response.data?.data || response.data?.cart || response.data;
+        if (cartData) {
+          this.voucherId = cartData.voucherId || cartData.voucher?.voucherId || null;
+          this.voucherCode = cartData.voucherCode || cartData.voucher?.voucherCode || voucherCode;
+          this.voucherDiscount = cartData.voucherDiscount || cartData.discountAmount || 0;
 
-          // ✅ Cập nhật voucherId
-          this.voucherId = cartData.voucherId || null;
-          this.voucherCode = cartData.voucherCode || null;
-          this.voucherDiscount = cartData.voucherDiscount || 0;
-
-          // ✅ Cập nhật lại giỏ hàng
-          this.items = (cartData.items || []).map((item) => ({
-            ...item,
-            stock: item.stock || 99,
-            id: item.productId || item.id,
-            productId: item.productId || item.id,
-            name: item.productName || item.name,
-            image: item.imageUrl || null,
-            imageUrl: item.imageUrl || null,
-            price: item.price || 0,
-            discountedPrice: item.discountedPrice || item.price || 0 }));
+          if (Array.isArray(cartData.items)) {
+            this.items = cartData.items.map((item) => ({
+              ...item,
+              stock: item.stock || 99,
+              id: item.productId || item.id,
+              productId: item.productId || item.id,
+              name: item.productName || item.name,
+              image: item.imageUrl || null,
+              imageUrl: item.imageUrl || null,
+              price: item.price || 0,
+              discountedPrice: item.discountedPrice || item.price || 0
+            }));
+          }
 
           this.subtotal = this.items.reduce((sum, item) => {
             const price = item.discountedPrice || item.price || 0;
             return sum + price * (item.quantity || 0);
           }, 0);
 
-          this.totalItems = cartData.totalQuantity || 0;
-          this.shippingFee = cartData.shippingFee || 0;
-          this.total = this.subtotal - this.voucherDiscount + this.shippingFee;
+          if (cartData.totalQuantity) this.totalItems = cartData.totalQuantity;
+          if (typeof cartData.shippingFee === 'number') this.shippingFee = cartData.shippingFee;
+          this.total = Math.max(0, this.subtotal - this.voucherDiscount + this.shippingFee);
 
-          // ✅ Lưu vào localStorage
           this.saveToLocalStorage();
         }
 

@@ -58,8 +58,7 @@ const menuSections = [
   {
     title: "WORK",
     items: [
-      { name: "Khách hàng", path: "/staff/customers", icon: "fas fa-users" },
-      { name: "Đổi trả", path: "/staff/returns", icon: "fas fa-undo-alt" },
+      { name: "Hoàn hàng", path: "/staff/returns", icon: "fas fa-undo-alt" },
       { name: "Sản phẩm hỏng", path: "/staff/damaged-products", icon: "fas fa-box-open", badge: pendingDamagedCount },
       { name: "Chat khách hàng", path: "/staff/chat", icon: "fas fa-comments" },
     ]

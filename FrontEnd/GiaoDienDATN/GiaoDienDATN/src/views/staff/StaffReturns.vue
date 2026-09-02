@@ -15,10 +15,6 @@
         <option value="all">Tất cả loại</option>
         <option value="RETURN">Hoàn tiền</option>
       </select>
-      <button class="btn btn-primary" @click="goToCreate">
-        <i class="fas fa-plus"></i>
-        Tạo phiếu hoàn tiền
-      </button>
     </div>
 
     <div class="table-container">
@@ -29,8 +25,6 @@
           <tr>
             <th>Mã phiếu</th>
             <th>Mã đơn</th>
-            <th>Khách hàng</th>
-            <th>SĐT</th>
             <th>Loại</th>
             <th>Số tiền hoàn</th>
             <th>Trạng thái</th>
@@ -41,8 +35,6 @@
           <tr v-for="item in filteredReturns" :key="item.returnExchangeId">
             <td><strong>{{ item.referenceCode }}</strong></td>
             <td>{{ item.orderInvoiceNumber }}</td>
-            <td>{{ item.customerName || 'Khách lẻ' }}</td>
-            <td>{{ item.customerPhone || '---' }}</td>
             <td>
               <span class="badge badge-warning">
                 Hoàn tiền
@@ -79,7 +71,7 @@
             </td>
           </tr>
           <tr v-if="filteredReturns.length === 0">
-            <td colspan="8" style="text-align: center; padding: 20px; color: var(--medium-gray);">
+            <td colspan="6" style="text-align: center; padding: 20px; color: var(--medium-gray);">
               Không có phiếu hoàn tiền nào.
             </td>
           </tr>
@@ -150,10 +142,6 @@ const getStatusText = (status) => {
     'CANCELLED': 'Đã hủy'
   };
   return map[status] || status;
-};
-
-const goToCreate = () => {
-  router.push('/staff/returns/create');
 };
 
 const viewDetail = (id) => {

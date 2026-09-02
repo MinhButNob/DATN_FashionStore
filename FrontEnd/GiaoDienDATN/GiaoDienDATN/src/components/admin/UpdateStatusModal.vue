@@ -112,6 +112,7 @@
 <script setup>
 import { ref, watch, computed } from 'vue'
 import api from "@/api/axios";
+import { getLoggedInUserInfo } from "@/utils/helpers";
 import ConfirmDialog from './ConfirmDialog.vue'
 
 const props = defineProps({
@@ -290,9 +291,18 @@ const confirmStatusUpdate = async () => {
 
   try {
     const token = localStorage.getItem('token')
+    const userInfo = getLoggedInUserInfo()
     const payload = {
       orderStatus: selectedStatus.value,
-      notes: notes.value || null
+      notes: notes.value || null,
+      employeeId: userInfo.employeeId,
+      userId: userInfo.userId,
+      confirmedBy: userInfo.confirmedBy,
+      processedBy: userInfo.processedBy,
+      processedByEmail: userInfo.processedByEmail,
+      updatedBy: userInfo.updatedBy,
+      username: userInfo.username,
+      employeeName: userInfo.employeeName
     }
 
     console.log('📤 Updating order status:', payload)

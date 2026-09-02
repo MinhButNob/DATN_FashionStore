@@ -42,32 +42,90 @@ public class PosReturnExchangeService {
         return employeeService.getEmployeeIdByUserId(userId);
     }
 
-    public List<PosOrderResponse> findOrdersByPhone(String phone) {
-        if (phone == null || phone.trim().isEmpty()) {
-            throw new BusinessException("Vui lòng nhập số điện thoại khách hàng");
+    /**
+     * Tìm đơn hàng theo mã hóa đơn để hoàn trả
+     */
+    public PosOrderResponse findOrderByInvoiceNumber(String invoiceNumber) {
+        log.info("🔍 [findOrderByInvoiceNumber] Bắt đầu tìm đơn hàng với mã: {}", invoiceNumber);
+
+        if (invoiceNumber == null || invoiceNumber.trim().isEmpty()) {
+            log.warn("⚠️ [findOrderByInvoiceNumber] Mã hóa đơn rỗng");
+            throw new BusinessException("Vui lòng nhập mã hóa đơn");
         }
 
-        List<PosOrder> orders = posOrderRepository.findByPosOrderCustomerPhoneContaining(phone.trim());
-        return orders.stream()
-                .map(this::convertOrderToResponse)
-                .collect(Collectors.toList());
-    }
+        String trimmedInvoice = invoiceNumber.trim();
+        log.info("🔍 [findOrderByInvoiceNumber] Mã hóa đơn sau khi trim: '{}'", trimmedInvoice);
 
-    @Transactional
-    public PosReturnExchangeResponse createReturnExchange(PosReturnExchangeRequest request) {
-        PosOrder order = posOrderRepository.findById(request.getOrderId())
-                .orElseThrow(() -> new BusinessException("Không tìm thấy đơn hàng"));
+        // ✅ Tìm đơn hàng theo mã hóa đơn
+        PosOrder order = posOrderRepository.findByPosOrderInvoiceNumber(trimmedInvoice)
+                .orElse(null);
 
+        if (order == null) {
+            log.warn("⚠️ [findOrderByInvoiceNumber] Không tìm thấy đơn hàng với mã: {}", trimmedInvoice);
+
+            // ✅ Thử tìm kiếm với LIKE để debug
+            List<PosOrder> similarOrders = posOrderRepository.findAll().stream()
+                    .filter(o -> o.getPosOrderInvoiceNumber() != null &&
+                            o.getPosOrderInvoiceNumber().contains(trimmedInvoice))
+                    .collect(Collectors.toList());
+
+            if (!similarOrders.isEmpty()) {
+                log.info("🔍 [findOrderByInvoiceNumber] Tìm thấy các đơn hàng tương tự:");
+                similarOrders.forEach(o -> log.info("   - Mã: {}", o.getPosOrderInvoiceNumber()));
+                throw new BusinessException("Không tìm thấy đơn hàng với mã: " + trimmedInvoice +
+                        ". Các mã tương tự: " + similarOrders.stream()
+                        .map(PosOrder::getPosOrderInvoiceNumber)
+                        .collect(Collectors.joining(", ")));
+            }
+
+            throw new BusinessException("Không tìm thấy đơn hàng với mã: " + trimmedInvoice);
+        }
+
+        log.info("✅ [findOrderByInvoiceNumber] Đã tìm thấy đơn hàng: ID={}, Invoice={}, Status={}",
+                order.getPosOrderId(), order.getPosOrderInvoiceNumber(), order.getPosOrderStatus());
+
+        // Kiểm tra đơn hàng có thể hoàn trả không
         if ("REFUNDED".equals(order.getPosOrderPaymentStatus()) ||
                 "EXCHANGED".equals(order.getPosOrderStatus())) {
+            log.warn("⚠️ [findOrderByInvoiceNumber] Đơn hàng đã được xử lý đổi/trả: {}", order.getPosOrderInvoiceNumber());
             throw new BusinessException("Đơn hàng này đã được xử lý đổi/trả trước đó");
         }
 
         if (!"COMPLETED".equals(order.getPosOrderStatus())) {
+            log.warn("⚠️ [findOrderByInvoiceNumber] Đơn hàng chưa hoàn thành: Status={}", order.getPosOrderStatus());
+            throw new BusinessException("Chỉ có thể hoàn trả cho đơn hàng đã hoàn thành. Trạng thái hiện tại: " + order.getPosOrderStatus());
+        }
+
+        log.info("✅ [findOrderByInvoiceNumber] Đơn hàng hợp lệ để hoàn trả");
+        return convertOrderToResponse(order);
+    }
+
+    @Transactional
+    public PosReturnExchangeResponse createReturnExchange(PosReturnExchangeRequest request) {
+        log.info("📋 [createReturnExchange] Bắt đầu tạo phiếu đổi/trả cho đơn hàng ID: {}", request.getOrderId());
+
+        PosOrder order = posOrderRepository.findById(request.getOrderId())
+                .orElseThrow(() -> {
+                    log.error("❌ [createReturnExchange] Không tìm thấy đơn hàng ID: {}", request.getOrderId());
+                    return new BusinessException("Không tìm thấy đơn hàng");
+                });
+
+        log.info("📋 [createReturnExchange] Tìm thấy đơn hàng: Invoice={}, Status={}",
+                order.getPosOrderInvoiceNumber(), order.getPosOrderStatus());
+
+        if ("REFUNDED".equals(order.getPosOrderPaymentStatus()) ||
+                "EXCHANGED".equals(order.getPosOrderStatus())) {
+            log.warn("⚠️ [createReturnExchange] Đơn hàng đã được xử lý đổi/trả");
+            throw new BusinessException("Đơn hàng này đã được xử lý đổi/trả trước đó");
+        }
+
+        if (!"COMPLETED".equals(order.getPosOrderStatus())) {
+            log.warn("⚠️ [createReturnExchange] Đơn hàng chưa hoàn thành");
             throw new BusinessException("Chỉ có thể đổi/trả cho đơn hàng đã hoàn thành");
         }
 
         String referenceCode = generateReturnExchangeCode();
+        log.info("📋 [createReturnExchange] Tạo phiếu mới với mã: {}", referenceCode);
 
         PosReturnExchange returnExchange = PosReturnExchange.builder()
                 .orderId(request.getOrderId())
@@ -82,15 +140,22 @@ public class PosReturnExchangeService {
                 .build();
 
         PosReturnExchange savedReturnExchange = returnExchangeRepository.save(returnExchange);
+        log.info("✅ [createReturnExchange] Đã lưu phiếu với ID: {}", savedReturnExchange.getReturnExchangeId());
 
         if ("RETURN".equals(request.getType())) {
+            log.info("📋 [createReturnExchange] Xử lý hoàn tiền");
             return processReturn(savedReturnExchange, request, order);
         } else if ("EXCHANGE".equals(request.getType())) {
+            log.info("📋 [createReturnExchange] Xử lý đổi hàng");
             return processExchange(savedReturnExchange, request, order);
         } else {
+            log.error("❌ [createReturnExchange] Loại đổi/trả không hợp lệ: {}", request.getType());
             throw new BusinessException("Loại đổi/trả không hợp lệ");
         }
     }
+
+    // ===== CÁC METHOD KHÁC GIỮ NGUYÊN =====
+    // ... (các method processReturn, processExchange, createDamagedProduct, ... giữ nguyên)
 
     /**
      * Xử lý hoàn tiền - CÓ PHÂN BỔ VOUCHER VÀ XỬ LÝ SẢN PHẨM HỎNG
@@ -99,9 +164,13 @@ public class PosReturnExchangeService {
     private PosReturnExchangeResponse processReturn(PosReturnExchange returnExchange,
                                                     PosReturnExchangeRequest request,
                                                     PosOrder order) {
+        log.info("💰 [processReturn] Bắt đầu xử lý hoàn tiền cho đơn hàng: {}", order.getPosOrderInvoiceNumber());
+
         // ===== Lấy thông tin voucher nếu có =====
         BigDecimal totalDiscount = order.getPosOrderDiscountAmount();
         BigDecimal orderSubtotal = order.getPosOrderSubtotal();
+
+        log.info("💰 [processReturn] Order Subtotal: {}, Discount: {}", orderSubtotal, totalDiscount);
 
         // Nếu có voucher, lấy thông tin chi tiết
         Voucher voucher = null;
@@ -115,11 +184,14 @@ public class PosReturnExchangeService {
                         voucher.getVoucherDiscountPercent() : BigDecimal.ZERO;
                 voucherDiscountAmount = voucher.getVoucherDiscountAmount() != null ?
                         voucher.getVoucherDiscountAmount() : BigDecimal.ZERO;
+                log.info("💰 [processReturn] Voucher: {}, Giảm: {}%, Tối đa: {}",
+                        voucher.getVoucherCode(), voucherDiscountPercent, voucherDiscountAmount);
             }
         }
 
         // ===== Lấy danh sách sản phẩm trong đơn =====
         List<PosOrderItem> allOrderItems = posOrderItemRepository.findByPosOrderItemOrderId(order.getPosOrderId());
+        log.info("💰 [processReturn] Tìm thấy {} sản phẩm trong đơn hàng", allOrderItems.size());
 
         // ===== Tính tổng giá trị các sản phẩm trả lại =====
         List<ReturnItemDetail> returnItemDetails = new ArrayList<>();
@@ -131,7 +203,10 @@ public class PosReturnExchangeService {
             PosOrderItem orderItem = allOrderItems.stream()
                     .filter(i -> i.getPosOrderItemId().equals(itemReq.getOrderItemId()))
                     .findFirst()
-                    .orElseThrow(() -> new BusinessException("Không tìm thấy sản phẩm trong đơn hàng"));
+                    .orElseThrow(() -> {
+                        log.error("❌ [processReturn] Không tìm thấy sản phẩm ID: {}", itemReq.getOrderItemId());
+                        return new BusinessException("Không tìm thấy sản phẩm trong đơn hàng");
+                    });
 
             BigDecimal itemUnitPrice = orderItem.getPosOrderItemUnitPrice();
             BigDecimal itemOriginalTotal = itemUnitPrice.multiply(BigDecimal.valueOf(itemReq.getQuantity()));
@@ -148,6 +223,9 @@ public class PosReturnExchangeService {
                     itemUnitPrice,
                     condition
             ));
+
+            log.info("💰 [processReturn] Sản phẩm trả: ID={}, Quantity={}, Total={}, Condition={}",
+                    orderItem.getPosOrderItemId(), itemReq.getQuantity(), itemOriginalTotal, condition);
         }
 
         // Tính tổng số lượng sản phẩm trong đơn
@@ -162,6 +240,8 @@ public class PosReturnExchangeService {
 
         boolean isReturnAllItems = (returnItemDetails.size() == allOrderItems.size()) &&
                 (totalReturnQuantity.equals(totalOrderQuantity));
+
+        log.info("💰 [processReturn] Trả toàn bộ đơn hàng: {}", isReturnAllItems);
 
         for (ReturnItemDetail detail : returnItemDetails) {
 
@@ -233,6 +313,8 @@ public class PosReturnExchangeService {
             }
         }
 
+        log.info("💰 [processReturn] Tổng tiền hoàn: {}", totalRefund);
+
         returnExchange.setTotalRefundAmount(totalRefund);
         returnExchange.setAdditionalPayment(BigDecimal.ZERO);
         returnExchange.setCompletedAt(LocalDateTime.now());
@@ -243,6 +325,7 @@ public class PosReturnExchangeService {
         order.setPosOrderPaymentStatus("REFUNDED");
         posOrderRepository.save(order);
 
+        log.info("✅ [processReturn] Hoàn tiền thành công cho đơn hàng: {}", order.getPosOrderInvoiceNumber());
         return convertToResponse(returnExchange, items, order);
     }
 
@@ -253,6 +336,8 @@ public class PosReturnExchangeService {
     private PosReturnExchangeResponse processExchange(PosReturnExchange returnExchange,
                                                       PosReturnExchangeRequest request,
                                                       PosOrder oldOrder) {
+        log.info("🔄 [processExchange] Bắt đầu xử lý đổi hàng cho đơn: {}", oldOrder.getPosOrderInvoiceNumber());
+
         // ===== Lấy thông tin voucher nếu có =====
         BigDecimal totalDiscount = oldOrder.getPosOrderDiscountAmount();
         BigDecimal orderSubtotal = oldOrder.getPosOrderSubtotal();
@@ -444,6 +529,7 @@ public class PosReturnExchangeService {
             posOrderRepository.save(oldOrder);
         }
 
+        log.info("✅ [processExchange] Đổi hàng thành công cho đơn: {}", oldOrder.getPosOrderInvoiceNumber());
         return convertToResponse(returnExchange, items, oldOrder);
     }
 
@@ -701,6 +787,35 @@ public class PosReturnExchangeService {
         response.setPosOrderStatus(order.getPosOrderStatus());
         response.setPosOrderPaymentStatus(order.getPosOrderPaymentStatus());
         response.setPosOrderCreatedAt(order.getPosOrderCreatedAt());
+
+        // Lấy danh sách items để hiển thị tên sản phẩm
+        List<PosOrderItem> items = posOrderItemRepository.findByPosOrderItemOrderId(order.getPosOrderId());
+        List<PosOrderItemResponse> itemResponses = new ArrayList<>();
+        for (PosOrderItem item : items) {
+            PosOrderItemResponse itemResponse = new PosOrderItemResponse();
+            itemResponse.setPosOrderItemId(item.getPosOrderItemId());
+            itemResponse.setProductDetailId(item.getPosOrderItemProductDetailId());
+            itemResponse.setQuantity(item.getPosOrderItemQuantity());
+            itemResponse.setUnitPrice(item.getPosOrderItemUnitPrice());
+            itemResponse.setDiscount(item.getPosOrderItemDiscount());
+            itemResponse.setTotal(item.getPosOrderItemTotal());
+            itemResponse.setNotes(item.getPosOrderItemNotes());
+
+            // Lấy tên sản phẩm
+            ProductDetail productDetail = productDetailRepository.findById(item.getPosOrderItemProductDetailId()).orElse(null);
+            if (productDetail != null && productDetail.getProduct() != null) {
+                itemResponse.setProductName(productDetail.getProduct().getProductName());
+                if (productDetail.getColor() != null) {
+                    itemResponse.setColorName(productDetail.getColor().getColorName());
+                }
+                if (productDetail.getSize() != null) {
+                    itemResponse.setSizeName(productDetail.getSize().getSizeName());
+                }
+            }
+            itemResponses.add(itemResponse);
+        }
+        response.setItems(itemResponses);
+
         return response;
     }
 
@@ -760,33 +875,8 @@ public class PosReturnExchangeService {
     }
 
     // ============================================================
-    // INNER CLASS
+    // QUẢN LÝ TRẠNG THÁI PHIẾU ĐỔI/TRẢ
     // ============================================================
-
-    private static class ReturnItemDetail {
-        PosOrderItem orderItem;
-        Integer quantity;
-        BigDecimal originalTotal;
-        BigDecimal unitPrice;
-        BigDecimal discountAllocated = BigDecimal.ZERO;
-        String condition;
-
-        ReturnItemDetail(PosOrderItem orderItem, Integer quantity,
-                         BigDecimal originalTotal, BigDecimal unitPrice,
-                         String condition) {
-            this.orderItem = orderItem;
-            this.quantity = quantity;
-            this.originalTotal = originalTotal;
-            this.unitPrice = unitPrice;
-            this.condition = condition;
-        }
-    }
-
-    // PosReturnExchangeService.java - Thêm các phương thức sau
-
-// ============================================================
-// QUẢN LÝ TRẠNG THÁI PHIẾU ĐỔI/TRẢ
-// ============================================================
 
     /**
      * Cập nhật trạng thái phiếu đổi/trả
@@ -858,5 +948,28 @@ public class PosReturnExchangeService {
                         "COMPLETED".equals(status) ||
                         "CANCELLED".equals(status)
         );
+    }
+
+    // ============================================================
+    // INNER CLASS
+    // ============================================================
+
+    private static class ReturnItemDetail {
+        PosOrderItem orderItem;
+        Integer quantity;
+        BigDecimal originalTotal;
+        BigDecimal unitPrice;
+        BigDecimal discountAllocated = BigDecimal.ZERO;
+        String condition;
+
+        ReturnItemDetail(PosOrderItem orderItem, Integer quantity,
+                         BigDecimal originalTotal, BigDecimal unitPrice,
+                         String condition) {
+            this.orderItem = orderItem;
+            this.quantity = quantity;
+            this.originalTotal = originalTotal;
+            this.unitPrice = unitPrice;
+            this.condition = condition;
+        }
     }
 }
