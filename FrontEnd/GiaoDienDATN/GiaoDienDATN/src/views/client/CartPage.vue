@@ -154,6 +154,25 @@
                     </button>
                   </div>
 
+                  <!-- Ô nhập mã voucher thủ công -->
+                  <div class="custom-voucher-box">
+                    <input 
+                      type="text" 
+                      v-model="customVoucherCode" 
+                      placeholder="Nhập mã giảm giá..." 
+                      @keyup.enter="applyCustomVoucher"
+                    />
+                    <button 
+                      type="button"
+                      class="btn-apply-custom-voucher" 
+                      @click="applyCustomVoucher"
+                      :disabled="applyingVoucher || !customVoucherCode"
+                    >
+                      <i v-if="applyingVoucher" class="fas fa-spinner fa-spin"></i>
+                      <span v-else>Áp dụng</span>
+                    </button>
+                  </div>
+
                   <!-- Loading vouchers -->
                   <div v-if="loadingVouchers" class="loading-vouchers">
                     <i class="fas fa-spinner fa-spin"></i>
@@ -183,7 +202,7 @@
                         <label :for="'voucher-' + voucher.voucherId">
                           <span class="voucher-code">{{ voucher.voucherCode }}</span>
                           <span class="voucher-discount">
-                            {{ voucher.voucherDiscountPercent ? voucher.voucherDiscountPercent + '%' : formatPrice(voucher.voucherDiscountAmount) }}
+                            {{ formatVoucherDiscountText(voucher) }}
                           </span>
                           <span v-if="voucher.voucherMinOrderValue > 0" class="voucher-min-order">
                             Đơn tối thiểu {{ formatPrice(voucher.voucherMinOrderValue) }}
@@ -392,6 +411,23 @@ const handleImageError = (event) => {
   }
 }
 
+const customVoucherCode = ref('')
+
+const formatVoucherDiscountText = (voucher) => {
+  if (!voucher) return ''
+  if (voucher.voucherDiscountAmount && voucher.voucherDiscountAmount > 0) {
+    return formatPrice(voucher.voucherDiscountAmount)
+  }
+  if (voucher.voucherDiscountPercent && voucher.voucherDiscountPercent > 0) {
+    const max = voucher.voucherMaxDiscountAmount || voucher.voucherMaxDiscount || voucher.maxDiscountAmount || voucher.maxDiscount
+    if (max && max > 0) {
+      return `${voucher.voucherDiscountPercent}% (Tối đa ${formatPrice(max)})`
+    }
+    return `${voucher.voucherDiscountPercent}%`
+  }
+  return '---'
+}
+
 // Kiểm tra xem voucher có áp dụng được không
 const canApplyVoucher = (voucher) => {
   const subtotal = cartStore.subtotal || 0
@@ -401,7 +437,7 @@ const canApplyVoucher = (voucher) => {
   return true
 }
 
-// Lấy danh sách voucher có thể áp dụng
+// Lấy danh sách voucher có thể áp dụng cho bán hàng online
 const fetchAvailableVouchers = async () => {
   loadingVouchers.value = true
   voucherError.value = ''
@@ -413,18 +449,37 @@ const fetchAvailableVouchers = async () => {
       return
     }
 
-    const response = await api.get(`/vouchers/available/by-order-value`, {
-      params: {
-        orderValue: Math.round(Number(cartStore.subtotal || 0))
+    const orderValue = Math.round(Number(cartStore.subtotal || 0))
+    let response = null
+
+    try {
+      response = await cartService.getAvailableVouchers(orderValue)
+    } catch (err1) {
+      console.warn('API getAvailableVouchers failed, fallback to /vouchers/available')
+    }
+
+    if (!response) {
+      try {
+        response = await api.get('/vouchers/available')
+      } catch (err2) {
+        console.warn('API /vouchers/available failed, fallback to /vouchers')
       }
-    })
+    }
 
-    console.log('📦 Voucher API response:', response.data)
+    if (!response) {
+      try {
+        response = await api.get('/vouchers')
+      } catch (err3) {
+        console.warn('API /vouchers failed')
+      }
+    }
 
-    // ✅ Lấy data từ ApiResponse
-    // axios interceptor may return either the ApiResponse or its data payload.
+    console.log('📦 Voucher API response:', response?.data)
+
     const payload = response?.data ?? response
-    const vouchersData = Array.isArray(payload) ? payload : (payload?.data || [])
+    const vouchersData = Array.isArray(payload) 
+      ? payload 
+      : (payload?.data?.content || payload?.data || payload?.content || [])
 
     // ✅ Lọc voucher hợp lệ
     const now = new Date()
@@ -445,17 +500,12 @@ const fetchAvailableVouchers = async () => {
     })
 
     console.log('✅ Available vouchers after filter:', availableVouchers.value.length)
-    console.log('📋 Voucher list:', availableVouchers.value)
 
-    // Nếu đang có voucher áp dụng, kiểm tra xem còn hợp lệ không
     if (cartStore.voucherCode) {
       const currentVoucher = availableVouchers.value.find(
         v => v.voucherCode === cartStore.voucherCode
       )
-      if (!currentVoucher) {
-        // Voucher không còn hợp lệ, xóa khỏi giỏ
-        await removeCurrentVoucher()
-      } else {
+      if (currentVoucher) {
         selectedVoucher.value = currentVoucher
       }
     }
@@ -465,6 +515,29 @@ const fetchAvailableVouchers = async () => {
     voucherError.value = 'Không thể tải danh sách mã giảm giá'
   } finally {
     loadingVouchers.value = false
+  }
+}
+
+// Áp dụng mã voucher nhập thủ công
+const applyCustomVoucher = async () => {
+  if (!customVoucherCode.value || applyingVoucher.value) return
+  const code = customVoucherCode.value.trim().toUpperCase()
+  if (!code) return
+
+  applyingVoucher.value = true
+  voucherError.value = ''
+  try {
+    const response = await cartStore.applyVoucher(code)
+    showNotification(`Đã áp dụng thành công mã ${code}!`, 'success')
+    customVoucherCode.value = ''
+    await fetchAvailableVouchers()
+  } catch (error) {
+    console.error('❌ Lỗi áp dụng voucher thủ công:', error)
+    const msg = error.response?.data?.message || 'Mã giảm giá không hợp lệ hoặc đã hết hạn'
+    voucherError.value = msg
+    showNotification(msg, 'error')
+  } finally {
+    applyingVoucher.value = false
   }
 }
 
@@ -1696,5 +1769,48 @@ main {
     flex-direction: column;
     align-items: flex-start;
   }
+}
+
+.custom-voucher-box {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.custom-voucher-box input {
+  flex: 1;
+  padding: 10px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 14px;
+  outline: none;
+  transition: all 0.3s;
+}
+
+.custom-voucher-box input:focus {
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+}
+
+.btn-apply-custom-voucher {
+  padding: 10px 20px;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  white-space: nowrap;
+}
+
+.btn-apply-custom-voucher:hover:not(:disabled) {
+  background: #5a67d8;
+  transform: translateY(-1px);
+}
+
+.btn-apply-custom-voucher:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 </style>

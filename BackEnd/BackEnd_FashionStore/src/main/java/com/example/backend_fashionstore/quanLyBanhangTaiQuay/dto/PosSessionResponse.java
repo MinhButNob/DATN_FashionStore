@@ -8,9 +8,9 @@ import java.time.LocalDateTime;
 public class PosSessionResponse {
     private Integer posSessionId;
     private Integer cashRegisterId;
-    private String cashRegisterName;
+    private String cashRegisterName;  // ✅ Thêm tên quầy
     private Integer employeeId;
-    private String employeeName;
+    private String employeeName;      // ✅ Thêm tên nhân viên
     private LocalDateTime startTime;
     private LocalDateTime endTime;
     private String status;

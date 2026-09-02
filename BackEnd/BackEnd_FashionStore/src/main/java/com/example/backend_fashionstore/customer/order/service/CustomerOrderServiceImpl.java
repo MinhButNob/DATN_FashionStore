@@ -109,8 +109,6 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
         else if (request.getProvinceId() != null && request.getWardId() != null) {
             log.info("📦 Creating temporary address from Open API data (provinceId and wardId present)");
 
-            // Không query database local vì ID từ Open API sẽ không khớp với local DB.
-            // Dùng trực tiếp tên Thành phố và Phường xã gửi từ frontend.
             shippingCity = request.getShippingCity() != null ? request.getShippingCity() : "";
             shippingDistrict = request.getShippingDistrict() != null ? request.getShippingDistrict() : "";
             shippingWard = request.getShippingWard() != null ? request.getShippingWard() : "";
@@ -210,8 +208,6 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
                         " không đủ số lượng. Còn: " + productDetail.getQuantity());
             }
 
-            // Use the price snapshot shown in this customer's cart. This keeps
-            // variant-specific promotions consistent with voucher allocation.
             BigDecimal unitPrice = cartPricesByVariant.getOrDefault(
                     itemReq.getProductDetailId(), productDetail.getPrice());
             BigDecimal itemTotal = unitPrice.multiply(BigDecimal.valueOf(itemReq.getQuantity()));
@@ -243,6 +239,7 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
                             voucher.getVoucherMinOrderValue());
                 }
 
+                // ✅ TÍNH GIẢM GIÁ VỚI SỐ TIỀN GIẢM TỐI ĐA
                 if (voucher.getVoucherDiscountAmount() != null &&
                         voucher.getVoucherDiscountAmount().compareTo(BigDecimal.ZERO) > 0) {
                     discountAmount = voucher.getVoucherDiscountAmount().min(subtotal);
@@ -250,6 +247,20 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
                         voucher.getVoucherDiscountPercent().compareTo(BigDecimal.ZERO) > 0) {
                     discountAmount = subtotal.multiply(voucher.getVoucherDiscountPercent())
                             .divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP);
+
+                    // ✅ ÁP DỤNG SỐ TIỀN GIẢM TỐI ĐA
+                    if (voucher.getVoucherMaxDiscountAmount() != null &&
+                            voucher.getVoucherMaxDiscountAmount().compareTo(BigDecimal.ZERO) > 0 &&
+                            discountAmount.compareTo(voucher.getVoucherMaxDiscountAmount()) > 0) {
+                        discountAmount = voucher.getVoucherMaxDiscountAmount();
+                        log.info("📊 Áp dụng giảm tối đa: {}", discountAmount);
+                    }
+
+                    // Nếu có voucherDiscountAmount (giảm thêm hoặc thay thế)
+                    if (voucher.getVoucherDiscountAmount() != null &&
+                            voucher.getVoucherDiscountAmount().compareTo(BigDecimal.ZERO) > 0) {
+                        discountAmount = discountAmount.min(voucher.getVoucherDiscountAmount());
+                    }
                 }
 
                 voucher.setVoucherUsedCount(voucher.getVoucherUsedCount() + 1);
@@ -261,8 +272,7 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
             }
         }
 
-        // Persist the voucher allocation on each line. The last line receives the
-        // rounding remainder so that line discounts always equal the order discount.
+        // Persist the voucher allocation on each line.
         BigDecimal allocated = BigDecimal.ZERO;
         for (int i = 0; i < orderDetails.size(); i++) {
             OrderDetail detail = orderDetails.get(i);
@@ -431,7 +441,6 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
 
         order.setOrderStatus(OrderStatus.CANCELLED);
         order.setUpdatedAt(LocalDateTime.now());
-        // ✅ Ghi nhận loại hủy để thống kê "Thống kê hủy đơn" đếm đúng (countCancelledByType LIKE %tag%)
         String existingNotes = order.getNotes();
         order.setNotes((existingNotes != null && !existingNotes.isBlank() ? existingNotes + " | " : "")
                 + "Khách hàng hủy");
@@ -497,45 +506,37 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
         boolean canReturn = false;
         String errorMessage = null;
 
-        // Trường hợp 1: Đơn hàng đã giao hoặc hoàn thành (có thể hoàn bất kỳ lúc nào)
         if ("DELIVERED".equals(currentStatus) || "COMPLETED".equals(currentStatus) ||
                 "PARTIALLY_RETURNED".equals(currentStatus)) {
             canReturn = true;
             log.info("✅ Order {} is DELIVERED/COMPLETED - can return", orderId);
         }
-        // Trường hợp 2: Đơn hàng đang giao và trong vòng 48h
         else if ("SHIPPING".equals(currentStatus) && isWithin48Hours) {
             canReturn = true;
             log.info("✅ Order {} is SHIPPING and within 48h - can return", orderId);
         }
-        // Trường hợp 3: Đơn hàng đã xác nhận hoặc đang xử lý và trong vòng 48h
         else if (("CONFIRMED".equals(currentStatus) || "PROCESSING".equals(currentStatus)) && isWithin48Hours) {
             canReturn = true;
             log.info("✅ Order {} is CONFIRMED/PROCESSING and within 48h - can return", orderId);
         }
-        // Trường hợp 4: Đơn hàng chờ thanh toán - khuyến khích hủy thay vì hoàn
         else if ("PENDING_PAYMENT".equals(currentStatus)) {
             errorMessage = "Đơn hàng chưa được xác nhận. Bạn có thể hủy đơn hàng thay vì yêu cầu hoàn.";
             log.warn("⚠️ Order {} is PENDING_PAYMENT - suggest cancel instead", orderId);
         }
-        // Trường hợp 5: Đơn hàng đang giao nhưng quá 48h
         else if ("SHIPPING".equals(currentStatus) && !isWithin48Hours) {
             errorMessage = "Đơn hàng đang được giao và đã quá 48h kể từ lúc đặt. Vui lòng đợi đến khi nhận hàng để yêu cầu hoàn.";
             log.warn("⚠️ Order {} is SHIPPING but exceeded 48h", orderId);
         }
-        // Trường hợp 6: Đơn hàng đã hủy
         else if ("CANCELLED".equals(currentStatus)) {
             errorMessage = "Đơn hàng đã bị hủy. Không thể yêu cầu hoàn.";
             log.warn("⚠️ Order {} is CANCELLED", orderId);
         }
-        // Trường hợp 7: Đơn hàng đã yêu cầu hoàn
         else if ("RETURN_REQUESTED".equals(currentStatus) || "RETURN_APPROVED".equals(currentStatus) ||
                 "RETURN_RECEIVED".equals(currentStatus) || "RETURN_PENDING".equals(currentStatus) ||
                 "RETURNED".equals(currentStatus) || "REJECTED".equals(currentStatus)) {
             errorMessage = "Đơn hàng đã có yêu cầu hoàn hàng. Vui lòng kiểm tra lại.";
             log.warn("⚠️ Order {} already has return request", orderId);
         }
-        // Trường hợp 8: Không đủ điều kiện
         else {
             errorMessage = "Không thể yêu cầu hoàn hàng. Đơn hàng đang ở trạng thái '" +
                     getStatusText(currentStatus) + "'. " +
@@ -574,7 +575,6 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
                     .findFirst()
                     .orElseThrow(() -> new RuntimeException("Sản phẩm không có trong đơn hàng: " + productDetailId));
 
-            // Kiểm tra số lượng hoàn không vượt quá số lượng đã mua
             Integer returnQty = requestedQuantities != null ? requestedQuantities.getOrDefault(productDetailId, 0) : 0;
             if (returnQty <= 0) {
                 throw new RuntimeException("Số lượng hoàn phải lớn hơn 0 cho sản phẩm: " + productDetailId);
@@ -625,7 +625,6 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
         returnRequest = returnRequestRepository.save(returnRequest);
         log.info("✅ Return request saved with ID: {}", returnRequest.getReturnRequestId());
 
-        // Mark only the requested lines; other lines remain completed.
         for (OrderDetail detail : orderDetails) {
             Integer productDetailId = detail.getProductDetail().getProductDetailId();
             if (requestedIds.contains(detail.getProductDetail().getProductDetailId())) {
@@ -809,7 +808,7 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
     }
 
     // ============================================
-    // 13. CHUYỂN ĐỔI ORDER -> ORDER RESPONSE (ĐÃ SỬA)
+    // 13. CHUYỂN ĐỔI ORDER -> ORDER RESPONSE
     // ============================================
     private OrderResponseDTO convertToResponse(Order order) {
         List<OrderDetail> details = orderDetailRepository.findByOrder_OrderId(order.getOrderId());
@@ -840,7 +839,6 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
                 })
                 .collect(Collectors.toList());
 
-        // ✅ LẤY SHIPPING ADDRESS TỪ ORDER (Nay là String)
         String shippingAddressStr = order.getShippingAddress();
         ShippingAddressDTO shippingDTO = null;
 
@@ -857,10 +855,9 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
                     .city(city)
                     .district(district)
                     .ward(ward)
-                    .fullAddress(shippingAddressStr) // ✅ ĐỊA CHỈ ĐẦY ĐỦ
+                    .fullAddress(shippingAddressStr)
                     .build();
         } else {
-            // Fallback: lấy từ customer
             Customer customer = order.getCustomer();
             if (customer != null) {
                 shippingDTO = ShippingAddressDTO.builder()
@@ -884,6 +881,7 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
                     .voucherCode(voucher.getVoucherCode())
                     .discountAmount(voucher.getVoucherDiscountAmount())
                     .discountPercent(voucher.getVoucherDiscountPercent())
+                    .maxDiscountAmount(voucher.getVoucherMaxDiscountAmount()) // ✅ THÊM
                     .build();
         }
 
@@ -978,7 +976,6 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
 
         String orderCode = order != null ? "ORD" + String.format("%08d", order.getOrderId()) : null;
 
-        // Parse productDetailIds và quantities
         List<Integer> productDetailIds = null;
         Map<Integer, Integer> quantities = null;
         List<ReturnRequestResponseDTO.ReturnItemDTO> returnItems = null;
@@ -998,7 +995,6 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
                 );
             }
 
-            // Lấy chi tiết sản phẩm
             if (productDetailIds != null && !productDetailIds.isEmpty() && order != null) {
                 returnItems = new ArrayList<>();
                 List<OrderDetail> orderDetails = orderDetailRepository.findByOrder_OrderId(order.getOrderId());
@@ -1019,7 +1015,6 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
                             imageUrl = pd.getProductImages().get(0).getProductImagePath();
                         }
 
-                        // Tính số tiền hoàn lại
                         BigDecimal finalUnitPrice = detail.getFinalAmount()
                                 .divide(BigDecimal.valueOf(detail.getQuantity()), 2, RoundingMode.HALF_UP);
                         BigDecimal refundAmount = finalUnitPrice.multiply(BigDecimal.valueOf(quantity));

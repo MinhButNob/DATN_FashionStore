@@ -1,4 +1,3 @@
-
 package com.example.backend_fashionstore.entity;
 
 import jakarta.persistence.*;
@@ -43,6 +42,10 @@ public class DamagedProduct {
 
     @Column(name = "order_id")
     private Integer orderId;
+
+    // ✅ THÊM: ID của item trong đơn hàng mới (khi đổi sản phẩm)
+    @Column(name = "exchange_item_id")
+    private Integer exchangeItemId;
 
     @Column(name = "reason", columnDefinition = "TEXT")
     private String reason;

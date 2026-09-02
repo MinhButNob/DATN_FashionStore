@@ -1,6 +1,54 @@
 // src/utils/helpers.js
 
 // Format price to VND
+export function getLoggedInUserInfo() {
+  let user = {};
+  try {
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      user = JSON.parse(storedUser);
+    }
+  } catch (e) {
+    console.warn("Failed to parse user from localStorage:", e);
+  }
+
+  const username =
+    localStorage.getItem("username") ||
+    localStorage.getItem("userName") ||
+    user.username ||
+    user.fullName ||
+    "";
+  const email =
+    localStorage.getItem("userEmail") ||
+    localStorage.getItem("email") ||
+    user.email ||
+    "";
+  const fullName =
+    localStorage.getItem("userName") ||
+    user.fullName ||
+    user.username ||
+    username;
+  const userId = user.userId || user.id || null;
+  const employeeId = user.employeeId || user.employee_id || null;
+
+  const identity = username || fullName || email || "Nhân viên";
+
+  return {
+    userId,
+    employeeId,
+    username: identity,
+    userName: identity,
+    userEmail: email,
+    email,
+    fullName,
+    employeeName: fullName || identity,
+    confirmedBy: identity,
+    processedBy: identity,
+    processedByEmail: email,
+    updatedBy: identity
+  };
+}
+
 export function formatPrice(price) {
   if (!price && price !== 0) return "0₫";
   const num = Number(price);

@@ -46,10 +46,8 @@
         <thead>
           <tr>
             <th>Mã hóa đơn</th>
-            <th>Khách hàng</th>
             <th>Sản phẩm</th>
             <th>Tổng tiền</th>
-            <th>Trạng thái đơn</th>
             <th>Thanh toán</th>
             <th>Thao tác</th>
           </tr>
@@ -57,28 +55,11 @@
         <tbody>
           <tr v-for="order in invoices" :key="order.posOrderId">
             <td><strong>{{ order.invoiceNumber }}</strong></td>
-            <td>
-              <div class="main-text">{{ order.customerName || 'Khách lẻ' }}</div>
-              <div class="sub-text">{{ order.customerPhone || '-' }}</div>
-            </td>
             <td>{{ order.items?.length || 0 }} sản phẩm</td>
             <td class="price">{{ formatPrice(order.total) }}</td>
             <td>
-              <select 
-                v-model="order.orderStatus" 
-                class="status-select" 
-                :class="`status-${order.orderStatus?.toLowerCase()}`" 
-                :disabled="order.orderStatus === 'CANCELLED' || order.orderStatus === 'COMPLETED'"
-                @change="handleStatusChange(order)"
-              >
-                <option value="PENDING">Chờ xử lý</option>
-                <option value="COMPLETED">Hoàn thành</option>
-                <option value="CANCELLED">Đã hủy</option>
-              </select>
-            </td>
-            <td>
-              <span :class="['badge', getPaymentBadge(order.paymentStatus)]">
-                {{ getPaymentMethodText(order.payments) }}
+              <span :class="['badge', getPaymentBadge(order)]">
+                {{ getPaymentMethodText(order) }}
               </span>
             </td>
             <td>
@@ -110,7 +91,7 @@
             </td>
           </tr>
           <tr v-if="invoices.length === 0">
-            <td colspan="7" style="text-align: center; padding: 20px; color: var(--medium-gray);">
+            <td colspan="5" style="text-align: center; padding: 20px; color: var(--medium-gray);">
               Quầy hiện tại chưa có hóa đơn nào phù hợp.
             </td>
           </tr>
@@ -164,8 +145,8 @@
                 <div class="info-group">
                   <label>Thanh toán:</label>
                   <div>
-                    <span :class="['badge', (selectedInvoice.posOrderPaymentStatus || selectedInvoice.paymentStatus) === 'PAID' ? 'badge-success' : 'badge-warning']">
-                      {{ (selectedInvoice.posOrderPaymentStatus || selectedInvoice.paymentStatus) === 'PAID' ? 'Đã thanh toán' : 'Chưa thanh toán' }}
+                    <span :class="['badge', getPaymentBadge(selectedInvoice)]">
+                      {{ getPaymentMethodText(selectedInvoice) }}
                     </span>
                   </div>
                 </div>
@@ -451,15 +432,33 @@ const printInvoice = async (orderId) => {
   }
 };
 
-const getPaymentBadge = (status) => {
-  if (status === 'PAID') return 'badge-success';
-  if (status === 'UNPAID') return 'badge-warning';
-  return 'badge-danger';
+const getOrderPaymentMethod = (order) => {
+  if (!order) return 'CASH';
+  
+  // 1. Kiểm tra mảng payments
+  if (Array.isArray(order.payments) && order.payments.length > 0) {
+    const methods = order.payments.map(p => (p.paymentMethod || '').toUpperCase());
+    if (methods.some(m => m.includes('VNPAY'))) return 'VNPAY';
+    if (methods.some(m => m.includes('CASH') || m.includes('TIEN_MAT'))) return 'CASH';
+  }
+  
+  // 2. Kiểm tra thuộc tính phương thức thanh toán trực tiếp trên đơn hàng
+  const directMethod = (order.paymentMethod || order.posOrderPaymentMethod || order.paymentMode || order.method || '').toUpperCase();
+  if (directMethod.includes('VNPAY')) return 'VNPAY';
+  
+  return 'CASH';
 };
 
-const getPaymentMethodText = (payments) => {
-  if (!payments || payments.length === 0) return 'Chưa thanh toán';
-  return payments.map(p => p.paymentMethod).join(', ');
+const getPaymentBadge = (order) => {
+  const method = getOrderPaymentMethod(order);
+  if (method === 'VNPAY') return 'badge-pink';
+  return 'badge-success'; // Tiền mặt luôn có màu xanh lá
+};
+
+const getPaymentMethodText = (order) => {
+  const method = getOrderPaymentMethod(order);
+  if (method === 'VNPAY') return 'VNPay';
+  return 'Tiền mặt';
 };
 
 const formatDate = (dateString) => {
@@ -701,6 +700,7 @@ const formatDate = (dateString) => {
 .badge-success { background: #d4edda; color: #155724; }
 .badge-warning { background: #fff3cd; color: #856404; }
 .badge-danger { background: #f8d7da; color: #721c24; }
+.badge-pink { background: #fff1f2; color: #be123c; border: 1px solid #fecdd3; }
 
 .modal-fade-enter-active,
 .modal-fade-leave-active {

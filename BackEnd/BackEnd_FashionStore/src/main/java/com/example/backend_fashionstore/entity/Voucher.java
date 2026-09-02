@@ -28,6 +28,9 @@ public class Voucher {
     @Column(name = "voucher_discount_percent", precision = 5, scale = 2)
     private BigDecimal voucherDiscountPercent;
 
+    @Column(name = "voucher_max_discount_amount", precision = 15, scale = 2) // ✅ Đã có
+    private BigDecimal voucherMaxDiscountAmount;
+
     @Column(name = "voucher_start_date", nullable = false)
     private LocalDateTime voucherStartDate;
 
@@ -61,6 +64,7 @@ public class Voucher {
         voucherUpdatedAt = LocalDateTime.now();
         if (voucherUsedCount == null) voucherUsedCount = 0;
         if (voucherMinOrderValue == null) voucherMinOrderValue = BigDecimal.ZERO;
+        if (voucherMaxDiscountAmount == null) voucherMaxDiscountAmount = BigDecimal.ZERO;
     }
 
     @PreUpdate

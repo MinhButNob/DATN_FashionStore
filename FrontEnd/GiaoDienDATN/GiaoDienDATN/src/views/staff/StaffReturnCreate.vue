@@ -1,53 +1,54 @@
 <template>
   <div class="staff-return-create">
     <div class="page-header">
-      <h2><i class="fas fa-undo-alt"></i> Tạo phiếu hoàn tiền</h2>
+      <h2><i class="fas fa-undo-alt"></i> Tạo phiếu hoàn trả đơn hàng</h2>
       <button class="btn btn-secondary" @click="goBack">
         <i class="fas fa-arrow-left"></i> Quay lại
       </button>
     </div>
 
-    <!-- Bước 1: Tìm đơn hàng theo SĐT -->
+    <!-- Bước 1: Tìm đơn hàng theo mã hóa đơn -->
     <div class="step-section" v-if="!selectedOrder">
       <div class="search-order-box">
         <h3>Bước 1: Tìm đơn hàng</h3>
-        <p class="hint">Nhập số điện thoại khách hàng để tìm đơn hàng đã mua tại quầy</p>
+        <p class="hint">
+          <i class="fas fa-info-circle"></i> 
+          Nhập mã hóa đơn trên hóa đơn giấy để tìm đơn hàng cần hoàn trả
+        </p>
         <div class="search-row">
           <input 
-            v-model="searchPhone" 
+            v-model="searchInvoice" 
             type="text" 
-            placeholder="Nhập số điện thoại khách hàng" 
-            @keyup.enter="searchOrders"
+            placeholder="Nhập mã hóa đơn (VD: POS-20260902-000001)" 
+            @keyup.enter="searchOrderByInvoice"
           />
-          <button class="btn btn-primary" @click="searchOrders" :disabled="loading">
+          <button class="btn btn-primary" @click="searchOrderByInvoice" :disabled="loading">
             <i class="fas fa-search"></i> Tìm
           </button>
         </div>
         <div v-if="loading" class="loading-state">
           <i class="fas fa-spinner fa-spin"></i> Đang tìm kiếm...
         </div>
-        <div v-else-if="orderSearchResults.length > 0" class="order-results">
-          <div 
-            v-for="order in orderSearchResults" 
-            :key="order.posOrderId"
-            class="order-result-item"
-            @click="selectOrder(order)"
-          >
+        <div v-else-if="foundOrder" class="order-found">
+          <div class="order-result-item found">
             <div class="order-info">
-              <strong>{{ order.posOrderInvoiceNumber || order.invoiceNumber }}</strong>
-              <span>{{ order.posOrderCustomerName || order.customerName || 'Khách lẻ' }}</span>
-              <span class="price">{{ formatPrice(order.posOrderTotalAmount || order.totalAmount) }}</span>
-              <span class="order-date">{{ formatDate(order.posOrderCreatedAt || order.createdAt) }}</span>
+              <strong>{{ foundOrder.posOrderInvoiceNumber || foundOrder.invoiceNumber }}</strong>
+              <span>{{ foundOrder.posOrderCustomerName || foundOrder.customerName || 'Khách lẻ' }}</span>
+              <span class="price">{{ formatPrice(foundOrder.posOrderTotalAmount || foundOrder.totalAmount) }}</span>
+              <span class="order-date">{{ formatDate(foundOrder.posOrderCreatedAt || foundOrder.createdAt) }}</span>
             </div>
-            <span class="badge" :class="`badge-${(order.posOrderStatus || order.orderStatus)?.toLowerCase()}`">
-              {{ (order.posOrderStatus || order.orderStatus) === 'COMPLETED' ? 'Hoàn thành' : (order.posOrderStatus || order.orderStatus) }}
+            <span class="badge" :class="`badge-${(foundOrder.posOrderStatus || foundOrder.orderStatus)?.toLowerCase()}`">
+              {{ (foundOrder.posOrderStatus || foundOrder.orderStatus) === 'COMPLETED' ? 'Hoàn thành' : (foundOrder.posOrderStatus || foundOrder.orderStatus) }}
             </span>
+            <button class="btn btn-primary btn-sm" @click="selectFoundOrder">
+              <i class="fas fa-check"></i> Chọn
+            </button>
           </div>
         </div>
-        <div v-else-if="searched && orderSearchResults.length === 0" class="empty-state">
+        <div v-else-if="searched && !foundOrder" class="empty-state">
           <i class="fas fa-search"></i>
-          <p>Không tìm thấy đơn hàng nào với SĐT: <strong>{{ searchPhone }}</strong></p>
-          <p class="hint">Vui lòng kiểm tra lại số điện thoại</p>
+          <p>Không tìm thấy đơn hàng nào với mã: <strong>{{ searchInvoice }}</strong></p>
+          <p class="hint">Vui lòng kiểm tra lại mã hóa đơn</p>
         </div>
       </div>
     </div>
@@ -65,14 +66,11 @@
         </div>
       </div>
 
-      <!-- ✅ Chỉ giữ hoàn tiền mặt -->
+      <!-- Chỉ giữ hoàn tiền mặt -->
       <div class="return-type-select">
-        <h3>Bước 2: Xác nhận hoàn tiền</h3>
+        <h3>Bước 2: Xác nhận loại hoàn trả</h3>
         <div class="type-buttons">
-          <button 
-            class="type-btn active"
-            disabled
-          >
+          <button class="type-btn active" disabled>
             <i class="fas fa-money-bill-wave"></i>
             Hoàn tiền mặt
           </button>
@@ -156,8 +154,8 @@
       <div class="reason-section">
         <h3>Bước 4: Lý do và ghi chú</h3>
         <div class="form-group">
-          <label>Lý do hoàn tiền <span class="required">*</span></label>
-          <textarea v-model="reason" rows="3" placeholder="Nhập lý do hoàn tiền..."></textarea>
+          <label>Lý do hoàn trả <span class="required">*</span></label>
+          <textarea v-model="reason" rows="3" placeholder="Nhập lý do hoàn trả..."></textarea>
         </div>
         <div class="form-group">
           <label>Ghi chú</label>
@@ -167,7 +165,7 @@
 
       <!-- TÓM TẮT PHIẾU -->
       <div class="summary-section">
-        <h3>Tóm tắt phiếu hoàn tiền</h3>
+        <h3>Tóm tắt phiếu hoàn trả</h3>
         
         <!-- Hiển thị thông tin voucher nếu có -->
         <div class="voucher-summary" v-if="orderVoucher">
@@ -201,7 +199,7 @@
 
         <!-- Chi tiết từng sản phẩm hoàn -->
         <div class="return-items-summary" v-if="returnItems.length > 0">
-          <h4>Chi tiết sản phẩm hoàn:</h4>
+          <h4>Chi tiết sản phẩm hoàn trả:</h4>
           <div v-for="item in returnItems" :key="item.orderItemId" class="return-item-summary">
             <span class="item-name">{{ item.productName }}</span>
             <span class="item-qty">x{{ item.quantity }}</span>
@@ -218,7 +216,7 @@
           <button class="btn btn-primary" @click="submitReturn" :disabled="submitting || !isValid">
             <i v-if="!submitting" class="fas fa-check"></i>
             <i v-else class="fas fa-spinner fa-spin"></i>
-            {{ submitting ? 'Đang xử lý...' : 'Xác nhận hoàn tiền' }}
+            {{ submitting ? 'Đang xử lý...' : 'Xác nhận hoàn trả' }}
           </button>
         </div>
       </div>
@@ -242,8 +240,8 @@ const { showNotification } = useNotification();
 const loading = ref(false);
 const submitting = ref(false);
 const searched = ref(false);
-const searchPhone = ref("");
-const orderSearchResults = ref([]);
+const searchInvoice = ref("");
+const foundOrder = ref(null);
 const selectedOrder = ref(null);
 const orderItems = ref([]);
 const orderVoucher = ref(null);
@@ -288,49 +286,99 @@ const isValid = computed(() => {
 
 // ==================== METHODS ====================
 
-// Tìm kiếm đơn hàng theo số điện thoại
-const searchOrders = async () => {
-  if (!searchPhone.value.trim()) {
-    showNotification("Vui lòng nhập số điện thoại!", "warning");
+/**
+ * Tìm kiếm đơn hàng theo mã hóa đơn
+ */
+const searchOrderByInvoice = async () => {
+  if (!searchInvoice.value.trim()) {
+    showNotification("Vui lòng nhập mã hóa đơn!", "warning");
     return;
   }
   
   loading.value = true;
   searched.value = true;
+  foundOrder.value = null;
+  
   try {
-    const response = await api.get('/pos/orders/search-by-phone', {
-      params: { phone: searchPhone.value.trim() }
+    const response = await api.get('/pos/return-exchange/orders/search', {
+      params: { invoiceNumber: searchInvoice.value.trim() }
     });
     
-    let data = response?.data?.data || response?.data || response;
+    console.log("📦 Full API Response:", response);
     
-    if (data && typeof data === 'object' && !Array.isArray(data)) {
-      if (data.content) data = data.content;
-      else if (data.items) data = data.items;
-      else data = [data];
-    }
+    // ✅ Lấy dữ liệu từ response - response.data là object trả về trực tiếp
+    const data = response?.data;
     
-    orderSearchResults.value = Array.isArray(data) ? data : [];
+    console.log("📦 Parsed data:", data);
     
-    if (orderSearchResults.value.length === 0) {
-      showNotification(`Không tìm thấy đơn hàng nào với SĐT: ${searchPhone.value}`, "info");
+    if (data) {
+      // ✅ Kiểm tra nếu data là string (lỗi từ backend)
+      if (typeof data === 'string') {
+        showNotification(data, "error");
+        foundOrder.value = null;
+        return;
+      }
+      
+      // ✅ Kiểm tra nếu data có success = false
+      if (data.success === false) {
+        showNotification(data.message || "Không thể tìm đơn hàng", "error");
+        foundOrder.value = null;
+        return;
+      }
+      
+      // ✅ Data có thể là object trực tiếp (không wrap)
+      // Kiểm tra các trường cần thiết
+      if (data.posOrderId || data.posOrderInvoiceNumber) {
+        foundOrder.value = data;
+        console.log("✅ Found order:", foundOrder.value);
+        showNotification(`Đã tìm thấy đơn hàng: ${data.posOrderInvoiceNumber}`, "success");
+      } else {
+        showNotification(`Không tìm thấy đơn hàng với mã: ${searchInvoice.value}`, "info");
+        foundOrder.value = null;
+      }
     } else {
-      showNotification(`Tìm thấy ${orderSearchResults.value.length} đơn hàng!`, "success");
+      showNotification(`Không tìm thấy đơn hàng với mã: ${searchInvoice.value}`, "info");
+      foundOrder.value = null;
     }
   } catch (error) {
-    console.error("Search orders error:", error);
-    showNotification(error.response?.data?.message || "Không thể tìm kiếm đơn hàng", "error");
-    orderSearchResults.value = [];
+    console.error("Search order by invoice error:", error);
+    
+    // ✅ Xử lý lỗi chi tiết từ backend
+    let errorMessage = "Không thể tìm kiếm đơn hàng";
+    
+    if (error.response?.status === 409) {
+      // Conflict - đơn hàng đã được xử lý
+      const errorData = error.response.data;
+      errorMessage = errorData?.message || "Đơn hàng này đã được xử lý đổi/trả trước đó";
+      showNotification(errorMessage, "error");
+    } else if (error.response?.data) {
+      // Nếu response là string
+      if (typeof error.response.data === 'string') {
+        errorMessage = error.response.data;
+      } else if (error.response.data.message) {
+        errorMessage = error.response.data.message;
+      } else {
+        errorMessage = JSON.stringify(error.response.data);
+      }
+      showNotification(errorMessage, "error");
+    } else if (error.message) {
+      errorMessage = error.message;
+      showNotification(errorMessage, "error");
+    }
+    
+    foundOrder.value = null;
   } finally {
     loading.value = false;
   }
 };
 
-// Chọn đơn hàng để hoàn trả
-const selectOrder = async (order) => {
-  console.log("🛒 Selected order:", order);
+// Chọn đơn hàng tìm thấy
+const selectFoundOrder = async () => {
+  if (!foundOrder.value) return;
   
-  selectedOrder.value = order;
+  console.log("📦 Selecting order:", foundOrder.value);
+  
+  selectedOrder.value = foundOrder.value;
   selectedItemIds.value = [];
   returnQuantities.value = {};
   itemConditions.value = {};
@@ -339,36 +387,36 @@ const selectOrder = async (order) => {
   notes.value = "";
   orderVoucher.value = null;
   
-  await loadOrderItems(order.posOrderId);
-  await loadOrderVoucher(order.posOrderId);
-  
-  console.log("📦 Order items after load:", orderItems.value);
-  console.log("📦 Voucher:", orderVoucher.value);
+  await loadOrderItems(selectedOrder.value.posOrderId);
+  await loadOrderVoucher(selectedOrder.value.posOrderId);
 };
 
 // Lấy danh sách sản phẩm của đơn hàng
 const loadOrderItems = async (orderId) => {
+  console.log("📦 Loading items for order:", orderId);
+  
   try {
-    console.log("📦 Loading items for order:", orderId);
-    
     const response = await api.get(`/pos/orders/${orderId}/detail`);
-    console.log("📦 Full API Response:", response);
+    console.log("📦 Order detail response:", response);
     
     let data = response?.data?.data || response?.data || response;
-    console.log("📦 Parsed data:", data);
+    console.log("📦 Order detail data:", data);
     
     let items = [];
     if (data && typeof data === 'object') {
       if (data.items && Array.isArray(data.items)) {
         items = data.items;
+        console.log("📦 Found items in data.items:", items.length);
       } else if (Array.isArray(data)) {
         items = data;
+        console.log("📦 Found items in data (array):", items.length);
       } else if (data.content && Array.isArray(data.content)) {
         items = data.content;
+        console.log("📦 Found items in data.content:", items.length);
       }
     }
     
-    console.log("📦 Items array length:", items.length);
+    console.log("📦 Items array:", items);
     
     if (items.length > 0) {
       orderItems.value = items.map(item => {
@@ -396,13 +444,13 @@ const loadOrderItems = async (orderId) => {
         };
       });
       console.log("✅ Loaded items:", orderItems.value);
+      showNotification(`Đã tải ${orderItems.value.length} sản phẩm`, "success");
     } else {
-      console.warn("⚠️ No items found for order:", orderId);
       orderItems.value = [];
       showNotification("Không tìm thấy sản phẩm trong đơn hàng này", "warning");
     }
   } catch (error) {
-    console.error("❌ Load order items error:", error);
+    console.error("Load order items error:", error);
     showNotification(error.response?.data?.message || "Không thể tải sản phẩm", "error");
     orderItems.value = [];
   }
@@ -415,6 +463,7 @@ const loadOrderVoucher = async (orderId) => {
     const data = response?.data?.data || response?.data;
     if (data) {
       orderVoucher.value = data;
+      console.log("✅ Loaded voucher:", orderVoucher.value);
     }
   } catch (error) {
     console.warn("Không lấy được voucher:", error);
@@ -452,14 +501,16 @@ const updateReturnItems = () => {
       };
     })
     .filter(item => item !== null);
+  
+  console.log("📦 Return items updated:", returnItems.value);
 };
 
 // Reset tất cả
 const resetAll = () => {
   if (confirm("Bạn có chắc muốn hủy bỏ tất cả?")) {
     selectedOrder.value = null;
-    searchPhone.value = "";
-    orderSearchResults.value = [];
+    foundOrder.value = null;
+    searchInvoice.value = "";
     selectedItemIds.value = [];
     returnQuantities.value = {};
     itemConditions.value = {};
@@ -470,7 +521,7 @@ const resetAll = () => {
   }
 };
 
-// Gửi yêu cầu hoàn tiền
+// Gửi yêu cầu hoàn trả
 const submitReturn = async () => {
   if (!isValid.value) return;
   
@@ -494,6 +545,8 @@ const submitReturn = async () => {
       }))
     };
     
+    console.log("📦 Submit return payload:", payload);
+    
     const response = await posReturnExchangeService.createReturnExchange(payload);
     const result = response?.data?.data || response?.data;
     
@@ -506,7 +559,7 @@ const submitReturn = async () => {
     router.push('/staff/returns');
   } catch (error) {
     console.error("Submit return error:", error);
-    showNotification(error.response?.data?.message || "Không thể tạo phiếu hoàn tiền", "error");
+    showNotification(error.response?.data?.message || "Không thể tạo phiếu hoàn trả", "error");
   } finally {
     submitting.value = false;
   }
@@ -541,6 +594,7 @@ onMounted(async () => {
       if (data) {
         if (data.order) {
           selectedOrder.value = data.order;
+          foundOrder.value = data.order;
           console.log("✅ Selected order:", selectedOrder.value);
         }
         
@@ -574,20 +628,12 @@ onMounted(async () => {
             };
           });
           console.log("✅ Loaded items from query:", orderItems.value);
-        } else {
-          console.warn("⚠️ No items found for order:", orderId);
-          orderItems.value = [];
         }
         
         await loadOrderVoucher(orderId);
-        
-        if (phone) {
-          searchPhone.value = phone;
-          await searchOrders();
-        }
       }
     } catch (error) {
-      console.error("❌ Load order by id error:", error);
+      console.error("Load order by id error:", error);
       showNotification(error.response?.data?.message || "Không thể tải đơn hàng", "error");
     }
   }
@@ -672,6 +718,11 @@ onMounted(async () => {
   transform: translateY(-1px);
 }
 
+.btn-sm {
+  padding: 6px 14px;
+  font-size: 12px;
+}
+
 /* ---------- STEP SECTIONS ---------- */
 .step-section {
   background: white;
@@ -748,74 +799,20 @@ onMounted(async () => {
   color: #bbb;
 }
 
-/* ---------- LOADING & EMPTY STATE ---------- */
-.loading-state,
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 50px 20px;
-  color: #999;
-}
-
-.loading-state i,
-.empty-state i {
-  font-size: 36px;
-  margin-bottom: 14px;
-  opacity: 0.6;
-}
-
-.loading-state i {
-  color: #e63946;
-}
-
-.empty-state i {
-  color: #ccc;
-}
-
-/* ---------- ORDER RESULTS ---------- */
-.order-results {
+/* ---------- ORDER FOUND ---------- */
+.order-found {
   margin-top: 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  max-height: 400px;
-  overflow-y: auto;
-  padding-right: 6px;
 }
 
-.order-results::-webkit-scrollbar {
-  width: 6px;
-}
-
-.order-results::-webkit-scrollbar-track {
-  background: #f0f0f2;
-  border-radius: 10px;
-}
-
-.order-results::-webkit-scrollbar-thumb {
-  background: #ddd;
-  border-radius: 10px;
-}
-
-.order-result-item {
+.order-result-item.found {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 16px 20px;
-  border: 2px solid #e8e8ef;
+  border: 2px solid #28a745;
   border-radius: 12px;
-  cursor: pointer;
+  background: #f0fff4;
   transition: all 0.25s ease;
-  background: white;
-}
-
-.order-result-item:hover {
-  border-color: #e63946;
-  background: #fef5f5;
-  transform: translateX(4px);
-  box-shadow: 0 2px 12px rgba(230, 57, 70, 0.08);
 }
 
 .order-info {
@@ -840,6 +837,32 @@ onMounted(async () => {
 .order-date {
   color: #999;
   font-size: 13px;
+}
+
+/* ---------- LOADING & EMPTY STATE ---------- */
+.loading-state,
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 50px 20px;
+  color: #999;
+}
+
+.loading-state i,
+.empty-state i {
+  font-size: 36px;
+  margin-bottom: 14px;
+  opacity: 0.6;
+}
+
+.loading-state i {
+  color: #e63946;
+}
+
+.empty-state i {
+  color: #ccc;
 }
 
 /* ---------- BADGES ---------- */
@@ -1263,10 +1286,6 @@ onMounted(async () => {
   color: #dc3545;
 }
 
-.text-success {
-  color: #28a745;
-}
-
 /* ---------- RETURN ITEMS SUMMARY ---------- */
 .return-items-summary {
   margin-top: 18px;
@@ -1394,7 +1413,7 @@ onMounted(async () => {
     padding: 14px 16px;
   }
   
-  .order-result-item {
+  .order-result-item.found {
     flex-direction: column;
     align-items: flex-start;
     gap: 10px;
@@ -1402,6 +1421,7 @@ onMounted(async () => {
   
   .order-info {
     gap: 10px;
+    flex-wrap: wrap;
   }
   
   .summary-grid {

@@ -146,7 +146,7 @@
                     @click="confirmRestore(voucher.voucherId)"
                     title="Khôi phục"
                   >
-                    <i class="fas fa-trash-restore"></i>
+                    <i class="fas fa-undo"></i>
                   </button>
                 </template>
 
@@ -174,7 +174,7 @@
                     <i
                       :class="
                         voucher.voucherStatus === 'ACTIVE'
-                          ? 'fas fa-stop'
+                          ? 'fas fa-pause'
                           : 'fas fa-play'
                       "
                     ></i>
@@ -184,7 +184,7 @@
                     @click="confirmDelete(voucher.voucherId)"
                     title="Xóa"
                   >
-                    <i class="fas fa-trash"></i>
+                    <i class="fas fa-trash-alt"></i>
                   </button>
                 </template>
               </div>
@@ -363,6 +363,10 @@ const formatDiscount = (voucher) => {
     return formatPrice(voucher.voucherDiscountAmount);
   }
   if (voucher.voucherDiscountPercent && voucher.voucherDiscountPercent > 0) {
+    const max = voucher.voucherMaxDiscountAmount || voucher.voucherMaxDiscount || voucher.maxDiscountAmount || voucher.maxDiscount;
+    if (max && max > 0) {
+      return `${voucher.voucherDiscountPercent}% (Tối đa ${formatPrice(max)})`;
+    }
     return voucher.voucherDiscountPercent + "%";
   }
   return "---";
@@ -604,26 +608,28 @@ onMounted(() => {
 }
 .action-buttons {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
 }
 .action-btn {
-  width: 32px;
-  height: 32px;
+  width: 35px;
+  height: 35px;
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  font-size: 14px;
   transition: all 0.3s;
 }
 .edit-btn {
   background: #ffc107;
-  color: #333;
+  color: #212529;
 }
 .edit-btn:hover {
   background: #e0a800;
+  transform: translateY(-2px);
 }
 .status-active-btn {
   background: #28a745;
@@ -631,27 +637,31 @@ onMounted(() => {
 }
 .status-active-btn:hover {
   background: #218838;
+  transform: translateY(-2px);
 }
 .status-inactive-btn {
-  background: #dc3545;
-  color: white;
-}
-.status-inactive-btn:hover {
-  background: #c82333;
-}
-.delete-btn {
   background: #6c757d;
   color: white;
 }
-.delete-btn:hover {
+.status-inactive-btn:hover {
   background: #5a6268;
+  transform: translateY(-2px);
+}
+.delete-btn {
+  background: #dc3545;
+  color: white;
+}
+.delete-btn:hover {
+  background: #c82333;
+  transform: translateY(-2px);
 }
 .restore-btn {
-  background: #17a2b8;
+  background: #28a745;
   color: white;
 }
 .restore-btn:hover {
-  background: #138496;
+  background: #218838;
+  transform: translateY(-2px);
 }
 .loading-container {
   display: flex;

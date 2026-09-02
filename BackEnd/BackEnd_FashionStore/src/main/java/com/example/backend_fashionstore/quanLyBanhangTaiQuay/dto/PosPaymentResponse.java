@@ -8,13 +8,11 @@ import java.time.LocalDateTime;
 public class PosPaymentResponse {
     private Integer posPaymentId;
     private Integer paymentMethodId;
-    private String paymentMethodName;
+    private String paymentMethodName;  // ✅ Thêm tên phương thức thanh toán
     private BigDecimal amount;
     private String referenceNumber;
     private String status;
     private LocalDateTime processedAt;
-    /** Trả về khi tạo link VNPay tại quầy; null với tiền mặt */
-    private String paymentUrl;
-    /** Mã txnRef VNPay của phiên này; null với tiền mặt */
-    private String txnRef;
+    private String paymentUrl;  // VNPay URL
+    private String txnRef;      // VNPay transaction reference
 }

@@ -59,6 +59,10 @@ public class PosReturnExchangeItem {
     @Column(name = "condition_status", length = 20)
     private String condition; // GOOD hoặc DAMAGED
 
+    // ✅ THÊM: ID đơn hàng mới (khi đổi sản phẩm)
+    @Column(name = "return_exchange_item_order_id")
+    private Integer returnExchangeItemOrderId;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

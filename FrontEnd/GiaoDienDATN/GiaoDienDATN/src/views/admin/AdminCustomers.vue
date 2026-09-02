@@ -590,10 +590,10 @@ onMounted(() => {
 }
 
 .action-btn {
-  width: 32px;
-  height: 32px;
+  width: 35px;
+  height: 35px;
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -617,12 +617,12 @@ onMounted(() => {
 }
 
 .edit-btn {
-  background: #6f42c1;
-  color: white;
+  background: #ffc107;
+  color: #212529;
 }
 
 .edit-btn:hover {
-  background: #5a32a3;
+  background: #e0a800;
 }
 
 .unlock-btn {

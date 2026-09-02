@@ -15,21 +15,18 @@
     <!-- Stats Row -->
     <div class="stats-row" v-if="statistics">
       <div class="stat-card stat-total">
-        <div class="stat-icon">📦</div>
         <div class="stat-info">
           <div class="stat-value">{{ statistics.totalProducts || 0 }}</div>
           <div class="stat-label">Tổng sản phẩm</div>
         </div>
       </div>
       <div class="stat-card stat-active">
-        <div class="stat-icon">✅</div>
         <div class="stat-info">
           <div class="stat-value">{{ statistics.inStockVariants || 0 }}</div>
           <div class="stat-label">Biến thể còn hàng</div>
         </div>
       </div>
       <div class="stat-card stat-warning">
-        <div class="stat-icon">⚠️</div>
         <div class="stat-info">
           <div class="stat-value">{{ statistics.lowStockVariants || 0 }}</div>
           <div class="stat-label">Sắp hết hàng</div>
@@ -40,14 +37,14 @@
     <!-- Filter Bar -->
     <div class="filter-bar">
       <div class="search-box">
-        <span class="search-icon">🔍</span>
+        <i class="fas fa-search search-icon"></i>
         <input
           v-model="searchKeyword"
           @keyup.enter="fetchProducts"
           placeholder="Tìm kiếm sản phẩm..."
           autocomplete="off"
         />
-        <button v-if="searchKeyword" class="clear-search" @click="searchKeyword = ''; fetchProducts()">✕</button>
+        <button v-if="searchKeyword" class="clear-search" @click="searchKeyword = ''; fetchProducts()"><i class="fas fa-times"></i></button>
       </div>
       <select v-model="selectedCategoryId" @change="fetchProducts" class="filter-select">
         <option :value="null">Tất cả danh mục</option>
@@ -61,9 +58,11 @@
         <option value="INACTIVE">Ngừng bán</option>
         <option value="DELETED">Đã xóa</option>
       </select>
-      <button class="btn-search" @click="fetchProducts">Tìm kiếm</button>
+      <button class="btn-search" @click="fetchProducts">
+        <i class="fas fa-search"></i> Tìm kiếm
+      </button>
       <button v-if="searchKeyword || selectedCategoryId || selectedStatus" class="btn-reset" @click="resetFilters">
-        <span class="btn-icon">↺</span> Reset
+        <i class="fas fa-sync-alt"></i> Làm mới
       </button>
     </div>
 
@@ -175,7 +174,7 @@
           <tr v-if="allProducts.length === 0 && !loading">
             <td colspan="6" class="empty-row">
               <div class="empty-state">
-                <div class="empty-icon">📭</div>
+                <div class="empty-icon"><i class="fas fa-box-open"></i></div>
                 <p>Không có sản phẩm nào</p>
                 <button class="btn-retry" @click="fetchProducts">Tải lại</button>
               </div>

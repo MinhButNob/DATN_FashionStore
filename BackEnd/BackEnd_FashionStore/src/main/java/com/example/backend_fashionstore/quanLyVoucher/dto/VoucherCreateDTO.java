@@ -23,6 +23,10 @@ public class VoucherCreateDTO {
     @DecimalMax(value = "100.0", message = "Phần trăm giảm tối đa 100%")
     private BigDecimal voucherDiscountPercent;
 
+    // ✅ THÊM: Số tiền giảm tối đa
+    @DecimalMin(value = "0.0", message = "Số tiền giảm tối đa phải >= 0")
+    private BigDecimal voucherMaxDiscountAmount;
+
     @NotNull(message = "Ngày bắt đầu không được để trống")
     private LocalDateTime voucherStartDate;
 
