@@ -195,8 +195,7 @@ const tasks = ref([
 const quickActions = [
   { name: 'Tạo hóa đơn',        path: '/staff/pos',       icon: 'fas fa-plus-circle' },
   { name: 'Tra cứu đơn',        path: '/staff/orders',    icon: 'fas fa-search'      },
-  { name: 'Thêm khách',         path: '/staff/customers', icon: 'fas fa-user-plus'   },
-  { name: 'Tiếp nhận đổi trả',  path: '/staff/returns',   icon: 'fas fa-receipt'     },
+  { name: 'Tiếp nhận hoàn hàng',  path: '/staff/returns',   icon: 'fas fa-receipt'     },
   { name: 'Sản phẩm hỏng',      path: '/staff/damaged-products', icon: 'fas fa-box-open' },
 ];
 

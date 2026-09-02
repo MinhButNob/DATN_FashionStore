@@ -7,35 +7,31 @@
         <p class="subtitle">Quản lý toàn bộ thông tin nhân viên</p>
       </div>
       <button class="btn-add" @click="openCreateModal">
-        <span class="btn-icon">＋</span> Thêm nhân viên
+        <i class="fas fa-plus"></i> Thêm nhân viên
       </button>
     </div>
 
     <!-- Thống kê -->
     <div class="stats-row">
       <div class="stat-card stat-total">
-        <div class="stat-icon">👥</div>
         <div class="stat-info">
           <div class="stat-value">{{ statistics.totalEmployees || 0 }}</div>
           <div class="stat-label">Tổng nhân viên</div>
         </div>
       </div>
       <div class="stat-card stat-active">
-        <div class="stat-icon">✅</div>
         <div class="stat-info">
           <div class="stat-value">{{ statistics.activeEmployees || 0 }}</div>
           <div class="stat-label">Đang hoạt động</div>
         </div>
       </div>
       <div class="stat-card stat-locked">
-        <div class="stat-icon">🔒</div>
         <div class="stat-info">
           <div class="stat-value">{{ statistics.lockedEmployees || 0 }}</div>
           <div class="stat-label">Tạm khóa</div>
         </div>
       </div>
       <div class="stat-card stat-deleted">
-        <div class="stat-icon">🗑️</div>
         <div class="stat-info">
           <div class="stat-value">{{ statistics.deletedEmployees || 0 }}</div>
           <div class="stat-label">Đã xóa</div>
@@ -45,22 +41,22 @@
 
     <!-- Hiển thị lỗi nếu có -->
     <div v-if="error" class="error-alert">
-      <span class="error-icon">⚠️</span>
+      <span class="error-icon"><i class="fas fa-exclamation-triangle"></i></span>
       <span class="error-message">{{ error }}</span>
-      <button class="error-close" @click="clearError">✕</button>
+      <button class="error-close" @click="clearError"><i class="fas fa-times"></i></button>
     </div>
 
     <!-- Tìm kiếm và lọc -->
     <div class="filter-bar">
       <div class="search-box">
-        <span class="search-icon">🔍</span>
+        <i class="fas fa-search search-icon"></i>
         <input
           v-model="searchKeyword"
           @keyup.enter="handleSearch"
           placeholder="Tìm theo tên, số điện thoại, email, chức vụ..."
           autocomplete="off"
         />
-        <button v-if="searchKeyword" class="clear-search" @click="searchKeyword = ''; handleSearch()">✕</button>
+        <button v-if="searchKeyword" class="clear-search" @click="searchKeyword = ''; handleSearch()"><i class="fas fa-times"></i></button>
       </div>
       <select v-model="filterStatus" @change="handleSearch" class="filter-select">
         <option value="">Tất cả trạng thái</option>
@@ -75,7 +71,9 @@
         <option :value="20">20 / trang</option>
         <option :value="50">50 / trang</option>
       </select>
-      <button class="btn-search" @click="handleSearch">Tìm kiếm</button>
+      <button class="btn-search" @click="handleSearch">
+        <i class="fas fa-search"></i> Tìm kiếm
+      </button>
     </div>
 
     <!-- Bảng nhân viên -->
@@ -134,7 +132,7 @@
             <td class="actions">
               <div class="action-buttons">
                 <!-- Xem chi tiết -->
-                <button class="action-btn view-btn" @click="viewDetail(emp)" title="Xem chi tiết">👁️</button>
+                <button class="action-btn view-btn" @click="viewDetail(emp)" title="Xem chi tiết"><i class="fas fa-eye"></i></button>
 
                 <!-- Sửa & Xóa - chỉ hiện khi chưa xóa -->
                 <template v-if="emp.userStatus !== 'DELETED'">
@@ -142,17 +140,17 @@
                     class="action-btn edit-btn" 
                     @click="openEditModal(emp)" 
                     title="Sửa">
-                    ✏️
+                    <i class="fas fa-edit"></i>
                   </button>
                   
                   <!-- Xóa mềm -->
-                  <button class="action-btn delete-btn" @click="confirmDelete(emp)" title="Xóa">🗑️</button>
+                  <button class="action-btn delete-btn" @click="confirmDelete(emp)" title="Xóa"><i class="fas fa-trash-alt"></i></button>
                 </template>
 
                 <!-- Đã xóa: chỉ xem + nút khôi phục -->
                 <template v-else>
                   <span class="readonly-label">Chỉ xem</span>
-                  <button class="action-btn restore-btn" @click="confirmRestore(emp)" title="Khôi phục">↩️</button>
+                  <button class="action-btn restore-btn" @click="confirmRestore(emp)" title="Khôi phục"><i class="fas fa-undo"></i></button>
                 </template>
               </div>
             </td>
@@ -160,7 +158,7 @@
           <tr v-if="employees.length === 0 && !loading">
             <td colspan="10" class="empty-row">
               <div class="empty-state">
-                <div class="empty-icon">📭</div>
+                <div class="empty-icon"><i class="fas fa-box-open"></i></div>
                 <p>Không có dữ liệu nhân viên</p>
                 <button class="btn-retry" @click="handleSearch">Tải lại</button>
               </div>
@@ -809,24 +807,57 @@ openEditModal(employee) {
 }
 
 .action-btn {
-  background: none;
+  width: 35px;
+  height: 35px;
   border: none;
-  padding: 6px;
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
-  font-size: 16px;
-  transition: all 0.2s;
   display: flex;
   align-items: center;
   justify-content: center;
+  font-size: 14px;
+  transition: all 0.3s;
 }
 
-.view-btn:hover { background-color: #e8f4f8; }
-.edit-btn:hover { background-color: #fef3c7; }
-.lock-btn:hover { background-color: #fde8e8; }
-.unlock-btn:hover { background-color: #e8f8f5; }
-.delete-btn:hover { background-color: #fde8e8; }
-.restore-btn:hover { background-color: #e8f4f8; }
+.edit-btn {
+  background: #ffc107;
+  color: #212529;
+}
+
+.edit-btn:hover {
+  background: #e0a800;
+  transform: translateY(-2px);
+}
+
+.delete-btn {
+  background: #dc3545;
+  color: white;
+}
+
+.delete-btn:hover {
+  background: #c82333;
+  transform: translateY(-2px);
+}
+
+.view-btn {
+  background: #17a2b8;
+  color: white;
+}
+
+.view-btn:hover {
+  background: #138496;
+  transform: translateY(-2px);
+}
+
+.restore-btn {
+  background: #28a745;
+  color: white;
+}
+
+.restore-btn:hover {
+  background: #218838;
+  transform: translateY(-2px);
+}
 
 .readonly-label {
   font-size: 12px;

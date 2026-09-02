@@ -7,35 +7,31 @@
         <p class="subtitle">Quản lý các màu sắc sản phẩm và mã HEX tương ứng</p>
       </div>
       <button class="btn-add" @click="openCreateModal">
-        <span class="btn-icon">＋</span> Thêm màu mới
+        <i class="fas fa-plus"></i> Thêm màu mới
       </button>
     </div>
 
     <!-- Stats Row -->
     <div class="stats-row">
       <div class="stat-card stat-total">
-        <div class="stat-icon">🎨</div>
         <div class="stat-info">
           <div class="stat-value">{{ totalColors }}</div>
           <div class="stat-label">Tổng số màu</div>
         </div>
       </div>
       <div class="stat-card stat-active">
-        <div class="stat-icon">✅</div>
         <div class="stat-info">
           <div class="stat-value">{{ activeCount }}</div>
           <div class="stat-label">Đang hoạt động</div>
         </div>
       </div>
       <div class="stat-card stat-inactive">
-        <div class="stat-icon">⏸️</div>
         <div class="stat-info">
           <div class="stat-value">{{ inactiveCount }}</div>
           <div class="stat-label">Tạm dừng</div>
         </div>
       </div>
       <div class="stat-card stat-deleted">
-        <div class="stat-icon">🗑️</div>
         <div class="stat-info">
           <div class="stat-value">{{ deletedCount }}</div>
           <div class="stat-label">Đã xóa</div>
@@ -46,14 +42,14 @@
     <!-- Filter Bar -->
     <div class="filter-bar">
       <div class="search-box">
-        <span class="search-icon">🔍</span>
+        <i class="fas fa-search search-icon"></i>
         <input
           v-model="searchKeyword"
           @keyup.enter="searchColors"
           placeholder="Tìm kiếm theo mã hoặc tên màu..."
           autocomplete="off"
         />
-        <button v-if="searchKeyword" class="clear-search" @click="searchKeyword = ''; searchColors()">✕</button>
+        <button v-if="searchKeyword" class="clear-search" @click="searchKeyword = ''; searchColors()"><i class="fas fa-times"></i></button>
       </div>
       <select v-model="statusFilter" @change="filterColors" class="filter-select">
         <option value="all">Tất cả trạng thái</option>
@@ -67,9 +63,11 @@
         <option value="newest">Mới nhất</option>
         <option value="oldest">Cũ nhất</option>
       </select>
-      <button class="btn-search" @click="searchColors">Tìm kiếm</button>
+      <button class="btn-search" @click="searchColors">
+        <i class="fas fa-search"></i> Tìm kiếm
+      </button>
       <button v-if="searchKeyword || statusFilter !== 'all' || sortBy !== 'stt_asc'" class="btn-reset" @click="resetFilters">
-        <span class="btn-icon">↺</span> Reset
+        <i class="fas fa-sync-alt"></i> Làm mới
       </button>
     </div>
 
@@ -123,18 +121,18 @@
                 <template v-if="color._deletedAt">
                   <span class="readonly-label">Đã xóa</span>
                   <button class="action-btn restore-btn" @click="confirmRestore(color)" title="Khôi phục">
-                    ↩️
+                    <i class="fas fa-undo"></i>
                   </button>
                 </template>
                 <template v-else>
                   <button class="action-btn edit-btn" @click="openEditModal(color)" title="Sửa">
-                    ✏️
+                    <i class="fas fa-edit"></i>
                   </button>
                   <button class="action-btn toggle-btn" @click="toggleColorStatus(color)" :title="color.status === 'ACTIVE' ? 'Tạm dừng' : 'Kích hoạt'">
-                    {{ color.status === 'ACTIVE' ? '⏸️' : '▶️' }}
+                    <i :class="color.status === 'ACTIVE' ? 'fas fa-pause' : 'fas fa-play'"></i>
                   </button>
                   <button class="action-btn delete-btn" @click="confirmDelete(color)" title="Xóa">
-                    🗑️
+                    <i class="fas fa-trash-alt"></i>
                   </button>
                 </template>
               </div>
@@ -143,7 +141,7 @@
           <tr v-if="paginatedColors.length === 0">
             <td colspan="7" class="empty-row">
               <div class="empty-state">
-                <div class="empty-icon">📭</div>
+                <div class="empty-icon"><i class="fas fa-box-open"></i></div>
                 <p>Không có dữ liệu màu sắc</p>
                 <button class="btn-retry" @click="loadColors">Tải lại</button>
               </div>
@@ -946,38 +944,66 @@ export default {
 }
 
 .action-btn {
-  background: none;
+  width: 35px;
+  height: 35px;
   border: none;
-  padding: 6px;
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
-  font-size: 16px;
-  transition: all 0.2s;
   display: flex;
   align-items: center;
   justify-content: center;
+  font-size: 14px;
+  transition: all 0.3s;
 }
 
-.edit-btn:hover { background-color: #fef3c7; }
-.toggle-btn:hover { background-color: #e8f4f8; }
-.delete-btn:hover { background-color: #fde8e8; }
+.edit-btn {
+  background: #ffc107;
+  color: #212529;
+}
+
+.edit-btn:hover {
+  background: #e0a800;
+  transform: translateY(-2px);
+}
+
+.delete-btn {
+  background: #dc3545;
+  color: white;
+}
+
+.delete-btn:hover {
+  background: #c82333;
+  transform: translateY(-2px);
+}
+
+.view-btn {
+  background: #17a2b8;
+  color: white;
+}
+
+.view-btn:hover {
+  background: #138496;
+  transform: translateY(-2px);
+}
 
 .restore-btn {
-  background: #10b981;
+  background: #28a745;
   color: white;
-  border-radius: 6px;
-  padding: 6px 10px;
-  border: none;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
 }
 
 .restore-btn:hover {
-  background: #059669;
-  transform: scale(1.05);
+  background: #218838;
+  transform: translateY(-2px);
+}
+
+.toggle-btn {
+  background: #6c757d;
+  color: white;
+}
+
+.toggle-btn:hover {
+  background: #5a6268;
+  transform: translateY(-2px);
 }
 
 .readonly-label {

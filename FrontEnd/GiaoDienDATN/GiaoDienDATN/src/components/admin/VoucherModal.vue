@@ -60,6 +60,18 @@
             />
           </div>
 
+          <div class="form-group" v-if="discountType === 'percent'">
+            <label>Giá giảm tối đa (VNĐ)</label>
+            <input
+              type="number"
+              v-model="form.voucherMaxDiscountAmount"
+              class="form-control"
+              min="0"
+              step="1000"
+              placeholder="VD: 50000 (Để trống nếu không giới hạn)"
+            />
+          </div>
+
           <div class="form-row">
             <div class="form-group half">
               <label>Ngày bắt đầu *</label>
@@ -145,10 +157,12 @@ const form = ref({
   voucherCode: "",
   voucherDiscountAmount: null,
   voucherDiscountPercent: null,
+  voucherMaxDiscountAmount: null,
   voucherStartDate: "",
   voucherEndDate: "",
   voucherMaxUsage: null,
-  voucherMinOrderValue: 0 });
+  voucherMinOrderValue: 0
+});
 
 const submitting = ref(false);
 
@@ -171,10 +185,12 @@ watch(
         voucherCode: newData.voucherCode || "",
         voucherDiscountAmount: newData.voucherDiscountAmount || null,
         voucherDiscountPercent: newData.voucherDiscountPercent || null,
+        voucherMaxDiscountAmount: newData.voucherMaxDiscountAmount ?? newData.voucherMaxDiscount ?? newData.maxDiscountAmount ?? newData.maxDiscount ?? null,
         voucherStartDate: formatDateTime(newData.voucherStartDate),
         voucherEndDate: formatDateTime(newData.voucherEndDate),
         voucherMaxUsage: newData.voucherMaxUsage || null,
-        voucherMinOrderValue: newData.voucherMinOrderValue || 0 };
+        voucherMinOrderValue: newData.voucherMinOrderValue || 0
+      };
     }
   },
   { immediate: true },
@@ -188,10 +204,12 @@ watch(
         voucherCode: "",
         voucherDiscountAmount: null,
         voucherDiscountPercent: null,
+        voucherMaxDiscountAmount: null,
         voucherStartDate: "",
         voucherEndDate: "",
         voucherMaxUsage: null,
-        voucherMinOrderValue: 0 };
+        voucherMinOrderValue: 0
+      };
       discountType.value = "amount";
       submitting.value = false;
     }
@@ -211,6 +229,7 @@ const handleSubmit = async () => {
   // Validate discount value
   let discountAmount = null;
   let discountPercent = null;
+  let maxDiscountAmount = null;
 
   if (discountType.value === "amount") {
     if (form.value.voucherDiscountAmount === null || form.value.voucherDiscountAmount === "") {
@@ -231,6 +250,13 @@ const handleSubmit = async () => {
     if (isNaN(discountPercent) || discountPercent <= 0 || discountPercent > 100) {
       showNotification("Phần trăm giảm phải lớn hơn 0 và nhỏ hơn hoặc bằng 100!", "error");
       return;
+    }
+    if (form.value.voucherMaxDiscountAmount !== null && form.value.voucherMaxDiscountAmount !== "") {
+      maxDiscountAmount = parseFloat(form.value.voucherMaxDiscountAmount);
+      if (isNaN(maxDiscountAmount) || maxDiscountAmount < 0) {
+        showNotification("Giá giảm tối đa phải lớn hơn hoặc bằng 0!", "error");
+        return;
+      }
     }
   }
 
@@ -272,10 +298,14 @@ const handleSubmit = async () => {
     voucherCode: codeClean,
     voucherDiscountAmount: discountAmount,
     voucherDiscountPercent: discountPercent,
+    voucherMaxDiscountAmount: maxDiscountAmount,
+    voucherMaxDiscount: maxDiscountAmount,
+    maxDiscountAmount: maxDiscountAmount,
     voucherStartDate: form.value.voucherStartDate,
     voucherEndDate: form.value.voucherEndDate,
     voucherMaxUsage: maxUsage,
-    voucherMinOrderValue: minOrderValue };
+    voucherMinOrderValue: minOrderValue
+  };
 
   try {
     await emit("submit", submitData);

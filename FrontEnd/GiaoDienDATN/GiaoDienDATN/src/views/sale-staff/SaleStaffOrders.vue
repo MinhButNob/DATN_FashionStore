@@ -533,7 +533,6 @@
       <div class="modal-content return-modal">
         <div class="modal-header">
           <div class="header-title">
-            <i class="fas fa-undo-alt header-icon"></i>
             <h2>Chi tiết yêu cầu hoàn hàng</h2>
           </div>
           <div class="header-actions">
@@ -831,7 +830,8 @@ import {
   getStatusText, 
   getStatusClass, 
   getPaymentStatusText, 
-  getPaymentClass 
+  getPaymentClass,
+  getLoggedInUserInfo
 } from '../../utils/helpers'
 import UpdateOrderStatusModal from '../../components/sale-staff/UpdateOrderStatusModal.vue'
 import InvoiceModal from '../../components/sale-staff/InvoiceModal.vue'
@@ -1292,10 +1292,22 @@ const quickUpdateStatus = async (order) => {
   updatingOrderIds.value.add(order.orderId)
   try {
     const token = localStorage.getItem('token')
+    const userInfo = getLoggedInUserInfo()
     const response = await fetch(`/sale-staff/orders/${order.orderId}/status`, {
       method: 'PUT',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ orderStatus: nextStatus, notes: '' })
+      body: JSON.stringify({ 
+        orderStatus: nextStatus, 
+        notes: '',
+        employeeId: userInfo.employeeId,
+        userId: userInfo.userId,
+        confirmedBy: userInfo.confirmedBy,
+        processedBy: userInfo.processedBy,
+        processedByEmail: userInfo.processedByEmail,
+        updatedBy: userInfo.updatedBy,
+        username: userInfo.username,
+        employeeName: userInfo.employeeName
+      })
     })
     if (!response.ok) {
       const data = await response.json()
@@ -2601,10 +2613,11 @@ onMounted(() => {
 
 /* ===== RETURN MODAL ===== */
 .return-modal .modal-header {
-  background: linear-gradient(135deg, #1a1a2e, #16213e);
-  color: white;
+  background: white;
+  color: #1e293b;
   border-radius: 15px 15px 0 0;
-  padding: 20px 25px;
+  padding: 18px 25px;
+  border-bottom: 1px solid #e2e8f0;
 }
 
 .return-modal .modal-header .header-title {
@@ -2613,15 +2626,11 @@ onMounted(() => {
   gap: 12px;
 }
 
-.return-modal .modal-header .header-title .header-icon {
-  font-size: 24px;
-  color: #ffc107;
-}
-
 .return-modal .modal-header .header-title h2 {
-  color: white;
+  color: #1e293b;
   margin: 0;
   font-size: 20px;
+  font-weight: 700;
 }
 
 .return-modal .modal-header .header-actions {
@@ -2659,11 +2668,11 @@ onMounted(() => {
 }
 
 .return-modal .close-btn {
-  color: rgba(255, 255, 255, 0.7);
+  color: #64748b;
 }
 
 .return-modal .close-btn:hover {
-  color: white;
+  color: #ef4444;
   transform: rotate(90deg);
 }
 

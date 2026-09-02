@@ -7,21 +7,21 @@
         <p class="subtitle">Quản lý danh sách vai trò hệ thống</p>
       </div>
       <button class="btn-add" @click="openCreateModal">
-        <span class="btn-icon">＋</span> Thêm vai trò
+        <i class="fas fa-plus"></i> Thêm vai trò
       </button>
     </div>
 
     <!-- Hiển thị lỗi nếu có -->
     <div v-if="roleStore.error" class="error-alert">
-      <span class="error-icon">⚠️</span>
+      <span class="error-icon"><i class="fas fa-exclamation-triangle"></i></span>
       <span class="error-message">{{ roleStore.error }}</span>
-      <button class="error-close" @click="roleStore.clearError()">✕</button>
+      <button class="error-close" @click="roleStore.clearError()"><i class="fas fa-times"></i></button>
     </div>
 
     <!-- Tìm kiếm và lọc -->
     <div class="filter-bar">
       <div class="search-box">
-        <span class="search-icon">🔍</span>
+        <i class="fas fa-search search-icon"></i>
         <input
           v-model="searchKeyword"
           @keyup.enter="handleSearch"
@@ -36,7 +36,7 @@
             handleSearch();
           "
         >
-          ✕
+          <i class="fas fa-times"></i>
         </button>
       </div>
       <select
@@ -57,7 +57,9 @@
         <option :value="10">10 / trang</option>
         <option :value="20">20 / trang</option>
       </select>
-      <button class="btn-search" @click="handleSearch">Tìm kiếm</button>
+      <button class="btn-search" @click="handleSearch">
+        <i class="fas fa-search"></i> Tìm kiếm
+      </button>
     </div>
 
     <!-- Bảng dữ liệu -->
@@ -103,22 +105,22 @@
               </div>
             </td>
             <td class="actions">
-              <button class="btn-edit" @click="openEditModal(role)" title="Sửa">
-                ✏️
+              <button class="action-btn edit-btn" @click="openEditModal(role)" title="Sửa">
+                <i class="fas fa-edit"></i>
               </button>
               <button
-                class="btn-delete"
-                 @click="confirmDelete(role)"
+                class="action-btn delete-btn"
+                @click="confirmDelete(role)"
                 title="Xoá"
               >
-                🗑️
+                <i class="fas fa-trash-alt"></i>
               </button>
             </td>
           </tr>
           <tr v-if="roleStore.roles.length === 0 && !roleStore.loading">
             <td colspan="4" class="empty-row">
               <div class="empty-state">
-                <div class="empty-icon">📭</div>
+                <div class="empty-icon"><i class="fas fa-box-open"></i></div>
                 <p>Không có dữ liệu vai trò</p>
                 <button class="btn-retry" @click="fetchData">Tải lại</button>
               </div>
@@ -612,5 +614,65 @@ const confirmDelete = async (role) => {
 
 .toast.toast-error {
   background-color: #e74c3c;
+}
+
+/* Action buttons */
+.actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.action-btn {
+  width: 35px;
+  height: 35px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  transition: all 0.3s;
+}
+
+.edit-btn {
+  background: #ffc107;
+  color: #212529;
+}
+
+.edit-btn:hover {
+  background: #e0a800;
+  transform: translateY(-2px);
+}
+
+.delete-btn {
+  background: #dc3545;
+  color: white;
+}
+
+.delete-btn:hover {
+  background: #c82333;
+  transform: translateY(-2px);
+}
+
+.view-btn {
+  background: #17a2b8;
+  color: white;
+}
+
+.view-btn:hover {
+  background: #138496;
+  transform: translateY(-2px);
+}
+
+.restore-btn {
+  background: #28a745;
+  color: white;
+}
+
+.restore-btn:hover {
+  background: #218838;
+  transform: translateY(-2px);
 }
 </style>

@@ -15,4 +15,5 @@ public class VoucherInfoDTO {
     private String voucherCode;
     private BigDecimal discountAmount;
     private BigDecimal discountPercent;
+    private BigDecimal maxDiscountAmount;  // ✅ THÊM: Số tiền giảm tối đa
 }

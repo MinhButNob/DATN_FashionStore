@@ -55,8 +55,7 @@ const profileRef = ref(null);
 const pageTitle = computed(() => {
   if (route.path.includes("/pos")) return "Bán hàng tại quầy";
   if (route.path.includes("/orders")) return "Quản lý đơn hàng";
-  if (route.path.includes("/customers")) return "Quản lý khách hàng";
-  if (route.path.includes("/returns")) return "Quản lý đổi trả";
+  if (route.path.includes("/returns")) return "Quản lý hoàn hàng";
   if (route.path.includes("/chat")) return "Chat khách hàng";
   return "Thống kê hôm nay";
 });

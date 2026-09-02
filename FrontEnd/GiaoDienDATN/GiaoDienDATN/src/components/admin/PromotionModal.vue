@@ -38,6 +38,17 @@
               step="0.01"
             />
           </div>
+          <div class="form-group">
+            <label>Giá giảm tối đa (VNĐ)</label>
+            <input
+              type="number"
+              v-model="form.promotionMaxDiscountAmount"
+              class="form-control"
+              min="0"
+              step="1000"
+              placeholder="VD: 100000 (Để trống nếu không giới hạn)"
+            />
+          </div>
           <div class="form-row">
             <div class="form-group half">
               <label>Ngày bắt đầu *</label>
@@ -96,6 +107,7 @@ const form = ref({
   promotionName: "",
   promotionDescription: "",
   promotionDiscountPercent: null,
+  promotionMaxDiscountAmount: null,
   promotionStartDate: "",
   promotionEndDate: "" });
 
@@ -109,6 +121,7 @@ watch(
         promotionName: newData.promotionName || "",
         promotionDescription: newData.promotionDescription || "",
         promotionDiscountPercent: newData.promotionDiscountPercent || null,
+        promotionMaxDiscountAmount: newData.promotionMaxDiscountAmount ?? newData.promotionMaxDiscount ?? newData.maxDiscountAmount ?? newData.maxDiscount ?? null,
         promotionStartDate: formatDateTime(newData.promotionStartDate),
         promotionEndDate: formatDateTime(newData.promotionEndDate) };
     }
@@ -124,6 +137,7 @@ watch(
         promotionName: "",
         promotionDescription: "",
         promotionDiscountPercent: null,
+        promotionMaxDiscountAmount: null,
         promotionStartDate: "",
         promotionEndDate: "" };
       submitting.value = false;
@@ -151,6 +165,16 @@ const handleSubmit = async () => {
     return;
   }
 
+  // Validate max discount amount
+  let maxDiscountAmount = null;
+  if (form.value.promotionMaxDiscountAmount !== null && form.value.promotionMaxDiscountAmount !== "") {
+    maxDiscountAmount = parseFloat(form.value.promotionMaxDiscountAmount);
+    if (isNaN(maxDiscountAmount) || maxDiscountAmount < 0) {
+      showNotification("Giá giảm tối đa phải lớn hơn hoặc bằng 0!", "error");
+      return;
+    }
+  }
+
   // Validate dates
   if (!form.value.promotionStartDate || !form.value.promotionEndDate) {
     showNotification("Vui lòng chọn đầy đủ ngày bắt đầu và kết thúc!", "error");
@@ -170,7 +194,10 @@ const handleSubmit = async () => {
       ...form.value,
       promotionName: nameClean,
       promotionDescription: descClean,
-      promotionDiscountPercent: discount
+      promotionDiscountPercent: discount,
+      promotionMaxDiscountAmount: maxDiscountAmount,
+      promotionMaxDiscount: maxDiscountAmount,
+      maxDiscountAmount: maxDiscountAmount
     };
     await emit("submit", submitData);
     close();

@@ -1,5 +1,5 @@
-// src/services/saleStaffService.js
 import api from "@/api/axios";
+import { getLoggedInUserInfo } from "@/utils/helpers";
 
 export const saleStaffService = {
   // ===== ORDERS =====
@@ -18,7 +18,24 @@ export const saleStaffService = {
   },
 
   updateOrderStatus(orderId, data) {
-    return api.put(`/sale-staff/orders/${orderId}/status`, data);
+    const userInfo = getLoggedInUserInfo();
+    const statusVal = typeof data === "string" ? data : (data?.orderStatus || data);
+    const notesVal = typeof data === "object" ? (data?.notes || "") : "";
+
+    const requestData = {
+      orderStatus: statusVal,
+      notes: notesVal,
+      employeeId: data?.employeeId || userInfo.employeeId,
+      userId: data?.userId || userInfo.userId,
+      confirmedBy: data?.confirmedBy || userInfo.confirmedBy,
+      processedBy: data?.processedBy || userInfo.processedBy,
+      processedByEmail: data?.processedByEmail || userInfo.processedByEmail,
+      updatedBy: data?.updatedBy || userInfo.updatedBy,
+      username: userInfo.username,
+      employeeName: userInfo.employeeName,
+      ...(typeof data === "object" ? data : {})
+    };
+    return api.put(`/sale-staff/orders/${orderId}/status`, requestData);
   },
 
   updatePaymentStatus(orderId, paymentStatus) {

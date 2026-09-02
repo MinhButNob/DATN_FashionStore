@@ -192,6 +192,36 @@
               </div>
             </div>
 
+            <!-- Section Mã giảm giá / Voucher ở trang Checkout -->
+            <div class="checkout-voucher-section">
+              <div class="voucher-input-box">
+                <input 
+                  type="text" 
+                  v-model="checkoutVoucherCode" 
+                  placeholder="Nhập mã giảm giá..." 
+                  @keyup.enter="applyCheckoutVoucher"
+                />
+                <button 
+                  type="button" 
+                  class="btn-apply-voucher" 
+                  @click="applyCheckoutVoucher"
+                  :disabled="applyingCheckoutVoucher || !checkoutVoucherCode"
+                >
+                  <i v-if="applyingCheckoutVoucher" class="fas fa-spinner fa-spin"></i>
+                  <span v-else>Áp dụng</span>
+                </button>
+              </div>
+
+              <!-- Tag voucher đang áp dụng -->
+              <div v-if="cartStore.voucherCode" class="applied-voucher-tag">
+                <i class="fas fa-ticket-alt"></i>
+                <span>Mã <strong>{{ cartStore.voucherCode }}</strong>: -{{ formatPrice(cartStore.voucherDiscount || 0) }}</span>
+                <button type="button" class="btn-remove-voucher" @click="removeCheckoutVoucher" title="Gỡ mã">
+                  <i class="fas fa-times"></i>
+                </button>
+              </div>
+            </div>
+
             <!-- Summary với voucher -->
             <div class="summary-totals">
               <div class="summary-row">
@@ -595,6 +625,36 @@ const saveProfileInfo = async () => {
   }
 }
 
+const checkoutVoucherCode = ref('')
+const applyingCheckoutVoucher = ref(false)
+
+const applyCheckoutVoucher = async () => {
+  if (!checkoutVoucherCode.value || applyingCheckoutVoucher.value) return
+  const code = checkoutVoucherCode.value.trim().toUpperCase()
+  if (!code) return
+
+  applyingCheckoutVoucher.value = true
+  try {
+    await cartStore.applyVoucher(code)
+    showNotification(`Đã áp dụng mã ${code}!`, 'success')
+    checkoutVoucherCode.value = ''
+  } catch (error) {
+    console.error('Lỗi áp dụng voucher:', error)
+    showNotification(error.response?.data?.message || 'Mã giảm giá không hợp lệ hoặc không đủ điều kiện', 'error')
+  } finally {
+    applyingCheckoutVoucher.value = false
+  }
+}
+
+const removeCheckoutVoucher = async () => {
+  try {
+    await cartStore.removeVoucher()
+    showNotification('Đã gỡ mã giảm giá', 'info')
+  } catch (error) {
+    console.error('Lỗi gỡ voucher:', error)
+  }
+}
+
 // ===== ĐẶT HÀNG =====
 const placeOrder = async () => {
   if (!selectedAddressId.value && !profile.address) {
@@ -603,6 +663,7 @@ const placeOrder = async () => {
   }
 
   const voucherId = cartStore.voucherId || null
+  const voucherCode = cartStore.voucherCode || null
 
   const orderItems = cartStore.items.map(item => ({
     productDetailId: item.productDetailId || item.id,
@@ -620,6 +681,7 @@ const placeOrder = async () => {
     items: orderItems,
     paymentMethod: orderData.value.paymentMethod || 'COD',
     voucherId: voucherId,
+    voucherCode: voucherCode,
     shippingFee: shippingFee.value
   }
 
@@ -1441,5 +1503,86 @@ onMounted(async () => {
     width: 100%;
     justify-content: center;
   }
+}
+
+.checkout-voucher-section {
+  margin: 15px 0;
+  padding: 15px;
+  background: #f8fafc;
+  border-radius: 10px;
+  border: 1px dashed #cbd5e1;
+}
+
+.voucher-input-box {
+  display: flex;
+  gap: 8px;
+}
+
+.voucher-input-box input {
+  flex: 1;
+  padding: 9px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 14px;
+  outline: none;
+  background: white;
+}
+
+.voucher-input-box input:focus {
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.12);
+}
+
+.btn-apply-voucher {
+  padding: 9px 16px;
+  background: #1e293b;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.btn-apply-voucher:hover:not(:disabled) {
+  background: #0f172a;
+}
+
+.btn-apply-voucher:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.applied-voucher-tag {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 8px 12px;
+  background: #e0e7ff;
+  color: #3730a3;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.applied-voucher-tag span {
+  flex: 1;
+}
+
+.btn-remove-voucher {
+  background: none;
+  border: none;
+  color: #6366f1;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.btn-remove-voucher:hover {
+  background: rgba(99, 102, 241, 0.15);
+  color: #4338ca;
 }
 </style>

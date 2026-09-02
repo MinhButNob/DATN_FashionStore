@@ -95,5 +95,7 @@ public class PosOrder {
     @Column(name = "voucher_id")
     private Integer voucherId;
 
-
+    // entity/PosOrder.java - Thêm trường voucher_discount_allocated
+    @Column(name = "voucher_discount_allocated", precision = 15, scale = 2)
+    private BigDecimal voucherDiscountAllocated;
 }

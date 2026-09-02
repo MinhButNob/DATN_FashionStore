@@ -12,14 +12,17 @@ public class PosReturnExchangeResponse {
     private String orderInvoiceNumber;
     private String customerName;
     private String customerPhone;
-    private String type;
+    private String type;               // RETURN hoặc EXCHANGE
     private BigDecimal totalRefundAmount;
     private BigDecimal additionalPayment;
     private String reason;
-    private String status;
+    private String status;             // PENDING, COMPLETED, CANCELLED
     private String referenceCode;
     private String notes;
     private LocalDateTime createdAt;
     private LocalDateTime completedAt;
+    private LocalDateTime updatedAt;   // ✅ Thêm thời gian cập nhật
+    private Integer employeeId;        // ✅ Thêm ID nhân viên xử lý
+    private String employeeName;       // ✅ Thêm tên nhân viên xử lý
     private List<ReturnExchangeItemResponse> items;
 }

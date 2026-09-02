@@ -105,79 +105,6 @@
           </button>
         </div>
 
-        <!-- ===== TÌM KIẾM KHÁCH HÀNG ===== -->
-        <div class="customer-search-box">
-          <div class="search-row">
-            <input 
-              v-model="customerSearch" 
-              type="text" 
-              placeholder="Tìm khách hàng theo tên hoặc SĐT..."
-              @input="searchCustomerList"
-              @focus="loadCustomerList"
-            />
-            <button class="btn-sm btn-primary" @click="loadCustomerList" title="Làm mới">
-              <i class="fas fa-sync"></i>
-            </button>
-          </div>
-          <div v-if="customerList.length > 0" class="customer-list">
-            <div 
-              v-for="cust in customerList" 
-              :key="cust.customerId"
-              class="customer-item"
-              @click="selectCustomer(cust)"
-            >
-              <span class="cust-name">{{ cust.customerName }}</span>
-              <span class="cust-phone">{{ cust.phone }}</span>
-              <span class="cust-id">#{{ cust.customerId }}</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- ===== THÔNG TIN KHÁCH HÀNG ===== -->
-        <div class="customer-info-box">
-          <div class="customer-info-row">
-            <div class="info-field">
-              <label>Tên khách hàng</label>
-              <input 
-                v-model="customerName" 
-                type="text" 
-                placeholder="Nhập tên khách hàng"
-                @input="handleCustomerNameChange"
-              />
-            </div>
-            <div class="info-field">
-              <label>Số điện thoại <span class="required">*</span></label>
-              <input 
-                v-model="customerPhone" 
-                type="text" 
-                placeholder="Nhập SĐT khách hàng"
-                @blur="checkCustomerByPhone"
-                @input="checkCustomerByPhoneRealtime"
-                :class="{ 'error': phoneError }"
-              />
-              <span v-if="phoneError" class="error-text">{{ phoneError }}</span>
-            </div>
-          </div>
-          <div v-if="loadingPhone" class="customer-found info">
-            <i class="fas fa-spinner fa-spin"></i>
-            <span>Đang kiểm tra số điện thoại...</span>
-          </div>
-          <div v-else-if="foundCustomer" class="customer-found success">
-            <i class="fas fa-check-circle"></i>
-            <span>Đã tìm thấy khách hàng: <strong>{{ foundCustomer.customerName }}</strong></span>
-            <span class="customer-id">(ID: #{{ foundCustomer.customerId }})</span>
-          </div>
-          <div v-else-if="customerPhone && customerPhone.length >= 10 && !loadingPhone && !phoneError" class="customer-found info">
-            <i class="fas fa-user-plus"></i>
-            <span>Sẽ tạo khách hàng mới với SĐT: <strong>{{ customerPhone }}</strong></span>
-          </div>
-          <div v-else-if="customerList.length > 0 && phoneError" class="customer-found warning">
-            <i class="fas fa-exclamation-triangle"></i>
-            <span>{{ phoneError }}</span>
-            <span class="customer-id">Vui lòng chọn từ danh sách bên trên</span>
-          </div>
-        </div>
-
         <!-- ===== GIỎ HÀNG ===== -->
         <div class="cart-items">
           <div v-for="item in cart" :key="item.orderDetailId" class="cart-item">
@@ -348,7 +275,7 @@
 </template>
 
 <script setup>
-import { computed, ref, onMounted, reactive } from "vue";
+import { computed, ref, onMounted, reactive, watch } from "vue";
 import { useNotification } from "../../composables/useNotification";
 import { createPosOrder, printPosReceipt } from "../../services/posService";
 import api from "@/api/axios.js";
@@ -375,15 +302,6 @@ const quickAmounts = computed(() => {
     Math.ceil(t / 500000) * 500000,
   ].filter((v, i, a) => a.indexOf(v) === i).slice(0, 4);
 });
-
-// --- Customer state ---
-const customerName = ref("");
-const customerPhone = ref("");
-const foundCustomer = ref(null);
-const phoneError = ref("");
-const loadingPhone = ref(false);
-const customerSearch = ref("");
-const customerList = ref([]);
 
 // --- VNPay state ---
 const vnpayRedirecting = ref(false);
@@ -429,18 +347,6 @@ const isCheckoutDisabled = computed(() => {
   
   // Nếu giỏ hàng trống thì disable
   if (cart.value.length === 0) return true;
-  
-  // Nếu chưa có số điện thoại thì disable
-  if (!customerPhone.value || customerPhone.value.length < 10) return true;
-  
-  // Nếu số điện thoại không hợp lệ thì disable
-  if (!/^0[0-9]{9}$/.test(customerPhone.value)) return true;
-  
-  // Nếu có lỗi phone (nhiều khách hàng) thì disable
-  if (phoneError.value) return true;
-  
-  // Nếu đang loading kiểm tra phone thì disable
-  if (loadingPhone.value) return true;
   
   return false;
 });
@@ -527,117 +433,6 @@ const loadProducts = async () => {
   } finally {
     isLoadingProducts.value = false;
   }
-};
-
-// ===== CUSTOMER METHODS =====
-const loadCustomerList = async () => {
-  try {
-    const response = await api.get('/pos/customers');
-    customerList.value = response?.data?.data || response?.data || [];
-  } catch (error) {
-    console.error("Load customers error:", error);
-  }
-};
-
-const searchCustomerList = async () => {
-  if (!customerSearch.value || customerSearch.value.length < 2) {
-    await loadCustomerList();
-    return;
-  }
-  try {
-    const response = await api.get('/pos/customers/search', {
-      params: { keyword: customerSearch.value }
-    });
-    customerList.value = response?.data?.data || response?.data || [];
-  } catch (error) {
-    console.error("Search customers error:", error);
-  }
-};
-
-const selectCustomer = (customer) => {
-  customerName.value = customer.customerName;
-  customerPhone.value = customer.phone;
-  foundCustomer.value = customer;
-  phoneError.value = "";
-  customerList.value = [];
-  customerSearch.value = "";
-};
-
-/**
- * ✅ SỬA: Kiểm tra số điện thoại khi blur
- * KHÔNG gọi API search-by-phone nữa, chỉ kiểm tra trong danh sách đã load
- */
-const checkCustomerByPhone = async () => {
-  phoneError.value = "";
-  
-  if (!customerPhone.value || customerPhone.value.length < 10) {
-    foundCustomer.value = null;
-    return;
-  }
-  
-  if (!/^0[0-9]{9}$/.test(customerPhone.value)) {
-    phoneError.value = "Số điện thoại không hợp lệ (phải 10 số, bắt đầu bằng 0)";
-    foundCustomer.value = null;
-    return;
-  }
-  
-  loadingPhone.value = true;
-  try {
-    // ✅ Load danh sách khách hàng trước
-    await loadCustomerList();
-    
-    // ✅ Tìm khách hàng trong danh sách đã load
-    const exactMatches = customerList.value.filter(c => c.phone === customerPhone.value);
-    
-    if (exactMatches.length === 1) {
-      // Chỉ có 1 khách hàng -> tự động chọn
-      foundCustomer.value = exactMatches[0];
-      customerName.value = exactMatches[0].customerName;
-      phoneError.value = "";
-      console.log("✅ Tìm thấy 1 khách hàng:", foundCustomer.value);
-    } else if (exactMatches.length > 1) {
-      // Nhiều khách hàng cùng SĐT -> hiển thị danh sách để chọn
-      customerList.value = exactMatches;
-      foundCustomer.value = null;
-      phoneError.value = "Có nhiều khách hàng cùng số điện thoại, vui lòng chọn từ danh sách!";
-      console.warn("⚠️ Nhiều khách hàng cùng SĐT:", exactMatches);
-    } else {
-      // Không có khách hàng nào khớp
-      foundCustomer.value = null;
-      customerList.value = [];
-      phoneError.value = "";
-      console.log("ℹ️ Số điện thoại chưa có trong hệ thống, sẽ tạo mới");
-    }
-  } catch (error) {
-    console.error("Check phone error:", error);
-    foundCustomer.value = null;
-    customerList.value = [];
-  } finally {
-    loadingPhone.value = false;
-  }
-};
-
-/**
- * ✅ SỬA: Kiểm tra số điện thoại real-time (có debounce)
- */
-const checkCustomerByPhoneRealtime = () => {
-  clearTimeout(window.phoneCheckTimeout);
-  window.phoneCheckTimeout = setTimeout(() => {
-    if (customerPhone.value && customerPhone.value.length >= 10) {
-      if (foundCustomer.value && customerPhone.value !== foundCustomer.value.phone) {
-        foundCustomer.value = null;
-        customerList.value = [];
-      }
-      checkCustomerByPhone();
-    } else {
-      foundCustomer.value = null;
-      customerList.value = [];
-    }
-  }, 500);
-};
-
-const handleCustomerNameChange = () => {
-  // Cho phép thay đổi tên
 };
 
 // ===== PRODUCT METHODS =====
@@ -733,7 +528,6 @@ const initPOSOrder = async () => {
     subtotalAmount: 0,
     discountAmount: 0,
     totalAmount: 0,
-    customerId: null,
     voucherCode: null,
     appliedVoucher: null
   };
@@ -759,8 +553,9 @@ const recalculateCart = () => {
       let discount = 0;
       if (d.voucherDiscountPercent && d.voucherDiscountPercent > 0) {
         discount = sub * (d.voucherDiscountPercent / 100);
-        if (d.voucherDiscountAmount && d.voucherDiscountAmount > 0 && discount > d.voucherDiscountAmount) {
-          discount = d.voucherDiscountAmount;
+        const maxDisc = d.voucherMaxDiscountAmount || d.voucherMaxDiscount || d.maxDiscountAmount || d.maxDiscount || d.voucherDiscountAmount;
+        if (maxDisc && maxDisc > 0 && discount > maxDisc) {
+          discount = maxDisc;
         }
       } else if (d.voucherDiscountAmount) {
         discount = d.voucherDiscountAmount;
@@ -880,11 +675,7 @@ const removeVoucherCode = () => {
 const clearCurrentCart = async () => {
   if (!currentOrder.value) return;
   voucherCodeInput.value = "";
-  customerName.value = "";
-  customerPhone.value = "";
-  foundCustomer.value = null;
-  phoneError.value = "";
-  customerList.value = [];
+  cashGiven.value = 0;
   await initPOSOrder();
   showNotification("Đã xóa giỏ hàng!", "success");
 };
@@ -897,33 +688,6 @@ const checkout = async () => {
   }
 
   if (!(await window.appConfirm('Bạn có chắc chắn muốn thanh toán đơn hàng này không?'))) return;
-  // ✅ KIỂM TRA SỐ ĐIỆN THOẠI TRƯỚC KHI THANH TOÁN
-  if (!customerPhone.value || customerPhone.value.length < 10) {
-    showNotification("Vui lòng nhập số điện thoại khách hàng!", "warning");
-    return;
-  }
-
-  if (!/^0[0-9]{9}$/.test(customerPhone.value)) {
-    showNotification("Số điện thoại không hợp lệ!", "warning");
-    return;
-  }
-
-  // ✅ Nếu chưa kiểm tra phone, tự động kiểm tra
-  if (!foundCustomer.value && customerPhone.value.length >= 10) {
-    await checkCustomerByPhone();
-  }
-
-  // ✅ Nếu có lỗi phone (nhiều khách hàng) thì không cho thanh toán
-  if (phoneError.value) {
-    showNotification(phoneError.value, "warning");
-    return;
-  }
-
-  // ✅ Nếu chưa chọn khách hàng (khi có nhiều) thì không cho thanh toán
-  if (!foundCustomer.value && customerList.value.length > 0) {
-    showNotification("Vui lòng chọn khách hàng từ danh sách!", "warning");
-    return;
-  }
 
   if (paymentMethod.value === 'VNPAY') {
     await checkoutVnpay();
@@ -973,9 +737,9 @@ const checkout = async () => {
     }
 
     const request = {
-      posOrderCustomerId: foundCustomer.value?.customerId || null,
-      posOrderCustomerName: customerName.value || "Khách lẻ",
-      posOrderCustomerPhone: customerPhone.value || null,
+      posOrderCustomerId: null,
+      posOrderCustomerName: "Khách lẻ",
+      posOrderCustomerPhone: null,
       posOrderType: "AT_COUNTER",
       posOrderDiscountAmount: discount.value || 0,
       voucherCode: currentOrder.value.voucherCode || null,
@@ -990,12 +754,7 @@ const checkout = async () => {
       }]
     };
 
-    console.log("📦 Order Request - Customer:", {
-      id: foundCustomer.value?.customerId,
-      name: customerName.value,
-      phone: customerPhone.value
-    });
-    console.log("📦 Order Request Full:", JSON.stringify(request, null, 2));
+    console.log("📦 Order Request:", JSON.stringify(request, null, 2));
 
     const res = await createPosOrder(request);
     console.log("📦 Order Response:", res);
@@ -1006,18 +765,18 @@ const checkout = async () => {
       try { await printPosReceipt(orderId, 1); } catch (e) { /* silent */ }
       showNotification("Thanh toán thành công!", "success");
 
-      if (!foundCustomer.value && customerPhone.value) {
-        await loadCustomerList();
-      }
+      // ✅ Lấy mã hóa đơn từ response
+      const invoiceNumber = res?.posOrderInvoiceNumber || res?.data?.posOrderInvoiceNumber || res?.data?.data?.posOrderInvoiceNumber || '';
 
       printInvoiceHandle({
         storeName: "Fashion Store",
         storeAddress: "Hệ thống thời trang nam",
         storePhone: "0123.456.789",
         orderId,
+        invoiceNumber: invoiceNumber, // ✅ Thêm mã hóa đơn
         orderDate: new Date().toLocaleString("vi-VN"),
-        customerName: customerName.value || "Khách lẻ",
-        customerPhone: customerPhone.value || "",
+        customerName: "Khách lẻ",
+        customerPhone: "",
         items: currentOrder.value.orderDetails.map(i => ({
           productDetail: i.productDetail,
           quantity: i.quantity,
@@ -1030,11 +789,6 @@ const checkout = async () => {
       });
 
       voucherCodeInput.value = "";
-      customerName.value = "";
-      customerPhone.value = "";
-      foundCustomer.value = null;
-      phoneError.value = "";
-      customerList.value = [];
       cashGiven.value = 0;
       await initPOSOrder();
     } else {
@@ -1102,9 +856,9 @@ const checkoutVnpay = async () => {
     }
     
     const request = {
-      posOrderCustomerId: foundCustomer.value?.customerId || null,
-      posOrderCustomerName: customerName.value || "Khách lẻ",
-      posOrderCustomerPhone: customerPhone.value || null,
+      posOrderCustomerId: null,
+      posOrderCustomerName: "Khách lẻ",
+      posOrderCustomerPhone: null,
       posOrderType: "AT_COUNTER",
       posOrderDiscountAmount: discount.value || 0,
       voucherCode: currentOrder.value.voucherCode || null,
@@ -1136,10 +890,14 @@ const checkoutVnpay = async () => {
 
     if (!paymentUrl) throw new Error("Backend không trả về paymentUrl");
 
+    // ✅ Lấy mã hóa đơn từ response
+    const invoiceNumber = res?.posOrderInvoiceNumber || res?.data?.posOrderInvoiceNumber || res?.data?.data?.posOrderInvoiceNumber || '';
+
     const snapshot = {
       orderId,
       txnRef,
-      customerName: customerName.value || "Khách lẻ",
+      invoiceNumber: invoiceNumber, // ✅ Thêm mã hóa đơn
+      customerName: "Khách lẻ",
       items: currentOrder.value.orderDetails.map(i => ({
         productDetail: i.productDetail,
         quantity: i.quantity,
@@ -1266,8 +1024,9 @@ const finishAfterVnpay = async () => {
     storeAddress: "Hệ thống thời trang nam",
     storePhone: "0123.456.789",
     orderId: snap.orderId,
+    invoiceNumber: snap.invoiceNumber || '', // ✅ Thêm mã hóa đơn
     orderDate: new Date().toLocaleString("vi-VN"),
-    customerName: snap.customerName,
+    customerName: "Khách lẻ",
     items: snap.items,
     subtotalAmount: snap.subtotalAmount,
     discountAmount: snap.discountAmount,
@@ -1276,11 +1035,6 @@ const finishAfterVnpay = async () => {
 
   showNotification("Đã hoàn tất đơn VNPay!", "success");
   voucherCodeInput.value = "";
-  customerName.value = "";
-  customerPhone.value = "";
-  foundCustomer.value = null;
-  phoneError.value = "";
-  customerList.value = [];
   cashGiven.value = 0;
   await initPOSOrder();
 };
@@ -1329,11 +1083,10 @@ const printInvoiceHandle = (invoice) => {
   <div class="tc">${invoice.storeAddress}</div>
   <div class="tc">Hotline: ${invoice.storePhone}</div>
   <p>------------------------------------------</p>
-  <p><b>Mã HĐ:</b> #${invoice.orderId}</p>
+  <p><b>Mã HĐ:</b> ${invoice.invoiceNumber || '#' + invoice.orderId}</p>
   <p><b>Thời gian:</b> ${invoice.orderDate}</p>
   <div class="customer-info">
     <p><b>Khách hàng:</b> ${invoice.customerName}</p>
-    <p><b>SĐT:</b> ${invoice.customerPhone || 'Không có'}</p>
   </div>
   <p>------------------------------------------</p>
   <table><thead><tr><th>Mặt hàng</th><th style="text-align:center">SL</th><th style="text-align:right">T.Tiền</th></tr></thead>
@@ -1351,6 +1104,9 @@ const printInvoiceHandle = (invoice) => {
   </div>
   <p>------------------------------------------</p>
   <div class="tc bold">CẢM ƠN QUÝ KHÁCH HẸN GẶP LẠI!</div>
+  <p style="font-size:10px;text-align:center;color:#999;margin-top:8px;">
+    <i>Vui lòng giữ lại hóa đơn để đổi/trả sản phẩm</i>
+  </p>
   </body></html>`);
   w.document.close();
   w.focus();
@@ -1361,7 +1117,6 @@ onMounted(() => {
   loadCategories();
   loadProducts();
   initPOSOrder();
-  loadCustomerList();
   handleVnpayReturn();
 });
 </script>
@@ -1674,158 +1429,6 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 5px;
-}
-
-/* ===== CUSTOMER SEARCH ===== */
-.customer-search-box {
-  margin-bottom: 10px;
-}
-.customer-search-box .search-row {
-  display: flex;
-  gap: 8px;
-}
-.customer-search-box .search-row input {
-  flex: 1;
-  padding: 8px 12px;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  font-size: 13px;
-  outline: none;
-}
-.customer-search-box .search-row input:focus {
-  border-color: #e63946;
-}
-.btn-sm {
-  padding: 8px 12px;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 13px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.btn-sm.btn-primary {
-  background: #e63946;
-  color: white;
-}
-.btn-sm.btn-primary:hover {
-  background: #c62828;
-}
-.customer-list {
-  max-height: 150px;
-  overflow-y: auto;
-  border: 1px solid #eee;
-  border-radius: 6px;
-  margin-top: 6px;
-}
-.customer-item {
-  padding: 8px 12px;
-  cursor: pointer;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 1px solid #f5f5f5;
-  transition: background 0.15s;
-}
-.customer-item:hover {
-  background: #f0f7ff;
-}
-.customer-item .cust-name {
-  font-weight: 600;
-}
-.customer-item .cust-phone {
-  color: #666;
-  font-size: 13px;
-}
-.customer-item .cust-id {
-  font-size: 11px;
-  color: #999;
-  background: #f0f0f2;
-  padding: 0 8px;
-  border-radius: 4px;
-}
-
-/* ===== CUSTOMER INFO BOX ===== */
-.customer-info-box {
-  background: #f8f9fb;
-  border-radius: 8px;
-  padding: 12px 14px;
-  margin-bottom: 12px;
-}
-.customer-info-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-.info-field label {
-  display: block;
-  font-size: 12px;
-  font-weight: 600;
-  color: #666;
-  margin-bottom: 4px;
-}
-.info-field label .required {
-  color: #e63946;
-}
-.info-field input {
-  width: 100%;
-  padding: 8px 12px;
-  border: 1.5px solid #e1e1e6;
-  border-radius: 6px;
-  font-size: 13px;
-  outline: none;
-  transition: border-color 0.2s;
-}
-.info-field input:focus {
-  border-color: #e63946;
-}
-.info-field input.error {
-  border-color: #dc3545;
-}
-.error-text {
-  color: #dc3545;
-  font-size: 11px;
-  margin-top: 4px;
-  display: block;
-}
-.customer-found {
-  margin-top: 8px;
-  padding: 8px 12px;
-  border-radius: 6px;
-  font-size: 13px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.customer-found.success {
-  background: #d4edda;
-  color: #155724;
-}
-.customer-found.info {
-  background: #cce5ff;
-  color: #004085;
-}
-.customer-found.warning {
-  background: #fff3cd;
-  color: #856404;
-}
-.customer-found i {
-  font-size: 16px;
-}
-.customer-found.info i.fa-spinner {
-  animation: spin 1s linear infinite;
-}
-
-.customer-id {
-  font-size: 12px;
-  color: #6c757d;
-  margin-left: 6px;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
 }
 
 /* ===== CART ITEMS ===== */
@@ -2151,12 +1754,4 @@ onMounted(() => {
 @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 .modal-fade-enter-active, .modal-fade-leave-active { transition: opacity 0.2s; }
 .modal-fade-enter-from, .modal-fade-leave-to { opacity: 0; }
-@media (max-width: 768px) {
-  .staff-pos {
-    grid-template-columns: 1fr;
-  }
-  .customer-info-row {
-    grid-template-columns: 1fr;
-  }
-}
 </style>

@@ -108,6 +108,43 @@ public class CustomerVoucherService {
     }
 
     /**
+     * ✅ Tính số tiền giảm giá thực tế
+     */
+    public BigDecimal calculateDiscountAmount(Voucher voucher, BigDecimal orderSubtotal) {
+        if (voucher == null || orderSubtotal == null || orderSubtotal.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO;
+        }
+
+        BigDecimal discount = BigDecimal.ZERO;
+
+        // Giảm theo phần trăm
+        if (voucher.getVoucherDiscountPercent() != null && voucher.getVoucherDiscountPercent().compareTo(BigDecimal.ZERO) > 0) {
+            discount = orderSubtotal.multiply(voucher.getVoucherDiscountPercent())
+                    .divide(BigDecimal.valueOf(100), 0, java.math.RoundingMode.HALF_UP);
+
+            // ✅ Áp dụng số tiền giảm tối đa nếu có
+            if (voucher.getVoucherMaxDiscountAmount() != null &&
+                    voucher.getVoucherMaxDiscountAmount().compareTo(BigDecimal.ZERO) > 0 &&
+                    discount.compareTo(voucher.getVoucherMaxDiscountAmount()) > 0) {
+                discount = voucher.getVoucherMaxDiscountAmount();
+                log.info("📊 Applied max discount: {}", discount);
+            }
+        }
+        // Giảm theo số tiền cố định
+        else if (voucher.getVoucherDiscountAmount() != null && voucher.getVoucherDiscountAmount().compareTo(BigDecimal.ZERO) > 0) {
+            discount = voucher.getVoucherDiscountAmount();
+        }
+
+        // Không giảm vượt quá tổng đơn hàng
+        if (discount.compareTo(orderSubtotal) > 0) {
+            discount = orderSubtotal;
+        }
+
+        log.info("📊 Calculated discount: {} for order subtotal: {}", discount, orderSubtotal);
+        return discount;
+    }
+
+    /**
      * Chuyển đổi Voucher entity sang VoucherDTO
      */
     private VoucherDTO convertToDTO(Voucher v) {
@@ -116,6 +153,7 @@ public class CustomerVoucherService {
         dto.setVoucherCode(v.getVoucherCode());
         dto.setVoucherDiscountAmount(v.getVoucherDiscountAmount());
         dto.setVoucherDiscountPercent(v.getVoucherDiscountPercent());
+        dto.setVoucherMaxDiscountAmount(v.getVoucherMaxDiscountAmount()); // ✅ THÊM
         dto.setVoucherStartDate(v.getVoucherStartDate());
         dto.setVoucherEndDate(v.getVoucherEndDate());
         dto.setVoucherMaxUsage(v.getVoucherMaxUsage());

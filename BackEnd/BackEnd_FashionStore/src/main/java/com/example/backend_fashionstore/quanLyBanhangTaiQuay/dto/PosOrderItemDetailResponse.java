@@ -14,8 +14,6 @@ public class PosOrderItemDetailResponse {
     private BigDecimal unitPrice;
     private BigDecimal discount;
     private BigDecimal total;
-
-    // ✅ Thêm các trường cho hoàn hàng
     private BigDecimal discountPerUnit;   // Giảm giá trên mỗi đơn vị
     private BigDecimal finalUnitPrice;    // Giá sau giảm
 }

@@ -15,12 +15,14 @@ import com.example.backend_fashionstore.quanLyVoucher.repository.VoucherReposito
 import com.example.backend_fashionstore.quanlyNhanVien.service.EmployeeService;
 import com.example.backend_fashionstore.security.SecurityUtils;
 import com.example.backend_fashionstore.payment.repository.PaymentMethodRepository;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import java.util.ArrayList; // ✅ Thêm nếu chưa có
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -30,6 +32,7 @@ import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -48,20 +51,58 @@ public class PosService {
     private final EmployeeService employeeService;
     private final VoucherRepository voucherRepository;
     private final PaymentMethodRepository paymentMethodRepository;
-    // Tái sử dụng VNPayConfig từ luồng online — không tạo lại
     private final CustomerRepository customerRepository;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final VNPayConfig vnPayConfig;
     private static final DateTimeFormatter INVOICE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
 
+    // ✅ SỬA: Sử dụng AtomicLong thay vì long primitive
+    private static final AtomicLong invoiceCounter = new AtomicLong(0);
+
     private Integer getCurrentEmployeeId() {
         Integer userId = SecurityUtils.getCurrentUserId();
         return employeeService.getEmployeeIdByUserId(userId);
     }
 
+    /**
+     * ✅ Khởi tạo invoiceCounter từ database khi ứng dụng khởi động
+     */
+    @PostConstruct
+    public void initInvoiceCounter() {
+        try {
+            long count = posOrderRepository.count();
+            if (count > 0) {
+                // Lấy đơn hàng mới nhất
+                posOrderRepository.findAll(PageRequest.of(0, 1, Sort.by("posOrderId").descending()))
+                        .stream()
+                        .findFirst()
+                        .ifPresent(order -> {
+                            String invoiceNumber = order.getPosOrderInvoiceNumber();
+                            if (invoiceNumber != null && invoiceNumber.contains("-")) {
+                                try {
+                                    String[] parts = invoiceNumber.split("-");
+                                    if (parts.length >= 3) {
+                                        long lastNumber = Long.parseLong(parts[2]);
+                                        invoiceCounter.set(lastNumber);
+                                        log.info("📊 Invoice counter initialized from database: {}", lastNumber);
+                                    }
+                                } catch (Exception e) {
+                                    log.warn("⚠️ Could not parse invoice number: {}", invoiceNumber);
+                                }
+                            }
+                        });
+            }
+            log.info("📊 Invoice counter initialized successfully: {}", invoiceCounter.get());
+        } catch (Exception e) {
+            log.warn("⚠️ Could not initialize invoice counter: {}", e.getMessage());
+        }
+    }
+
     @Transactional
     public PosOrderResponse createOrder(PosOrderRequest request) {
+        log.info("📦 [createOrder] Bắt đầu tạo đơn hàng mới");
+
         // Tự động resolve session
         PosSession session;
         Integer resolvedSessionId = request.getPosSessionId();
@@ -78,34 +119,19 @@ public class PosService {
             session = getOrCreateActiveSession();
         }
         resolvedSessionId = session.getPosSessionId();
+        log.info("📦 [createOrder] Session ID: {}", resolvedSessionId);
 
-        // ===== XỬ LÝ KHÁCH HÀNG =====
-        Integer customerId = null;
-        String customerName = request.getPosOrderCustomerName();
-        String customerPhone = request.getPosOrderCustomerPhone();
-
-        if (customerPhone != null && !customerPhone.trim().isEmpty()) {
-            Customer existingCustomer = customerRepository.findByPhone(customerPhone.trim()).orElse(null);
-            if (existingCustomer != null) {
-                customerId = existingCustomer.getCustomerId();
-                if (customerName != null && !customerName.trim().isEmpty()) {
-                    existingCustomer.setCustomerName(customerName.trim());
-                    customerRepository.save(existingCustomer);
-                }
-            } else {
-                Customer newCustomer = createNewCustomer(customerName, customerPhone);
-                customerId = newCustomer.getCustomerId();
-            }
-        }
-
-        // Tính toán
+        // Tính toán subtotal
         BigDecimal subtotal = calculateSubtotal(request.getItems());
+        log.info("📦 [createOrder] Subtotal: {}", subtotal);
 
         // ===== XỬ LÝ VOUCHER =====
         BigDecimal discountAmount = BigDecimal.ZERO;
         Voucher appliedVoucher = null;
 
         if (request.getVoucherCode() != null && !request.getVoucherCode().trim().isEmpty()) {
+            log.info("📦 [createOrder] Áp dụng voucher: {}", request.getVoucherCode());
+
             Voucher voucher = voucherRepository.findActiveByVoucherCode(request.getVoucherCode())
                     .orElseThrow(() -> new BusinessException("Mã giảm giá không tồn tại hoặc không còn hoạt động"));
 
@@ -127,12 +153,22 @@ public class PosService {
             if (voucher.getVoucherDiscountPercent() != null && voucher.getVoucherDiscountPercent().compareTo(BigDecimal.ZERO) > 0) {
                 discountAmount = subtotal.multiply(voucher.getVoucherDiscountPercent())
                         .divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP);
+
+                // ✅ Áp dụng số tiền giảm tối đa
+                if (voucher.getVoucherMaxDiscountAmount() != null &&
+                        voucher.getVoucherMaxDiscountAmount().compareTo(BigDecimal.ZERO) > 0 &&
+                        discountAmount.compareTo(voucher.getVoucherMaxDiscountAmount()) > 0) {
+                    discountAmount = voucher.getVoucherMaxDiscountAmount();
+                    log.info("📊 Áp dụng giảm tối đa: {}", discountAmount);
+                }
+
+                // Nếu có voucherDiscountAmount (giảm thêm hoặc thay thế)
                 if (voucher.getVoucherDiscountAmount() != null && voucher.getVoucherDiscountAmount().compareTo(BigDecimal.ZERO) > 0) {
                     if (discountAmount.compareTo(voucher.getVoucherDiscountAmount()) > 0) {
                         discountAmount = voucher.getVoucherDiscountAmount();
                     }
                 }
-            } else if (voucher.getVoucherDiscountAmount() != null) {
+            } else if (voucher.getVoucherDiscountAmount() != null && voucher.getVoucherDiscountAmount().compareTo(BigDecimal.ZERO) > 0) {
                 discountAmount = voucher.getVoucherDiscountAmount();
             }
 
@@ -143,6 +179,7 @@ public class PosService {
             voucher.setVoucherUsedCount(voucher.getVoucherUsedCount() + 1);
             voucherRepository.save(voucher);
             appliedVoucher = voucher;
+            log.info("📦 [createOrder] Voucher applied, discount: {}", discountAmount);
         } else {
             discountAmount = request.getPosOrderDiscountAmount() != null ?
                     request.getPosOrderDiscountAmount() : BigDecimal.ZERO;
@@ -150,6 +187,7 @@ public class PosService {
 
         BigDecimal taxAmount = request.getPosOrderTaxAmount() != null ? request.getPosOrderTaxAmount() : BigDecimal.ZERO;
         BigDecimal totalAmount = subtotal.subtract(discountAmount).add(taxAmount);
+        log.info("📦 [createOrder] Total amount: {}", totalAmount);
 
         boolean hasPayments = request.getPayments() != null && !request.getPayments().isEmpty();
         BigDecimal paidAmount = hasPayments ? calculatePaidAmount(request.getPayments()) : BigDecimal.ZERO;
@@ -161,21 +199,22 @@ public class PosService {
                         "Số tiền thanh toán không đủ. Thiếu: " + changeAmount.abs() + "đ"
                 );
             }
+            log.info("📦 [createOrder] Paid amount: {}, Change: {}", paidAmount, changeAmount);
         }
 
-        // Đơn VNPay chưa thanh toán dùng cùng trạng thái với đơn online.
-        // PENDING không còn được database hiện tại chấp nhận trong chk_pos_order_status.
         String orderStatus = hasPayments ? "COMPLETED" : "PENDING_PAYMENT";
         String paymentStatus = hasPayments ? "PAID" : "UNPAID";
         String invoiceNumber = generateInvoiceNumber();
+        log.info("📦 [createOrder] Invoice number: {}", invoiceNumber);
 
+        // Tạo đơn hàng với thông tin mặc định - KHÔNG CÓ KHÁCH HÀNG
         PosOrder order = PosOrder.builder()
                 .posOrderSessionId(resolvedSessionId)
-                .posOrderCustomerId(customerId)
-                .posOrderCustomerName(customerName != null ? customerName : "Khách lẻ")
-                .posOrderCustomerPhone(customerPhone)
+                .posOrderCustomerId(null)  // ✅ Luôn là null (khách lẻ)
+                .posOrderCustomerName("Khách lẻ")  // ✅ Mặc định "Khách lẻ"
+                .posOrderCustomerPhone(null)  // ✅ Luôn là null
                 .posOrderInvoiceNumber(invoiceNumber)
-                .posOrderType(request.getPosOrderType())
+                .posOrderType(request.getPosOrderType() != null ? request.getPosOrderType() : "AT_COUNTER")
                 .posOrderSubtotal(subtotal)
                 .posOrderDiscountAmount(discountAmount)
                 .posOrderTaxAmount(taxAmount)
@@ -189,6 +228,7 @@ public class PosService {
                 .build();
 
         PosOrder savedOrder = posOrderRepository.save(order);
+        log.info("✅ [createOrder] Đã lưu đơn hàng ID: {}", savedOrder.getPosOrderId());
 
         // Tạo order items VÀ TRỪ TỒN KHO
         for (PosOrderItemRequest itemReq : request.getItems()) {
@@ -214,6 +254,8 @@ public class PosService {
                     .posOrderItemNotes(itemReq.getNotes())
                     .build();
             posOrderItemRepository.save(item);
+            log.info("📦 [createOrder] Đã thêm sản phẩm: ProductDetailId={}, Quantity={}",
+                    itemReq.getProductDetailId(), itemReq.getQuantity());
         }
 
         // Tạo payments
@@ -228,16 +270,37 @@ public class PosService {
                     .posPaymentProcessedAt(LocalDateTime.now())
                     .build();
             posPaymentRepository.save(payment);
+            log.info("📦 [createOrder] Đã tạo thanh toán: MethodId={}, Amount={}",
+                    paymentMethodId, paymentReq.getAmount());
         }
 
         if (session != null && hasPayments) {
             updateSessionSales(session, totalAmount, request.getPayments());
         }
 
+        log.info("✅ [createOrder] Hoàn thành tạo đơn hàng: {}", savedOrder.getPosOrderId());
         return convertToResponse(savedOrder);
     }
 
+    /**
+     * ✅ Tạo mã hóa đơn duy nhất theo định dạng POS-YYYYMMDD-XXXXXX
+     * Sử dụng AtomicLong để đảm bảo an toàn trong môi trường đa luồng
+     * Counter được khởi tạo từ database khi ứng dụng khởi động
+     */
+    private synchronized String generateInvoiceNumber() {
+        String datePart = LocalDateTime.now().format(INVOICE_FORMATTER);
+        long counter = invoiceCounter.incrementAndGet();
+        // Reset counter nếu quá 999999
+        if (counter > 999999) {
+            invoiceCounter.set(1);
+            counter = 1;
+        }
+        return "POS-" + datePart + "-" + String.format("%06d", counter);
+    }
+
     private Customer createNewCustomer(String customerName, String phone) {
+        // Method này vẫn giữ để dùng cho các chức năng khác nếu cần
+        // Nhưng không được gọi từ createOrder nữa
         User user = User.builder()
                 .username("customer_" + System.currentTimeMillis())
                 .email("customer_" + System.currentTimeMillis() + "@temp.com")
@@ -339,7 +402,7 @@ public class PosService {
 
     @Transactional
     public PosReceiptLog printReceipt(Integer orderId, Integer copies) {
-        posOrderRepository.findById(orderId)
+        PosOrder order = posOrderRepository.findById(orderId)
                 .orElseThrow(() -> new BusinessException("Đơn hàng không tồn tại"));
 
         if (copies == null || copies < 1) copies = 1;
@@ -360,6 +423,14 @@ public class PosService {
     @Transactional
     public PosReceiptLogResponse printReceiptAsResponse(Integer orderId, Integer copies) {
         PosReceiptLog log = printReceipt(orderId, copies);
+
+        // Lấy thông tin đơn hàng và items để trả về chi tiết
+        PosOrder order = posOrderRepository.findById(orderId)
+                .orElseThrow(() -> new BusinessException("Không tìm thấy đơn hàng"));
+
+        List<PosOrderItem> items = posOrderItemRepository.findByPosOrderItemOrderId(orderId);
+
+        // Tạo response với thông tin chi tiết
         PosReceiptLogResponse response = new PosReceiptLogResponse();
         response.setReceiptLogId(log.getReceiptLogId());
         response.setReceiptLogOrderId(log.getReceiptLogOrderId());
@@ -369,6 +440,40 @@ public class PosService {
         response.setReceiptLogPrinterName(log.getReceiptLogPrinterName());
         response.setReceiptLogStatus(log.getReceiptLogStatus());
         response.setReceiptLogErrorMessage(log.getReceiptLogErrorMessage());
+
+        // Thêm thông tin chi tiết đơn hàng - sử dụng đúng mã hóa đơn
+        response.setInvoiceNumber(order.getPosOrderInvoiceNumber());
+        response.setCustomerName(order.getPosOrderCustomerName());
+        response.setCustomerPhone(order.getPosOrderCustomerPhone());
+        response.setTotalAmount(order.getPosOrderTotalAmount());
+
+        // Thêm danh sách sản phẩm với tên
+        List<ReceiptItemResponse> receiptItems = new ArrayList<>();
+        for (PosOrderItem item : items) {
+            ReceiptItemResponse receiptItem = new ReceiptItemResponse();
+            receiptItem.setQuantity(item.getPosOrderItemQuantity());
+            receiptItem.setUnitPrice(item.getPosOrderItemUnitPrice());
+            receiptItem.setTotal(item.getPosOrderItemTotal());
+
+            // Lấy tên sản phẩm
+            ProductDetail productDetail = productDetailRepository.findById(item.getPosOrderItemProductDetailId()).orElse(null);
+            if (productDetail != null && productDetail.getProduct() != null) {
+                String productName = productDetail.getProduct().getProductName();
+                if (productDetail.getColor() != null) {
+                    productName += " - " + productDetail.getColor().getColorName();
+                }
+                if (productDetail.getSize() != null) {
+                    productName += " - " + productDetail.getSize().getSizeName();
+                }
+                receiptItem.setProductName(productName);
+            } else {
+                receiptItem.setProductName("Sản phẩm #" + item.getPosOrderItemProductDetailId());
+            }
+
+            receiptItems.add(receiptItem);
+        }
+        response.setItems(receiptItems);
+
         return response;
     }
 
@@ -376,21 +481,16 @@ public class PosService {
         return posReceiptLogRepository.findByReceiptLogOrderId(orderId);
     }
 
-    // PosService.java - Thay thế method này
     public PosOrderDetailResponse getOrderDetailWithProducts(Integer orderId) {
         PosOrder order = posOrderRepository.findById(orderId)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy đơn hàng"));
 
-        // ✅ Log để debug
         log.info("📦 Getting order detail for orderId: {}", orderId);
 
-        // ✅ Lấy danh sách items
         List<PosOrderItem> items = posOrderItemRepository.findByPosOrderItemOrderId(orderId);
 
-        // ✅ Log số lượng items
         log.info("📦 Found {} items for order: {}", items.size(), orderId);
 
-        // ✅ Tính tổng giảm giá và subtotal
         BigDecimal totalDiscount = order.getPosOrderDiscountAmount() != null ?
                 order.getPosOrderDiscountAmount() : BigDecimal.ZERO;
         BigDecimal subtotal = order.getPosOrderSubtotal() != null ?
@@ -409,7 +509,6 @@ public class PosService {
             detail.setDiscount(item.getPosOrderItemDiscount());
             detail.setTotal(item.getPosOrderItemTotal());
 
-            // ✅ Lấy thông tin sản phẩm
             if (productDetail != null) {
                 detail.setProductName(productDetail.getProduct() != null ?
                         productDetail.getProduct().getProductName() : "Sản phẩm");
@@ -419,26 +518,22 @@ public class PosService {
                         productDetail.getSize().getSizeName() : "N/A");
                 detail.setSku(productDetail.getSku());
             } else {
-                // ✅ Fallback nếu không tìm thấy ProductDetail
                 detail.setProductName("Sản phẩm #" + item.getPosOrderItemProductDetailId());
                 detail.setColorName("N/A");
                 detail.setSizeName("N/A");
             }
 
-            // ✅ Tính discountPerUnit và finalUnitPrice
             BigDecimal itemTotal = item.getPosOrderItemUnitPrice()
                     .multiply(BigDecimal.valueOf(item.getPosOrderItemQuantity()));
 
             BigDecimal discountPerUnit = BigDecimal.ZERO;
             if (totalDiscount.compareTo(BigDecimal.ZERO) > 0 && subtotal.compareTo(BigDecimal.ZERO) > 0) {
-                // Tính tỷ lệ giảm giá theo item
                 BigDecimal ratio = itemTotal.divide(subtotal, 10, RoundingMode.HALF_UP);
                 BigDecimal itemDiscount = totalDiscount.multiply(ratio)
                         .divide(BigDecimal.valueOf(item.getPosOrderItemQuantity()), 0, RoundingMode.HALF_UP);
                 discountPerUnit = itemDiscount;
             }
 
-            // Nếu có giảm giá từng sản phẩm riêng, cộng thêm
             if (item.getPosOrderItemDiscount() != null) {
                 discountPerUnit = discountPerUnit.add(item.getPosOrderItemDiscount());
             }
@@ -451,7 +546,6 @@ public class PosService {
             detail.setDiscountPerUnit(discountPerUnit);
             detail.setFinalUnitPrice(finalUnitPrice);
 
-            // ✅ Log chi tiết từng item
             log.info("📦 Item: productName={}, quantity={}, unitPrice={}, discountPerUnit={}, finalUnitPrice={}",
                     detail.getProductName(), detail.getQuantity(), detail.getUnitPrice(),
                     discountPerUnit, finalUnitPrice);
@@ -572,7 +666,7 @@ public class PosService {
 
         PosPayment pending = PosPayment.builder()
                 .posPaymentOrderId(orderId)
-                .posPaymentMethodId(resolvePosPaymentMethodId(2)) // 2 = VNPAY (logical ID from frontend)
+                .posPaymentMethodId(resolvePosPaymentMethodId(2))
                 .posPaymentAmount(vnpayAmount)
                 .posPaymentReferenceNumber(txnRef)
                 .posPaymentStatus("PENDING")
@@ -682,7 +776,7 @@ public class PosService {
         StringBuilder sb = new StringBuilder();
         boolean firstField = true;
         for (String name : fieldNames) {
-            String val  = fields.get(name);
+            String val = fields.get(name);
             if (val == null || val.isEmpty()) {
                 continue;
             }
@@ -696,12 +790,6 @@ public class PosService {
             }
         }
         return VNPayConfig.hmacSHA512(vnPayConfig.getSecretKey().trim(), sb.toString());
-    }
-
-    private String generateInvoiceNumber() {
-        String datePart = LocalDateTime.now().format(INVOICE_FORMATTER);
-        long count = posOrderRepository.count() + 1;
-        return "POS-" + datePart + "-" + String.format("%06d", count);
     }
 
     private BigDecimal calculateSubtotal(List<PosOrderItemRequest> items) {
@@ -721,10 +809,6 @@ public class PosService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
-    /**
-     * Frontend dùng ID logic (1=CASH, 2=VNPAY), còn ID trong database là SERIAL
-     * và có thể khác giữa các môi trường. Luôn ghi ID thật theo method_name.
-     */
     private Integer resolvePosPaymentMethodId(Integer logicalMethodId) {
         String methodName = Integer.valueOf(1).equals(logicalMethodId) ? "CASH" : "VNPAY";
         PaymentMethod method = paymentMethodRepository.findByMethodName(methodName)
@@ -792,13 +876,13 @@ public class PosService {
         response.setPosOrderNotes(order.getPosOrderNotes());
         response.setPosOrderCreatedAt(order.getPosOrderCreatedAt());
 
-        // Lấy thông tin voucher từ voucherId
         if (order.getVoucherId() != null) {
             voucherRepository.findById(order.getVoucherId()).ifPresent(voucher -> {
                 response.setVoucherCode(voucher.getVoucherCode());
                 response.setVoucherDiscountAmount(voucher.getVoucherDiscountAmount());
                 response.setVoucherDiscountPercent(voucher.getVoucherDiscountPercent());
                 response.setVoucherId(voucher.getVoucherId());
+                response.setVoucherMaxDiscountAmount(voucher.getVoucherMaxDiscountAmount());
             });
         }
 
@@ -908,6 +992,7 @@ public class PosService {
 
         return posSessionRepository.save(defaultSession);
     }
+
     public List<PosOrderResponse> getOrdersByPhone(String phone) {
         if (phone == null || phone.trim().isEmpty()) {
             throw new BusinessException("Vui lòng nhập số điện thoại");
@@ -945,7 +1030,6 @@ public class PosService {
         return dto;
     }
 
-    // ✅ Thêm method getVoucherByOrderId
     @Transactional(readOnly = true)
     public VoucherDTO getVoucherByOrderId(Integer orderId) {
         PosOrder order = posOrderRepository.findById(orderId)
@@ -962,13 +1046,13 @@ public class PosService {
         return convertVoucherToDTO(voucher);
     }
 
-    // ✅ Thêm method convertVoucherToDTO
     private VoucherDTO convertVoucherToDTO(Voucher voucher) {
         VoucherDTO dto = new VoucherDTO();
         dto.setVoucherId(voucher.getVoucherId());
         dto.setVoucherCode(voucher.getVoucherCode());
         dto.setVoucherDiscountAmount(voucher.getVoucherDiscountAmount());
         dto.setVoucherDiscountPercent(voucher.getVoucherDiscountPercent());
+        dto.setVoucherMaxDiscountAmount(voucher.getVoucherMaxDiscountAmount());
         dto.setVoucherStartDate(voucher.getVoucherStartDate());
         dto.setVoucherEndDate(voucher.getVoucherEndDate());
         dto.setVoucherMaxUsage(voucher.getVoucherMaxUsage());

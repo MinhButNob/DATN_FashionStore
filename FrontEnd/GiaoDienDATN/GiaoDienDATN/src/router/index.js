@@ -46,7 +46,6 @@ import StaffLayout from "../views/staff/StaffLayout.vue";
 import StaffDashboard from "../views/staff/StaffDashboard.vue";
 import StaffPos from "../views/staff/StaffPos.vue";
 import StaffOrders from "../views/staff/StaffOrders.vue";
-import StaffCustomers from "../views/staff/StaffCustomers.vue";
 import StaffReturns from "../views/staff/StaffReturns.vue";
 import StaffChat from "../views/staff/StaffChat.vue";
 
@@ -187,7 +186,6 @@ const routes = [
       { path: "", name: "staff-dashboard", component: StaffDashboard },
       { path: "pos", name: "staff-pos", component: StaffPos },
       { path: "orders", name: "staff-orders", component: StaffOrders },
-      { path: "customers", name: "staff-customers", component: StaffCustomers },
       { path: "returns", name: "staff-returns", component: StaffReturns },
       {
         path: "returns/create",
