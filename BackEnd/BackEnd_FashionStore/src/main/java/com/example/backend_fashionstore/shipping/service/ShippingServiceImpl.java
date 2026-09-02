@@ -39,8 +39,8 @@ public class ShippingServiceImpl implements ShippingService {
     public ShippingCalculateResponse calculate(Integer customerId, ShippingCalculateRequest request) {
         validateAddress(request);
         int weight = calculateCartWeight(customerId);
-        BigDecimal fee = requestGhtk(request, weight);
-        log.info("GHTK shipping quote: customerAddress={}, weight={}g, orderValue={}, shippingFee={}",
+        BigDecimal fee = BigDecimal.ZERO;
+        log.info("Free shipping: customerAddress={}, weight={}g, orderValue={}, shippingFee={}",
                 request.getProvince() + ", " + request.getDistrict() + ", " + request.getWard(),
                 weight, request.getOrderValue(), fee);
         return ShippingCalculateResponse.builder().shippingFee(fee).weight(weight).build();

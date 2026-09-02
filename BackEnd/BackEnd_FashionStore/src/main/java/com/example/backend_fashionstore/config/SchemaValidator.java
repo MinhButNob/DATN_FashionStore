@@ -26,6 +26,7 @@ public class SchemaValidator implements CommandLineRunner {
     @Override
     public void run(String... args) throws Exception {
         repairPosOrderStatusConstraint();
+        repairFreeShippingPolicy();
 
         System.out.println("========================================");
         System.out.println("BẮT ĐẦU KIỂM TRA SCHEMA DATABASE");
@@ -82,6 +83,22 @@ public class SchemaValidator implements CommandLineRunner {
             }
         }
         System.out.println("========================================");
+    }
+
+    /** Keep historical orders consistent with the current free-shipping policy. */
+    private void repairFreeShippingPolicy() throws Exception {
+        String sql = """
+                UPDATE orders
+                SET order_shipping_fee = 0
+                WHERE order_shipping_fee IS DISTINCT FROM 0
+                """;
+
+        try (Connection connection = dataSource.getConnection(); Statement statement = connection.createStatement()) {
+            int updated = statement.executeUpdate(sql);
+            if (updated > 0) {
+                System.out.println("Đã chuyển phí vận chuyển của " + updated + " đơn hàng về 0đ.");
+            }
+        }
     }
 
     /**

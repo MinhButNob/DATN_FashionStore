@@ -338,11 +338,7 @@ const voucherError = ref('')
 const applyingVoucher = ref(false)
 const shippingLoading = ref(false)
 const shippingError = ref('')
-const SHIPPING_FEE_STANDARD = 20000
-const SHIPPING_FREE_THRESHOLD = 300000
-
-const calculateFixedShippingFee = subtotal =>
-  Number(subtotal || 0) >= SHIPPING_FREE_THRESHOLD ? 0 : SHIPPING_FEE_STANDARD
+const calculateFixedShippingFee = () => 0
 
 // ✅ HÀM LẤY URL ẢNH ĐẦY ĐỦ
 const getImageUrl = (imagePath) => {

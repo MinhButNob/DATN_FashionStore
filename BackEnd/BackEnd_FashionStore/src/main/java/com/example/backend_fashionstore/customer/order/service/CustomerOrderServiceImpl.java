@@ -45,8 +45,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Transactional
 public class CustomerOrderServiceImpl implements CustomerOrderService {
-    private static final BigDecimal SHIPPING_FEE_STANDARD = BigDecimal.valueOf(20_000);
-    private static final BigDecimal SHIPPING_FREE_THRESHOLD = BigDecimal.valueOf(300_000);
+    private static final BigDecimal SHIPPING_FEE = BigDecimal.ZERO;
 
     private final OrderRepository orderRepository;
     private final OrderDetailRepository orderDetailRepository;
@@ -358,9 +357,7 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
                                             String address, String province, String district,
                                             String ward, BigDecimal subtotal) {
         // GHTK đã được tắt: miễn phí từ 300.000đ, còn lại 20.000đ.
-        return subtotal.compareTo(SHIPPING_FREE_THRESHOLD) >= 0
-                ? BigDecimal.ZERO
-                : SHIPPING_FEE_STANDARD;
+        return SHIPPING_FEE;
     }
 
     // ============================================

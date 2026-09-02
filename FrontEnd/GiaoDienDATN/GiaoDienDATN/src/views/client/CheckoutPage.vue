@@ -250,11 +250,7 @@ const cartStore = useCartStore()
 const authStore = useAuthStore()
 
 const IMAGE_BASE = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "").replace(/\/api$/, "");
-const SHIPPING_FEE_STANDARD = 20000
-const SHIPPING_FREE_THRESHOLD = 300000
-
-const calculateFixedShippingFee = subtotal =>
-  Number(subtotal || 0) >= SHIPPING_FREE_THRESHOLD ? 0 : SHIPPING_FEE_STANDARD
+const calculateFixedShippingFee = () => 0
 
 const placingOrder = ref(false)
 const saving = ref(false)
