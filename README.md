@@ -421,6 +421,7 @@ Dự án được xây dựng nhằm áp dụng kiến thức vào một hệ th
 ## 14. Tác giả
 
 **Đặng Tuấn Minh**
+**Nhóm SD-04**
 
 Dự án tốt nghiệp – FPT Polytechnic.
 
