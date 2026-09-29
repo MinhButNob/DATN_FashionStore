@@ -23,7 +23,6 @@ Dự án được xây dựng nhằm mô phỏng một hệ thống kinh doanh t
 ### Khách hàng
 
 * Đăng ký, đăng nhập và quản lý tài khoản.
-* Đăng nhập thông qua Firebase Authentication.
 * Xem, tìm kiếm và lọc sản phẩm.
 * Xem chi tiết sản phẩm.
 * Lựa chọn biến thể sản phẩm theo màu sắc, kích thước.
